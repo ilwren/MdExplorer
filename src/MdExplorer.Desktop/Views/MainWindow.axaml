@@ -180,6 +180,10 @@
             <StackPanel Grid.Column="0" Spacing="3"><TextBlock Text="第二栏" FontWeight="SemiBold"/><TextBlock x:Name="SecondPathLabel" Text="" FontSize="11" Foreground="#FF77737F" TextTrimming="CharacterEllipsis"/></StackPanel>
             <md:MdButton x:Name="ChooseSecondLocationButton" Grid.Column="1" Content="选择位置" Variant="Tonal" Size="Small" MinHeight="32"/>
           </Grid>
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
+            <md:MdButton x:Name="CopyToSecondButton" Content="复制到此栏" Variant="Tonal" Size="Small" MinHeight="32" IsEnabled="False"/>
+            <md:MdButton x:Name="MoveToSecondButton" Content="移动到此栏" Variant="Tonal" Size="Small" MinHeight="32" IsEnabled="False"/>
+          </StackPanel>
           <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="SecondList" Spacing="2"/></ScrollViewer>
         </DockPanel>
       </Border>

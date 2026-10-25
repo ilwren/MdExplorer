@@ -131,6 +131,8 @@ public sealed partial class MainWindow : Window
         DeleteFileButton.Click += (_, _) => DeleteSelectedEntries();
         CancelOperationButton.Click += (_, _) => _operationCancellation?.Cancel();
         ChooseSecondLocationButton.Click += async (_, _) => await ChooseSecondLocation();
+        CopyToSecondButton.Click += (_, _) => TransferSelectionToSecond(move: false);
+        MoveToSecondButton.Click += (_, _) => TransferSelectionToSecond(move: true);
         Closing += (_, _) => _operationCancellation?.Cancel();
         SizeChanged += (_, args) => UpdateResponsiveLayout(args.NewSize.Width);
         Application.Current.ActualThemeVariantChanged += (_, _) =>
@@ -232,6 +234,7 @@ public sealed partial class MainWindow : Window
         _fileList.IsVisible = hasEntries && _viewMode == ViewMode.List;
         _gridList.IsVisible = hasEntries && _viewMode == ViewMode.Grid;
         StatusLayoutButton.Content = LayoutLabel();
+        UpdateSelectionActions();
     }
 
     private (CancellationTokenSource Source, IProgress<OperationProgress> Progress) StartOperation(string title, int total)
@@ -266,8 +269,7 @@ public sealed partial class MainWindow : Window
         if (!PathEquals(path, _currentPath))
         {
             _selectedPaths.Clear(); _selectionAnchor = null; _selected = null; ClearPreview();
-            if (_copyButton is not null) _copyButton.IsEnabled = false;
-            if (_cutButton is not null) _cutButton.IsEnabled = false;
+            UpdateSelectionActions();
         }
         _loadCancellation?.Cancel();
         var cts = _loadCancellation = new CancellationTokenSource();
@@ -299,8 +301,7 @@ public sealed partial class MainWindow : Window
             if (_selected is null)
             {
                 ClearPreview();
-                if (_copyButton is not null) _copyButton.IsEnabled = false;
-                if (_cutButton is not null) _cutButton.IsEnabled = false;
+                UpdateSelectionActions();
             }
             RenderEntries();
             SetStatus($"{path}　·　{entries.Count} 个项目");
@@ -387,6 +388,15 @@ public sealed partial class MainWindow : Window
         RenderEntries();
     }
 
+    private void UpdateSelectionActions()
+    {
+        var hasSelection = _selectedPaths.Count > 0;
+        if (_copyButton is not null) _copyButton.IsEnabled = hasSelection;
+        if (_cutButton is not null) _cutButton.IsEnabled = hasSelection;
+        CopyToSecondButton.IsEnabled = hasSelection && _mode != LayoutMode.Preview;
+        MoveToSecondButton.IsEnabled = hasSelection && _mode != LayoutMode.Preview;
+    }
+
     private void SelectEntry(FileSystemInfo entry, bool toggle = false, bool range = false)
     {
         if (range && _selectionAnchor is not null)
@@ -410,8 +420,7 @@ public sealed partial class MainWindow : Window
             _selectedPaths.Clear(); _selectedPaths.Add(entry.FullName); _selectionAnchor = entry.FullName;
         }
         _selected = _selectedPaths.Contains(entry.FullName) ? entry : _visibleEntries.LastOrDefault(x => _selectedPaths.Contains(x.FullName));
-        if (_copyButton is not null) _copyButton.IsEnabled = _selectedPaths.Count > 0;
-        if (_cutButton is not null) _cutButton.IsEnabled = _selectedPaths.Count > 0;
+        UpdateSelectionActions();
         if (_selected is null)
         {
             ClearPreview();
@@ -551,8 +560,7 @@ public sealed partial class MainWindow : Window
     {
         _selectedPaths.Clear(); _selectionAnchor = null; _selected = null;
         ClearPreview();
-        if (_copyButton is not null) _copyButton.IsEnabled = false;
-        if (_cutButton is not null) _cutButton.IsEnabled = false;
+        UpdateSelectionActions();
         RenderEntries();
         SetStatus("未选择项目");
     }
@@ -598,11 +606,26 @@ public sealed partial class MainWindow : Window
 
     private async void PasteClipboard()
     {
-        if (_operationCancellation is not null) { SetStatus("请先完成或取消当前操作"); return; }
         if (_clipboardPaths.Count == 0) { SetStatus("剪贴板中没有项目"); return; }
         var sources = _clipboardPaths.ToList();
         var isCut = _cutPending;
-        var destinationFolder = Path.GetFullPath(_currentPath);
+        await TransferPathsAsync(sources, isCut, _currentPath, isCut ? FinishCut : null, refreshSecond: false);
+    }
+
+    private async void TransferSelectionToSecond(bool move)
+    {
+        if (_mode == LayoutMode.Preview) { SetStatus("请先切换到双栏布局"); return; }
+        var sources = GetTopLevelSelection().Select(entry => entry.FullName).ToList();
+        if (sources.Count == 0) { SetStatus("请先选择要传输的文件或文件夹"); return; }
+        await TransferPathsAsync(sources, move, _secondPath, move ? RemoveMovedSelection : null, refreshSecond: true);
+    }
+
+    private async Task TransferPathsAsync(
+        List<string> sources, bool isCut, string destination, Action<IReadOnlyCollection<string>>? onMoved, bool refreshSecond)
+    {
+        if (_operationCancellation is not null) { SetStatus("请先完成或取消当前操作"); return; }
+        var destinationFolder = Path.GetFullPath(destination);
+        if (!Directory.Exists(destinationFolder)) { SetStatus("目标目录已不存在，请刷新第二栏位置"); return; }
         var completed = new List<string>();
         var operation = StartOperation($"正在{(isCut ? "移动" : "复制")} {sources.Count} 项…", sources.Count);
         var token = operation.Source.Token;
@@ -616,39 +639,59 @@ public sealed partial class MainWindow : Window
                     token.ThrowIfCancellationRequested();
                     var source = Path.GetFullPath(rawSource);
                     if (!File.Exists(source) && !Directory.Exists(source)) throw new FileNotFoundException("源项目不存在", source);
-                    if (isCut && PathEquals(Path.GetDirectoryName(source)!, destinationFolder)) { completed.Add(source); operation.Progress.Report(new(completed.Count, sources.Count, $"跳过已在目标目录的项目 · {completed.Count}/{sources.Count}")); continue; }
-                    if (Directory.Exists(source) && destinationFolder.StartsWith(source + Path.DirectorySeparatorChar, PathComparison))
-                        throw new InvalidOperationException($"不能将文件夹“{Path.GetFileName(source)}”复制到自身内部");
-                    var destination = _fileSystem.UniqueDestination(destinationFolder, Path.GetFileName(source));
+                    if (isCut && PathEquals(Path.GetDirectoryName(source)!, destinationFolder))
+                    {
+                        operation.Progress.Report(new(completed.Count, sources.Count, $"跳过已在目标目录的项目 · {completed.Count}/{sources.Count}"));
+                        continue;
+                    }
+                    if (Directory.Exists(source))
+                    {
+                        var sourceRoot = Path.TrimEndingDirectorySeparator(source);
+                        var destinationPath = Path.TrimEndingDirectorySeparator(destinationFolder);
+                        if (destinationPath.Equals(sourceRoot, PathComparison) || destinationPath.StartsWith(sourceRoot + Path.DirectorySeparatorChar, PathComparison))
+                            throw new InvalidOperationException($"不能将文件夹“{Path.GetFileName(source)}”复制或移动到自身内部");
+                    }
+                    var target = _fileSystem.UniqueDestination(destinationFolder, Path.GetFileName(source));
                     try
                     {
                         if (isCut)
                         {
-                            try { _fileSystem.Move(source, destination); }
-                            catch (IOException) { _fileSystem.Copy(source, destination, token); _fileSystem.Delete(source, token); }
+                            try { _fileSystem.Move(source, target); }
+                            catch (IOException) { _fileSystem.Copy(source, target, token); _fileSystem.Delete(source, token); }
                         }
-                        else _fileSystem.Copy(source, destination, token);
+                        else _fileSystem.Copy(source, target, token);
                         completed.Add(source);
-                        operation.Progress.Report(new(completed.Count, sources.Count, $"{(isCut ? "正在移动" : "正在复制")} {Path.GetFileName(source)} · {completed.Count}/{sources.Count}"));
+                        operation.Progress.Report(new(completed.Count, sources.Count, $"正在{(isCut ? "移动" : "复制")} {Path.GetFileName(source)} · {completed.Count}/{sources.Count}"));
                     }
                     catch
                     {
-                        try { if (File.Exists(destination)) File.Delete(destination); else if (Directory.Exists(destination)) _fileSystem.Delete(destination); } catch { /* Keep the original operation error. */ }
+                        try { if (File.Exists(target)) File.Delete(target); else if (Directory.Exists(target)) _fileSystem.Delete(target); }
+                        catch { /* Preserve the original transfer error. */ }
                         throw;
                     }
                 }
             }, token);
-            finalMessage = $"已{(isCut ? "移动" : "复制")} {completed.Count} 项到当前文件夹";
+            finalMessage = $"已{(isCut ? "移动" : "复制")} {completed.Count} 项到 {destinationFolder}";
         }
         catch (OperationCanceledException) { finalMessage = $"操作已取消，已完成 {completed.Count} 项"; }
         catch (Exception ex) { finalMessage = $"已完成 {completed.Count} 项；后续操作失败：{ex.Message}"; }
         finally
         {
-            if (isCut) FinishCut(completed);
-            StopOperation();
+            try { onMoved?.Invoke(completed); }
+            finally { StopOperation(); }
         }
         await LoadDirectoryAsync(_currentPath);
+        if (refreshSecond) await LoadSecondDirectoryAsync(destinationFolder);
         SetStatus(finalMessage);
+    }
+
+    private void RemoveMovedSelection(IReadOnlyCollection<string> moved)
+    {
+        _selectedPaths.RemoveWhere(path => moved.Any(done => PathEquals(path, done)));
+        _selected = _visibleEntries.LastOrDefault(entry => _selectedPaths.Contains(entry.FullName));
+        if (_selected is null) ClearPreview();
+        UpdateSelectionActions();
+        RenderEntries();
     }
 
     private void FinishCut(IReadOnlyCollection<string> completed)
@@ -659,8 +702,7 @@ public sealed partial class MainWindow : Window
         _selected = _visibleEntries.LastOrDefault(x => _selectedPaths.Contains(x.FullName));
         if (_selected is null) ClearPreview();
         if (_pasteButton is not null) _pasteButton.IsEnabled = _clipboardPaths.Count > 0;
-        if (_copyButton is not null) _copyButton.IsEnabled = _selectedPaths.Count > 0;
-        if (_cutButton is not null) _cutButton.IsEnabled = _selectedPaths.Count > 0;
+        UpdateSelectionActions();
     }
 
     private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -733,8 +775,7 @@ public sealed partial class MainWindow : Window
         _selectionAnchor = null;
         _selected = _visibleEntries.LastOrDefault(x => _selectedPaths.Contains(x.FullName));
         if (_selected is null) ClearPreview();
-        if (_copyButton is not null) _copyButton.IsEnabled = _selectedPaths.Count > 0;
-        if (_cutButton is not null) _cutButton.IsEnabled = _selectedPaths.Count > 0;
+        UpdateSelectionActions();
         await LoadDirectoryAsync(_currentPath);
         SetStatus(finalMessage);
     }
