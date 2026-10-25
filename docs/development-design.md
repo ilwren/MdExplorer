@@ -13,7 +13,7 @@
 ## 2. 技术基线与架构原则
 
 - UI：Avalonia 12+；目标框架按平台拆分，例如 `net10.0`、`net10.0-android`。Avalonia 12、.NET 10、Android workload 与第三方控件必须在首个可运行纵向切片中验证并锁定具体稳定版本。
-- 视觉：本桌面 MVP 已接入 `Md3.Avalonia`（NuGet `Md3.Avalonia` 0.5.0-preview.2），引用 Avalonia 12.1.2；使用其 `MaterialTheme` 和 `MdButton`。该库当前处于 preview，后续升级需先审查 API 变更并由 CI 验证。上游声明 Apache-2.0；发版前仍需保存对应版本许可证和传递依赖清单。主题令牌与业务视图保持松耦合，避免组件库 API 扩散到领域/应用核心。
+- 视觉：本桌面 MVP 已接入 `Md3.Avalonia`（NuGet `Md3.Avalonia` 0.5.0-preview.2），引用 Avalonia 12.1.2；使用其 `MaterialTheme`、`MdButton`、`MdTextBox` 和 `MdCard`。主题模式提供系统跟随/浅色/深色切换，由 `MdThemeManager` 按 Material 3 token 更新颜色方案；应用自绘色只作为文件类型标识等语义色，其余面板与文字跟随 M3 色彩角色。该库当前处于 preview，后续升级需先审查 API 变更并由 CI 验证。上游声明 Apache-2.0；发版前仍需保存对应版本许可证和传递依赖清单。主题令牌与业务视图保持松耦合，避免组件库 API 扩散到领域/应用核心。
 - 分层依赖方向：平台/UI → 应用用例 → 领域/抽象；基础设施实现抽象。领域与应用核心不引用 Avalonia、Android API、Win32/Linux API。
 - 异步 I/O、取消令牌、流式预览；任何耗时枚举/搜索/缩略图不得阻塞 UI 线程。
 - 权限、文件名、路径均视为不可信输入；文件操作使用明确确认、错误反馈和可恢复策略。

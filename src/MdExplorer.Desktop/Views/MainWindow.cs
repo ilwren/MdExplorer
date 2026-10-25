@@ -7,6 +7,8 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Md3.Avalonia.Controls;
+using Md3.Avalonia.Themes.Dynamic;
+using Avalonia.VisualTree;
 
 namespace MdExplorer.Desktop.Views;
 
@@ -18,7 +20,10 @@ public sealed class MainWindow : Window
     private readonly StackPanel _preview = new() { Spacing = 10 };
     private readonly TextBlock _pathLabel = new();
     private readonly TextBlock _countLabel = new();
-    private readonly TextBox _search = new() { PlaceholderText = "搜索此文件夹" };
+    private readonly MdTextBox _search = new() { PlaceholderText = "搜索此文件夹", Variant = MdTextBoxVariant.Outlined, ShowClearButton = true };
+    private Button? _themeButton;
+    private IReadOnlyDictionary<string, Color> _themeRoles = new Dictionary<string, Color>();
+    private MdThemeMode _themeMode = MdThemeMode.System;
     private readonly TextBlock _status = new();
     private readonly string _home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     private string _currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -36,7 +41,14 @@ public sealed class MainWindow : Window
         Height = 900;
         MinWidth = 760;
         MinHeight = 540;
+        _themeMode = MdThemeManager.Current.ThemeMode;
+        _themeRoles = MdThemeManager.Apply(Application.Current!, MdThemeManager.Current, Application.Current!.ActualThemeVariant == ThemeVariant.Dark);
         Background = Brush("#F7F6F9");
+        Application.Current.ActualThemeVariantChanged += (_, _) =>
+        {
+            _themeRoles = MdThemeManager.Apply(Application.Current, MdThemeManager.Current, Application.Current.ActualThemeVariant == ThemeVariant.Dark);
+            RefreshThemeColors();
+        };
         BuildShell();
         _ = LoadDirectoryAsync(_currentPath);
     }
@@ -92,13 +104,14 @@ public sealed class MainWindow : Window
         _search.PlaceholderText = "搜索此文件夹";
         _search.Height = 36;
         _search.VerticalAlignment = VerticalAlignment.Center;
-        _search.CornerRadius = new CornerRadius(18);
         _search.Margin = new Thickness(0, 0, 0, 0);
         _search.TextChanged += (_, _) => _ = LoadDirectoryAsync(_currentPath);
         AddAt(bar, _search, 3);
         var tools = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 14, 0) };
         tools.Children.Add(ActionButton("＋ 新建", CreateFolder, "新建文件夹"));
         tools.Children.Add(ActionButton("⇄", CycleLayout, "切换布局"));
+        _themeButton = ActionButton(ThemeLabel(), CycleTheme, "切换浅色 / 深色 / 跟随系统主题");
+        tools.Children.Add(_themeButton);
         AddAt(bar, tools, 4);
         return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(0, 0, 0, 1), Child = bar };
     }
@@ -226,7 +239,7 @@ public sealed class MainWindow : Window
         var sizeText = isDirectory ? "文件夹" : FormatSize(((FileInfo)entry).Length);
         var size = new TextBlock { Text = sizeText, FontSize = 11, Foreground = Brush("#77737F"), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 12, 0) };
         Grid.SetColumn(size, 2); grid.Children.Add(size);
-        var button = new Button { Content = grid, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), HorizontalAlignment = HorizontalAlignment.Stretch };
+        var button = new MdButton { Content = grid, Variant = _selected?.FullName == entry.FullName ? MdButtonVariant.Tonal : MdButtonVariant.Text, Size = MdButtonSize.Small, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(0), HorizontalAlignment = HorizontalAlignment.Stretch };
         button.Click += (_, _) => SelectEntry(entry);
         button.DoubleTapped += (_, _) => { if (isDirectory) _ = LoadDirectoryAsync(entry.FullName); else SelectEntry(entry); };
         return button;
@@ -240,17 +253,17 @@ public sealed class MainWindow : Window
         var ext = entry.Extension.ToLowerInvariant();
         _preview.Children.Add(new TextBlock { Text = entry.Name, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
         _preview.Children.Add(new TextBlock { Text = entry is DirectoryInfo ? "文件夹" : $"{(string.IsNullOrEmpty(ext) ? "文件" : ext.TrimStart('.').ToUpperInvariant())} 文件 · {FormatSize(((FileInfo)entry).Length)}", FontSize = 11, Foreground = Brush("#77737F") });
-        var previewBox = new Border { MinHeight = 190, Padding = new Thickness(18), CornerRadius = new CornerRadius(9), Background = Brushes.White, BorderBrush = Brush("#EBE7EF"), BorderThickness = new Thickness(1) };
+        var previewBox = new MdCard { MinHeight = 190, Padding = new Thickness(18), Variant = MdCardVariant.Outlined, IsInteractive = false };
         if (entry is DirectoryInfo)
-            previewBox.Child = new TextBlock { Text = "文件夹\n\n双击打开此位置", TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+            previewBox.Content = new TextBlock { Text = "文件夹\n\n双击打开此位置", TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
         else if (new[] { ".txt", ".md", ".log", ".csv", ".json", ".xml" }.Contains(ext))
-            previewBox.Child = new TextBlock { Text = ReadTextPreview(entry.FullName), TextWrapping = TextWrapping.Wrap, FontSize = 12, MaxHeight = 260 };
+            previewBox.Content = new TextBlock { Text = ReadTextPreview(entry.FullName), TextWrapping = TextWrapping.Wrap, FontSize = 12, MaxHeight = 260 };
         else if (new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" }.Contains(ext))
         {
-            try { previewBox.Child = new Image { Source = new Avalonia.Media.Imaging.Bitmap(entry.FullName), Stretch = Stretch.Uniform, MaxHeight = 250 }; }
-            catch { previewBox.Child = new TextBlock { Text = "无法解码此图片" }; }
+            try { previewBox.Content = new Image { Source = new Avalonia.Media.Imaging.Bitmap(entry.FullName), Stretch = Stretch.Uniform, MaxHeight = 250 }; }
+            catch { previewBox.Content = new TextBlock { Text = "无法解码此图片" }; }
         }
-        else previewBox.Child = new TextBlock { Text = "暂无内置预览\n可使用系统应用打开。", TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+        else previewBox.Content = new TextBlock { Text = "暂无内置预览\n可使用系统应用打开。", TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
         _preview.Children.Add(previewBox);
         _preview.Children.Add(new TextBlock { Text = "文件信息", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
         AddInfo("类型", entry is DirectoryInfo ? "文件夹" : (string.IsNullOrEmpty(ext) ? "文件" : ext.TrimStart('.').ToUpperInvariant()));
@@ -347,8 +360,8 @@ public sealed class MainWindow : Window
 
     private async void CreateFolder()
     {
-        var dialog = new TextBox { PlaceholderText = "文件夹名称", Width = 300 };
-        var ok = new Button { Content = "创建", HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        var dialog = new MdTextBox { PlaceholderText = "文件夹名称", Width = 300, Variant = MdTextBoxVariant.Outlined };
+        var ok = new MdButton { Content = "创建", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
         var stack = new StackPanel { Spacing = 8, Margin = new Thickness(18) };
         stack.Children.Add(new TextBlock { Text = $"在此位置新建文件夹：{_currentPath}", TextWrapping = TextWrapping.Wrap }); stack.Children.Add(dialog); stack.Children.Add(ok);
         var window = new Window { Title = "新建文件夹", Width = 380, Height = 170, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = stack };
@@ -359,8 +372,8 @@ public sealed class MainWindow : Window
 
     private async void RenameEntry(FileSystemInfo entry)
     {
-        var input = new TextBox { Text = entry.Name, Width = 300 };
-        var ok = new Button { Content = "重命名", HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        var input = new MdTextBox { Text = entry.Name, Width = 300, Variant = MdTextBoxVariant.Outlined };
+        var ok = new MdButton { Content = "重命名", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
         var panel = new StackPanel { Spacing = 8, Margin = new Thickness(18), Children = { new TextBlock { Text = "输入新名称" }, input, ok } };
         var dialog = new Window { Title = "重命名", Width = 370, Height = 160, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel };
         ok.Click += (_, _) => dialog.Close(input.Text);
@@ -372,7 +385,7 @@ public sealed class MainWindow : Window
     private async void DeleteEntry(FileSystemInfo entry)
     {
         var confirm = new Window { Title = "确认删除", Width = 380, Height = 160, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var yes = new Button { Content = "永久删除", HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
+        var yes = new MdButton { Content = "永久删除", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
         confirm.Content = new StackPanel { Margin = new Thickness(18), Children = { new TextBlock { Text = $"确定永久删除“{entry.Name}”？此操作无法撤销。", TextWrapping = TextWrapping.Wrap }, yes } };
         yes.Click += (_, _) => confirm.Close(true);
         var accepted = await confirm.ShowDialog<bool>(this);
@@ -404,8 +417,69 @@ public sealed class MainWindow : Window
     private static IBrush Brush(string hex) => new SolidColorBrush(Color.Parse(hex));
     private static void AddAt(Grid grid, Control control, int column) { Grid.SetColumn(control, column); grid.Children.Add(control); }
     private static TextBlock Section(string text) => new() { Text = text, FontSize = 11, FontWeight = FontWeight.Bold, Foreground = Brush("#817C87"), Margin = new Thickness(10, 20, 0, 7) };
-    private Button SideButton(string text, Action action, bool active = false) { var b = new Button { Content = text, HorizontalContentAlignment = HorizontalAlignment.Left, Height = 36, Margin = new Thickness(0, 1), Padding = new Thickness(12, 0), Background = active ? Brush("#EEE8F7") : Brushes.Transparent, Foreground = active ? Brush("#493481") : Brush("#55515C") }; b.Click += (_, _) => action(); return b; }
+    private Button SideButton(string text, Action action, bool active = false) { var b = new MdButton { Content = text, Variant = active ? MdButtonVariant.Tonal : MdButtonVariant.Text, Size = MdButtonSize.Small, HorizontalContentAlignment = HorizontalAlignment.Left, HorizontalAlignment = HorizontalAlignment.Stretch, Height = 40, Margin = new Thickness(0, 1), Padding = new Thickness(12, 0) }; b.Click += (_, _) => action(); return b; }
     private static Button ActionButton(string text, Action action, string? tooltip = null) { var b = new MdButton { Content = text, Variant = MdButtonVariant.Tonal, Size = MdButtonSize.Small, MinHeight = 32, FontSize = 12 }; if (tooltip is not null) ToolTip.SetTip(b, tooltip); b.Click += (_, _) => action(); return b; }
+    private void CycleTheme()
+    {
+        _themeMode = _themeMode switch { MdThemeMode.System => MdThemeMode.Light, MdThemeMode.Light => MdThemeMode.Dark, _ => MdThemeMode.System };
+        var app = Application.Current!;
+        app.RequestedThemeVariant = _themeMode switch { MdThemeMode.Light => ThemeVariant.Light, MdThemeMode.Dark => ThemeVariant.Dark, _ => ThemeVariant.Default };
+        var dark = _themeMode == MdThemeMode.Dark || (_themeMode == MdThemeMode.System && app.ActualThemeVariant == ThemeVariant.Dark);
+        var options = MdThemeManager.Current with { ThemeMode = _themeMode };
+        _themeRoles = MdThemeManager.Apply(app, options, dark);
+        if (_themeButton is not null) _themeButton.Content = ThemeLabel();
+        RefreshThemeColors();
+    }
+
+    private string ThemeLabel() => _themeMode switch { MdThemeMode.System => "◐ 系统", MdThemeMode.Light => "☀ 浅色", _ => "☾ 深色" };
+
+    private void RefreshThemeColors()
+    {
+        Background = RoleBrush("Surface");
+        RefreshThemeColors(this);
+    }
+
+    private void RefreshThemeColors(Visual visual)
+    {
+        if (visual is Border border)
+        {
+            border.Background = Remap(border.Background);
+            border.BorderBrush = Remap(border.BorderBrush);
+        }
+        if (visual is Panel panel) panel.Background = Remap(panel.Background);
+        if (visual is TemplatedControl control)
+        {
+            control.Background = Remap(control.Background);
+            control.Foreground = Remap(control.Foreground);
+            if (control is MdButton) { /* Md3 control templates consume dynamic token resources directly. */ }
+        }
+        if (visual is TextBlock text) text.Foreground = Remap(text.Foreground);
+        foreach (var child in visual.GetVisualChildren()) RefreshThemeColors(child);
+    }
+
+    private IBrush? Remap(IBrush? brush)
+    {
+        if (brush is not SolidColorBrush solid) return brush;
+        var role = solid.Color.ToString().ToUpperInvariant() switch
+        {
+            "#FFF7F6F9" => "Surface",
+            "#FFFAF9FB" => "SurfaceContainer",
+            "#FFFCFBFD" => "SurfaceContainerLow",
+            "#FFEAE7EE" or "#FFEBE7EF" => "OutlineVariant",
+            "#FF77737F" or "#FF85808B" or "#FF817C87" => "OnSurfaceVariant",
+            "#FFEEE8F7" => "SecondaryContainer",
+            "#FF493481" => "OnSecondaryContainer",
+            "#FF55515C" => "OnSurface",
+            "#FFF4F2F6" => "SurfaceContainerHigh",
+            "#FF6750A4" => "Primary",
+            "#FFE8DEF8" => "PrimaryContainer",
+            _ => null
+        };
+        return role is null ? brush : RoleBrush(role);
+    }
+
+    private IBrush RoleBrush(string role) => _themeRoles.TryGetValue(role, out var color) ? new SolidColorBrush(color) : Brushes.Transparent;
+
     private string LayoutLabel() => _mode switch { LayoutMode.Preview => "预览布局", LayoutMode.SideBySide => "左右双栏", _ => "上下双栏" };
     private void SetStatus(string text) => _status.Text = text;
 }
