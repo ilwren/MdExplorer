@@ -51,7 +51,7 @@
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <TextBlock x:Name="OperationText" Grid.Column="0" FontSize="11" VerticalAlignment="Center"/>
         <md:MdButton x:Name="CancelOperationButton" Grid.Column="1" Content="取消" Variant="Text" Size="Small" MinHeight="28"/>
-        <md:MdLinearProgressIndicator x:Name="OperationProgress" Grid.Row="1" Grid.ColumnSpan="2" Minimum="0" Maximum="1" Value="0" Height="5" IsIndeterminate="False"/>
+        <md:MdLinearProgressIndicator x:Name="OperationProgressBar" Grid.Row="1" Grid.ColumnSpan="2" Minimum="0" Maximum="1" Value="0" Height="5" IsIndeterminate="False"/>
       </Grid>
     </Border>
 

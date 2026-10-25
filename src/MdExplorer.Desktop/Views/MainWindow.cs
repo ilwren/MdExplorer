@@ -24,7 +24,7 @@ public sealed partial class MainWindow : Window
     private readonly StackPanel _secondList = new() { Spacing = 2 };
     private StackPanel _preview => PreviewContent;
     private Border _operationPanel => OperationPanel;
-    private MdLinearProgressIndicator _operationProgress => OperationProgress;
+    private MdLinearProgressIndicator _operationProgress => OperationProgressBar;
     private TextBlock _operationText => OperationText;
     private Avalonia.Media.Imaging.Bitmap? _currentPreviewBitmap;
     private TextBlock _pathLabel => PathLabel;
