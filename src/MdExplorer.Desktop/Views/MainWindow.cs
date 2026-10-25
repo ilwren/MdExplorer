@@ -39,9 +39,15 @@ public sealed class MainWindow : Window
     private Button? _cutButton;
     private Button? _pasteButton;
     private Button? _sortButton;
+    private Button? _sortDirectionButton;
     private Button? _hiddenButton;
+    private Button? _backButton;
+    private Button? _forwardButton;
+    private readonly Stack<string> _backHistory = new();
+    private readonly Stack<string> _forwardHistory = new();
     private Button? _searchScopeButton;
     private SortMode _sortMode = SortMode.Name;
+    private bool _sortDescending;
     private bool _showHidden;
     private bool _searchSubfolders;
     private Border? _operationPanel;
@@ -122,8 +128,11 @@ public sealed class MainWindow : Window
         brand.Children.Add(new TextBlock { Text = "MdExplorer", FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
         AddAt(bar, brand, 0);
         var nav = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        nav.Children.Add(ActionButton("‹", () => Navigate(Directory.GetParent(_currentPath)?.FullName ?? _home), "返回"));
-        nav.Children.Add(ActionButton("›", () => { }, "前进"));
+        _backButton = ActionButton("‹", NavigateBack, "后退");
+        _forwardButton = ActionButton("›", NavigateForward, "前进");
+        _backButton.IsEnabled = false; _forwardButton.IsEnabled = false;
+        nav.Children.Add(_backButton);
+        nav.Children.Add(_forwardButton);
         AddAt(bar, nav, 1);
         var pathRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
         pathRow.Children.Add(new TextBlock { Text = "⌂", FontSize = 17, VerticalAlignment = VerticalAlignment.Center });
@@ -139,7 +148,8 @@ public sealed class MainWindow : Window
         _search.TextChanged += (_, _) => _ = LoadDirectoryAsync(_currentPath);
         AddAt(bar, _search, 3);
         var tools = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 14, 0) };
-        tools.Children.Add(ActionButton("＋ 新建", CreateFolder, "新建文件夹"));
+        tools.Children.Add(ActionButton("＋ 文件夹", CreateFolder, "新建文件夹"));
+        tools.Children.Add(ActionButton("＋ 文本", CreateTextFile, "新建空白文本文件"));
         _searchScopeButton = ActionButton(SearchScopeLabel(), ToggleSearchScope, "切换搜索范围：当前目录 / 包含子目录");
         tools.Children.Add(_searchScopeButton);
         tools.Children.Add(ActionButton("⇄", CycleLayout, "切换布局"));
@@ -183,9 +193,11 @@ public sealed class MainWindow : Window
         labels.Children.Add(_countLabel);
         AddAt(heading, labels, 0);
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
-        _sortButton = ActionButton(SortLabel(), CycleSort, "循环切换排序方式");
+        _sortButton = ActionButton(SortLabel(), CycleSort, "循环切换排序字段");
+        _sortDirectionButton = ActionButton(SortDirectionLabel(), ToggleSortDirection, "升序 / 降序");
         _hiddenButton = ActionButton(HiddenLabel(), ToggleHidden, "显示或隐藏隐藏文件");
         actions.Children.Add(_sortButton);
+        actions.Children.Add(_sortDirectionButton);
         actions.Children.Add(_hiddenButton);
         actions.Children.Add(ActionButton("☷", () => SetStatus("当前为列表视图")));
         _copyButton = ActionButton("复制", () => SetClipboard(cut: false), "复制所选项目");
@@ -303,6 +315,7 @@ public sealed class MainWindow : Window
         var showHidden = _showHidden;
         var searchSubfolders = _searchSubfolders;
         var sortMode = _sortMode;
+        var sortDescending = _sortDescending;
         try
         {
             var entries = await Task.Run(() =>
@@ -316,7 +329,7 @@ public sealed class MainWindow : Window
                         .Where(x => showHidden || !IsHidden(x))
                         .Where(x => string.IsNullOrEmpty(query) || x.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
                         .Take(1000).ToList();
-                return SortEntries(all, sortMode);
+                return SortEntries(all, sortMode, sortDescending);
             }, cts.Token);
             if (cts.IsCancellationRequested) return;
             _currentPath = path;
@@ -380,18 +393,18 @@ public sealed class MainWindow : Window
         return found;
     }
 
-    private static List<FileSystemInfo> SortEntries(List<FileSystemInfo> entries, SortMode mode)
+    private static List<FileSystemInfo> SortEntries(List<FileSystemInfo> entries, SortMode mode, bool descending)
     {
-        static IEnumerable<FileSystemInfo> SortGroup(IEnumerable<FileSystemInfo> group, SortMode current) => current switch
+        static IOrderedEnumerable<FileSystemInfo> SortGroup(IEnumerable<FileSystemInfo> group, SortMode current, bool reverse) => current switch
         {
-            SortMode.Modified => group.OrderByDescending(x => x.LastWriteTimeUtc).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
-            SortMode.Size => group.OrderByDescending(x => x is FileInfo f ? f.Length : -1L).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
-            SortMode.Type => group.OrderBy(x => x is DirectoryInfo ? "" : x.Extension, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
-            _ => group.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+            SortMode.Modified => reverse ? group.OrderByDescending(x => x.LastWriteTimeUtc).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase) : group.OrderBy(x => x.LastWriteTimeUtc).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
+            SortMode.Size => reverse ? group.OrderByDescending(x => x is FileInfo f ? f.Length : -1L).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase) : group.OrderBy(x => x is FileInfo f ? f.Length : -1L).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
+            SortMode.Type => reverse ? group.OrderByDescending(x => x is DirectoryInfo ? "" : x.Extension, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase) : group.OrderBy(x => x is DirectoryInfo ? "" : x.Extension, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
+            _ => reverse ? group.OrderByDescending(x => x.Name, StringComparer.CurrentCultureIgnoreCase) : group.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
         };
         var folders = entries.Where(x => x is DirectoryInfo);
         var files = entries.Where(x => x is not DirectoryInfo);
-        return SortGroup(folders, mode).Concat(SortGroup(files, mode)).ToList();
+        return SortGroup(folders, mode, descending).Concat(SortGroup(files, mode, descending)).ToList();
     }
 
     private static bool IsHidden(FileSystemInfo entry)
@@ -403,6 +416,13 @@ public sealed class MainWindow : Window
     }
 
     private string SortLabel() => _sortMode switch { SortMode.Name => "名称排序", SortMode.Modified => "修改时间", SortMode.Size => "大小排序", _ => "类型排序" };
+    private string SortDirectionLabel() => _sortDescending ? "↓" : "↑";
+    private void ToggleSortDirection()
+    {
+        _sortDescending = !_sortDescending;
+        if (_sortDirectionButton is not null) _sortDirectionButton.Content = SortDirectionLabel();
+        _ = LoadDirectoryAsync(_currentPath);
+    }
     private string SearchScopeLabel() => _searchSubfolders ? "搜索：含子目录" : "搜索：当前目录";
     private void ToggleSearchScope()
     {
@@ -453,7 +473,7 @@ public sealed class MainWindow : Window
             SelectEntry(entry, _toggleSelectionOnClick, _rangeSelectionOnClick);
             _toggleSelectionOnClick = false; _rangeSelectionOnClick = false;
         };
-        button.DoubleTapped += (_, _) => { if (isDirectory) _ = LoadDirectoryAsync(entry.FullName); else OpenEntry(entry); };
+        button.DoubleTapped += (_, _) => { if (isDirectory) Navigate(entry.FullName); else OpenEntry(entry); };
         return button;
     }
 
@@ -514,7 +534,9 @@ public sealed class MainWindow : Window
         _preview.Children.Add(previewBox);
         _preview.Children.Add(new TextBlock { Text = "文件信息", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
         AddInfo("类型", entry is DirectoryInfo ? "文件夹" : (string.IsNullOrEmpty(ext) ? "文件" : ext.TrimStart('.').ToUpperInvariant()));
+        AddInfo("创建时间", entry.CreationTime.ToString("yyyy-MM-dd HH:mm"));
         AddInfo("修改时间", entry.LastWriteTime.ToString("yyyy-MM-dd HH:mm"));
+        AddInfo("属性", entry.Attributes.ToString());
         if (_currentPreviewBitmap is { } image) AddInfo("图像尺寸", $"{image.PixelSize.Width} × {image.PixelSize.Height} px");
         AddInfo("位置", entry.FullName);
         if (entry is FileInfo file) AddInfo("大小", FormatSize(file.Length));
@@ -625,11 +647,52 @@ public sealed class MainWindow : Window
         })).ToList();
     }
 
+    private void SelectAllVisible()
+    {
+        if (_visibleEntries.Count == 0) return;
+        _selectionAnchor = _visibleEntries[0].FullName;
+        SelectEntry(_visibleEntries[^1], range: true);
+    }
+
+    private void ClearSelection()
+    {
+        _selectedPaths.Clear(); _selectionAnchor = null; _selected = null;
+        ClearPreview();
+        if (_copyButton is not null) _copyButton.IsEnabled = false;
+        if (_cutButton is not null) _cutButton.IsEnabled = false;
+        _fileList.Children.Clear(); foreach (var item in _visibleEntries) _fileList.Children.Add(FileRow(item));
+        SetStatus("未选择项目");
+    }
+
+    private async void EditLocation()
+    {
+        var address = new MdTextBox { Text = _currentPath, Width = 440, Variant = MdTextBoxVariant.Outlined };
+        var open = new MdButton { Content = "打开位置", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        var content = new StackPanel { Margin = new Thickness(18), Spacing = 8, Children = { new TextBlock { Text = "输入本地目录路径" }, address, open } };
+        var dialog = new Window { Title = "转到位置", Width = 510, Height = 170, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = content };
+        open.Click += (_, _) => dialog.Close(address.Text);
+        var path = await dialog.ShowDialog<string?>(this);
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            try { Navigate(Path.GetFullPath(path)); }
+            catch (Exception ex) { SetStatus($"路径无效：{ex.Message}"); }
+        }
+    }
+
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Source is TextBox) return;
         var shortcut = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
-        if (shortcut && e.Key == Key.C) { SetClipboard(cut: false); e.Handled = true; }
+        if (shortcut && e.Key == Key.A) { SelectAllVisible(); e.Handled = true; }
+        else if (shortcut && e.Key == Key.L) { EditLocation(); e.Handled = true; }
+        else if (shortcut && e.Key == Key.N && e.KeyModifiers.HasFlag(KeyModifiers.Shift)) { CreateFolder(); e.Handled = true; }
+        else if (shortcut && e.Key == Key.N) { CreateTextFile(); e.Handled = true; }
+        else if (e.Key == Key.Escape) { ClearSelection(); e.Handled = true; }
+        else if (e.Key == Key.Enter && _selected is not null) { OpenEntry(_selected); e.Handled = true; }
+        else if (e.Key == Key.Back) { Navigate(Directory.GetParent(_currentPath)?.FullName ?? _home); e.Handled = true; }
+        else if (e.KeyModifiers.HasFlag(KeyModifiers.Alt) && e.Key == Key.Left) { NavigateBack(); e.Handled = true; }
+        else if (e.KeyModifiers.HasFlag(KeyModifiers.Alt) && e.Key == Key.Right) { NavigateForward(); e.Handled = true; }
+        else if (shortcut && e.Key == Key.C) { SetClipboard(cut: false); e.Handled = true; }
         else if (shortcut && e.Key == Key.X) { SetClipboard(cut: true); e.Handled = true; }
         else if (shortcut && e.Key == Key.V) { PasteClipboard(); e.Handled = true; }
         else if (e.Key == Key.F2 && _selected is not null && _selectedPaths.Count == 1) { RenameEntry(_selected); e.Handled = true; }
@@ -776,6 +839,34 @@ public sealed class MainWindow : Window
         else File.Delete(path);
     }
 
+    private async void CreateTextFile()
+    {
+        var input = new MdTextBox { PlaceholderText = "例如：notes.txt", Width = 320, Variant = MdTextBoxVariant.Outlined };
+        var create = new MdButton { Content = "创建文件", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        var panel = new StackPanel { Margin = new Thickness(18), Spacing = 8, Children = { new TextBlock { Text = $"在 {_currentPath} 中创建空白文本文件" }, input, create } };
+        var dialog = new Window { Title = "新建文本文件", Width = 410, Height = 175, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel };
+        create.Click += (_, _) => dialog.Close(input.Text);
+        var name = await dialog.ShowDialog<string?>(this);
+        if (!IsValidLeafName(name)) { if (!string.IsNullOrWhiteSpace(name)) SetStatus("文件名无效"); return; }
+        try
+        {
+            var filePath = Path.Combine(_currentPath, name!);
+            await using (var stream = new FileStream(filePath, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { }
+            _search.Text = "";
+            await LoadDirectoryAsync(_currentPath);
+            var created = _visibleEntries.FirstOrDefault(x => PathEquals(x.FullName, filePath));
+            if (created is not null) SelectEntry(created);
+        }
+        catch (Exception ex) { SetStatus($"创建文件失败：{ex.Message}"); }
+    }
+
+    private static bool IsValidLeafName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name is "." or "..") return false;
+        const string crossPlatformInvalid = "<>:\"/\\|?*";
+        return !name.Any(ch => char.IsControl(ch) || crossPlatformInvalid.Contains(ch) || Path.GetInvalidFileNameChars().Contains(ch));
+    }
+
     private async void CreateFolder()
     {
         var dialog = new MdTextBox { PlaceholderText = "文件夹名称", Width = 300, Variant = MdTextBoxVariant.Outlined };
@@ -785,7 +876,15 @@ public sealed class MainWindow : Window
         var window = new Window { Title = "新建文件夹", Width = 380, Height = 170, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = stack };
         ok.Click += (_, _) => window.Close(dialog.Text);
         var name = await window.ShowDialog<string?>(this);
-        if (!string.IsNullOrWhiteSpace(name)) try { Directory.CreateDirectory(Path.Combine(_currentPath, name)); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { SetStatus(ex.Message); }
+        if (!IsValidLeafName(name)) { if (!string.IsNullOrWhiteSpace(name)) SetStatus("文件夹名称无效"); return; }
+        try
+        {
+            var path = Path.Combine(_currentPath, name!);
+            if (Directory.Exists(path) || File.Exists(path)) { SetStatus("该名称已存在"); return; }
+            Directory.CreateDirectory(path);
+            await LoadDirectoryAsync(_currentPath);
+        }
+        catch (Exception ex) { SetStatus($"创建文件夹失败：{ex.Message}"); }
     }
 
     private async void RenameEntry(FileSystemInfo entry)
@@ -796,7 +895,7 @@ public sealed class MainWindow : Window
         var dialog = new Window { Title = "重命名", Width = 370, Height = 160, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel };
         ok.Click += (_, _) => dialog.Close(input.Text);
         var newName = await dialog.ShowDialog<string?>(this);
-        if (string.IsNullOrWhiteSpace(newName) || newName == entry.Name || newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return;
+        if (!IsValidLeafName(newName) || newName == entry.Name) return;
         try { var destination = Path.Combine(Path.GetDirectoryName(entry.FullName)!, newName); if (entry is DirectoryInfo) Directory.Move(entry.FullName, destination); else File.Move(entry.FullName, destination); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { SetStatus($"重命名失败：{ex.Message}"); }
     }
 
@@ -843,7 +942,7 @@ public sealed class MainWindow : Window
 
     private void OpenEntry(FileSystemInfo entry)
     {
-        if (entry is DirectoryInfo) { _ = LoadDirectoryAsync(entry.FullName); return; }
+        if (entry is DirectoryInfo) { Navigate(entry.FullName); return; }
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(entry.FullName) { UseShellExecute = true }); }
         catch (Exception ex) { SetStatus($"无法打开文件：{ex.Message}"); }
     }
@@ -851,8 +950,38 @@ public sealed class MainWindow : Window
     private void Navigate(string path)
     {
         if (!Directory.Exists(path)) { SetStatus("目录不存在或无法访问"); return; }
+        if (PathEquals(path, _currentPath)) return;
+        _backHistory.Push(_currentPath);
+        _forwardHistory.Clear();
+        UpdateNavigationButtons();
         _search.Text = "";
         _ = LoadDirectoryAsync(path);
+    }
+
+    private void NavigateBack()
+    {
+        if (_backHistory.Count == 0) return;
+        _forwardHistory.Push(_currentPath);
+        var path = _backHistory.Pop();
+        UpdateNavigationButtons();
+        _search.Text = "";
+        _ = LoadDirectoryAsync(path);
+    }
+
+    private void NavigateForward()
+    {
+        if (_forwardHistory.Count == 0) return;
+        _backHistory.Push(_currentPath);
+        var path = _forwardHistory.Pop();
+        UpdateNavigationButtons();
+        _search.Text = "";
+        _ = LoadDirectoryAsync(path);
+    }
+
+    private void UpdateNavigationButtons()
+    {
+        if (_backButton is not null) _backButton.IsEnabled = _backHistory.Count > 0;
+        if (_forwardButton is not null) _forwardButton.IsEnabled = _forwardHistory.Count > 0;
     }
 
     private string ReadTextPreview(string path)
