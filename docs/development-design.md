@@ -13,7 +13,7 @@
 ## 2. 技术基线与架构原则
 
 - UI：Avalonia 12+；目标框架按平台拆分，例如 `net10.0`、`net10.0-android`。Avalonia 12、.NET 10、Android workload 与第三方控件必须在首个可运行纵向切片中验证并锁定具体稳定版本。
-- 视觉：Material 3 设计语言；评估 `MD3.Avalonia` 的维护状态、Avalonia 12 兼容性、许可和 trimming/AOT 行为后再采用。主题令牌（色彩、排版、圆角、间距）与控件使用保持可替换，避免 UI 被某一组件库绑定。
+- 视觉：本桌面 MVP 已接入 `Md3.Avalonia`（NuGet `Md3.Avalonia` 0.5.0-preview.2），引用 Avalonia 12.1.2；使用其 `MaterialTheme` 和 `MdButton`。该库当前处于 preview，后续升级需先审查 API 变更并由 CI 验证。上游声明 Apache-2.0；发版前仍需保存对应版本许可证和传递依赖清单。主题令牌与业务视图保持松耦合，避免组件库 API 扩散到领域/应用核心。
 - 分层依赖方向：平台/UI → 应用用例 → 领域/抽象；基础设施实现抽象。领域与应用核心不引用 Avalonia、Android API、Win32/Linux API。
 - 异步 I/O、取消令牌、流式预览；任何耗时枚举/搜索/缩略图不得阻塞 UI 线程。
 - 权限、文件名、路径均视为不可信输入；文件操作使用明确确认、错误反馈和可恢复策略。
@@ -136,7 +136,7 @@ SVG 是比例示意与信息架构稿，不等于最终像素级交付。实现�
 
 | 需求 | 优先方案/候选 | 采用前必须确认 |
 |---|---|---|
-| Material 3 控件 | MD3.Avalonia（候选） | Avalonia 12 兼容、实际许可证、维护与 AOT/trimming 发布验证；若不满足，采用 Avalonia 控件 + 自建主题令牌 |
+| Material 3 控件 | `Md3.Avalonia` 0.5.0-preview.2（已集成） | 上游声明 Apache-2.0、针对 Avalonia 12；CI 验证桌面构建。发布前仍需针对目标 RID 做 trimming/AOT 和 Android 真机验证；preview API 升级须审查 |
 | Markdown | Markdig（候选） | MIT 许可核验；渲染扩展关闭远程内容，AOT 发布测试 |
 | 图片 | Avalonia 支持的解码能力/平台解码服务 | 大图像限制、格式支持、原生依赖及 AOT |
 | PDF | 平台打开或可替换 PDF 预览适配器 | 引擎许可证（常见引擎可能为 AGPL/商业双许可）、Android 支持、体积/AOT；未核验前不纳入核心 |
