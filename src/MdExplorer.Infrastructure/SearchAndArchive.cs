@@ -12,7 +12,9 @@ public sealed class SearchService : ISearchService
         SearchSpec spec, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var query = spec.Query.Trim();
-        if (query.Length == 0 || !Directory.Exists(spec.RootPath))
+        var hasKinds = spec.Kinds is { Count: > 0 };
+        // 空查询仅在指定类型过滤时有意义（如主页「图片」分类）；否则视为无搜索
+        if ((query.Length == 0 && !hasKinds) || !Directory.Exists(spec.RootPath))
             yield break;
 
         var found = 0;
@@ -47,7 +49,7 @@ public sealed class SearchService : ISearchService
                     pending.Push(entry);
 
                 if (!spec.IncludeHidden && item.IsHidden) continue;
-                if (spec.Kinds is not null && !spec.Kinds.Contains(item.Kind)) continue;
+                if (hasKinds && !spec.Kinds!.Contains(item.Kind)) continue;
                 if (query.Length > 0 && !item.Name.Contains(query, StringComparison.OrdinalIgnoreCase)) continue;
 
                 yield return item;

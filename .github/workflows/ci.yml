@@ -64,7 +64,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          bash .github/publish-artifacts.sh screenshots tests/MdExplorer.Screenshots/bin/Release/net10.0/screenshots
+          bash .github/publish-artifacts.sh screenshots tests/MdExplorer.Screenshots/bin/Release/net10.0/screenshots/*.png
           bash .github/publish-artifacts.sh screenshot-logs screenshot-output.txt
 
   publish-desktop:

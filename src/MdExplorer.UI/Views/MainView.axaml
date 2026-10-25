@@ -112,7 +112,7 @@
         <Border Grid.Column="0" IsVisible="{Binding ShowRail}" Width="84"
                 Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
           <StackPanel Margin="8,12" Spacing="6">
-            <md:MdFloatingActionButton HorizontalAlignment="Center" AutomationProperties.Name="新建"
+            <md:MdFloatingActionButton x:Name="FabRail" HorizontalAlignment="Center" AutomationProperties.Name="新建"
                                        Icon="{x:Static md:MdSymbols.Add}"
                                        IsVisible="{Binding IsBrowser}">
               <Button.Flyout>
@@ -248,14 +248,14 @@
               <md:MdLinearProgressIndicator Grid.Row="0" IsIndeterminate="True" Height="3"
                                             IsVisible="{Binding Browser.IsLoading}" />
               <Grid Grid.Row="1">
-                <ListBox x:Name="FileList" Classes="file-list" SelectionMode="Multiple"
+                <md:MdList x:Name="FileList" Classes="file-list" SelectionMode="Multiple"
                          ItemsSource="{Binding Browser.Items}"
                          SelectedItems="{Binding Browser.SelectedItems}"
                          ItemTemplate="{StaticResource FileRowTemplate}"
                          IsVisible="{Binding Browser.IsListView}"
                          ContextMenu="{StaticResource ItemMenu}"
                          Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped" />
-                <ListBox x:Name="FileGrid" Classes="file-list file-grid" SelectionMode="Multiple"
+                <md:MdList x:Name="FileGrid" Classes="file-list file-grid" SelectionMode="Multiple"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          ItemsSource="{Binding Browser.Items}"
                          SelectedItems="{Binding Browser.SelectedItems}"
@@ -263,10 +263,10 @@
                          IsVisible="{Binding Browser.IsGridView}"
                          ContextMenu="{StaticResource ItemMenu}"
                          Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
-                  <ListBox.ItemsPanel>
+                  <md:MdList.ItemsPanel>
                     <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                  </ListBox.ItemsPanel>
-                </ListBox>
+                  </md:MdList.ItemsPanel>
+                </md:MdList>
 
                 <StackPanel IsVisible="{Binding Browser.IsEmpty}" HorizontalAlignment="Center"
                             VerticalAlignment="Center" Spacing="10">
@@ -289,7 +289,7 @@
                                Command="{Binding Browser.RefreshCommand}" />
                 </StackPanel>
 
-                <md:MdFloatingActionButton HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                <md:MdFloatingActionButton x:Name="FabCompact" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                            Margin="0,0,16,16" IsVisible="{Binding IsCompact}"
                                            Icon="{x:Static md:MdSymbols.Add}"
                                            AutomationProperties.Name="新建">
@@ -319,7 +319,7 @@
               <TextBlock Classes="h1" Text="收藏" />
               <TextBlock Classes="caption" Text="点按打开文件夹；在文件上右键或⋮可取消收藏。" />
             </StackPanel>
-            <ListBox Grid.Row="1" Classes="file-list" Margin="0,10,0,0"
+            <md:MdList Grid.Row="1" Classes="file-list" Margin="0,10,0,0"
                      ItemsSource="{Binding FavoriteItems}"
                      ItemTemplate="{StaticResource FileRowTemplate}"
                      Tapped="OnFavoriteItemTapped" />

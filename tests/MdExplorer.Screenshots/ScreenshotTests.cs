@@ -84,7 +84,10 @@ public sealed class ScreenshotTests
         window.Show();
         try
         {
+            for (int i = 0; i < 40 && shell.Browser.Items.All(x => x.Thumbnail is null); i++)
+                await Task.Delay(50);
             await Task.Delay(120);
+            window.CaptureRenderedFrame(); // 先热一帧让容器实现/布局稳定
             var frame = window.CaptureRenderedFrame();
             Assert.NotNull(frame);
             frame!.Save(Path.Combine(OutputDir, fileName));
@@ -132,6 +135,69 @@ public sealed class ScreenshotTests
     public async Task Settings_Page() => await CaptureAsync("08-settings-1100x760.png", 1100, 760, shell =>
     {
         shell.GoSettingsCommand.Execute(null);
+        return Task.CompletedTask;
+    });
+    /// <summary>弹出层验证：上下文菜单（依赖 ContextMenu/MenuItem 主题齐备）。</summary>
+    [AvaloniaFact]
+    public async Task Large_ContextMenu_Open()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        var view = new MainView { DataContext = shell };
+        var window = new Window { Width = 1440, Height = 900, Content = view };
+        window.Show();
+        try
+        {
+            await Task.Delay(150);
+            var list = view.FindControl<ListBox>("FileList");
+            Assert.NotNull(list);
+            Assert.NotNull(list!.ContextMenu);
+            list.ContextMenu!.Open(list);
+            await Task.Delay(150);
+            Assert.True(list.ContextMenu.IsOpen);
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            frame!.Save(Path.Combine(OutputDir, "09-large-contextmenu.png"));
+            list.ContextMenu.Close();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>弹出层验证：窄屏 FAB 的新建菜单（Flyout 呈现）。</summary>
+    [AvaloniaFact]
+    public async Task Compact_FabFlyout_Open()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(390, 844);
+        var view = new MainView { DataContext = shell };
+        var window = new Window { Width = 390, Height = 844, Content = view };
+        window.Show();
+        try
+        {
+            await Task.Delay(150);
+            var fab = view.FindControl<Button>("FabCompact");
+            Assert.NotNull(fab);
+            Assert.NotNull(fab!.Flyout);
+            fab.Flyout!.ShowAt(fab);
+            await Task.Delay(150);
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            frame!.Save(Path.Combine(OutputDir, "10-compact-fab-menu.png"));
+            fab.Flyout.Hide();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Expanded_TrashPage() => await CaptureAsync("11-expanded-trash.png", 1100, 760, shell =>
+    {
+        shell.GoTrashCommand.Execute(null);
         return Task.CompletedTask;
     });
 }
