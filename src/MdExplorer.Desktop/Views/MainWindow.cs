@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Md3.Avalonia.Controls;
@@ -26,6 +27,11 @@ public sealed class MainWindow : Window
     private Button? _themeButton;
     private IReadOnlyDictionary<string, Color> _themeRoles = new Dictionary<string, Color>();
     private MdThemeMode _themeMode = MdThemeMode.System;
+    private string? _clipboardPath;
+    private bool _cutPending;
+    private Button? _copyButton;
+    private Button? _cutButton;
+    private Button? _pasteButton;
     private readonly TextBlock _status = new();
     private readonly string _home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     private string _currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -43,6 +49,7 @@ public sealed class MainWindow : Window
         Height = 900;
         MinWidth = 760;
         MinHeight = 540;
+        KeyDown += OnKeyDown;
         _themeMode = MdThemeManager.Current.ThemeMode;
         _themeRoles = MdThemeManager.Apply(Application.Current!, MdThemeManager.Current, Application.Current!.ActualThemeVariant == ThemeVariant.Dark);
         Background = Brush("#F7F6F9");
@@ -155,6 +162,15 @@ public sealed class MainWindow : Window
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
         actions.Children.Add(ActionButton("名称　⌄", () => SetStatus("按名称排序")));
         actions.Children.Add(ActionButton("☷", () => SetStatus("列表视图")));
+        _copyButton = ActionButton("复制", () => SetClipboard(cut: false), "复制所选项目");
+        _cutButton = ActionButton("剪切", () => SetClipboard(cut: true), "剪切所选项目");
+        _pasteButton = ActionButton("粘贴", PasteClipboard, "粘贴到当前文件夹");
+        _copyButton.IsEnabled = _selected is not null;
+        _cutButton.IsEnabled = _selected is not null;
+        _pasteButton.IsEnabled = _clipboardPath is not null;
+        actions.Children.Add(_copyButton);
+        actions.Children.Add(_cutButton);
+        actions.Children.Add(_pasteButton);
         AddAt(heading, actions, 1);
         DockPanel.SetDock(heading, Dock.Top);
         pane.Children.Add(heading);
@@ -251,6 +267,8 @@ public sealed class MainWindow : Window
     private void SelectEntry(FileSystemInfo entry)
     {
         _selected = entry;
+        if (_copyButton is not null) _copyButton.IsEnabled = true;
+        if (_cutButton is not null) _cutButton.IsEnabled = true;
         _preview.Children.Clear();
         _preview.Margin = new Thickness(20, 4, 20, 20);
         var ext = entry.Extension.ToLowerInvariant();
@@ -359,6 +377,121 @@ public sealed class MainWindow : Window
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "选择第二面板位置", AllowMultiple = false });
         if (folders.Count > 0 && folders[0].TryGetLocalPath() is { } path) { _secondPath = path; CycleLayoutRefresh(); }
+    }
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Source is TextBox) return;
+        var shortcut = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+        if (shortcut && e.Key == Key.C) { SetClipboard(cut: false); e.Handled = true; }
+        else if (shortcut && e.Key == Key.X) { SetClipboard(cut: true); e.Handled = true; }
+        else if (shortcut && e.Key == Key.V) { PasteClipboard(); e.Handled = true; }
+        else if (e.Key == Key.F2 && _selected is not null) { RenameEntry(_selected); e.Handled = true; }
+        else if (e.Key == Key.Delete && _selected is not null) { DeleteEntry(_selected); e.Handled = true; }
+    }
+
+    private void SetClipboard(bool cut)
+    {
+        if (_selected is null) { SetStatus("请先选择一个文件或文件夹"); return; }
+        _clipboardPath = _selected.FullName;
+        _cutPending = cut;
+        if (_pasteButton is not null) _pasteButton.IsEnabled = true;
+        SetStatus($"{(cut ? "已剪切" : "已复制")}：{_selected.Name} · 粘贴到目标文件夹");
+    }
+
+    private async void PasteClipboard()
+    {
+        if (_clipboardPath is null || !File.Exists(_clipboardPath) && !Directory.Exists(_clipboardPath))
+        {
+            SetStatus("剪贴板中的源文件已不存在");
+            return;
+        }
+        var source = _clipboardPath;
+        var isCut = _cutPending;
+        var sourceFull = Path.GetFullPath(source);
+        var destinationFolder = Path.GetFullPath(_currentPath);
+        if (isCut && string.Equals(Path.GetDirectoryName(sourceFull), destinationFolder, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+        {
+            _clipboardPath = null; _cutPending = false;
+            if (_pasteButton is not null) _pasteButton.IsEnabled = false;
+            SetStatus("源项目已位于当前文件夹，无需移动");
+            return;
+        }
+        if (Directory.Exists(sourceFull) && destinationFolder.StartsWith(sourceFull + Path.DirectorySeparatorChar, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+        {
+            SetStatus("不能将文件夹复制或移动到自身内部");
+            return;
+        }
+        var destination = UniqueDestination(destinationFolder, Path.GetFileName(sourceFull));
+        SetStatus($"正在{(isCut ? "移动" : "复制")} {Path.GetFileName(sourceFull)}…");
+        try
+        {
+            await Task.Run(() =>
+            {
+                if (isCut)
+                {
+                    try { MovePath(sourceFull, destination); }
+                    catch (IOException) { CopyPath(sourceFull, destination); DeletePath(sourceFull); }
+                }
+                else CopyPath(sourceFull, destination);
+            });
+            if (isCut)
+            {
+                _clipboardPath = null; _cutPending = false; _selected = null; _preview.Children.Clear();
+                if (_pasteButton is not null) _pasteButton.IsEnabled = false;
+                if (_copyButton is not null) _copyButton.IsEnabled = false;
+                if (_cutButton is not null) _cutButton.IsEnabled = false;
+            }
+            await LoadDirectoryAsync(_currentPath);
+            SetStatus($"已{(isCut ? "移动" : "复制")}到当前文件夹：{Path.GetFileName(destination)}");
+        }
+        catch (Exception ex)
+        {
+            try { if (File.Exists(destination)) File.Delete(destination); else if (Directory.Exists(destination)) Directory.Delete(destination, recursive: true); } catch { /* Preserve the original operation error. */ }
+            SetStatus($"操作失败，源文件已保留：{ex.Message}");
+        }
+    }
+
+    private static string UniqueDestination(string folder, string name)
+    {
+        var original = Path.Combine(folder, name);
+        if (!File.Exists(original) && !Directory.Exists(original)) return original;
+        var isDirectory = Directory.Exists(original);
+        var stem = isDirectory ? name : Path.GetFileNameWithoutExtension(name);
+        var extension = isDirectory ? string.Empty : Path.GetExtension(name);
+        for (var i = 1; ; i++)
+        {
+            var copyName = $"{stem} - Copy {i}{extension}";
+            var candidate = Path.Combine(folder, copyName);
+            if (!File.Exists(candidate) && !Directory.Exists(candidate)) return candidate;
+        }
+    }
+
+    private static void MovePath(string source, string destination)
+    {
+        if (Directory.Exists(source)) Directory.Move(source, destination);
+        else File.Move(source, destination);
+    }
+
+    private static void CopyPath(string source, string destination)
+    {
+        var attributes = File.GetAttributes(source);
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+            throw new NotSupportedException("首版不复制符号链接/重解析点，以避免越出授权目录。");
+        if ((attributes & FileAttributes.Directory) == 0)
+        {
+            File.Copy(source, destination, overwrite: false);
+            return;
+        }
+        Directory.CreateDirectory(destination);
+        foreach (var child in Directory.EnumerateFileSystemEntries(source))
+            CopyPath(child, Path.Combine(destination, Path.GetFileName(child)));
+    }
+
+    private static void DeletePath(string path)
+    {
+        if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+        else File.Delete(path);
     }
 
     private async void CreateFolder()
