@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:md="using:Md3.Avalonia.Controls"
+             xmlns:vm="using:MdExplorer.UI.ViewModels"
+             x:Class="MdExplorer.UI.Views.SettingsView"
+             x:DataType="vm:ShellViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="20,12,20,28" Spacing="24" MaxWidth="720" HorizontalAlignment="Stretch">
+      <TextBlock Classes="h1" Text="设置" />
+
+      <StackPanel Spacing="10">
+        <TextBlock Classes="h3" Text="外观" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <md:MdButton Variant="Tonal" Content="跟随系统" Command="{Binding SetThemeModeCommand}" CommandParameter="System" />
+          <md:MdButton Variant="Tonal" Content="浅色" Command="{Binding SetThemeModeCommand}" CommandParameter="Light" />
+          <md:MdButton Variant="Tonal" Content="深色" Command="{Binding SetThemeModeCommand}" CommandParameter="Dark" />
+        </StackPanel>
+        <TextBlock Classes="caption">
+          <Run Text="当前主题：" /><Run Text="{Binding ThemeModeText}" />
+        </TextBlock>
+        <TextBlock Classes="body" Text="主题色（HCT 种子色，即时生效）" Margin="0,6,0,0" />
+        <WrapPanel x:Name="SeedPanel" Orientation="Horizontal" />
+        <TextBlock Classes="caption">
+          <Run Text="当前种子色：" /><Run Text="{Binding SeedColor}" />
+        </TextBlock>
+      </StackPanel>
+
+      <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
+
+      <StackPanel Spacing="14">
+        <TextBlock Classes="h3" Text="浏览" />
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="显示隐藏文件" />
+            <TextBlock Classes="caption" Text="展示以点开头或带隐藏属性的项目" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding ShowHidden}" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="文件夹在前" />
+            <TextBlock Classes="caption" Text="排序时文件夹优先于文件" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding FoldersFirst}" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="预览侧栏（宽屏）" />
+            <TextBlock Classes="caption" Text="在 Expanded 及更宽断点下选中文件时显示预览栏" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding ShowPreviewPane}" VerticalAlignment="Center" />
+        </Grid>
+      </StackPanel>
+
+      <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="h3" Text="关于" />
+        <TextBlock Classes="body" Text="MdExplorer 0.1.0" />
+        <TextBlock Classes="caption" Text="Avalonia 12 · .NET 10 · Material Design 3（Md3.Avalonia）" />
+        <TextBlock Classes="caption" TextWrapping="Wrap">
+          <Run Text="数据目录：" /><Run Text="{Binding DataDirectoryText}" />
+        </TextBlock>
+        <md:MdButton Variant="Outlined" Content="开源许可证" HorizontalAlignment="Left" Click="OnLicensesClick" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

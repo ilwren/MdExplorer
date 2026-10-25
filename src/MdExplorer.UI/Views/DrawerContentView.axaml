@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:md="using:Md3.Avalonia.Controls"
+             xmlns:vm="using:MdExplorer.UI.ViewModels"
+             x:Class="MdExplorer.UI.Views.DrawerContentView"
+             x:DataType="vm:ShellViewModel"
+             Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="12,16" Spacing="4">
+      <TextBlock Classes="h2" Text="MdExplorer" Margin="8,0,0,12" />
+
+      <md:MdButton Classes="nav-entry" Variant="Text" Command="{Binding GoHomeCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.Home}" Size="22" />
+          <TextBlock Text="主页" VerticalAlignment="Center" />
+        </StackPanel>
+      </md:MdButton>
+      <md:MdButton Classes="nav-entry" Variant="Text" Command="{Binding GoFavoritesCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.Star}" Size="22" />
+          <TextBlock Text="收藏" VerticalAlignment="Center" />
+        </StackPanel>
+      </md:MdButton>
+
+      <TextBlock Classes="caption" Text="位置" Margin="8,14,0,4" FontWeight="SemiBold" />
+      <ItemsControl ItemsSource="{Binding Places}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:NavEntry">
+            <md:MdButton Classes="nav-entry" Variant="Text" Click="OnNavEntryClick">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <md:MdIcon Glyph="{Binding Glyph}" Size="22" />
+                <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
+              </StackPanel>
+            </md:MdButton>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Classes="caption" Text="存储设备" Margin="8,14,0,4" FontWeight="SemiBold" />
+      <ItemsControl ItemsSource="{Binding Volumes}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:VolumeItemModel">
+            <md:MdButton Classes="nav-entry" Variant="Text" Click="OnVolumeClick">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <md:MdIcon Glyph="{Binding Glyph}" Size="22" VerticalAlignment="Center" />
+                <StackPanel Spacing="1">
+                  <TextBlock Text="{Binding Name}" />
+                  <TextBlock Classes="caption" Text="{Binding UsageText}" />
+                </StackPanel>
+              </StackPanel>
+            </md:MdButton>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Classes="caption" Text="已收藏文件夹" Margin="8,14,0,4" FontWeight="SemiBold"
+                 IsVisible="{Binding HasFavorites}" />
+      <ItemsControl ItemsSource="{Binding FavoriteItems}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:FileItemViewModel">
+            <md:MdButton Classes="nav-entry" Variant="Text" Click="OnFavoriteClick" IsVisible="{Binding IsFolder}">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="22" />
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+              </StackPanel>
+            </md:MdButton>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <Border Height="1" Margin="8,14" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
+      <md:MdButton Classes="nav-entry" Variant="Text" Command="{Binding GoTrashCommand}"
+                   IsVisible="{Binding Capabilities.CanMoveToTrash}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="22" />
+          <TextBlock Text="回收站" VerticalAlignment="Center" />
+        </StackPanel>
+      </md:MdButton>
+      <md:MdButton Classes="nav-entry" Variant="Text" Command="{Binding GoSettingsCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.Settings}" Size="22" />
+          <TextBlock Text="设置" VerticalAlignment="Center" />
+        </StackPanel>
+      </md:MdButton>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

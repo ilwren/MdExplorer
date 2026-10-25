@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "arena/**"]
+  pull_request:
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  build-test-ubuntu:
+    name: Build + Test (ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore
+        run: dotnet restore MdExplorer.slnx
+      - name: Build
+        run: dotnet build MdExplorer.slnx -c Release --no-restore
+      - name: Unit tests
+        run: dotnet test tests/MdExplorer.Tests -c Release --no-build
+
+  ui-screenshots:
+    name: UI screenshots (headless)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Install CJK fonts (截图中文字形)
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+      - name: Render breakpoint screenshots
+        run: dotnet test tests/MdExplorer.Screenshots -c Release
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: tests/MdExplorer.Screenshots/bin/Release/**/screenshots/*.png
+          if-no-files-found: warn
+
+  publish-desktop:
+    name: Desktop publish (self-contained)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Unit tests (windows only)
+        if: runner.os == 'Windows'
+        run: dotnet test tests/MdExplorer.Tests -c Release
+      - name: Publish self-contained
+        run: dotnet publish src/MdExplorer.Desktop -c Release -r ${{ matrix.rid }} --self-contained true -o artifacts/${{ matrix.rid }}
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdexplorer-${{ matrix.rid }}
+          path: artifacts/${{ matrix.rid }}
+
+  publish-aot-linux:
+    name: Desktop publish (Native AOT, linux-x64)
+    runs-on: ubuntu-latest
+    continue-on-error: true # v0.1 阶段为探路 Job；转绿后改为门禁（见 DEVELOPMENT.md §11.5）
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Install AOT toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+      - name: Publish Native AOT
+        run: dotnet publish src/MdExplorer.Desktop -c Release -r linux-x64 -p:PublishAot=true -o artifacts/linux-x64-aot
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdexplorer-linux-x64-aot
+          path: artifacts/linux-x64-aot
+
+  android:
+    name: Android APK (debug-signed)
+    runs-on: ubuntu-latest
+    continue-on-error: true # v0.1 阶段为探路 Job
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Install Android workload
+        run: dotnet workload install android
+      - name: Publish APK
+        run: >-
+          dotnet publish src/MdExplorer.Android -c Release
+          -p:PublishTrimmed=true -p:RunAOTCompilation=true
+          -o artifacts/android
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdexplorer-android
+          path: artifacts/android/*.apk
+          if-no-files-found: warn

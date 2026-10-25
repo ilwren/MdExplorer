@@ -1,0 +1,87 @@
+namespace MdExplorer.Domain;
+
+/// <summary>文件内容分类（由扩展名/类型推导，驱动图标、类别聚合与预览选择）。</summary>
+public enum FileKind
+{
+    Folder,
+    Image,
+    Video,
+    Audio,
+    Document,   // PDF 与 Office 等文档（PDF 以扩展名单判）
+    Archive,
+    Code,
+    Text,
+    Data,       // JSON/XML/CSV 等结构化数据
+    Font,
+    Executable,
+    Unknown,
+}
+
+/// <summary>
+/// 文件定位符：当前版本（本地磁盘）内包裹绝对路径；保持值对象形态，
+/// 为未来 Android SAF 文档定位预留不破坏调用方的演进点（见 DEVELOPMENT.md §5.2）。
+/// </summary>
+public readonly record struct FileLocator(string Path)
+{
+    public static FileLocator FromPath(string absolutePath) => new(absolutePath);
+    public override string ToString() => Path;
+}
+
+/// <summary>文件/文件夹条目（不可变快照）。</summary>
+public sealed record FileItem(
+    FileLocator Locator,
+    string Name,
+    FileKind Kind,
+    long? Length,
+    DateTimeOffset LastWriteTime,
+    bool IsHidden,
+    bool IsSymlink,
+    string? Extension)
+{
+    public string FullPath => Locator.Path;
+    public bool IsFolder => Kind == FileKind.Folder;
+}
+
+/// <summary>存储卷。</summary>
+public sealed record StorageVolume(
+    string Id,
+    string DisplayName,
+    FileLocator Root,
+    long? TotalBytes,
+    long? FreeBytes,
+    bool IsRemovable)
+{
+    public long? UsedBytes => TotalBytes is { } t && FreeBytes is { } f ? t - f : null;
+    public double? UsedFraction => TotalBytes is > 0 && UsedBytes is { } u ? (double)u / TotalBytes.Value : null;
+}
+
+public enum SortField { Name, LastWriteTime, Size, Kind }
+public enum SortDirection { Ascending, Descending }
+
+/// <summary>递归文件名搜索描述（应用层编排见 SearchService）。</summary>
+public sealed record SearchSpec(
+    string Query,
+    string RootPath,
+    IReadOnlySet<FileKind>? Kinds = null,
+    bool IncludeHidden = false,
+    int MaxResults = 5000);
+
+/// <summary>写操作类型与冲突策略（任务队列语义见 DEVELOPMENT.md §5.5，v0.1 为串行执行器）。</summary>
+public enum ConflictPolicy { Overwrite, Skip, KeepBoth }
+
+public sealed record OperationError(string ItemName, string Message);
+
+public sealed record OperationOutcome(
+    int SucceededCount,
+    IReadOnlyList<OperationError> Errors,
+    IReadOnlyList<string> ProducedPaths,
+    bool Cancelled = false)
+{
+    public bool Success => Errors.Count == 0 && !Cancelled;
+}
+
+public sealed record OperationProgress(
+    double Fraction,
+    string CurrentItemName,
+    int ItemsDone,
+    int ItemsTotal);

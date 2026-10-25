@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+artifacts/
+TestResults/
+*.user
+.vs/
+.idea/
+
+# 发布与签名材料（永不入仓）
+*.nupkg
+*.snupkg
+*.apk
+*.aab
+*.keystore
+*.pfx
+*.p12
+keystore.properties
+
+# CI 下载的截图工件（仓库内基线图除外）
+screenshots-ci/
+
+# 系统
+.DS_Store
+Thumbs.db

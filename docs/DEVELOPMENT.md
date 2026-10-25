@@ -978,9 +978,9 @@ dotnet publish src/MdExplorer.Android -c Release -p:PublishTrimmed=true -p:RunAO
 
 | 编号 | 决策点 | 选项与推荐 |
 |---|---|---|
-| D-01 | 本仓库开源许可证 | **推荐 Apache-2.0**（与 Md3 对齐、允许代码双向流动、含专利授权）vs MIT。决定后补 `LICENSE` 并在各包打 SPDX |
-| D-02 | Android 是否在 Play 之外提供「所有文件访问」侧载变体 | **推荐 v1 不做**：维护双变体的审核与测试成本高于收益；SAF + 媒体类别已覆盖主流找文件场景。上架数据证明需求强劲再立项 |
-| D-03 | 是否内置音视频播放（LibVLC，LGPL-2.1） | **推荐 Phase 2 再议且需满足**：① 桌面放弃静态单文件形态（库独立可替换）② 体积再预算（每 RID +20~40 MB）③ 播放清单作用域仅预览器。MVP 信息卡 + 系统打开 |
+| D-01 | 本仓库开源许可证 | ✅ **已决定：Apache-2.0**（2026-10-25）。仓库根 `LICENSE` 已落地，各工程经 `Directory.Build.props` 打 SPDX |
+| D-02 | Android 是否在 Play 之外提供「所有文件访问」侧载变体 | ✅ **已决定：稍后做**（2026-10-25）。v0.1 只走应用专属目录 + StorageProvider 选择位置；SAF 持久授权与变体在 Android 对齐阶段一并立项 |
+| D-03 | 是否内置音视频播放（LibVLC，LGPL-2.1） | ✅ **已决定：后续再做**（2026-10-25）。第一版音视频为元数据卡 + 系统打开；引入时须满足 LGPL 动态链接与体积再预算条件 |
 | D-04 | 详细信息视图实现 | DataGrid 若 Trim 零警告则用之省两周工，否则自实现虚拟化表——**以 S-01 实测裁决**，自实现的骨架在 S-01 里顺带搭出作保底 |
 | D-05 | Linux 首发包形态 | AppImage（单文件易发、桌面集成弱）vs tar.gz+`.desktop` 安装脚本——**推荐先 tar.gz**（AOT 已是单 exe，附加集成文件即可)，AppImage 待用户呼声 |
 | D-06 | 双窗格进 MVP 的程度 | 推荐：布局稿预留、实现排 Phase 2 首位（信息架构已留 `BrowserSession` 双实例位，届时成本主要在焦点/拖拽语义） |
@@ -1024,7 +1024,13 @@ dotnet publish src/MdExplorer.Android -c Release -p:PublishTrimmed=true -p:RunAO
 - freedesktop.org Trash 规范；XDG Base Directory / User Dirs 规范
 - `Md3.Avalonia` 仓库 README 与 `docs/COMPATIBILITY.md`（版本钉选依据）
 
-### E. 文档变更规则
+### E. 变更纪要
+
+| 日期 | 变更 | 依据 |
+|---|---|---|
+| 2026-10-25 | D-01 采用 Apache-2.0 并补 `LICENSE`；D-02 侧载变体后置；D-03 媒体播放后续再议；Avalonia 钉版对齐 Md3 兼容线 `12.1.2`；v0.1 第一版实现说明：服务暂合一在 Infrastructure（接口边界不变）、压缩先以 `System.IO.Compression` 的 ZIP 覆盖、文本预览暂为无高亮版、PDF/音视频暂为元数据卡，回收站在 Windows 仅送站不可浏览；Android v0.1 浏览应用专属目录。上述偏差均为「实现分期」而非规范变更，§6/§9 目标不变 | 维护者确认 + 首版落地 |
+
+### F. 文档变更规则
 
 本文档与配套两文（布局、提示词）同仓版本化；接口/断点/选型数值变更须在同一 PR 改文档 + 代码 + 相关基线图；每次改选型在 §3 表后增一行「变更纪要（日期 / 决策 / 依据）」。讨论中的临时结论先记 §17，不直接写成规范散入他章。
 
