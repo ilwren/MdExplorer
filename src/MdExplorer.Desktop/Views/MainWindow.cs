@@ -32,6 +32,10 @@ public sealed class MainWindow : Window
     private Button? _copyButton;
     private Button? _cutButton;
     private Button? _pasteButton;
+    private Button? _sortButton;
+    private Button? _hiddenButton;
+    private SortMode _sortMode = SortMode.Name;
+    private bool _showHidden;
     private readonly TextBlock _status = new();
     private readonly string _home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     private string _currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -41,6 +45,7 @@ public sealed class MainWindow : Window
     private CancellationTokenSource? _loadCancellation;
 
     private enum LayoutMode { Preview, SideBySide, Stacked }
+    private enum SortMode { Name, Modified, Size, Type }
 
     public MainWindow()
     {
@@ -160,8 +165,11 @@ public sealed class MainWindow : Window
         labels.Children.Add(_countLabel);
         AddAt(heading, labels, 0);
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
-        actions.Children.Add(ActionButton("名称　⌄", () => SetStatus("按名称排序")));
-        actions.Children.Add(ActionButton("☷", () => SetStatus("列表视图")));
+        _sortButton = ActionButton(SortLabel(), CycleSort, "循环切换排序方式");
+        _hiddenButton = ActionButton(HiddenLabel(), ToggleHidden, "显示或隐藏隐藏文件");
+        actions.Children.Add(_sortButton);
+        actions.Children.Add(_hiddenButton);
+        actions.Children.Add(ActionButton("☷", () => SetStatus("当前为列表视图")));
         _copyButton = ActionButton("复制", () => SetClipboard(cut: false), "复制所选项目");
         _cutButton = ActionButton("剪切", () => SetClipboard(cut: true), "剪切所选项目");
         _pasteButton = ActionButton("粘贴", PasteClipboard, "粘贴到当前文件夹");
@@ -223,23 +231,68 @@ public sealed class MainWindow : Window
         _loadCancellation?.Cancel();
         var cts = _loadCancellation = new CancellationTokenSource();
         var query = _search.Text?.Trim() ?? "";
+        var showHidden = _showHidden;
+        var sortMode = _sortMode;
         try
         {
-            var entries = await Task.Run(() => Directory.EnumerateFileSystemEntries(path)
-                .Select(p => (FileSystemInfo)(Directory.Exists(p) ? new DirectoryInfo(p) : new FileInfo(p)))
-                .Where(x => string.IsNullOrEmpty(query) || x.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(x => x is DirectoryInfo).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
-                .Take(1000).ToList(), cts.Token);
+            var entries = await Task.Run(() =>
+            {
+                var all = Directory.EnumerateFileSystemEntries(path)
+                    .Select(p => (FileSystemInfo)(Directory.Exists(p) ? new DirectoryInfo(p) : new FileInfo(p)))
+                    .Where(x => showHidden || !IsHidden(x))
+                    .Where(x => string.IsNullOrEmpty(query) || x.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    .Take(1000).ToList();
+                return SortEntries(all, sortMode);
+            }, cts.Token);
             if (cts.IsCancellationRequested) return;
             _currentPath = path;
             _pathLabel.Text = path;
-            _countLabel.Text = $"{entries.Count} 个项目 · 按名称排序";
+            _countLabel.Text = $"{entries.Count} 个项目 · {SortLabel()}";
             _fileList.Children.Clear();
             foreach (var entry in entries) _fileList.Children.Add(FileRow(entry));
             SetStatus($"{path}　·　{entries.Count} 个项目");
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { SetStatus($"无法读取目录：{ex.Message}"); }
+    }
+
+    private static List<FileSystemInfo> SortEntries(List<FileSystemInfo> entries, SortMode mode)
+    {
+        static IEnumerable<FileSystemInfo> SortGroup(IEnumerable<FileSystemInfo> group, SortMode current) => current switch
+        {
+            SortMode.Modified => group.OrderByDescending(x => x.LastWriteTimeUtc).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
+            SortMode.Size => group.OrderByDescending(x => x is FileInfo f ? f.Length : -1L).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
+            SortMode.Type => group.OrderBy(x => x is DirectoryInfo ? "" : x.Extension, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
+            _ => group.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+        };
+        var folders = entries.Where(x => x is DirectoryInfo);
+        var files = entries.Where(x => x is not DirectoryInfo);
+        return SortGroup(folders, mode).Concat(SortGroup(files, mode)).ToList();
+    }
+
+    private static bool IsHidden(FileSystemInfo entry)
+    {
+        if (entry.Name.StartsWith(".", StringComparison.Ordinal)) return true;
+        try { return (File.GetAttributes(entry.FullName) & FileAttributes.Hidden) != 0; }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
+
+    private string SortLabel() => _sortMode switch { SortMode.Name => "名称排序", SortMode.Modified => "修改时间", SortMode.Size => "大小排序", _ => "类型排序" };
+    private string HiddenLabel() => _showHidden ? "隐藏项：开" : "隐藏项：关";
+
+    private void CycleSort()
+    {
+        _sortMode = _sortMode switch { SortMode.Name => SortMode.Modified, SortMode.Modified => SortMode.Size, SortMode.Size => SortMode.Type, _ => SortMode.Name };
+        if (_sortButton is not null) _sortButton.Content = SortLabel();
+        _ = LoadDirectoryAsync(_currentPath);
+    }
+
+    private void ToggleHidden()
+    {
+        _showHidden = !_showHidden;
+        if (_hiddenButton is not null) _hiddenButton.Content = HiddenLabel();
+        _ = LoadDirectoryAsync(_currentPath);
     }
 
     private Control FileRow(FileSystemInfo entry)
