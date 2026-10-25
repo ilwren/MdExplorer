@@ -17,7 +17,7 @@ public sealed class MainWindow : Window
     private readonly StackPanel _preview = new() { Spacing = 10 };
     private readonly TextBlock _pathLabel = new();
     private readonly TextBlock _countLabel = new();
-    private readonly TextBox _search = new() { Watermark = "搜索此文件夹" };
+    private readonly TextBox _search = new() { PlaceholderText = "搜索此文件夹" };
     private readonly TextBlock _status = new();
     private readonly string _home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     private string _currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -88,7 +88,7 @@ public sealed class MainWindow : Window
         _pathLabel.VerticalAlignment = VerticalAlignment.Center;
         pathRow.Children.Add(_pathLabel);
         AddAt(bar, pathRow, 2);
-        _search.Watermark = "搜索此文件夹";
+        _search.PlaceholderText = "搜索此文件夹";
         _search.Height = 36;
         _search.VerticalAlignment = VerticalAlignment.Center;
         _search.CornerRadius = new CornerRadius(18);
@@ -404,7 +404,7 @@ public sealed class MainWindow : Window
     private static void AddAt(Grid grid, Control control, int column) { Grid.SetColumn(control, column); grid.Children.Add(control); }
     private static TextBlock Section(string text) => new() { Text = text, FontSize = 11, FontWeight = FontWeight.Bold, Foreground = Brush("#817C87"), Margin = new Thickness(10, 20, 0, 7) };
     private Button SideButton(string text, Action action, bool active = false) { var b = new Button { Content = text, HorizontalContentAlignment = HorizontalAlignment.Left, Height = 36, Margin = new Thickness(0, 1), Padding = new Thickness(12, 0), Background = active ? Brush("#EEE8F7") : Brushes.Transparent, Foreground = active ? Brush("#493481") : Brush("#55515C") }; b.Click += (_, _) => action(); return b; }
-    private static Button ActionButton(string text, Action action, string? tooltip = null) { var b = new Button { Content = text, Padding = new Thickness(10, 6), MinHeight = 30, CornerRadius = new CornerRadius(7), FontSize = 12, Background = Brush("#F4F2F6"), ToolTip = tooltip }; b.Click += (_, _) => action(); return b; }
+    private static Button ActionButton(string text, Action action, string? tooltip = null) { var b = new Button { Content = text, Padding = new Thickness(10, 6), MinHeight = 30, CornerRadius = new CornerRadius(7), FontSize = 12, Background = Brush("#F4F2F6") }; if (tooltip is not null) ToolTip.SetTip(b, tooltip); b.Click += (_, _) => action(); return b; }
     private string LayoutLabel() => _mode switch { LayoutMode.Preview => "预览布局", LayoutMode.SideBySide => "左右双栏", _ => "上下双栏" };
     private void SetStatus(string text) => _status.Text = text;
 }

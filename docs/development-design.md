@@ -175,6 +175,6 @@ SVG 是比例示意与信息架构稿，不等于最终像素级交付。实现�
 
 仓库 `prototype/` 提供无需构建工具的 HTML/CSS/JavaScript 浏览器原型，用于先行评审信息层级和自适应交互：桌面三栏预览、布局切换入口、搜索过滤、列表选择后文件预览/信息、移动端窄屏导航和预览抽屉。双栏目前以布局占位区展示，供评审分栏方向与视觉层级。
 
-**重要：这是视觉/交互原型，不是最终 Avalonia 应用。** 它使用内存中的演示数据，不访问磁盘、不执行真实文件操作，部分交互仅显示提示；不应将其误认为文件管理功能已经实现。后续将确认的视图状态迁移到 Avalonia 共享 UI，文件操作接入 Application 用例和平台 provider。
+**重要：该 HTML 文件仍只是视觉/交互参考原型。** 它使用演示数据，不访问真实文件。当前实际桌面 MVP 位于 `src/MdExplorer.Desktop`，以 C# / Avalonia 实现真实本地目录浏览和基础操作；架构分层及 Android Host/SAF 等能力仍按上文迭代计划继续完善。
 
-运行：在仓库根目录执行 `python3 -m http.server 4173`，浏览器打开 `http://localhost:4173/prototype/`。小屏可通过浏览器设备模拟器查看。
+HTML 参考稿运行：在仓库根目录执行 `python3 -m http.server 4173`，浏览器打开 `http://localhost:4173/prototype/`。小屏可通过浏览器设备模拟器查看。Avalonia 桌面程序运行方式见仓库 README。
