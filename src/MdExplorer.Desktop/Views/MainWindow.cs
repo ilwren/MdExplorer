@@ -52,6 +52,9 @@ public sealed class MainWindow : Window
     private Button? _forwardButton;
     private readonly Stack<string> _backHistory = new();
     private readonly Stack<string> _forwardHistory = new();
+    private readonly List<string> _favorites = FavoriteStore.Load();
+    private StackPanel? _favoriteLinks;
+    private Button? _favoriteButton;
     private Button? _searchScopeButton;
     private SortMode _sortMode = SortMode.Name;
     private bool _sortDescending;
@@ -177,13 +180,18 @@ public sealed class MainWindow : Window
         links.Children.Add(Section("工作区"));
         links.Children.Add(SideButton("▣　文件", () => Navigate(_home), true));
         links.Children.Add(SideButton("◷　最近", () => SetStatus("最近访问列表将在后续版本提供")));
-        links.Children.Add(SideButton("★　收藏", () => SetStatus("收藏夹将在后续版本提供")));
+        links.Children.Add(Section("收藏夹"));
+        _favoriteButton = SideButton(FavoriteLabel(), ToggleFavorite);
+        links.Children.Add(_favoriteButton);
+        _favoriteLinks = new StackPanel();
+        links.Children.Add(_favoriteLinks);
+        RenderFavorites();
         links.Children.Add(Section("位置"));
         links.Children.Add(SideButton("▣　主目录", () => Navigate(_home)));
         links.Children.Add(SideButton("▱　文档", () => Navigate(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))));
         links.Children.Add(SideButton("▱　下载", () => Navigate(Path.Combine(_home, "Downloads"))));
         links.Children.Add(SideButton("▱　图片", () => Navigate(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures))));
-        panel.Children.Add(links);
+        panel.Children.Add(new ScrollViewer { Content = links, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(0, 0, 1, 0), Child = panel };
     }
 
@@ -348,6 +356,7 @@ public sealed class MainWindow : Window
             if (cts.IsCancellationRequested) return;
             _currentPath = path;
             _pathLabel.Text = path;
+            if (_favoriteButton is not null) _favoriteButton.Content = FavoriteLabel();
             _countLabel.Text = string.IsNullOrWhiteSpace(query)
                 ? $"{entries.Count} 个项目 · {SortLabel()}"
                 : $"搜索结果 {entries.Count} 项 · {(searchSubfolders ? "包含子目录" : "当前目录")}";
@@ -1062,6 +1071,43 @@ public sealed class MainWindow : Window
     private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : bytes < 1024 * 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes / (1024d * 1024):0.#} MB";
     private static IBrush Brush(string hex) => new SolidColorBrush(Color.Parse(hex));
     private static void AddAt(Grid grid, Control control, int column) { Grid.SetColumn(control, column); grid.Children.Add(control); }
+    private string FavoriteLabel() => _favorites.Any(path => PathEquals(path, _currentPath)) ? "★　取消收藏当前目录" : "☆　收藏当前目录";
+
+    private void ToggleFavorite()
+    {
+        var updated = new List<string>(_favorites);
+        var existing = updated.FirstOrDefault(path => PathEquals(path, _currentPath));
+        if (existing is null) updated.Add(_currentPath);
+        else updated.Remove(existing);
+        try
+        {
+            FavoriteStore.Save(updated);
+            _favorites.Clear(); _favorites.AddRange(updated);
+            RenderFavorites();
+            if (_favoriteButton is not null) _favoriteButton.Content = FavoriteLabel();
+            SetStatus(existing is null ? "已加入收藏夹" : "已从收藏夹移除");
+        }
+        catch (Exception ex) { SetStatus($"保存收藏夹失败：{ex.Message}"); }
+    }
+
+    private void RenderFavorites()
+    {
+        if (_favoriteLinks is null) return;
+        _favoriteLinks.Children.Clear();
+        foreach (var path in _favorites)
+        {
+            var label = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(label)) label = path;
+            var exists = Directory.Exists(path);
+            var button = SideButton($"　{label}{(exists ? "" : " · 不可用")}", () =>
+            {
+                if (exists) Navigate(path);
+                else SetStatus($"收藏位置不存在：{path}");
+            });
+            _favoriteLinks.Children.Add(button);
+        }
+    }
+
     private static TextBlock Section(string text) => new() { Text = text, FontSize = 11, FontWeight = FontWeight.Bold, Foreground = Brush("#817C87"), Margin = new Thickness(10, 20, 0, 7) };
     private Button SideButton(string text, Action action, bool active = false) { var b = new MdButton { Content = text, Variant = active ? MdButtonVariant.Tonal : MdButtonVariant.Text, Size = MdButtonSize.Small, HorizontalContentAlignment = HorizontalAlignment.Left, HorizontalAlignment = HorizontalAlignment.Stretch, Height = 40, Margin = new Thickness(0, 1), Padding = new Thickness(12, 0) }; b.Click += (_, _) => action(); return b; }
     private static Button ActionButton(string text, Action action, string? tooltip = null) { var b = new MdButton { Content = text, Variant = MdButtonVariant.Tonal, Size = MdButtonSize.Small, MinHeight = 32, FontSize = 12 }; if (tooltip is not null) ToolTip.SetTip(b, tooltip); b.Click += (_, _) => action(); return b; }
