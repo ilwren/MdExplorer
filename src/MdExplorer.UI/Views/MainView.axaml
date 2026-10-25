@@ -117,10 +117,12 @@
                                        IsVisible="{Binding IsBrowser}">
               <Button.Flyout>
                 <Flyout Placement="Right">
+                  <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}" CornerRadius="14" Padding="6">
                   <StackPanel Spacing="4" MinWidth="150">
                     <md:MdButton Variant="Text" Content="新建文件夹" Command="{Binding Browser.NewFolderCommand}" />
                     <md:MdButton Variant="Text" Content="新建文件" Command="{Binding Browser.NewFileCommand}" />
                   </StackPanel>
+                  </Border>
                 </Flyout>
               </Button.Flyout>
             </md:MdFloatingActionButton>
@@ -191,6 +193,7 @@
                                AutomationProperties.Name="更多">
                 <Button.Flyout>
                   <Flyout>
+                    <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}" CornerRadius="14" Padding="6">
                     <StackPanel Spacing="2" MinWidth="180">
                       <md:MdButton Variant="Text" Content="新建文件夹" Command="{Binding Browser.NewFolderCommand}" />
                       <md:MdButton Variant="Text" Content="新建文件" Command="{Binding Browser.NewFileCommand}" />
@@ -204,6 +207,7 @@
                       <md:MdButton Variant="Text" Content="切换 列表/网格" Command="{Binding Browser.ToggleViewModeCommand}" />
                       <md:MdButton Variant="Text" Content="进入选择模式" Command="{Binding Browser.EnterSelectionModeCommand}" />
                     </StackPanel>
+                    </Border>
                   </Flyout>
                 </Button.Flyout>
               </md:MdIconButton>
@@ -295,10 +299,12 @@
                                            AutomationProperties.Name="新建">
                   <Button.Flyout>
                     <Flyout Placement="Top">
+                      <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}" CornerRadius="14" Padding="6">
                       <StackPanel Spacing="4" MinWidth="150">
                         <md:MdButton Variant="Text" Content="新建文件夹" Command="{Binding Browser.NewFolderCommand}" />
                         <md:MdButton Variant="Text" Content="新建文件" Command="{Binding Browser.NewFileCommand}" />
                       </StackPanel>
+                      </Border>
                     </Flyout>
                   </Button.Flyout>
                 </md:MdFloatingActionButton>

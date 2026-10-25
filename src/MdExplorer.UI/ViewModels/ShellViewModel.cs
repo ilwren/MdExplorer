@@ -42,6 +42,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                 OnPropertyChanged(nameof(PageTitle));
         };
         FavoriteItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFavorites));
+        TrashItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowTrashEmpty));
         Preview.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(PreviewViewModel.HasItem))
@@ -80,6 +81,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     };
 
     public bool HasFavorites => FavoriteItems.Count > 0;
+    /// <summary>可浏览平台的回收站为空时展示占位（Windows/Android 走平台说明分支）。</summary>
+    public bool ShowTrashEmpty => Capabilities.CanBrowseTrash && TrashItems.Count == 0;
 
     public bool IsHome => Page == ShellPage.Home;
     public bool IsBrowser => Page == ShellPage.Browser;

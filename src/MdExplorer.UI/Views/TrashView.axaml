@@ -14,6 +14,13 @@
                    Text="当前平台无法在应用内浏览回收站。移入回收站的文件请通过系统回收站（桌面）管理；Android 无系统回收站，删除会要求二次确认。" />
       </StackPanel>
 
+      <StackPanel IsVisible="{Binding ShowTrashEmpty}" VerticalAlignment="Center"
+                  HorizontalAlignment="Center" Spacing="8">
+        <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="48" HorizontalAlignment="Center"
+                   Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+        <TextBlock Classes="body" Text="回收站是空的" />
+      </StackPanel>
+
       <md:MdList ItemsSource="{Binding TrashItems}" IsVisible="{Binding Capabilities.CanBrowseTrash}"
                Background="Transparent" BorderThickness="0">
         <md:MdList.ItemTemplate>

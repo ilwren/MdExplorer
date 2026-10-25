@@ -4,6 +4,12 @@
 
 > **状态：v0.1 第一版**——浏览/搜索/预览/复制移动删除（含回收站语义）/ZIP/收藏/设置已可用；PDF 渲染、音视频播放、Android SAF 全量授权为后续里程碑（见开发文档 §16/§17 与文末变更纪要）。
 
+## 第一版效果（CI 无头渲染实拍，归档于 `docs/assets/screenshots/`）
+
+<img src="docs/assets/screenshots/05-large-1440x900.png" alt="Large 1440：永久抽屉 + 网格 + 预览侧栏" width="720" />
+
+<img src="docs/assets/screenshots/01-compact-390x844.png" alt="Compact 390：底部导航栏 + 列表 + FAB" width="240" /><img src="docs/assets/screenshots/02-compact-home.png" alt="Compact 主页：存储卡与分类" width="240" /><img src="docs/assets/screenshots/03-medium-768x1024.png" alt="Medium 768：导轨 + 网格" width="300" />
+
 ## 构建与运行
 
 前置：.NET 10 SDK（`global.json`）；Android 另需 `dotnet workload install android` + JDK 17；Linux Native AOT 另需 `clang`、`zlib1g-dev`。

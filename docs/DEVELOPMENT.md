@@ -1029,6 +1029,8 @@ dotnet publish src/MdExplorer.Android -c Release -p:PublishTrimmed=true -p:RunAO
 | 日期 | 变更 | 依据 |
 |---|---|---|
 | 2026-10-25 | D-01 采用 Apache-2.0 并补 `LICENSE`；D-02 侧载变体后置；D-03 媒体播放后续再议；Avalonia 钉版对齐 Md3 兼容线 `12.1.2`；v0.1 第一版实现说明：服务暂合一在 Infrastructure（接口边界不变）、压缩先以 `System.IO.Compression` 的 ZIP 覆盖、文本预览暂为无高亮版、PDF/音视频暂为元数据卡，回收站在 Windows 仅送站不可浏览；Android v0.1 浏览应用专属目录。上述偏差均为「实现分期」而非规范变更，§6/§9 目标不变 | 维护者确认 + 首版落地 |
+| 2026-10-25 | v0.1 落地验收：GitHub Actions 六个 Job 全绿（构建+33 项测试于 Ubuntu/Windows 双跑、11 张断点截图冒烟、linux-x64/win-x64 自包含发布、linux-x64 Native AOT 发布、Android APK）；验收截图归档 `docs/assets/screenshots/`（每 PR 由无头渲染自动更新） | CI run 40209876370 |
+| 2026-10-25 | 实现注记（库 quirks）：Md3 未给原生 `ListBox` 注册无键 ControlTheme（Gallery 亦全程不用）→ 全仓统一用 `MdList`；原生 `ContextMenu` 亦无无键主题 → 在 `AppStyles` 补齐（MenuItem/Separator 由 Md3 `MdDesktopAdapters` 覆盖）；`Flyout` 呈现层无表面 → 弹出内容自带 SurfaceContainer 底卡 | 无头截图对比实证 |
 
 ### F. 文档变更规则
 
