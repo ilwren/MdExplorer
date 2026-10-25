@@ -1,9 +1,9 @@
   Determining projects to restore...
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\MdExplorer.Domain.csproj (in 3.79 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\MdExplorer.Application.csproj (in 3.81 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\MdExplorer.Platform.Abstractions.csproj (in 3.8 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\MdExplorer.Infrastructure.csproj (in 3 ms).
-  Restored D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj (in 7.68 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\MdExplorer.Application.csproj (in 4.83 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\MdExplorer.Domain.csproj (in 4.46 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\MdExplorer.Platform.Abstractions.csproj (in 4.83 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\MdExplorer.Infrastructure.csproj (in 4 ms).
+  Restored D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj (in 7.33 sec).
   MdExplorer.Domain -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\bin\Release\net10.0\MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\bin\Release\net10.0\MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\bin\Release\net10.0\MdExplorer.Application.dll
@@ -12,12 +12,5 @@ D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\TrashService.cs(23,34):
   MdExplorer.Tests -> D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\bin\Release\net10.0\MdExplorer.Tests.dll
 Test run for D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\bin\Release\net10.0\MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:00.92]     MdExplorer.Tests.FileSystemTests.Search_FindsNestedByName_AndKindFilter [FAIL]
-  Failed MdExplorer.Tests.FileSystemTests.Search_FindsNestedByName_AndKindFilter [11 ms]
-  Error Message:
-   Assert.Single() Failure: The collection was empty
-  Stack Trace:
-     at MdExplorer.Tests.FileSystemTests.Search_FindsNestedByName_AndKindFilter() in D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\FileSystemTests.cs:line 114
---- End of stack trace from previous location ---
 
-Failed!  - Failed:     1, Passed:    32, Skipped:     0, Total:    33, Duration: 174 ms - MdExplorer.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    33, Skipped:     0, Total:    33, Duration: 225 ms - MdExplorer.Tests.dll (net10.0)
