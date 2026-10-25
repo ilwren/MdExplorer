@@ -896,7 +896,7 @@ public sealed class MainWindow : Window
         ok.Click += (_, _) => dialog.Close(input.Text);
         var newName = await dialog.ShowDialog<string?>(this);
         if (!IsValidLeafName(newName) || newName == entry.Name) return;
-        try { var destination = Path.Combine(Path.GetDirectoryName(entry.FullName)!, newName); if (entry is DirectoryInfo) Directory.Move(entry.FullName, destination); else File.Move(entry.FullName, destination); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { SetStatus($"重命名失败：{ex.Message}"); }
+        try { var destination = Path.Combine(Path.GetDirectoryName(entry.FullName)!, newName!); if (entry is DirectoryInfo) Directory.Move(entry.FullName, destination); else File.Move(entry.FullName, destination); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { SetStatus($"重命名失败：{ex.Message}"); }
     }
 
     private async void DeleteSelectedEntries()
