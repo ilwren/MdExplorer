@@ -39,8 +39,10 @@ public sealed class MainWindow : Window
     private Button? _pasteButton;
     private Button? _sortButton;
     private Button? _hiddenButton;
+    private Button? _searchScopeButton;
     private SortMode _sortMode = SortMode.Name;
     private bool _showHidden;
+    private bool _searchSubfolders;
     private readonly TextBlock _status = new();
     private readonly string _home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     private string _currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -129,6 +131,8 @@ public sealed class MainWindow : Window
         AddAt(bar, _search, 3);
         var tools = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 14, 0) };
         tools.Children.Add(ActionButton("＋ 新建", CreateFolder, "新建文件夹"));
+        _searchScopeButton = ActionButton(SearchScopeLabel(), ToggleSearchScope, "切换搜索范围：当前目录 / 包含子目录");
+        tools.Children.Add(_searchScopeButton);
         tools.Children.Add(ActionButton("⇄", CycleLayout, "切换布局"));
         _themeButton = ActionButton(ThemeLabel(), CycleTheme, "切换浅色 / 深色 / 跟随系统主题");
         tools.Children.Add(_themeButton);
@@ -243,31 +247,83 @@ public sealed class MainWindow : Window
         var cts = _loadCancellation = new CancellationTokenSource();
         var query = _search.Text?.Trim() ?? "";
         var showHidden = _showHidden;
+        var searchSubfolders = _searchSubfolders;
         var sortMode = _sortMode;
         try
         {
             var entries = await Task.Run(() =>
             {
-                var all = Directory.EnumerateFileSystemEntries(path)
-                    .Select(p => (FileSystemInfo)(Directory.Exists(p) ? new DirectoryInfo(p) : new FileInfo(p)))
-                    .Where(x => showHidden || !IsHidden(x))
-                    .Where(x => string.IsNullOrEmpty(query) || x.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                    .Take(1000).ToList();
+                List<FileSystemInfo> all;
+                if (searchSubfolders && !string.IsNullOrWhiteSpace(query))
+                    all = SearchSubtree(path, query, showHidden, cts.Token);
+                else
+                    all = Directory.EnumerateFileSystemEntries(path)
+                        .Select(p => (FileSystemInfo)(Directory.Exists(p) ? new DirectoryInfo(p) : new FileInfo(p)))
+                        .Where(x => showHidden || !IsHidden(x))
+                        .Where(x => string.IsNullOrEmpty(query) || x.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                        .Take(1000).ToList();
                 return SortEntries(all, sortMode);
             }, cts.Token);
             if (cts.IsCancellationRequested) return;
             _currentPath = path;
             _pathLabel.Text = path;
-            _countLabel.Text = $"{entries.Count} 个项目 · {SortLabel()}";
+            _countLabel.Text = string.IsNullOrWhiteSpace(query)
+                ? $"{entries.Count} 个项目 · {SortLabel()}"
+                : $"搜索结果 {entries.Count} 项 · {(searchSubfolders ? "包含子目录" : "当前目录")}";
             _visibleEntries = entries;
             _selectedPaths.RemoveWhere(path => !_visibleEntries.Any(entry => PathEquals(entry.FullName, path)));
-            if (_selected is not null && !_selectedPaths.Contains(_selected.FullName)) _selected = _visibleEntries.FirstOrDefault(entry => _selectedPaths.Contains(entry.FullName));
+            _selected = _selectedPaths.Count == 0 ? null : _visibleEntries.LastOrDefault(entry => _selectedPaths.Contains(entry.FullName));
+            if (_selected is null)
+            {
+                _preview.Children.Clear();
+                if (_copyButton is not null) _copyButton.IsEnabled = false;
+                if (_cutButton is not null) _cutButton.IsEnabled = false;
+            }
             _fileList.Children.Clear();
             foreach (var entry in entries) _fileList.Children.Add(FileRow(entry));
             SetStatus($"{path}　·　{entries.Count} 个项目");
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { SetStatus($"无法读取目录：{ex.Message}"); }
+    }
+
+    private static List<FileSystemInfo> SearchSubtree(string root, string query, bool showHidden, CancellationToken cancellationToken)
+    {
+        var found = new List<FileSystemInfo>();
+        var pending = new Stack<(string Path, int Depth)>();
+        var visited = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        pending.Push((root, 0));
+        while (pending.Count > 0 && found.Count < 1000)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var (directory, depth) = pending.Pop();
+            string canonical;
+            try { canonical = Path.GetFullPath(directory); }
+            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException) { continue; }
+            if (!visited.Add(canonical)) continue;
+            try
+            {
+                foreach (var child in Directory.EnumerateFileSystemEntries(directory))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var attributes = File.GetAttributes(child);
+                        if (!showHidden && ((attributes & FileAttributes.Hidden) != 0 || Path.GetFileName(child).StartsWith(".", StringComparison.Ordinal))) continue;
+                        var isDirectory = (attributes & FileAttributes.Directory) != 0;
+                        FileSystemInfo item = isDirectory ? new DirectoryInfo(child) : new FileInfo(child);
+                        if (item.Name.Contains(query, StringComparison.OrdinalIgnoreCase)) found.Add(item);
+                        if (isDirectory && depth < 31 && (attributes & FileAttributes.ReparsePoint) == 0) pending.Push((child, depth + 1));
+                        if (found.Count >= 1000) break;
+                    }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        return found;
     }
 
     private static List<FileSystemInfo> SortEntries(List<FileSystemInfo> entries, SortMode mode)
@@ -293,6 +349,13 @@ public sealed class MainWindow : Window
     }
 
     private string SortLabel() => _sortMode switch { SortMode.Name => "名称排序", SortMode.Modified => "修改时间", SortMode.Size => "大小排序", _ => "类型排序" };
+    private string SearchScopeLabel() => _searchSubfolders ? "搜索：含子目录" : "搜索：当前目录";
+    private void ToggleSearchScope()
+    {
+        _searchSubfolders = !_searchSubfolders;
+        if (_searchScopeButton is not null) _searchScopeButton.Content = SearchScopeLabel();
+        _ = LoadDirectoryAsync(_currentPath);
+    }
     private string HiddenLabel() => _showHidden ? "隐藏项：开" : "隐藏项：关";
 
     private void CycleSort()
@@ -485,6 +548,17 @@ public sealed class MainWindow : Window
         if (folders.Count > 0 && folders[0].TryGetLocalPath() is { } path) { _secondPath = path; CycleLayoutRefresh(); }
     }
 
+    private List<FileSystemInfo> GetTopLevelSelection()
+    {
+        var selected = _visibleEntries.Where(x => _selectedPaths.Contains(x.FullName)).ToList();
+        return selected.Where(candidate => !selected.Any(parent =>
+        {
+            if (parent is not DirectoryInfo || PathEquals(parent.FullName, candidate.FullName)) return false;
+            var prefix = Path.TrimEndingDirectorySeparator(Path.GetFullPath(parent.FullName)) + Path.DirectorySeparatorChar;
+            return Path.GetFullPath(candidate.FullName).StartsWith(prefix, PathComparison);
+        })).ToList();
+    }
+
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Source is TextBox) return;
@@ -499,7 +573,7 @@ public sealed class MainWindow : Window
     private void SetClipboard(bool cut)
     {
         if (_selectedPaths.Count == 0) { SetStatus("请先选择文件或文件夹"); return; }
-        _clipboardPaths = _selectedPaths.ToList();
+        _clipboardPaths = GetTopLevelSelection().Select(x => x.FullName).ToList();
         _cutPending = cut;
         if (_pasteButton is not null) _pasteButton.IsEnabled = true;
         SetStatus($"{(cut ? "已剪切" : "已复制")} {_clipboardPaths.Count} 项 · 粘贴到目标文件夹");
@@ -637,7 +711,7 @@ public sealed class MainWindow : Window
 
     private async void DeleteSelectedEntries()
     {
-        var entries = _visibleEntries.Where(x => _selectedPaths.Contains(x.FullName)).ToList();
+        var entries = GetTopLevelSelection();
         if (entries.Count == 0) { SetStatus("请先选择要删除的项目"); return; }
         var title = entries.Count == 1 ? $"确定永久删除“{entries[0].Name}”？此操作无法撤销。" : $"确定永久删除选中的 {entries.Count} 项？此操作无法撤销。";
         var confirm = new Window { Title = "确认永久删除", Width = 400, Height = 180, WindowStartupLocation = WindowStartupLocation.CenterOwner };
