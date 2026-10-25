@@ -51,6 +51,7 @@ public sealed class MainWindow : Window
             RefreshThemeColors();
         };
         BuildShell();
+        RefreshThemeColors();
         _ = LoadDirectoryAsync(_currentPath);
     }
 
