@@ -568,21 +568,21 @@ public sealed partial class MainWindow : Window
                     if (isCut && PathEquals(Path.GetDirectoryName(source)!, destinationFolder)) { completed.Add(source); operation.Progress.Report(new(completed.Count, sources.Count, $"跳过已在目标目录的项目 · {completed.Count}/{sources.Count}")); continue; }
                     if (Directory.Exists(source) && destinationFolder.StartsWith(source + Path.DirectorySeparatorChar, PathComparison))
                         throw new InvalidOperationException($"不能将文件夹“{Path.GetFileName(source)}”复制到自身内部");
-                    var destination = UniqueDestination(destinationFolder, Path.GetFileName(source));
+                    var destination = _fileSystem.UniqueDestination(destinationFolder, Path.GetFileName(source));
                     try
                     {
                         if (isCut)
                         {
-                            try { MovePath(source, destination); }
-                            catch (IOException) { CopyPath(source, destination, token); DeletePath(source, token); }
+                            try { _fileSystem.Move(source, destination); }
+                            catch (IOException) { _fileSystem.Copy(source, destination, token); _fileSystem.Delete(source, token); }
                         }
-                        else CopyPath(source, destination, token);
+                        else _fileSystem.Copy(source, destination, token);
                         completed.Add(source);
                         operation.Progress.Report(new(completed.Count, sources.Count, $"{(isCut ? "正在移动" : "正在复制")} {Path.GetFileName(source)} · {completed.Count}/{sources.Count}"));
                     }
                     catch
                     {
-                        try { if (File.Exists(destination)) File.Delete(destination); else if (Directory.Exists(destination)) DeletePath(destination); } catch { /* Keep the original operation error. */ }
+                        try { if (File.Exists(destination)) File.Delete(destination); else if (Directory.Exists(destination)) _fileSystem.Delete(destination); } catch { /* Keep the original operation error. */ }
                         throw;
                     }
                 }
@@ -615,75 +615,14 @@ public sealed partial class MainWindow : Window
     private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
     private static bool PathEquals(string left, string right) => string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), PathComparison);
 
-    private static string UniqueDestination(string folder, string name)
-    {
-        var original = Path.Combine(folder, name);
-        if (!File.Exists(original) && !Directory.Exists(original)) return original;
-        var isDirectory = Directory.Exists(original);
-        var stem = isDirectory ? name : Path.GetFileNameWithoutExtension(name);
-        var extension = isDirectory ? string.Empty : Path.GetExtension(name);
-        for (var i = 1; ; i++)
-        {
-            var copyName = $"{stem} - Copy {i}{extension}";
-            var candidate = Path.Combine(folder, copyName);
-            if (!File.Exists(candidate) && !Directory.Exists(candidate)) return candidate;
-        }
-    }
-
-    private static void MovePath(string source, string destination)
-    {
-        if (Directory.Exists(source)) Directory.Move(source, destination);
-        else File.Move(source, destination);
-    }
-
-    private static void CopyPath(string source, string destination, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var attributes = File.GetAttributes(source);
-        if ((attributes & FileAttributes.ReparsePoint) != 0)
-            throw new NotSupportedException("首版不复制符号链接/重解析点，以避免越出授权目录。");
-        if ((attributes & FileAttributes.Directory) == 0)
-        {
-            using var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024, FileOptions.SequentialScan);
-            using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.SequentialScan);
-            var buffer = new byte[128 * 1024];
-            int read;
-            while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                output.Write(buffer, 0, read);
-            }
-            return;
-        }
-        Directory.CreateDirectory(destination);
-        foreach (var child in Directory.EnumerateFileSystemEntries(source))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CopyPath(child, Path.Combine(destination, Path.GetFileName(child)), cancellationToken);
-        }
-    }
-
-    private static void DeletePath(string path, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (Directory.Exists(path))
-        {
-            var attributes = File.GetAttributes(path);
-            if ((attributes & FileAttributes.ReparsePoint) == 0)
-                foreach (var child in Directory.EnumerateFileSystemEntries(path)) DeletePath(child, cancellationToken);
-            Directory.Delete(path, recursive: false);
-        }
-        else File.Delete(path);
-    }
-
     private async void CreateTextFile()
     {
         var name = await TextPromptDialog.ShowAsync(this, "新建文本文件", $"在 {_currentPath} 中创建空白文本文件", "例如：notes.txt", "", "创建文件");
-        if (!IsValidLeafName(name)) { if (!string.IsNullOrWhiteSpace(name)) SetStatus("文件名无效"); return; }
+        if (!LocalFileSystemService.IsValidLeafName(name)) { if (!string.IsNullOrWhiteSpace(name)) SetStatus("文件名无效"); return; }
         try
         {
             var filePath = Path.Combine(_currentPath, name!);
-            await using (var stream = new FileStream(filePath, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { }
+            _fileSystem.CreateEmptyFile(filePath);
             _search.Text = "";
             await LoadDirectoryAsync(_currentPath);
             var created = _visibleEntries.FirstOrDefault(x => PathEquals(x.FullName, filePath));
@@ -692,22 +631,14 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { SetStatus($"创建文件失败：{ex.Message}"); }
     }
 
-    private static bool IsValidLeafName(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name) || name is "." or "..") return false;
-        const string crossPlatformInvalid = "<>:\"/\\|?*";
-        return !name.Any(ch => char.IsControl(ch) || crossPlatformInvalid.Contains(ch) || Path.GetInvalidFileNameChars().Contains(ch));
-    }
-
     private async void CreateFolder()
     {
         var name = await TextPromptDialog.ShowAsync(this, "新建文件夹", $"在此位置新建文件夹：{_currentPath}", "文件夹名称", "", "创建");
-        if (!IsValidLeafName(name)) { if (!string.IsNullOrWhiteSpace(name)) SetStatus("文件夹名称无效"); return; }
+        if (!LocalFileSystemService.IsValidLeafName(name)) { if (!string.IsNullOrWhiteSpace(name)) SetStatus("文件夹名称无效"); return; }
         try
         {
             var path = Path.Combine(_currentPath, name!);
-            if (Directory.Exists(path) || File.Exists(path)) { SetStatus("该名称已存在"); return; }
-            Directory.CreateDirectory(path);
+            _fileSystem.CreateDirectory(path);
             await LoadDirectoryAsync(_currentPath);
         }
         catch (Exception ex) { SetStatus($"创建文件夹失败：{ex.Message}"); }
@@ -716,8 +647,8 @@ public sealed partial class MainWindow : Window
     private async void RenameEntry(FileSystemInfo entry)
     {
         var newName = await TextPromptDialog.ShowAsync(this, "重命名", "输入新名称", "文件名", entry.Name, "重命名");
-        if (!IsValidLeafName(newName) || newName == entry.Name) return;
-        try { var destination = Path.Combine(Path.GetDirectoryName(entry.FullName)!, newName!); if (entry is DirectoryInfo) Directory.Move(entry.FullName, destination); else File.Move(entry.FullName, destination); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { SetStatus($"重命名失败：{ex.Message}"); }
+        if (!LocalFileSystemService.IsValidLeafName(newName) || newName == entry.Name) return;
+        try { var destination = Path.Combine(Path.GetDirectoryName(entry.FullName)!, newName!); _fileSystem.Rename(entry.FullName, destination); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { SetStatus($"重命名失败：{ex.Message}"); }
     }
 
     private async void DeleteSelectedEntries()
@@ -737,7 +668,7 @@ public sealed partial class MainWindow : Window
                 foreach (var entry in entries)
                 {
                     operation.Source.Token.ThrowIfCancellationRequested();
-                    DeletePath(entry.FullName, operation.Source.Token);
+                    _fileSystem.Delete(entry.FullName, operation.Source.Token);
                     deleted.Add(entry.FullName);
                     operation.Progress.Report(new(deleted.Count, entries.Count, $"正在删除 {entry.Name} · {deleted.Count}/{entries.Count}"));
                 }
