@@ -102,7 +102,7 @@ internal static class SampleData
         }
 
         using var stream = File.Create(path);
-        stream.Write("\x89PNG\r\n\x1a\n"u8);
+        stream.Write(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }); // PNG 签名须用原始字节：u8 字面量会把 \x89 当作字符再 UTF-8 编码为 C2 89
         WriteChunk(stream, "IHDR", BuildIhdr(w, h));
         using var compressed = new MemoryStream();
         using (var zlib = new ZLibStream(compressed, CompressionLevel.Fastest, leaveOpen: true))
