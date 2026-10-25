@@ -207,6 +207,8 @@ public sealed class ScreenshotTests
     {
         var png = Path.Combine(PicturesDir, "screenshot_ide.png");
         Assert.True(File.Exists(png), "sample png missing");
+        File.Copy(png, Path.Combine(OutputDir, "sample-ide.png"), overwrite: true);
+        File.Copy(Path.Combine(PicturesDir, "IMG_20261001.jpg"), Path.Combine(OutputDir, "sample-img.png"), overwrite: true);
         using (var direct = new Bitmap(png))
             Assert.True(direct.PixelSize.Width > 0, "direct Bitmap decode failed");
 
