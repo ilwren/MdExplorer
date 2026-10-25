@@ -561,7 +561,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             {
                 if (_snackbarGeneration == generation)
                     IsSnackbarVisible = false;
-            }).ConfigureAwait(false);
+            });
         });
     }
 

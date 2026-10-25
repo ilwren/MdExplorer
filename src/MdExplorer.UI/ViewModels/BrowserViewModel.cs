@@ -636,7 +636,7 @@ public sealed partial class BrowserViewModel : ObservableObject
                         using var stream = File.OpenRead(item.FullPath);
                         return Bitmap.DecodeToWidth(stream, 192);
                     }, ct).ConfigureAwait(false);
-                    await Dispatcher.UIThread.InvokeAsync(() => item.Thumbnail = bitmap).ConfigureAwait(false);
+                    await Dispatcher.UIThread.InvokeAsync(() => item.Thumbnail = bitmap);
                 }
                 finally { gate.Release(); }
             }
