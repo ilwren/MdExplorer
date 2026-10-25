@@ -18,7 +18,11 @@ namespace MdExplorer.Desktop.Views;
 public sealed class MainWindow : Window
 {
     private readonly Grid _workspace = new();
+    private Grid? _listHost;
+    private ScrollViewer? _previewScroll;
+    private ScrollViewer? _secondScroll;
     private readonly StackPanel _fileList = new() { Spacing = 2 };
+    private readonly WrapPanel _gridList = new() { Orientation = Orientation.Horizontal, ItemWidth = 190, ItemHeight = 140, IsVisible = false };
     private readonly StackPanel _secondList = new() { Spacing = 2 };
     private readonly StackPanel _preview = new() { Spacing = 10 };
     private Avalonia.Media.Imaging.Bitmap? _currentPreviewBitmap;
@@ -41,6 +45,9 @@ public sealed class MainWindow : Window
     private Button? _sortButton;
     private Button? _sortDirectionButton;
     private Button? _hiddenButton;
+    private Button? _viewButton;
+    private Grid? _listColumnHeader;
+    private ViewMode _viewMode = ViewMode.List;
     private Button? _backButton;
     private Button? _forwardButton;
     private readonly Stack<string> _backHistory = new();
@@ -63,6 +70,7 @@ public sealed class MainWindow : Window
     private CancellationTokenSource? _loadCancellation;
 
     private enum LayoutMode { Preview, SideBySide, Stacked }
+    private enum ViewMode { List, Grid }
     private enum SortMode { Name, Modified, Size, Type }
 
     public MainWindow()
@@ -199,7 +207,8 @@ public sealed class MainWindow : Window
         actions.Children.Add(_sortButton);
         actions.Children.Add(_sortDirectionButton);
         actions.Children.Add(_hiddenButton);
-        actions.Children.Add(ActionButton("☷", () => SetStatus("当前为列表视图")));
+        _viewButton = ActionButton(ViewLabel(), ToggleView, "列表 / 网格视图");
+        actions.Children.Add(_viewButton);
         _copyButton = ActionButton("复制", () => SetClipboard(cut: false), "复制所选项目");
         _cutButton = ActionButton("剪切", () => SetClipboard(cut: true), "剪切所选项目");
         _pasteButton = ActionButton("粘贴", PasteClipboard, "粘贴到当前文件夹");
@@ -212,7 +221,7 @@ public sealed class MainWindow : Window
         AddAt(heading, actions, 1);
         DockPanel.SetDock(heading, Dock.Top);
         pane.Children.Add(heading);
-        var columns = new Grid { Height = 32 };
+        var columns = _listColumnHeader = new Grid { Height = 32, IsVisible = _viewMode == ViewMode.List };
         columns.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
         columns.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(120)));
         columns.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(90)));
@@ -223,7 +232,12 @@ public sealed class MainWindow : Window
         Grid.SetColumn(size, 2); columns.Children.Add(size);
         DockPanel.SetDock(columns, Dock.Top);
         pane.Children.Add(columns);
-        var scroll = new ScrollViewer { Content = _fileList, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var listHost = _listHost = new Grid();
+        _fileList.IsVisible = _viewMode == ViewMode.List;
+        _gridList.IsVisible = _viewMode == ViewMode.Grid;
+        listHost.Children.Add(_fileList);
+        listHost.Children.Add(_gridList);
+        var scroll = new ScrollViewer { Content = listHost, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         pane.Children.Add(scroll);
         return pane;
     }
@@ -234,7 +248,7 @@ public sealed class MainWindow : Window
         var title = new TextBlock { Text = "预览与文件信息", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(20, 20, 20, 12) };
         DockPanel.SetDock(title, Dock.Top);
         pane.Children.Add(title);
-        var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = _preview };
+        var scroll = _previewScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = _preview };
         pane.Children.Add(scroll);
         return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(1, 0, 0, 0), Child = pane };
     }
@@ -346,8 +360,7 @@ public sealed class MainWindow : Window
                 if (_copyButton is not null) _copyButton.IsEnabled = false;
                 if (_cutButton is not null) _cutButton.IsEnabled = false;
             }
-            _fileList.Children.Clear();
-            foreach (var entry in entries) _fileList.Children.Add(FileRow(entry));
+            RenderEntries();
             SetStatus($"{path}　·　{entries.Count} 个项目");
         }
         catch (OperationCanceledException) { }
@@ -477,6 +490,57 @@ public sealed class MainWindow : Window
         return button;
     }
 
+    private Control GridFileCard(FileSystemInfo entry)
+    {
+        var isDirectory = entry is DirectoryInfo;
+        var icon = new Border
+        {
+            Width = 52, Height = 44, CornerRadius = new CornerRadius(12),
+            Background = Brush(isDirectory ? "#F6E2A2" : "#E8DEF8"),
+            Child = new TextBlock { Text = isDirectory ? "▰" : IconFor(entry.Extension), FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Brush("#6750A4"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+        };
+        var details = new StackPanel { Spacing = 5, Margin = new Thickness(2, 8, 2, 2) };
+        details.Children.Add(new TextBlock { Text = entry.Name, FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, MaxHeight = 34, TextTrimming = TextTrimming.CharacterEllipsis });
+        var metadata = isDirectory ? "文件夹" : $"{FormatSize(((FileInfo)entry).Length)} · {entry.Extension.TrimStart('.').ToUpperInvariant()}";
+        details.Children.Add(new TextBlock { Text = metadata, FontSize = 10, Foreground = Brush("#77737F"), TextTrimming = TextTrimming.CharacterEllipsis });
+        var content = new StackPanel { Children = { icon, details } };
+        var card = new MdCard { Width = 176, Height = 128, Margin = new Thickness(5), Padding = new Thickness(10), Content = content, Variant = _selectedPaths.Contains(entry.FullName) ? MdCardVariant.Filled : MdCardVariant.Outlined };
+        card.PointerPressed += (_, e) =>
+        {
+            _toggleSelectionOnClick = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+            _rangeSelectionOnClick = !_toggleSelectionOnClick && e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        };
+        card.Click += (_, _) =>
+        {
+            SelectEntry(entry, _toggleSelectionOnClick, _rangeSelectionOnClick);
+            _toggleSelectionOnClick = false; _rangeSelectionOnClick = false;
+        };
+        card.DoubleTapped += (_, _) => { if (isDirectory) Navigate(entry.FullName); else OpenEntry(entry); };
+        return card;
+    }
+
+    private void RenderEntries()
+    {
+        _fileList.Children.Clear();
+        _gridList.Children.Clear();
+        foreach (var item in _visibleEntries)
+        {
+            _fileList.Children.Add(FileRow(item));
+            _gridList.Children.Add(GridFileCard(item));
+        }
+        _fileList.IsVisible = _viewMode == ViewMode.List;
+        _gridList.IsVisible = _viewMode == ViewMode.Grid;
+    }
+
+    private string ViewLabel() => _viewMode == ViewMode.List ? "☷ 列表" : "▦ 网格";
+    private void ToggleView()
+    {
+        _viewMode = _viewMode == ViewMode.List ? ViewMode.Grid : ViewMode.List;
+        if (_viewButton is not null) _viewButton.Content = ViewLabel();
+        if (_listColumnHeader is not null) _listColumnHeader.IsVisible = _viewMode == ViewMode.List;
+        RenderEntries();
+    }
+
     private void SelectEntry(FileSystemInfo entry, bool toggle = false, bool range = false)
     {
         if (range && _selectionAnchor is not null)
@@ -506,7 +570,7 @@ public sealed class MainWindow : Window
         {
             ClearPreview();
             SetStatus("未选择项目");
-            _fileList.Children.Clear(); foreach (var item in _visibleEntries) _fileList.Children.Add(FileRow(item));
+            RenderEntries();
             return;
         }
         entry = _selected;
@@ -545,7 +609,7 @@ public sealed class MainWindow : Window
         actions.Children.Add(ActionButton("重命名", () => RenameEntry(entry)));
         actions.Children.Add(ActionButton("删除", DeleteSelectedEntries));
         _preview.Children.Add(actions);
-        _fileList.Children.Clear(); foreach (var item in _visibleEntries) _fileList.Children.Add(FileRow(item));
+        RenderEntries();
     }
 
     private void ClearPreview()
@@ -566,6 +630,9 @@ public sealed class MainWindow : Window
     private void CycleLayout()
     {
         _mode = _mode switch { LayoutMode.Preview => LayoutMode.SideBySide, LayoutMode.SideBySide => LayoutMode.Stacked, _ => LayoutMode.Preview };
+        _listHost?.Children.Remove(_fileList); _listHost?.Children.Remove(_gridList);
+        if (_previewScroll is not null) _previewScroll.Content = null;
+        if (_secondScroll is not null) _secondScroll.Content = null;
         _workspace.ColumnDefinitions.Clear();
         _workspace.RowDefinitions.Clear();
         _workspace.Children.Clear();
@@ -619,7 +686,8 @@ public sealed class MainWindow : Window
             }
         }
         catch (Exception ex) { _secondList.Children.Add(new TextBlock { Text = ex.Message }); }
-        box.Children.Add(new ScrollViewer { Content = _secondList });
+        _secondScroll = new ScrollViewer { Content = _secondList };
+        box.Children.Add(_secondScroll);
         return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(1, 0, 0, 0), Child = box };
     }
 
@@ -660,7 +728,7 @@ public sealed class MainWindow : Window
         ClearPreview();
         if (_copyButton is not null) _copyButton.IsEnabled = false;
         if (_cutButton is not null) _cutButton.IsEnabled = false;
-        _fileList.Children.Clear(); foreach (var item in _visibleEntries) _fileList.Children.Add(FileRow(item));
+        RenderEntries();
         SetStatus("未选择项目");
     }
 
