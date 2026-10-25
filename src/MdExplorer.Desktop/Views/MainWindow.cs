@@ -10,6 +10,7 @@ using Avalonia.Styling;
 using Md3.Avalonia.Controls;
 using Md3.Avalonia.Themes.Dynamic;
 using Avalonia.VisualTree;
+using MdExplorer.Desktop;
 
 namespace MdExplorer.Desktop.Views;
 
@@ -424,6 +425,7 @@ public sealed class MainWindow : Window
     private void CycleTheme()
     {
         _themeMode = _themeMode switch { MdThemeMode.System => MdThemeMode.Light, MdThemeMode.Light => MdThemeMode.Dark, _ => MdThemeMode.System };
+        ThemePreferenceStore.Save(_themeMode);
         var app = Application.Current!;
         app.RequestedThemeVariant = _themeMode switch { MdThemeMode.Light => ThemeVariant.Light, MdThemeMode.Dark => ThemeVariant.Dark, _ => ThemeVariant.Default };
         var dark = _themeMode == MdThemeMode.Dark || (_themeMode == MdThemeMode.System && app.ActualThemeVariant == ThemeVariant.Dark);
