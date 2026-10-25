@@ -4,7 +4,7 @@
 
 ## 第一版 Avalonia 桌面应用
 
-`src/MdExplorer.Desktop` 是原生 C# / Avalonia 桌面应用，使用 `Md3.Avalonia` 的 `MaterialTheme`、`MdButton`、`MdTextBox` 与 `MdCard` 控件，支持系统跟随/浅色/深色主题循环切换，并将偏好保存到用户配置目录。当前首版提供本地目录浏览、按名称搜索、名称/修改时间/大小/类型排序、隐藏文件开关、文件/文件夹选择、文本与图片预览、文件信息、新建文件夹、重命名、复制/剪切/粘贴（当前单项）、永久删除、系统打开文件，以及预览/左右双栏/上下双栏工作区切换。
+`src/MdExplorer.Desktop` 是原生 C# / Avalonia 桌面应用，使用 `Md3.Avalonia` 的 `MaterialTheme`、`MdButton`、`MdTextBox` 与 `MdCard` 控件，支持系统跟随/浅色/深色主题循环切换，并将偏好保存到用户配置目录。当前首版提供本地目录浏览、按名称搜索、名称/修改时间/大小/类型排序、隐藏文件开关、Ctrl/Shift 多选文件/文件夹、文本与图片预览、文件信息、新建文件夹、重命名、复制/剪切/粘贴（当前单项）、永久删除、系统打开文件，以及预览/左右双栏/上下双栏工作区切换。
 
 ```bash
 dotnet restore MdExplorer.sln

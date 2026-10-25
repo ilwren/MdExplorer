@@ -27,7 +27,12 @@ public sealed class MainWindow : Window
     private Button? _themeButton;
     private IReadOnlyDictionary<string, Color> _themeRoles = new Dictionary<string, Color>();
     private MdThemeMode _themeMode = MdThemeMode.System;
-    private string? _clipboardPath;
+    private readonly HashSet<string> _selectedPaths = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+    private List<FileSystemInfo> _visibleEntries = new();
+    private string? _selectionAnchor;
+    private bool _toggleSelectionOnClick;
+    private bool _rangeSelectionOnClick;
+    private List<string> _clipboardPaths = new();
     private bool _cutPending;
     private Button? _copyButton;
     private Button? _cutButton;
@@ -173,9 +178,9 @@ public sealed class MainWindow : Window
         _copyButton = ActionButton("复制", () => SetClipboard(cut: false), "复制所选项目");
         _cutButton = ActionButton("剪切", () => SetClipboard(cut: true), "剪切所选项目");
         _pasteButton = ActionButton("粘贴", PasteClipboard, "粘贴到当前文件夹");
-        _copyButton.IsEnabled = _selected is not null;
-        _cutButton.IsEnabled = _selected is not null;
-        _pasteButton.IsEnabled = _clipboardPath is not null;
+        _copyButton.IsEnabled = _selectedPaths.Count > 0;
+        _cutButton.IsEnabled = _selectedPaths.Count > 0;
+        _pasteButton.IsEnabled = _clipboardPaths.Count > 0;
         actions.Children.Add(_copyButton);
         actions.Children.Add(_cutButton);
         actions.Children.Add(_pasteButton);
@@ -228,6 +233,12 @@ public sealed class MainWindow : Window
 
     private async Task LoadDirectoryAsync(string path)
     {
+        if (!PathEquals(path, _currentPath))
+        {
+            _selectedPaths.Clear(); _selectionAnchor = null; _selected = null; _preview.Children.Clear();
+            if (_copyButton is not null) _copyButton.IsEnabled = false;
+            if (_cutButton is not null) _cutButton.IsEnabled = false;
+        }
         _loadCancellation?.Cancel();
         var cts = _loadCancellation = new CancellationTokenSource();
         var query = _search.Text?.Trim() ?? "";
@@ -248,6 +259,9 @@ public sealed class MainWindow : Window
             _currentPath = path;
             _pathLabel.Text = path;
             _countLabel.Text = $"{entries.Count} 个项目 · {SortLabel()}";
+            _visibleEntries = entries;
+            _selectedPaths.RemoveWhere(path => !_visibleEntries.Any(entry => PathEquals(entry.FullName, path)));
+            if (_selected is not null && !_selectedPaths.Contains(_selected.FullName)) _selected = _visibleEntries.FirstOrDefault(entry => _selectedPaths.Contains(entry.FullName));
             _fileList.Children.Clear();
             foreach (var entry in entries) _fileList.Children.Add(FileRow(entry));
             SetStatus($"{path}　·　{entries.Count} 个项目");
@@ -311,17 +325,55 @@ public sealed class MainWindow : Window
         var sizeText = isDirectory ? "文件夹" : FormatSize(((FileInfo)entry).Length);
         var size = new TextBlock { Text = sizeText, FontSize = 11, Foreground = Brush("#77737F"), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 12, 0) };
         Grid.SetColumn(size, 2); grid.Children.Add(size);
-        var button = new MdButton { Content = grid, Variant = _selected?.FullName == entry.FullName ? MdButtonVariant.Tonal : MdButtonVariant.Text, Size = MdButtonSize.Small, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(0), HorizontalAlignment = HorizontalAlignment.Stretch };
-        button.Click += (_, _) => SelectEntry(entry);
+        var button = new MdButton { Content = grid, Variant = _selectedPaths.Contains(entry.FullName) ? MdButtonVariant.Tonal : MdButtonVariant.Text, Size = MdButtonSize.Small, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(0), HorizontalAlignment = HorizontalAlignment.Stretch };
+        button.PointerPressed += (_, e) =>
+        {
+            _toggleSelectionOnClick = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+            _rangeSelectionOnClick = !_toggleSelectionOnClick && e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        };
+        button.Click += (_, _) =>
+        {
+            SelectEntry(entry, _toggleSelectionOnClick, _rangeSelectionOnClick);
+            _toggleSelectionOnClick = false; _rangeSelectionOnClick = false;
+        };
         button.DoubleTapped += (_, _) => { if (isDirectory) _ = LoadDirectoryAsync(entry.FullName); else SelectEntry(entry); };
         return button;
     }
 
-    private void SelectEntry(FileSystemInfo entry)
+    private void SelectEntry(FileSystemInfo entry, bool toggle = false, bool range = false)
     {
-        _selected = entry;
-        if (_copyButton is not null) _copyButton.IsEnabled = true;
-        if (_cutButton is not null) _cutButton.IsEnabled = true;
+        if (range && _selectionAnchor is not null)
+        {
+            var anchor = _visibleEntries.FindIndex(x => PathEquals(x.FullName, _selectionAnchor));
+            var current = _visibleEntries.FindIndex(x => PathEquals(x.FullName, entry.FullName));
+            if (anchor >= 0 && current >= 0)
+            {
+                _selectedPaths.Clear();
+                for (var i = Math.Min(anchor, current); i <= Math.Max(anchor, current); i++) _selectedPaths.Add(_visibleEntries[i].FullName);
+            }
+            else { _selectedPaths.Clear(); _selectedPaths.Add(entry.FullName); _selectionAnchor = entry.FullName; }
+        }
+        else if (toggle)
+        {
+            if (!_selectedPaths.Add(entry.FullName)) _selectedPaths.Remove(entry.FullName);
+            if (_selectionAnchor is null || !_selectedPaths.Contains(_selectionAnchor)) _selectionAnchor = entry.FullName;
+        }
+        else
+        {
+            _selectedPaths.Clear(); _selectedPaths.Add(entry.FullName); _selectionAnchor = entry.FullName;
+        }
+        _selected = _selectedPaths.Contains(entry.FullName) ? entry : _visibleEntries.LastOrDefault(x => _selectedPaths.Contains(x.FullName));
+        if (_copyButton is not null) _copyButton.IsEnabled = _selectedPaths.Count > 0;
+        if (_cutButton is not null) _cutButton.IsEnabled = _selectedPaths.Count > 0;
+        if (_selected is null)
+        {
+            _preview.Children.Clear();
+            SetStatus("未选择项目");
+            _fileList.Children.Clear(); foreach (var item in _visibleEntries) _fileList.Children.Add(FileRow(item));
+            return;
+        }
+        entry = _selected;
+        SetStatus(_selectedPaths.Count > 1 ? $"已选择 {_selectedPaths.Count} 项" : entry.Name);
         _preview.Children.Clear();
         _preview.Margin = new Thickness(20, 4, 20, 20);
         var ext = entry.Extension.ToLowerInvariant();
@@ -347,8 +399,9 @@ public sealed class MainWindow : Window
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Margin = new Thickness(0, 5, 0, 0) };
         actions.Children.Add(ActionButton("打开文件", () => OpenEntry(entry)));
         actions.Children.Add(ActionButton("重命名", () => RenameEntry(entry)));
-        actions.Children.Add(ActionButton("删除", () => DeleteEntry(entry)));
+        actions.Children.Add(ActionButton("删除", DeleteSelectedEntries));
         _preview.Children.Add(actions);
+        _fileList.Children.Clear(); foreach (var item in _visibleEntries) _fileList.Children.Add(FileRow(item));
     }
 
     private void AddInfo(string label, string value)
@@ -439,71 +492,82 @@ public sealed class MainWindow : Window
         if (shortcut && e.Key == Key.C) { SetClipboard(cut: false); e.Handled = true; }
         else if (shortcut && e.Key == Key.X) { SetClipboard(cut: true); e.Handled = true; }
         else if (shortcut && e.Key == Key.V) { PasteClipboard(); e.Handled = true; }
-        else if (e.Key == Key.F2 && _selected is not null) { RenameEntry(_selected); e.Handled = true; }
-        else if (e.Key == Key.Delete && _selected is not null) { DeleteEntry(_selected); e.Handled = true; }
+        else if (e.Key == Key.F2 && _selected is not null && _selectedPaths.Count == 1) { RenameEntry(_selected); e.Handled = true; }
+        else if (e.Key == Key.Delete && _selectedPaths.Count > 0) { DeleteSelectedEntries(); e.Handled = true; }
     }
 
     private void SetClipboard(bool cut)
     {
-        if (_selected is null) { SetStatus("请先选择一个文件或文件夹"); return; }
-        _clipboardPath = _selected.FullName;
+        if (_selectedPaths.Count == 0) { SetStatus("请先选择文件或文件夹"); return; }
+        _clipboardPaths = _selectedPaths.ToList();
         _cutPending = cut;
         if (_pasteButton is not null) _pasteButton.IsEnabled = true;
-        SetStatus($"{(cut ? "已剪切" : "已复制")}：{_selected.Name} · 粘贴到目标文件夹");
+        SetStatus($"{(cut ? "已剪切" : "已复制")} {_clipboardPaths.Count} 项 · 粘贴到目标文件夹");
     }
 
     private async void PasteClipboard()
     {
-        if (_clipboardPath is null || !File.Exists(_clipboardPath) && !Directory.Exists(_clipboardPath))
-        {
-            SetStatus("剪贴板中的源文件已不存在");
-            return;
-        }
-        var source = _clipboardPath;
+        if (_clipboardPaths.Count == 0) { SetStatus("剪贴板中没有项目"); return; }
+        var sources = _clipboardPaths.ToList();
         var isCut = _cutPending;
-        var sourceFull = Path.GetFullPath(source);
         var destinationFolder = Path.GetFullPath(_currentPath);
-        if (isCut && string.Equals(Path.GetDirectoryName(sourceFull), destinationFolder, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-        {
-            _clipboardPath = null; _cutPending = false;
-            if (_pasteButton is not null) _pasteButton.IsEnabled = false;
-            SetStatus("源项目已位于当前文件夹，无需移动");
-            return;
-        }
-        if (Directory.Exists(sourceFull) && destinationFolder.StartsWith(sourceFull + Path.DirectorySeparatorChar, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-        {
-            SetStatus("不能将文件夹复制或移动到自身内部");
-            return;
-        }
-        var destination = UniqueDestination(destinationFolder, Path.GetFileName(sourceFull));
-        SetStatus($"正在{(isCut ? "移动" : "复制")} {Path.GetFileName(sourceFull)}…");
+        var completed = new List<string>();
+        SetStatus($"正在{(isCut ? "移动" : "复制")} {sources.Count} 项…");
         try
         {
             await Task.Run(() =>
             {
-                if (isCut)
+                foreach (var rawSource in sources)
                 {
-                    try { MovePath(sourceFull, destination); }
-                    catch (IOException) { CopyPath(sourceFull, destination); DeletePath(sourceFull); }
+                    var source = Path.GetFullPath(rawSource);
+                    if (!File.Exists(source) && !Directory.Exists(source)) throw new FileNotFoundException("源项目不存在", source);
+                    if (isCut && PathEquals(Path.GetDirectoryName(source)!, destinationFolder)) { completed.Add(source); continue; }
+                    if (Directory.Exists(source) && destinationFolder.StartsWith(source + Path.DirectorySeparatorChar, PathComparison))
+                        throw new InvalidOperationException($"不能将文件夹“{Path.GetFileName(source)}”复制到自身内部");
+                    var destination = UniqueDestination(destinationFolder, Path.GetFileName(source));
+                    try
+                    {
+                        if (isCut)
+                        {
+                            try { MovePath(source, destination); }
+                            catch (IOException) { CopyPath(source, destination); DeletePath(source); }
+                        }
+                        else CopyPath(source, destination);
+                        completed.Add(source);
+                    }
+                    catch
+                    {
+                        try { if (File.Exists(destination)) File.Delete(destination); else if (Directory.Exists(destination)) Directory.Delete(destination, recursive: true); } catch { /* Keep the original operation error. */ }
+                        throw;
+                    }
                 }
-                else CopyPath(sourceFull, destination);
             });
-            if (isCut)
-            {
-                _clipboardPath = null; _cutPending = false; _selected = null; _preview.Children.Clear();
-                if (_pasteButton is not null) _pasteButton.IsEnabled = false;
-                if (_copyButton is not null) _copyButton.IsEnabled = false;
-                if (_cutButton is not null) _cutButton.IsEnabled = false;
-            }
+            if (isCut) FinishCut(completed);
             await LoadDirectoryAsync(_currentPath);
-            SetStatus($"已{(isCut ? "移动" : "复制")}到当前文件夹：{Path.GetFileName(destination)}");
+            SetStatus($"已{(isCut ? "移动" : "复制")} {completed.Count} 项到当前文件夹");
         }
         catch (Exception ex)
         {
-            try { if (File.Exists(destination)) File.Delete(destination); else if (Directory.Exists(destination)) Directory.Delete(destination, recursive: true); } catch { /* Preserve the original operation error. */ }
-            SetStatus($"操作失败，源文件已保留：{ex.Message}");
+            if (isCut) FinishCut(completed);
+            await LoadDirectoryAsync(_currentPath);
+            SetStatus($"已完成 {completed.Count} 项；其余操作失败：{ex.Message}");
         }
     }
+
+    private void FinishCut(IReadOnlyCollection<string> completed)
+    {
+        _clipboardPaths.RemoveAll(path => completed.Any(done => PathEquals(path, done)));
+        if (_clipboardPaths.Count == 0) _cutPending = false;
+        _selectedPaths.RemoveWhere(path => completed.Any(done => PathEquals(path, done)));
+        _selected = _visibleEntries.LastOrDefault(x => _selectedPaths.Contains(x.FullName));
+        if (_selected is null) _preview.Children.Clear();
+        if (_pasteButton is not null) _pasteButton.IsEnabled = _clipboardPaths.Count > 0;
+        if (_copyButton is not null) _copyButton.IsEnabled = _selectedPaths.Count > 0;
+        if (_cutButton is not null) _cutButton.IsEnabled = _selectedPaths.Count > 0;
+    }
+
+    private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    private static bool PathEquals(string left, string right) => string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), PathComparison);
 
     private static string UniqueDestination(string folder, string name)
     {
@@ -571,15 +635,30 @@ public sealed class MainWindow : Window
         try { var destination = Path.Combine(Path.GetDirectoryName(entry.FullName)!, newName); if (entry is DirectoryInfo) Directory.Move(entry.FullName, destination); else File.Move(entry.FullName, destination); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { SetStatus($"重命名失败：{ex.Message}"); }
     }
 
-    private async void DeleteEntry(FileSystemInfo entry)
+    private async void DeleteSelectedEntries()
     {
-        var confirm = new Window { Title = "确认删除", Width = 380, Height = 160, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var entries = _visibleEntries.Where(x => _selectedPaths.Contains(x.FullName)).ToList();
+        if (entries.Count == 0) { SetStatus("请先选择要删除的项目"); return; }
+        var title = entries.Count == 1 ? $"确定永久删除“{entries[0].Name}”？此操作无法撤销。" : $"确定永久删除选中的 {entries.Count} 项？此操作无法撤销。";
+        var confirm = new Window { Title = "确认永久删除", Width = 400, Height = 180, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var yes = new MdButton { Content = "永久删除", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        confirm.Content = new StackPanel { Margin = new Thickness(18), Children = { new TextBlock { Text = $"确定永久删除“{entry.Name}”？此操作无法撤销。", TextWrapping = TextWrapping.Wrap }, yes } };
+        confirm.Content = new StackPanel { Margin = new Thickness(18), Children = { new TextBlock { Text = title, TextWrapping = TextWrapping.Wrap }, yes } };
         yes.Click += (_, _) => confirm.Close(true);
-        var accepted = await confirm.ShowDialog<bool>(this);
-        if (!accepted) return;
-        try { if (entry is DirectoryInfo) Directory.Delete(entry.FullName, true); else File.Delete(entry.FullName); _selected = null; _preview.Children.Clear(); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { SetStatus($"删除失败：{ex.Message}"); }
+        if (!await confirm.ShowDialog<bool>(this)) return;
+        var deleted = new List<string>();
+        try
+        {
+            await Task.Run(() =>
+            {
+                foreach (var entry in entries) { DeletePath(entry.FullName); deleted.Add(entry.FullName); }
+            });
+            SetStatus($"已永久删除 {deleted.Count} 项");
+        }
+        catch (Exception ex) { SetStatus($"已删除 {deleted.Count} 项；后续删除失败：{ex.Message}"); }
+        _selectedPaths.Clear(); _selectionAnchor = null; _selected = null; _preview.Children.Clear();
+        if (_copyButton is not null) _copyButton.IsEnabled = false;
+        if (_cutButton is not null) _cutButton.IsEnabled = false;
+        await LoadDirectoryAsync(_currentPath);
     }
 
     private void OpenEntry(FileSystemInfo entry)
