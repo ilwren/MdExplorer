@@ -1,5 +1,6 @@
 using MdExplorer.Application;
 using MdExplorer.Domain;
+using Xunit;
 
 namespace MdExplorer.Tests;
 
