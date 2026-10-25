@@ -6,7 +6,7 @@
         MinWidth="760" MinHeight="540" Background="#FFF7F6F9">
   <DockPanel>
     <Border DockPanel.Dock="Top" Background="#FFFAF9FB" BorderBrush="#FFEAE7EE" BorderThickness="0,0,0,1">
-      <Grid Height="62" ColumnSpacing="14">
+      <Grid x:Name="HeaderGrid" Height="62" ColumnSpacing="14">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="185"/><ColumnDefinition Width="92"/><ColumnDefinition Width="*"/>
           <ColumnDefinition Width="290"/><ColumnDefinition Width="Auto"/>
@@ -21,7 +21,7 @@
           <md:MdButton x:Name="BackButton" Content="‹" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="后退"/>
           <md:MdButton x:Name="ForwardButton" Content="›" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="前进"/>
         </StackPanel>
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <StackPanel x:Name="PathPanel" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
           <TextBlock Text="⌂" FontSize="17" VerticalAlignment="Center"/>
           <TextBlock x:Name="PathLabel" Text="本地文件" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         </StackPanel>
@@ -101,7 +101,8 @@
               <TextBlock Text="文件" FontSize="21" FontWeight="SemiBold"/>
               <TextBlock x:Name="CountLabel" Text="加载中…" FontSize="12" Foreground="#FF77737F"/>
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
+            <StackPanel x:Name="MainActions" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
               <md:MdButton x:Name="SortButton" Content="名称排序" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="循环切换排序字段"/>
               <md:MdButton x:Name="SortDirectionButton" Content="↑" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="升序 / 降序"/>
               <md:MdButton x:Name="HiddenButton" Content="隐藏项：关" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="显示或隐藏隐藏文件"/>
@@ -110,6 +111,7 @@
               <md:MdButton x:Name="CutButton" Content="剪切" Variant="Tonal" Size="Small" MinHeight="32"/>
               <md:MdButton x:Name="PasteButton" Content="粘贴" Variant="Tonal" Size="Small" MinHeight="32"/>
             </StackPanel>
+            </ScrollViewer>
           </Grid>
           <Grid x:Name="ListColumnHeader" DockPanel.Dock="Top" Height="32">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
@@ -121,6 +123,15 @@
             <Grid x:Name="EntryListHost">
               <StackPanel x:Name="FileList" Spacing="2"/>
               <WrapPanel x:Name="GridList" Orientation="Horizontal" ItemWidth="190" ItemHeight="140" IsVisible="False"/>
+              <StackPanel x:Name="EmptyState" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                <md:MdCard Padding="24" Variant="Outlined" IsInteractive="False">
+                  <StackPanel Spacing="8" HorizontalAlignment="Center">
+                    <TextBlock x:Name="EmptyStateTitle" Text="此文件夹为空" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="EmptyStateMessage" Text="创建文件夹或添加文件以开始。" FontSize="12" Foreground="#FF77737F" HorizontalAlignment="Center"/>
+                    <md:MdButton x:Name="ClearSearchButton" Content="清除搜索" Variant="Tonal" Size="Small" MinHeight="36" IsVisible="False" HorizontalAlignment="Center"/>
+                  </StackPanel>
+                </md:MdCard>
+              </StackPanel>
             </Grid>
           </ScrollViewer>
         </DockPanel>

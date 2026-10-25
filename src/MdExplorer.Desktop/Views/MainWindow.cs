@@ -60,6 +60,8 @@ public sealed partial class MainWindow : Window
     private bool _sortDescending;
     private bool _showHidden;
     private bool _searchSubfolders;
+    private bool _isLoading = true;
+    private string? _loadError;
     private CancellationTokenSource? _operationCancellation;
     private TextBlock _status => StatusText;
     private readonly string _home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -130,26 +132,51 @@ public sealed partial class MainWindow : Window
         CancelOperationButton.Click += (_, _) => _operationCancellation?.Cancel();
         ChooseSecondLocationButton.Click += async (_, _) => await ChooseSecondLocation();
         Closing += (_, _) => _operationCancellation?.Cancel();
+        SizeChanged += (_, args) => UpdateResponsiveLayout(args.NewSize.Width);
         Application.Current.ActualThemeVariantChanged += (_, _) =>
         {
             _themeRoles = MdThemeManager.Apply(Application.Current, MdThemeManager.Current, Application.Current.ActualThemeVariant == ThemeVariant.Dark);
             RefreshThemeColors();
         };
 
-        ApplyLayoutPositions();
+        UpdateResponsiveLayout(Width);
+        ClearSearchButton.Click += (_, _) => SearchBox.Text = "";
         RefreshThemeColors();
         _ = LoadDirectoryAsync(_currentPath);
         _ = LoadSecondDirectoryAsync(_secondPath);
     }
 
-    private void ApplyLayoutPositions()
+    private void UpdateResponsiveLayout(double width)
     {
+        var compactHeader = width < 1100;
+        HeaderGrid.ColumnDefinitions[0].Width = new GridLength(width < 900 ? 132 : 185);
+        HeaderGrid.ColumnDefinitions[1].Width = new GridLength(width < 900 ? 76 : 92);
+        HeaderGrid.ColumnDefinitions[3].Width = new GridLength(width < 900 ? 150 : width < 1100 ? 180 : width < 1320 ? 220 : 290);
+        SearchBox.IsVisible = true;
+        PathPanel.IsVisible = width >= 900;
+        CreateTextButton.IsVisible = true;
+        SearchScopeButton.IsVisible = true;
+        CreateFolderButton.Content = compactHeader ? "＋" : "＋ 文件夹";
+        CreateTextButton.Content = compactHeader ? "T+" : "＋ 文本";
+        SearchScopeButton.Content = compactHeader ? "↳" : SearchScopeLabel();
+        ThemeButton.Content = compactHeader ? ThemeCompactLabel() : ThemeLabel();
+        SidebarPane.IsVisible = width >= 920;
+        MainPane.Margin = width < 920 ? new Thickness(12, 12, 12, 0) : new Thickness(24, 20, 20, 0);
+        ApplyLayoutPositions(width);
+    }
+
+    private void ApplyLayoutPositions(double availableWidth = 0)
+    {
+        if (availableWidth <= 0) availableWidth = Bounds.Width > 0 ? Bounds.Width : Width;
+        var showSidebar = availableWidth >= 920;
+        var compactSideBySide = _mode == LayoutMode.SideBySide && availableWidth < 1180;
         Workspace.ColumnDefinitions.Clear();
         Workspace.RowDefinitions.Clear();
-        Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(205)));
+        Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(showSidebar ? 205 : 0)));
         Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
         Workspace.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
         Workspace.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+        SidebarPane.IsVisible = showSidebar;
         Grid.SetColumn(SidebarPane, 0);
         Grid.SetRow(SidebarPane, 0);
         Grid.SetRowSpan(SidebarPane, 2);
@@ -160,17 +187,20 @@ public sealed partial class MainWindow : Window
         SecondPane.IsVisible = _mode != LayoutMode.Preview;
         if (_mode == LayoutMode.Preview)
         {
-            Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(340)));
+            var widePreview = availableWidth >= 1240;
+            Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(widePreview ? 340 : 0)));
             Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(0)));
             Grid.SetRow(MainPane, 0);
-            Grid.SetRowSpan(MainPane, 2);
-            Grid.SetRow(PreviewPane, 0);
-            Grid.SetRowSpan(PreviewPane, 2);
+            Grid.SetRowSpan(MainPane, widePreview ? 2 : 1);
+            Grid.SetColumn(PreviewPane, widePreview ? 2 : 1);
+            Grid.SetRow(PreviewPane, widePreview ? 0 : 1);
+            Grid.SetRowSpan(PreviewPane, widePreview ? 2 : 1);
+            PreviewPane.BorderThickness = widePreview ? new Thickness(1, 0, 0, 0) : new Thickness(0, 1, 0, 0);
             Grid.SetRow(SecondPane, 0);
             Grid.SetRowSpan(SecondPane, 2);
             SecondPane.IsVisible = false;
         }
-        else if (_mode == LayoutMode.SideBySide)
+        else if (_mode == LayoutMode.SideBySide && !compactSideBySide)
         {
             Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
@@ -178,6 +208,8 @@ public sealed partial class MainWindow : Window
             Grid.SetRowSpan(MainPane, 2);
             Grid.SetRow(SecondPane, 0);
             Grid.SetRowSpan(SecondPane, 2);
+            SecondPane.BorderThickness = new Thickness(1, 0, 0, 0);
+            SecondPane.Margin = new Thickness(12, 0, 0, 0);
             PreviewPane.IsVisible = false;
             SecondPane.IsVisible = true;
         }
@@ -190,12 +222,15 @@ public sealed partial class MainWindow : Window
             Grid.SetColumn(SecondPane, 1);
             Grid.SetRow(SecondPane, 1);
             Grid.SetRowSpan(SecondPane, 1);
+            SecondPane.BorderThickness = new Thickness(0, 1, 0, 0);
+            SecondPane.Margin = new Thickness(0);
             PreviewPane.IsVisible = false;
             SecondPane.IsVisible = true;
         }
-        ListColumnHeader.IsVisible = _viewMode == ViewMode.List;
-        _fileList.IsVisible = _viewMode == ViewMode.List;
-        _gridList.IsVisible = _viewMode == ViewMode.Grid;
+        var hasEntries = _visibleEntries.Count > 0;
+        ListColumnHeader.IsVisible = hasEntries && _viewMode == ViewMode.List;
+        _fileList.IsVisible = hasEntries && _viewMode == ViewMode.List;
+        _gridList.IsVisible = hasEntries && _viewMode == ViewMode.Grid;
         StatusLayoutButton.Content = LayoutLabel();
     }
 
@@ -236,6 +271,9 @@ public sealed partial class MainWindow : Window
         }
         _loadCancellation?.Cancel();
         var cts = _loadCancellation = new CancellationTokenSource();
+        _isLoading = true;
+        _loadError = null;
+        if (_visibleEntries.Count == 0) RenderEntries();
         var query = _search.Text?.Trim() ?? "";
         var showHidden = _showHidden;
         var searchSubfolders = _searchSubfolders;
@@ -247,6 +285,7 @@ public sealed partial class MainWindow : Window
                 () => _fileSystem.ListDirectory(path, query, showHidden, searchSubfolders, sortMode, sortDescending, cts.Token),
                 cts.Token);
             if (cts.IsCancellationRequested) return;
+            _isLoading = false;
             _currentPath = path;
             _pathLabel.Text = path;
             if (_favoriteButton is not null) _favoriteButton.Content = FavoriteLabel();
@@ -267,7 +306,13 @@ public sealed partial class MainWindow : Window
             SetStatus($"{path}　·　{entries.Count} 个项目");
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { SetStatus($"无法读取目录：{ex.Message}"); }
+        catch (Exception ex)
+        {
+            _isLoading = false;
+            _loadError = ex.Message;
+            if (_visibleEntries.Count == 0) RenderEntries();
+            SetStatus($"无法读取目录：{ex.Message}");
+        }
     }
 
     private string SortLabel() => _sortMode switch { SortMode.Name => "名称排序", SortMode.Modified => "修改时间", SortMode.Size => "大小排序", _ => "类型排序" };
@@ -323,8 +368,14 @@ public sealed partial class MainWindow : Window
             _fileList.Children.Add(FileRow(item));
             _gridList.Children.Add(GridFileCard(item));
         }
-        _fileList.IsVisible = _viewMode == ViewMode.List;
-        _gridList.IsVisible = _viewMode == ViewMode.Grid;
+        var isEmpty = _visibleEntries.Count == 0;
+        var hasQuery = !string.IsNullOrWhiteSpace(_search.Text);
+        EmptyState.IsVisible = isEmpty;
+        EmptyStateTitle.Text = _isLoading ? "正在读取…" : _loadError is not null ? "无法读取此位置" : hasQuery ? "没有匹配的文件" : "此文件夹为空";
+        EmptyStateMessage.Text = _isLoading ? "正在获取此位置的本地文件。" : _loadError ?? (hasQuery ? "尝试缩短关键词，或清除搜索条件。" : "创建文件夹或添加文件以开始。");
+        ClearSearchButton.IsVisible = !_isLoading && _loadError is null && hasQuery;
+        _fileList.IsVisible = !isEmpty && _viewMode == ViewMode.List;
+        _gridList.IsVisible = !isEmpty && _viewMode == ViewMode.Grid;
     }
 
     private string ViewLabel() => _viewMode == ViewMode.List ? "☷ 列表" : "▦ 网格";
@@ -332,7 +383,7 @@ public sealed partial class MainWindow : Window
     {
         _viewMode = _viewMode == ViewMode.List ? ViewMode.Grid : ViewMode.List;
         if (_viewButton is not null) _viewButton.Content = ViewLabel();
-        if (_listColumnHeader is not null) _listColumnHeader.IsVisible = _viewMode == ViewMode.List;
+        _listColumnHeader.IsVisible = _visibleEntries.Count > 0 && _viewMode == ViewMode.List;
         RenderEntries();
     }
 
@@ -814,11 +865,12 @@ public sealed partial class MainWindow : Window
         var dark = _themeMode == MdThemeMode.Dark || (_themeMode == MdThemeMode.System && app.ActualThemeVariant == ThemeVariant.Dark);
         var options = MdThemeManager.Current with { ThemeMode = _themeMode };
         _themeRoles = MdThemeManager.Apply(app, options, dark);
-        if (_themeButton is not null) _themeButton.Content = ThemeLabel();
+        if (_themeButton is not null) _themeButton.Content = Bounds.Width < 1100 ? ThemeCompactLabel() : ThemeLabel();
         RefreshThemeColors();
     }
 
     private string ThemeLabel() => _themeMode switch { MdThemeMode.System => "◐ 系统", MdThemeMode.Light => "☀ 浅色", _ => "☾ 深色" };
+    private string ThemeCompactLabel() => _themeMode switch { MdThemeMode.System => "◐", MdThemeMode.Light => "☀", _ => "☾" };
 
     private void RefreshThemeColors()
     {
