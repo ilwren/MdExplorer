@@ -66,6 +66,7 @@ public sealed class MainWindow : Window
         MinWidth = 760;
         MinHeight = 540;
         KeyDown += OnKeyDown;
+        Closing += (_, _) => _operationCancellation?.Cancel();
         _themeMode = MdThemeManager.Current.ThemeMode;
         _themeRoles = MdThemeManager.Apply(Application.Current!, MdThemeManager.Current, Application.Current!.ActualThemeVariant == ThemeVariant.Dark);
         Background = Brush("#F7F6F9");
@@ -242,7 +243,7 @@ public sealed class MainWindow : Window
         return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(0, 1, 0, 0), Child = bar };
     }
 
-    private Control BuildOperationPanel()
+    private Border BuildOperationPanel()
     {
         var row = new Grid { ColumnSpacing = 14, RowSpacing = 4, Margin = new Thickness(16, 5) };
         row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
@@ -255,8 +256,9 @@ public sealed class MainWindow : Window
         Grid.SetRow(_operationProgress, 1); Grid.SetColumnSpan(_operationProgress, 2); row.Children.Add(_operationProgress);
         var cancel = ActionButton("取消", () => _operationCancellation?.Cancel());
         Grid.SetColumn(cancel, 1); row.Children.Add(cancel);
-        _operationPanel = new Border { Background = Brush("#FAF9FB"), BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(0, 1, 0, 0), IsVisible = false, Child = row };
-        return _operationPanel;
+        var panel = new Border { Background = Brush("#FAF9FB"), BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(0, 1, 0, 0), IsVisible = false, Child = row };
+        _operationPanel = panel;
+        return panel;
     }
 
     private (CancellationTokenSource Source, IProgress<OperationProgress> Progress) StartOperation(string title, int total)
