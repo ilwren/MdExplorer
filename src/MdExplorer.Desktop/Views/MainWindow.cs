@@ -346,7 +346,7 @@ public sealed class MainWindow : Window
 
     private async void CreateFolder()
     {
-        var dialog = new TextBox { Watermark = "文件夹名称", Width = 300 };
+        var dialog = new TextBox { PlaceholderText = "文件夹名称", Width = 300 };
         var ok = new Button { Content = "创建", HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
         var stack = new StackPanel { Spacing = 8, Margin = new Thickness(18) };
         stack.Children.Add(new TextBlock { Text = $"在此位置新建文件夹：{_currentPath}", TextWrapping = TextWrapping.Wrap }); stack.Children.Add(dialog); stack.Children.Add(ok);
