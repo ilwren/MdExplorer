@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media.Imaging;
 using MdExplorer.UI.Services;
 using MdExplorer.UI.ViewModels;
 using MdExplorer.UI.Views;
@@ -200,4 +201,20 @@ public sealed class ScreenshotTests
         shell.GoTrashCommand.Execute(null);
         return Task.CompletedTask;
     });
+    /// <summary>定点探针：图片解码管线（缩略图 + 预览大图）在无头环境真实可用。</summary>
+    [AvaloniaFact]
+    public async Task Thumbnails_AndPreview_Decode()
+    {
+        var png = Path.Combine(PicturesDir, "screenshot_ide.png");
+        Assert.True(File.Exists(png), "sample png missing");
+        using (var direct = new Bitmap(png))
+            Assert.True(direct.PixelSize.Width > 0, "direct Bitmap decode failed");
+
+        var shell = await CreateShellAsync();
+        await shell.Browser.WhenIdleAsync();
+        var withThumbs = shell.Browser.Items.Where(i => i.Thumbnail is not null).Select(i => i.Name).ToArray();
+        Assert.True(withThumbs.Length > 0,
+            "no thumbnails decoded; kinds=" + string.Join(",", shell.Browser.Items.Select(i => i.Name + ":" + i.Kind)));
+        Assert.NotNull(shell.Preview.Image);
+    }
 }
