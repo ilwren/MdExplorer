@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using MdExplorer.UI.Services;
 using MdExplorer.UI.ViewModels;
 using MdExplorer.UI.Views;
+using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(MdExplorer.Screenshots.TestAppBuilder))]
 
