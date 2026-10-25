@@ -69,10 +69,20 @@
               <TextBlock Text="工作区" FontSize="11" FontWeight="Bold" Foreground="#FF817C87" Margin="10,20,0,7"/>
               <md:MdButton x:Name="HomeButton" Content="▣　文件" Variant="Tonal" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
               <md:MdButton x:Name="RecentButton" Content="◷　最近" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
-              <StackPanel x:Name="RecentLinks" IsVisible="False"/>
+              <StackPanel x:Name="RecentLinks" IsVisible="False">
+                <ItemsControl x:Name="RecentLocationItems">
+                  <ItemsControl.ItemTemplate><DataTemplate>
+                    <md:MdButton Content="{Binding DisplayName}" ToolTip.Tip="{Binding Path}" Click="OnRecentLocationClicked" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="38" Padding="12,0"/>
+                  </DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
               <TextBlock Text="收藏夹" FontSize="11" FontWeight="Bold" Foreground="#FF817C87" Margin="10,20,0,7"/>
               <md:MdButton x:Name="FavoriteButton" Content="☆　收藏当前目录" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
-              <StackPanel x:Name="FavoriteLinks"/>
+              <ItemsControl x:Name="FavoriteLinks">
+                <ItemsControl.ItemTemplate><DataTemplate>
+                  <md:MdButton Content="{Binding DisplayName}" ToolTip.Tip="{Binding Path}" Click="OnFavoriteLocationClicked" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="38" Padding="12,0"/>
+                </DataTemplate></ItemsControl.ItemTemplate>
+              </ItemsControl>
               <TextBlock Text="位置" FontSize="11" FontWeight="Bold" Foreground="#FF817C87" Margin="10,20,0,7"/>
               <md:MdButton x:Name="UserHomeButton" Content="▣　主目录" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
               <md:MdButton x:Name="DocumentsButton" Content="▱　文档" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
@@ -107,14 +117,48 @@
             <TextBlock Grid.Column="1" Text="修改日期" FontSize="11" Foreground="#FF85808B" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="2" Text="大小" FontSize="11" Foreground="#FF85808B" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0"/>
           </Grid>
-          <ContentControl x:Name="EntryListHost"/>
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <Grid x:Name="EntryListHost">
+              <StackPanel x:Name="FileList" Spacing="2"/>
+              <WrapPanel x:Name="GridList" Orientation="Horizontal" ItemWidth="190" ItemHeight="140" IsVisible="False"/>
+            </Grid>
+          </ScrollViewer>
         </DockPanel>
       </Border>
 
       <Border x:Name="PreviewPane" Grid.Column="2" Grid.Row="0" Grid.RowSpan="2" Background="#FFFCFBFD" BorderBrush="#FFEAE7EE" BorderThickness="1,0,0,0">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Text="预览与文件信息" FontSize="15" FontWeight="SemiBold" Margin="20,20,20,12"/>
-          <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PreviewContent" Spacing="10"/></ScrollViewer>
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="PreviewContent" Spacing="10" Margin="20,4,20,20">
+              <TextBlock x:Name="PreviewName" FontWeight="SemiBold" TextWrapping="Wrap"/>
+              <TextBlock x:Name="PreviewSummary" FontSize="11" Foreground="#FF77737F"/>
+              <md:MdCard MinHeight="190" Padding="18" Variant="Outlined" IsInteractive="False">
+                <Grid>
+                  <TextBlock x:Name="PreviewPlaceholder" Text="选择文件查看预览" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="PreviewTextContent" IsVisible="False" TextWrapping="Wrap" FontSize="12" MaxHeight="260"/>
+                  <Image x:Name="PreviewImageContent" IsVisible="False" Stretch="Uniform" MaxHeight="250"/>
+                </Grid>
+              </md:MdCard>
+              <TextBlock Text="文件信息" FontWeight="SemiBold" Margin="0,10,0,0"/>
+              <ItemsControl x:Name="PreviewInfoItems">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Margin="0,5">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="85"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <TextBlock Text="{Binding Label}" FontSize="11" Foreground="#FF85808B"/>
+                      <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11" TextWrapping="Wrap" HorizontalAlignment="Right"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <StackPanel Orientation="Horizontal" Spacing="7" Margin="0,5,0,0">
+                <md:MdButton x:Name="OpenFileButton" Content="打开文件" Variant="Tonal" Size="Small"/>
+                <md:MdButton x:Name="RenameFileButton" Content="重命名" Variant="Tonal" Size="Small"/>
+                <md:MdButton x:Name="DeleteFileButton" Content="删除" Variant="Tonal" Size="Small"/>
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
         </DockPanel>
       </Border>
 
@@ -125,7 +169,7 @@
             <StackPanel Grid.Column="0" Spacing="3"><TextBlock Text="第二栏" FontWeight="SemiBold"/><TextBlock x:Name="SecondPathLabel" Text="" FontSize="11" Foreground="#FF77737F" TextTrimming="CharacterEllipsis"/></StackPanel>
             <md:MdButton x:Name="ChooseSecondLocationButton" Grid.Column="1" Content="选择位置" Variant="Tonal" Size="Small" MinHeight="32"/>
           </Grid>
-          <ContentControl x:Name="SecondListHost"/>
+          <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="SecondList" Spacing="2"/></ScrollViewer>
         </DockPanel>
       </Border>
     </Grid>

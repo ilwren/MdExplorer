@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:md="using:Md3.Avalonia.Controls"
+        x:Class="MdExplorer.Desktop.Views.ConfirmDialog"
+        Width="420" Height="190" MinWidth="340" MinHeight="160"
+        WindowStartupLocation="CenterOwner" CanResize="False">
+  <StackPanel Margin="20" Spacing="14">
+    <TextBlock x:Name="ConfirmationMessage" TextWrapping="Wrap"/>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <md:MdButton x:Name="CancelButton" Content="取消" Variant="Text" Size="Small" MinHeight="36"/>
+      <md:MdButton x:Name="ConfirmButton" Content="确认" Variant="Filled" Size="Small" MinHeight="36"/>
+    </StackPanel>
+  </StackPanel>
+</Window>

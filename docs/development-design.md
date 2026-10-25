@@ -184,4 +184,4 @@ HTML 参考稿运行：在仓库根目录执行 `python3 -m http.server 4173`，
 - 已可通过 Avalonia / Md3.Avalonia 在桌面系统访问真实用户目录；支持当前目录搜索及可选递归子目录搜索（最多展示 1000 条、深度上限 32、跳过隐藏项/符号链接及无权目录）、打开子目录、名称/修改时间/大小/类型升降序排序、列表/网格视图切换、持久化收藏目录和最近访问位置、隐藏文件开关、文本/图片预览（显示像素宽高）和元信息。
 - 已实现新建文件夹/空白文本文件、重命名、永久删除，以及 Ctrl/Shift 多选和批量复制/剪切/粘贴/删除；支持 Ctrl/Cmd+A/C/X/V、Ctrl+L 跳转路径、Ctrl+N 新建文本、Ctrl+Shift+N 新建文件夹、F2 重命名、Delete 删除、Backspace 上级目录以及 Alt+方向键前进/后退。粘贴遇到同名项目会自动生成副本名，不覆盖现有数据；移动失败时尝试复制后删除源项，失败则保留源并报告。首版拒绝递归复制符号链接/重解析点以降低越界风险。
 - 批量复制/移动/删除显示 M3 进度并可取消；取消在目录递归及大文件分块复制之间生效，单次底层文件系统移动/删除调用不可强制中断。系统剪贴板互通、回收站、跨 SAF 权限树操作以及 Android 应用仍未完成；双栏第二面板目前尚未实现完整拖放/同步操作语义。
-- 桌面 UI 的静态窗口结构和 Material 3 控件定义放在 `Views/MainWindow.axaml`；`MainWindow.cs` 作为 code-behind 负责事件协调和动态文件条目/预览内容。目录读取、隐藏项处理、递归搜索和排序已抽到 `LocalFileSystemService.cs`；主题在 `App.axaml` 仅注册 Md3.Avalonia `MaterialTheme`，项目不引用 FluentTheme。
+- 桌面窗口结构、工具栏、面板、预览和元信息模板定义在 `Views/MainWindow.axaml`；文件列表/网格条目定义在 `Views/FileEntryItem.axaml`；文本输入和确认对话框定义在独立 `.axaml` 中。C# code-behind 负责状态、事件和文件条目数据，不再逐段拼建窗口主体。目录读取、隐藏项处理、递归搜索和排序已抽到 `LocalFileSystemService.cs`；主题在 `App.axaml` 仅注册 Md3.Avalonia `MaterialTheme`，仓库源码与依赖中没有 FluentTheme 引用。

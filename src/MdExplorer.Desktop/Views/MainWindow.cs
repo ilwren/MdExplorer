@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Md3.Avalonia.Controls;
@@ -15,14 +16,14 @@ using MdExplorer.Desktop;
 
 namespace MdExplorer.Desktop.Views;
 
+public sealed record PreviewInfoRow(string Label, string Value);
+public sealed record SidebarLocation(string Path, string DisplayName);
+
 public sealed partial class MainWindow : Window
 {
-    private Grid _workspace => Workspace;
-    private Grid? _listHost;
-    private readonly StackPanel _fileList = new() { Spacing = 2 };
-    private readonly WrapPanel _gridList = new() { Orientation = Orientation.Horizontal, ItemWidth = 190, ItemHeight = 140, IsVisible = false };
-    private readonly StackPanel _secondList = new() { Spacing = 2 };
-    private StackPanel _preview => PreviewContent;
+    private StackPanel _fileList => FileList;
+    private WrapPanel _gridList => GridList;
+    private StackPanel _secondList => SecondList;
     private Border _operationPanel => OperationPanel;
     private MdLinearProgressIndicator _operationProgress => OperationProgressBar;
     private TextBlock _operationText => OperationText;
@@ -36,8 +37,6 @@ public sealed partial class MainWindow : Window
     private readonly HashSet<string> _selectedPaths = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
     private List<FileSystemInfo> _visibleEntries = new();
     private string? _selectionAnchor;
-    private bool _toggleSelectionOnClick;
-    private bool _rangeSelectionOnClick;
     private List<string> _clipboardPaths = new();
     private bool _cutPending;
     private Button? _copyButton;
@@ -55,8 +54,6 @@ public sealed partial class MainWindow : Window
     private readonly Stack<string> _forwardHistory = new();
     private readonly List<string> _favorites = FavoriteStore.Load();
     private readonly List<string> _recentLocations = RecentLocationStore.Load();
-    private StackPanel _recentLinks => RecentLinks;
-    private StackPanel _favoriteLinks => FavoriteLinks;
     private Button? _favoriteButton;
     private Button? _searchScopeButton;
     private SortMode _sortMode = SortMode.Name;
@@ -93,10 +90,6 @@ public sealed partial class MainWindow : Window
         _forwardButton = ForwardButton;
         _favoriteButton = FavoriteButton;
         _searchScopeButton = SearchScopeButton;
-        _listHost = new Grid();
-        _listHost.Children.Add(_fileList);
-        _listHost.Children.Add(_gridList);
-        EntryListHost.Content = _listHost;
         _secondPath = Directory.Exists(_secondPath) ? _secondPath : _home;
         SecondPathLabel.Text = _secondPath;
         FavoriteButton.Content = FavoriteLabel();
@@ -131,6 +124,9 @@ public sealed partial class MainWindow : Window
         CopyButton.Click += (_, _) => SetClipboard(cut: false);
         CutButton.Click += (_, _) => SetClipboard(cut: true);
         PasteButton.Click += (_, _) => PasteClipboard();
+        OpenFileButton.Click += (_, _) => { if (_selected is not null) OpenEntry(_selected); };
+        RenameFileButton.Click += (_, _) => { if (_selected is not null) RenameEntry(_selected); };
+        DeleteFileButton.Click += (_, _) => DeleteSelectedEntries();
         CancelOperationButton.Click += (_, _) => _operationCancellation?.Cancel();
         ChooseSecondLocationButton.Click += async (_, _) => await ChooseSecondLocation();
         Closing += (_, _) => _operationCancellation?.Cancel();
@@ -305,64 +301,17 @@ public sealed partial class MainWindow : Window
         _ = LoadDirectoryAsync(_currentPath);
     }
 
-    private Control FileRow(FileSystemInfo entry)
-    {
-        var isDirectory = entry is DirectoryInfo;
-        var grid = new Grid { Height = 46, ColumnSpacing = 8 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-        grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(120)));
-        grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(90)));
-        var name = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(9, 0) };
-        name.Children.Add(new Border { Width = 25, Height = 25, CornerRadius = new CornerRadius(6), Background = Brush(isDirectory ? "#F6E2A2" : "#E8DEF8"), Child = new TextBlock { Text = isDirectory ? "▰" : IconFor(entry.Extension), FontSize = 10, Foreground = Brush("#6750A4"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
-        name.Children.Add(new TextBlock { Text = entry.Name, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
-        grid.Children.Add(name);
-        var modified = new TextBlock { Text = entry.LastWriteTime.ToString("g"), FontSize = 11, Foreground = Brush("#77737F"), VerticalAlignment = VerticalAlignment.Center };
-        Grid.SetColumn(modified, 1); grid.Children.Add(modified);
-        var sizeText = isDirectory ? "文件夹" : FormatSize(((FileInfo)entry).Length);
-        var size = new TextBlock { Text = sizeText, FontSize = 11, Foreground = Brush("#77737F"), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 12, 0) };
-        Grid.SetColumn(size, 2); grid.Children.Add(size);
-        var button = new MdButton { Content = grid, Variant = _selectedPaths.Contains(entry.FullName) ? MdButtonVariant.Tonal : MdButtonVariant.Text, Size = MdButtonSize.Small, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(0), HorizontalAlignment = HorizontalAlignment.Stretch };
-        button.PointerPressed += (_, e) =>
-        {
-            _toggleSelectionOnClick = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
-            _rangeSelectionOnClick = !_toggleSelectionOnClick && e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        };
-        button.Click += (_, _) =>
-        {
-            SelectEntry(entry, _toggleSelectionOnClick, _rangeSelectionOnClick);
-            _toggleSelectionOnClick = false; _rangeSelectionOnClick = false;
-        };
-        button.DoubleTapped += (_, _) => { if (isDirectory) Navigate(entry.FullName); else OpenEntry(entry); };
-        return button;
-    }
+    private Control FileRow(FileSystemInfo entry) => CreateEntryItem(entry, gridMode: false);
+    private Control GridFileCard(FileSystemInfo entry) => CreateEntryItem(entry, gridMode: true);
 
-    private Control GridFileCard(FileSystemInfo entry)
+    private FileEntryItem CreateEntryItem(FileSystemInfo entry, bool gridMode)
     {
-        var isDirectory = entry is DirectoryInfo;
-        var icon = new Border
-        {
-            Width = 52, Height = 44, CornerRadius = new CornerRadius(12),
-            Background = Brush(isDirectory ? "#F6E2A2" : "#E8DEF8"),
-            Child = new TextBlock { Text = isDirectory ? "▰" : IconFor(entry.Extension), FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Brush("#6750A4"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
-        };
-        var details = new StackPanel { Spacing = 5, Margin = new Thickness(2, 8, 2, 2) };
-        details.Children.Add(new TextBlock { Text = entry.Name, FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, MaxHeight = 34, TextTrimming = TextTrimming.CharacterEllipsis });
-        var metadata = isDirectory ? "文件夹" : $"{FormatSize(((FileInfo)entry).Length)} · {entry.Extension.TrimStart('.').ToUpperInvariant()}";
-        details.Children.Add(new TextBlock { Text = metadata, FontSize = 10, Foreground = Brush("#77737F"), TextTrimming = TextTrimming.CharacterEllipsis });
-        var content = new StackPanel { Children = { icon, details } };
-        var card = new MdCard { Width = 176, Height = 128, Margin = new Thickness(5), Padding = new Thickness(10), Content = content, Variant = _selectedPaths.Contains(entry.FullName) ? MdCardVariant.Filled : MdCardVariant.Outlined };
-        card.PointerPressed += (_, e) =>
-        {
-            _toggleSelectionOnClick = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
-            _rangeSelectionOnClick = !_toggleSelectionOnClick && e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        };
-        card.Click += (_, _) =>
-        {
-            SelectEntry(entry, _toggleSelectionOnClick, _rangeSelectionOnClick);
-            _toggleSelectionOnClick = false; _rangeSelectionOnClick = false;
-        };
-        card.DoubleTapped += (_, _) => { if (isDirectory) Navigate(entry.FullName); else OpenEntry(entry); };
-        return card;
+        var item = new FileEntryItem();
+        item.Bind(entry, _selectedPaths.Contains(entry.FullName), gridMode);
+        item.EntryActivated += (selected, toggle, range) => SelectEntry(selected, toggle, range);
+        item.EntryOpenRequested += selected => { if (selected is DirectoryInfo) Navigate(selected.FullName); else OpenEntry(selected); };
+        RefreshThemeColors(item);
+        return item;
     }
 
     private void RenderEntries()
@@ -422,55 +371,66 @@ public sealed partial class MainWindow : Window
         entry = _selected;
         SetStatus(_selectedPaths.Count > 1 ? $"已选择 {_selectedPaths.Count} 项" : entry.Name);
         ClearPreview();
-        _preview.Margin = new Thickness(20, 4, 20, 20);
         var ext = entry.Extension.ToLowerInvariant();
-        _preview.Children.Add(new TextBlock { Text = entry.Name, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
-        _preview.Children.Add(new TextBlock { Text = entry is DirectoryInfo ? "文件夹" : $"{(string.IsNullOrEmpty(ext) ? "文件" : ext.TrimStart('.').ToUpperInvariant())} 文件 · {FormatSize(((FileInfo)entry).Length)}", FontSize = 11, Foreground = Brush("#77737F") });
-        var previewBox = new MdCard { MinHeight = 190, Padding = new Thickness(18), Variant = MdCardVariant.Outlined, IsInteractive = false };
+        PreviewName.Text = entry.Name;
+        PreviewSummary.Text = entry is DirectoryInfo ? "文件夹" : $"{(string.IsNullOrEmpty(ext) ? "文件" : ext.TrimStart('.').ToUpperInvariant())} 文件 · {FormatSize(((FileInfo)entry).Length)}";
+        PreviewPlaceholder.IsVisible = true;
+        PreviewTextContent.IsVisible = false;
+        PreviewImageContent.IsVisible = false;
+        PreviewImageContent.Source = null;
+        var info = new List<PreviewInfoRow>
+        {
+            new("类型", entry is DirectoryInfo ? "文件夹" : (string.IsNullOrEmpty(ext) ? "文件" : ext.TrimStart('.').ToUpperInvariant())),
+            new("创建时间", entry.CreationTime.ToString("yyyy-MM-dd HH:mm")),
+            new("修改时间", entry.LastWriteTime.ToString("yyyy-MM-dd HH:mm")),
+            new("属性", entry.Attributes.ToString()),
+            new("位置", entry.FullName)
+        };
         if (entry is DirectoryInfo)
-            previewBox.Content = new TextBlock { Text = "文件夹\n\n双击打开此位置", TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+            PreviewPlaceholder.Text = "文件夹\n\n双击打开此位置";
         else if (new[] { ".txt", ".md", ".log", ".csv", ".json", ".xml" }.Contains(ext))
-            previewBox.Content = new TextBlock { Text = ReadTextPreview(entry.FullName), TextWrapping = TextWrapping.Wrap, FontSize = 12, MaxHeight = 260 };
+        {
+            PreviewPlaceholder.IsVisible = false;
+            PreviewTextContent.Text = ReadTextPreview(entry.FullName);
+            PreviewTextContent.IsVisible = true;
+        }
         else if (new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" }.Contains(ext))
         {
             try
             {
                 _currentPreviewBitmap = new Avalonia.Media.Imaging.Bitmap(entry.FullName);
-                previewBox.Content = new Image { Source = _currentPreviewBitmap, Stretch = Stretch.Uniform, MaxHeight = 250 };
+                PreviewPlaceholder.IsVisible = false;
+                PreviewImageContent.Source = _currentPreviewBitmap;
+                PreviewImageContent.IsVisible = true;
+                info.Add(new("图像尺寸", $"{_currentPreviewBitmap.PixelSize.Width} × {_currentPreviewBitmap.PixelSize.Height} px"));
             }
-            catch { previewBox.Content = new TextBlock { Text = "无法解码此图片" }; }
+            catch { PreviewPlaceholder.Text = "无法解码此图片"; }
         }
-        else previewBox.Content = new TextBlock { Text = "暂无内置预览\n可使用系统应用打开。", TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
-        _preview.Children.Add(previewBox);
-        _preview.Children.Add(new TextBlock { Text = "文件信息", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
-        AddInfo("类型", entry is DirectoryInfo ? "文件夹" : (string.IsNullOrEmpty(ext) ? "文件" : ext.TrimStart('.').ToUpperInvariant()));
-        AddInfo("创建时间", entry.CreationTime.ToString("yyyy-MM-dd HH:mm"));
-        AddInfo("修改时间", entry.LastWriteTime.ToString("yyyy-MM-dd HH:mm"));
-        AddInfo("属性", entry.Attributes.ToString());
-        if (_currentPreviewBitmap is { } image) AddInfo("图像尺寸", $"{image.PixelSize.Width} × {image.PixelSize.Height} px");
-        AddInfo("位置", entry.FullName);
-        if (entry is FileInfo file) AddInfo("大小", FormatSize(file.Length));
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Margin = new Thickness(0, 5, 0, 0) };
-        actions.Children.Add(ActionButton("打开文件", () => OpenEntry(entry)));
-        actions.Children.Add(ActionButton("重命名", () => RenameEntry(entry)));
-        actions.Children.Add(ActionButton("删除", DeleteSelectedEntries));
-        _preview.Children.Add(actions);
+        else if (entry is FileInfo) PreviewPlaceholder.Text = "暂无内置预览\n可使用系统应用打开。";
+        if (entry is FileInfo selectedFile) info.Add(new("大小", FormatSize(selectedFile.Length)));
+        PreviewInfoItems.ItemsSource = info;
+        OpenFileButton.IsEnabled = entry is FileInfo;
+        RenameFileButton.IsEnabled = _selectedPaths.Count == 1;
+        DeleteFileButton.IsEnabled = _selectedPaths.Count > 0;
         RenderEntries();
     }
 
     private void ClearPreview()
     {
-        _preview.Children.Clear();
+        PreviewName.Text = "";
+        PreviewSummary.Text = "";
+        PreviewPlaceholder.Text = "选择文件查看预览";
+        PreviewPlaceholder.IsVisible = true;
+        PreviewTextContent.Text = "";
+        PreviewTextContent.IsVisible = false;
+        PreviewImageContent.Source = null;
+        PreviewImageContent.IsVisible = false;
+        PreviewInfoItems.ItemsSource = null;
+        OpenFileButton.IsEnabled = false;
+        RenameFileButton.IsEnabled = false;
+        DeleteFileButton.IsEnabled = false;
         _currentPreviewBitmap?.Dispose();
         _currentPreviewBitmap = null;
-    }
-
-    private void AddInfo(string label, string value)
-    {
-        var row = new Grid { ColumnDefinitions = { new ColumnDefinition(new GridLength(85)), new ColumnDefinition(new GridLength(1, GridUnitType.Star)) }, Margin = new Thickness(0, 5) };
-        row.Children.Add(new TextBlock { Text = label, FontSize = 11, Foreground = Brush("#85808B") });
-        var valueText = new TextBlock { Text = value, FontSize = 11, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Right };
-        Grid.SetColumn(valueText, 1); row.Children.Add(valueText); _preview.Children.Add(row);
     }
 
     private void CycleLayout()
@@ -493,18 +453,24 @@ public sealed partial class MainWindow : Window
             foreach (var itemPath in paths)
             {
                 var info = (FileSystemInfo)(Directory.Exists(itemPath) ? new DirectoryInfo(itemPath) : new FileInfo(itemPath));
-                _secondList.Children.Add(ActionButton($"{(info is DirectoryInfo ? "▰" : "▤")}　{info.Name}", () =>
-                {
-                    if (info is DirectoryInfo) _ = LoadSecondDirectoryAsync(info.FullName);
-                    else SetStatus(info.FullName);
-                }));
+                var row = new FileEntryItem();
+                row.Bind(info, selected: false, gridMode: false);
+                row.EntryActivated += (selected, _, _) => OpenSecondEntry(selected);
+                row.EntryOpenRequested += OpenSecondEntry;
+                RefreshThemeColors(row);
+                _secondList.Children.Add(row);
             }
         }
         catch (Exception ex) { _secondList.Children.Add(new TextBlock { Text = $"无法读取目录：{ex.Message}" }); }
-        SecondListHost.Content = _secondList;
     }
 
     private void CycleLayoutRefresh() => _ = LoadSecondDirectoryAsync(_secondPath);
+
+    private void OpenSecondEntry(FileSystemInfo entry)
+    {
+        if (entry is DirectoryInfo) _ = LoadSecondDirectoryAsync(entry.FullName);
+        else SetStatus(entry.FullName);
+    }
 
     private async Task ChooseSecondLocation()
     {
@@ -542,12 +508,7 @@ public sealed partial class MainWindow : Window
 
     private async void EditLocation()
     {
-        var address = new MdTextBox { Text = _currentPath, Width = 440, Variant = MdTextBoxVariant.Outlined };
-        var open = new MdButton { Content = "打开位置", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-        var content = new StackPanel { Margin = new Thickness(18), Spacing = 8, Children = { new TextBlock { Text = "输入本地目录路径" }, address, open } };
-        var dialog = new Window { Title = "转到位置", Width = 510, Height = 170, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = content };
-        open.Click += (_, _) => dialog.Close(address.Text);
-        var path = await dialog.ShowDialog<string?>(this);
+        var path = await TextPromptDialog.ShowAsync(this, "转到位置", "输入本地目录路径", "本地目录路径", _currentPath, "打开位置");
         if (!string.IsNullOrWhiteSpace(path))
         {
             try { Navigate(Path.GetFullPath(path)); }
@@ -717,12 +678,7 @@ public sealed partial class MainWindow : Window
 
     private async void CreateTextFile()
     {
-        var input = new MdTextBox { PlaceholderText = "例如：notes.txt", Width = 320, Variant = MdTextBoxVariant.Outlined };
-        var create = new MdButton { Content = "创建文件", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-        var panel = new StackPanel { Margin = new Thickness(18), Spacing = 8, Children = { new TextBlock { Text = $"在 {_currentPath} 中创建空白文本文件" }, input, create } };
-        var dialog = new Window { Title = "新建文本文件", Width = 410, Height = 175, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel };
-        create.Click += (_, _) => dialog.Close(input.Text);
-        var name = await dialog.ShowDialog<string?>(this);
+        var name = await TextPromptDialog.ShowAsync(this, "新建文本文件", $"在 {_currentPath} 中创建空白文本文件", "例如：notes.txt", "", "创建文件");
         if (!IsValidLeafName(name)) { if (!string.IsNullOrWhiteSpace(name)) SetStatus("文件名无效"); return; }
         try
         {
@@ -745,13 +701,7 @@ public sealed partial class MainWindow : Window
 
     private async void CreateFolder()
     {
-        var dialog = new MdTextBox { PlaceholderText = "文件夹名称", Width = 300, Variant = MdTextBoxVariant.Outlined };
-        var ok = new MdButton { Content = "创建", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-        var stack = new StackPanel { Spacing = 8, Margin = new Thickness(18) };
-        stack.Children.Add(new TextBlock { Text = $"在此位置新建文件夹：{_currentPath}", TextWrapping = TextWrapping.Wrap }); stack.Children.Add(dialog); stack.Children.Add(ok);
-        var window = new Window { Title = "新建文件夹", Width = 380, Height = 170, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = stack };
-        ok.Click += (_, _) => window.Close(dialog.Text);
-        var name = await window.ShowDialog<string?>(this);
+        var name = await TextPromptDialog.ShowAsync(this, "新建文件夹", $"在此位置新建文件夹：{_currentPath}", "文件夹名称", "", "创建");
         if (!IsValidLeafName(name)) { if (!string.IsNullOrWhiteSpace(name)) SetStatus("文件夹名称无效"); return; }
         try
         {
@@ -765,12 +715,7 @@ public sealed partial class MainWindow : Window
 
     private async void RenameEntry(FileSystemInfo entry)
     {
-        var input = new MdTextBox { Text = entry.Name, Width = 300, Variant = MdTextBoxVariant.Outlined };
-        var ok = new MdButton { Content = "重命名", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-        var panel = new StackPanel { Spacing = 8, Margin = new Thickness(18), Children = { new TextBlock { Text = "输入新名称" }, input, ok } };
-        var dialog = new Window { Title = "重命名", Width = 370, Height = 160, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel };
-        ok.Click += (_, _) => dialog.Close(input.Text);
-        var newName = await dialog.ShowDialog<string?>(this);
+        var newName = await TextPromptDialog.ShowAsync(this, "重命名", "输入新名称", "文件名", entry.Name, "重命名");
         if (!IsValidLeafName(newName) || newName == entry.Name) return;
         try { var destination = Path.Combine(Path.GetDirectoryName(entry.FullName)!, newName!); if (entry is DirectoryInfo) Directory.Move(entry.FullName, destination); else File.Move(entry.FullName, destination); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { SetStatus($"重命名失败：{ex.Message}"); }
     }
@@ -781,11 +726,7 @@ public sealed partial class MainWindow : Window
         var entries = GetTopLevelSelection();
         if (entries.Count == 0) { SetStatus("请先选择要删除的项目"); return; }
         var title = entries.Count == 1 ? $"确定永久删除“{entries[0].Name}”？此操作无法撤销。" : $"确定永久删除选中的 {entries.Count} 项？此操作无法撤销。";
-        var confirm = new Window { Title = "确认永久删除", Width = 400, Height = 180, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var yes = new MdButton { Content = "永久删除", Variant = MdButtonVariant.Filled, Size = MdButtonSize.Small, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        confirm.Content = new StackPanel { Margin = new Thickness(18), Children = { new TextBlock { Text = title, TextWrapping = TextWrapping.Wrap }, yes } };
-        yes.Click += (_, _) => confirm.Close(true);
-        if (!await confirm.ShowDialog<bool>(this)) return;
+        if (!await ConfirmDialog.ShowAsync(this, "确认永久删除", title, "永久删除")) return;
         var deleted = new List<string>();
         var operation = StartOperation($"正在永久删除 {entries.Count} 项…", entries.Count);
         var finalMessage = string.Empty;
@@ -866,10 +807,9 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { return $"无法读取预览：{ex.Message}"; }
     }
 
-    private static string IconFor(string ext) => ext.ToLowerInvariant() switch { ".pdf" => "PDF", ".png" or ".jpg" or ".jpeg" => "IMG", ".txt" => "TXT", ".md" => "MD", _ => "FILE" };
-    private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : bytes < 1024 * 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes / (1024d * 1024):0.#} MB";
+    internal static string IconFor(string ext) => ext.ToLowerInvariant() switch { ".pdf" => "PDF", ".png" or ".jpg" or ".jpeg" => "IMG", ".txt" => "TXT", ".md" => "MD", _ => "FILE" };
+    internal static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : bytes < 1024 * 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes / (1024d * 1024):0.#} MB";
     private static IBrush Brush(string hex) => new SolidColorBrush(Color.Parse(hex));
-    private static void AddAt(Grid grid, Control control, int column) { Grid.SetColumn(control, column); grid.Children.Add(control); }
     private void ShowRecentLocations()
     {
         RecentLinks.IsVisible = !RecentLinks.IsVisible;
@@ -888,20 +828,29 @@ public sealed partial class MainWindow : Window
         RenderRecentLocations();
     }
 
-    private void RenderRecentLocations()
+    private void RenderRecentLocations() => RecentLocationItems.ItemsSource = _recentLocations.Select(CreateSidebarLocation).ToList();
+
+    private void OnRecentLocationClicked(object? sender, RoutedEventArgs e)
     {
-        _recentLinks.Children.Clear();
-        foreach (var path in _recentLocations)
-        {
-            var label = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (string.IsNullOrWhiteSpace(label)) label = path;
-            var exists = Directory.Exists(path);
-            _recentLinks.Children.Add(SideButton($"　{label}{(exists ? "" : " · 不可用")}", () =>
-            {
-                if (exists) Navigate(path);
-                else SetStatus($"最近访问位置不存在：{path}");
-            }));
-        }
+        if (sender is Control { DataContext: SidebarLocation location }) NavigateSidebarLocation(location, "最近访问");
+    }
+
+    private void OnFavoriteLocationClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: SidebarLocation location }) NavigateSidebarLocation(location, "收藏");
+    }
+
+    private void NavigateSidebarLocation(SidebarLocation location, string category)
+    {
+        if (Directory.Exists(location.Path)) Navigate(location.Path);
+        else SetStatus($"{category}位置不存在：{location.Path}");
+    }
+
+    private static SidebarLocation CreateSidebarLocation(string path)
+    {
+        var label = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (string.IsNullOrWhiteSpace(label)) label = path;
+        return new SidebarLocation(path, $"　{label}{(Directory.Exists(path) ? "" : " · 不可用")}");
     }
 
     private string FavoriteLabel() => _favorites.Any(path => PathEquals(path, _currentPath)) ? "★　取消收藏当前目录" : "☆　收藏当前目录";
@@ -923,27 +872,8 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { SetStatus($"保存收藏夹失败：{ex.Message}"); }
     }
 
-    private void RenderFavorites()
-    {
-        if (_favoriteLinks is null) return;
-        _favoriteLinks.Children.Clear();
-        foreach (var path in _favorites)
-        {
-            var label = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (string.IsNullOrWhiteSpace(label)) label = path;
-            var exists = Directory.Exists(path);
-            var button = SideButton($"　{label}{(exists ? "" : " · 不可用")}", () =>
-            {
-                if (exists) Navigate(path);
-                else SetStatus($"收藏位置不存在：{path}");
-            });
-            _favoriteLinks.Children.Add(button);
-        }
-    }
+    private void RenderFavorites() => FavoriteLinks.ItemsSource = _favorites.Select(CreateSidebarLocation).ToList();
 
-    private static TextBlock Section(string text) => new() { Text = text, FontSize = 11, FontWeight = FontWeight.Bold, Foreground = Brush("#817C87"), Margin = new Thickness(10, 20, 0, 7) };
-    private Button SideButton(string text, Action action, bool active = false) { var b = new MdButton { Content = text, Variant = active ? MdButtonVariant.Tonal : MdButtonVariant.Text, Size = MdButtonSize.Small, HorizontalContentAlignment = HorizontalAlignment.Left, HorizontalAlignment = HorizontalAlignment.Stretch, Height = 40, Margin = new Thickness(0, 1), Padding = new Thickness(12, 0) }; b.Click += (_, _) => action(); return b; }
-    private static Button ActionButton(string text, Action action, string? tooltip = null) { var b = new MdButton { Content = text, Variant = MdButtonVariant.Tonal, Size = MdButtonSize.Small, MinHeight = 32, FontSize = 12 }; if (tooltip is not null) ToolTip.SetTip(b, tooltip); b.Click += (_, _) => action(); return b; }
     private void CycleTheme()
     {
         _themeMode = _themeMode switch { MdThemeMode.System => MdThemeMode.Light, MdThemeMode.Light => MdThemeMode.Dark, _ => MdThemeMode.System };

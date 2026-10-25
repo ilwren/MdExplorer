@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:md="using:Md3.Avalonia.Controls"
+             x:Class="MdExplorer.Desktop.Views.FileEntryItem">
+  <Grid>
+    <md:MdButton x:Name="ListSurface" Click="OnClicked" PointerPressed="OnPointerPressed" DoubleTapped="OnDoubleTapped"
+                 Variant="Text" Size="Small" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" Padding="0">
+      <Grid Height="46" ColumnSpacing="8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="9,0">
+          <Border x:Name="ListIconTile" Width="25" Height="25" CornerRadius="6" Background="#FFE8DEF8">
+            <TextBlock x:Name="ListIconLabel" FontSize="10" Foreground="#FF6750A4" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <TextBlock x:Name="ListName" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+        <TextBlock x:Name="ListModified" Grid.Column="1" FontSize="11" Foreground="#FF77737F" VerticalAlignment="Center"/>
+        <TextBlock x:Name="ListSize" Grid.Column="2" FontSize="11" Foreground="#FF77737F" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0"/>
+      </Grid>
+    </md:MdButton>
+
+    <md:MdCard x:Name="GridSurface" Click="OnClicked" PointerPressed="OnPointerPressed" DoubleTapped="OnDoubleTapped"
+               IsVisible="False" Width="176" Height="128" Margin="5" Padding="10" Variant="Outlined">
+      <StackPanel Spacing="5">
+        <Border x:Name="GridIconTile" Width="52" Height="44" CornerRadius="12" Background="#FFE8DEF8">
+          <TextBlock x:Name="GridIconLabel" FontSize="12" FontWeight="Bold" Foreground="#FF6750A4" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+        <TextBlock x:Name="GridName" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" MaxHeight="34" TextTrimming="CharacterEllipsis"/>
+        <TextBlock x:Name="GridMetadata" FontSize="10" Foreground="#FF77737F" TextTrimming="CharacterEllipsis"/>
+      </StackPanel>
+    </md:MdCard>
+  </Grid>
+</UserControl>
