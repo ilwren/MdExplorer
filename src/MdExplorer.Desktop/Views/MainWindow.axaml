@@ -1,0 +1,133 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:md="using:Md3.Avalonia.Controls"
+        x:Class="MdExplorer.Desktop.Views.MainWindow"
+        Title="MdExplorer · 本地文件" Width="1450" Height="900"
+        MinWidth="760" MinHeight="540" Background="#FFF7F6F9">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Background="#FFFAF9FB" BorderBrush="#FFEAE7EE" BorderThickness="0,0,0,1">
+      <Grid Height="62" ColumnSpacing="14">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="185"/><ColumnDefinition Width="92"/><ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="290"/><ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center" Margin="20,0">
+          <Border Width="30" Height="30" CornerRadius="9" Background="#FF6750A4">
+            <TextBlock Text="M" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <TextBlock Text="MdExplorer" FontWeight="SemiBold" VerticalAlignment="Center"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <md:MdButton x:Name="BackButton" Content="‹" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="后退"/>
+          <md:MdButton x:Name="ForwardButton" Content="›" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="前进"/>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBlock Text="⌂" FontSize="17" VerticalAlignment="Center"/>
+          <TextBlock x:Name="PathLabel" Text="本地文件" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+        </StackPanel>
+        <md:MdTextBox x:Name="SearchBox" Grid.Column="3" PlaceholderText="搜索此文件夹" Height="36" VerticalAlignment="Center" Variant="Outlined" ShowClearButton="True"/>
+        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="4,0,14,0">
+          <md:MdButton x:Name="CreateFolderButton" Content="＋ 文件夹" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="新建文件夹"/>
+          <md:MdButton x:Name="CreateTextButton" Content="＋ 文本" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="新建空白文本文件"/>
+          <md:MdButton x:Name="SearchScopeButton" Content="搜索：当前目录" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="切换搜索范围"/>
+          <md:MdButton x:Name="LayoutButton" Content="⇄" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="切换布局"/>
+          <md:MdButton x:Name="ThemeButton" Content="◐ 系统" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="切换主题"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border DockPanel.Dock="Bottom" Background="#FFFAF9FB" BorderBrush="#FFEAE7EE" BorderThickness="0,1,0,0">
+      <Grid Height="34" ColumnSpacing="10">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBlock x:Name="StatusText" Grid.Column="0" Text="就绪" FontSize="11" Foreground="#FF77737F" VerticalAlignment="Center" Margin="16,0"/>
+        <TextBlock Grid.Column="1" Text="桌面 · 本地文件" FontSize="11" Foreground="#FF77737F" VerticalAlignment="Center"/>
+        <md:MdButton x:Name="StatusLayoutButton" Grid.Column="2" Content="预览布局" Variant="Text" Size="Small" MinHeight="28" Margin="6,0,10,0" ToolTip.Tip="切换布局"/>
+      </Grid>
+    </Border>
+
+    <Border x:Name="OperationPanel" DockPanel.Dock="Bottom" IsVisible="False" Background="#FFFAF9FB" BorderBrush="#FFEAE7EE" BorderThickness="0,1,0,0">
+      <Grid Margin="16,5" ColumnSpacing="14" RowSpacing="4">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock x:Name="OperationText" Grid.Column="0" FontSize="11" VerticalAlignment="Center"/>
+        <md:MdButton x:Name="CancelOperationButton" Grid.Column="1" Content="取消" Variant="Text" Size="Small" MinHeight="28"/>
+        <md:MdLinearProgressIndicator x:Name="OperationProgress" Grid.Row="1" Grid.ColumnSpan="2" Minimum="0" Maximum="1" Value="0" Height="5" IsIndeterminate="False"/>
+      </Grid>
+    </Border>
+
+    <Grid x:Name="Workspace" ClipToBounds="True">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="205"/><ColumnDefinition Width="*"/><ColumnDefinition Width="340"/><ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+      <Border x:Name="SidebarPane" Grid.Column="0" Grid.RowSpan="2" Background="#FFFAF9FB" BorderBrush="#FFEAE7EE" BorderThickness="0,0,1,0">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Bottom" Text="●  本地文件 · 用户目录" FontSize="11" Foreground="#FF77737F" Margin="18,14"/>
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12,22">
+              <TextBlock Text="工作区" FontSize="11" FontWeight="Bold" Foreground="#FF817C87" Margin="10,20,0,7"/>
+              <md:MdButton x:Name="HomeButton" Content="▣　文件" Variant="Tonal" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
+              <md:MdButton x:Name="RecentButton" Content="◷　最近" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
+              <StackPanel x:Name="RecentLinks" IsVisible="False"/>
+              <TextBlock Text="收藏夹" FontSize="11" FontWeight="Bold" Foreground="#FF817C87" Margin="10,20,0,7"/>
+              <md:MdButton x:Name="FavoriteButton" Content="☆　收藏当前目录" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
+              <StackPanel x:Name="FavoriteLinks"/>
+              <TextBlock Text="位置" FontSize="11" FontWeight="Bold" Foreground="#FF817C87" Margin="10,20,0,7"/>
+              <md:MdButton x:Name="UserHomeButton" Content="▣　主目录" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
+              <md:MdButton x:Name="DocumentsButton" Content="▱　文档" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
+              <md:MdButton x:Name="DownloadsButton" Content="▱　下载" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
+              <md:MdButton x:Name="PicturesButton" Content="▱　图片" Variant="Text" Size="Small" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" Height="40" Padding="12,0"/>
+            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+
+      <Border x:Name="MainPane" Grid.Column="1" Margin="24,20,20,0">
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" Margin="2,0,2,16">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Spacing="4">
+              <TextBlock Text="文件" FontSize="21" FontWeight="SemiBold"/>
+              <TextBlock x:Name="CountLabel" Text="加载中…" FontSize="12" Foreground="#FF77737F"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+              <md:MdButton x:Name="SortButton" Content="名称排序" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="循环切换排序字段"/>
+              <md:MdButton x:Name="SortDirectionButton" Content="↑" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="升序 / 降序"/>
+              <md:MdButton x:Name="HiddenButton" Content="隐藏项：关" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="显示或隐藏隐藏文件"/>
+              <md:MdButton x:Name="ViewButton" Content="☷ 列表" Variant="Tonal" Size="Small" MinHeight="32" ToolTip.Tip="列表 / 网格视图"/>
+              <md:MdButton x:Name="CopyButton" Content="复制" Variant="Tonal" Size="Small" MinHeight="32"/>
+              <md:MdButton x:Name="CutButton" Content="剪切" Variant="Tonal" Size="Small" MinHeight="32"/>
+              <md:MdButton x:Name="PasteButton" Content="粘贴" Variant="Tonal" Size="Small" MinHeight="32"/>
+            </StackPanel>
+          </Grid>
+          <Grid x:Name="ListColumnHeader" DockPanel.Dock="Top" Height="32">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="名称" FontSize="11" Foreground="#FF85808B" VerticalAlignment="Center" Margin="10,0"/>
+            <TextBlock Grid.Column="1" Text="修改日期" FontSize="11" Foreground="#FF85808B" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Text="大小" FontSize="11" Foreground="#FF85808B" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0"/>
+          </Grid>
+          <ContentControl x:Name="EntryListHost"/>
+        </DockPanel>
+      </Border>
+
+      <Border x:Name="PreviewPane" Grid.Column="2" Grid.Row="0" Grid.RowSpan="2" Background="#FFFCFBFD" BorderBrush="#FFEAE7EE" BorderThickness="1,0,0,0">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="预览与文件信息" FontSize="15" FontWeight="SemiBold" Margin="20,20,20,12"/>
+          <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="PreviewContent" Spacing="10"/></ScrollViewer>
+        </DockPanel>
+      </Border>
+
+      <Border x:Name="SecondPane" Grid.Column="3" Grid.Row="0" Grid.RowSpan="2" IsVisible="False" Background="#FFFCFBFD" BorderBrush="#FFEAE7EE" BorderThickness="1,0,0,0" Margin="12,0,0,0">
+        <DockPanel Margin="14">
+          <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Spacing="3"><TextBlock Text="第二栏" FontWeight="SemiBold"/><TextBlock x:Name="SecondPathLabel" Text="" FontSize="11" Foreground="#FF77737F" TextTrimming="CharacterEllipsis"/></StackPanel>
+            <md:MdButton x:Name="ChooseSecondLocationButton" Grid.Column="1" Content="选择位置" Variant="Tonal" Size="Small" MinHeight="32"/>
+          </Grid>
+          <ContentControl x:Name="SecondListHost"/>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>

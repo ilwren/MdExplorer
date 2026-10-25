@@ -15,20 +15,21 @@ using MdExplorer.Desktop;
 
 namespace MdExplorer.Desktop.Views;
 
-public sealed class MainWindow : Window
+public sealed partial class MainWindow : Window
 {
-    private readonly Grid _workspace = new();
+    private Grid _workspace => Workspace;
     private Grid? _listHost;
-    private ScrollViewer? _previewScroll;
-    private ScrollViewer? _secondScroll;
     private readonly StackPanel _fileList = new() { Spacing = 2 };
     private readonly WrapPanel _gridList = new() { Orientation = Orientation.Horizontal, ItemWidth = 190, ItemHeight = 140, IsVisible = false };
     private readonly StackPanel _secondList = new() { Spacing = 2 };
-    private readonly StackPanel _preview = new() { Spacing = 10 };
+    private StackPanel _preview => PreviewContent;
+    private Border _operationPanel => OperationPanel;
+    private MdLinearProgressIndicator _operationProgress => OperationProgress;
+    private TextBlock _operationText => OperationText;
     private Avalonia.Media.Imaging.Bitmap? _currentPreviewBitmap;
-    private readonly TextBlock _pathLabel = new();
-    private readonly TextBlock _countLabel = new();
-    private readonly MdTextBox _search = new() { PlaceholderText = "搜索此文件夹", Variant = MdTextBoxVariant.Outlined, ShowClearButton = true };
+    private TextBlock _pathLabel => PathLabel;
+    private TextBlock _countLabel => CountLabel;
+    private MdTextBox _search => SearchBox;
     private Button? _themeButton;
     private IReadOnlyDictionary<string, Color> _themeRoles = new Dictionary<string, Color>();
     private MdThemeMode _themeMode = MdThemeMode.System;
@@ -46,254 +47,160 @@ public sealed class MainWindow : Window
     private Button? _sortDirectionButton;
     private Button? _hiddenButton;
     private Button? _viewButton;
-    private Grid? _listColumnHeader;
+    private Grid _listColumnHeader => ListColumnHeader;
     private ViewMode _viewMode = ViewMode.List;
     private Button? _backButton;
     private Button? _forwardButton;
     private readonly Stack<string> _backHistory = new();
     private readonly Stack<string> _forwardHistory = new();
     private readonly List<string> _favorites = FavoriteStore.Load();
-    private StackPanel? _favoriteLinks;
+    private readonly List<string> _recentLocations = RecentLocationStore.Load();
+    private StackPanel _recentLinks => RecentLinks;
+    private StackPanel _favoriteLinks => FavoriteLinks;
     private Button? _favoriteButton;
     private Button? _searchScopeButton;
     private SortMode _sortMode = SortMode.Name;
     private bool _sortDescending;
     private bool _showHidden;
     private bool _searchSubfolders;
-    private Border? _operationPanel;
-    private MdLinearProgressIndicator? _operationProgress;
-    private TextBlock? _operationText;
     private CancellationTokenSource? _operationCancellation;
-    private readonly TextBlock _status = new();
+    private TextBlock _status => StatusText;
     private readonly string _home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     private string _currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     private string _secondPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
     private FileSystemInfo? _selected;
     private LayoutMode _mode = LayoutMode.Preview;
     private CancellationTokenSource? _loadCancellation;
+    private readonly LocalFileSystemService _fileSystem = new();
 
     private enum LayoutMode { Preview, SideBySide, Stacked }
     private enum ViewMode { List, Grid }
-    private enum SortMode { Name, Modified, Size, Type }
 
     public MainWindow()
     {
-        Title = "MdExplorer · 本地文件";
-        Width = 1450;
-        Height = 900;
-        MinWidth = 760;
-        MinHeight = 540;
-        KeyDown += OnKeyDown;
-        Closing += (_, _) => _operationCancellation?.Cancel();
+        InitializeComponent();
         _themeMode = MdThemeManager.Current.ThemeMode;
         _themeRoles = MdThemeManager.Apply(Application.Current!, MdThemeManager.Current, Application.Current!.ActualThemeVariant == ThemeVariant.Dark);
-        Background = Brush("#F7F6F9");
+        _themeButton = ThemeButton;
+        _copyButton = CopyButton;
+        _cutButton = CutButton;
+        _pasteButton = PasteButton;
+        _sortButton = SortButton;
+        _sortDirectionButton = SortDirectionButton;
+        _hiddenButton = HiddenButton;
+        _viewButton = ViewButton;
+        _backButton = BackButton;
+        _forwardButton = ForwardButton;
+        _favoriteButton = FavoriteButton;
+        _searchScopeButton = SearchScopeButton;
+        _listHost = new Grid();
+        _listHost.Children.Add(_fileList);
+        _listHost.Children.Add(_gridList);
+        EntryListHost.Content = _listHost;
+        _secondPath = Directory.Exists(_secondPath) ? _secondPath : _home;
+        SecondPathLabel.Text = _secondPath;
+        FavoriteButton.Content = FavoriteLabel();
+        RenderRecentLocations();
+        RenderFavorites();
+        CopyButton.IsEnabled = false;
+        CutButton.IsEnabled = false;
+        PasteButton.IsEnabled = false;
+        BackButton.IsEnabled = false;
+        ForwardButton.IsEnabled = false;
+
+        SearchBox.TextChanged += (_, _) => _ = LoadDirectoryAsync(_currentPath);
+        BackButton.Click += (_, _) => NavigateBack();
+        ForwardButton.Click += (_, _) => NavigateForward();
+        CreateFolderButton.Click += (_, _) => CreateFolder();
+        CreateTextButton.Click += (_, _) => CreateTextFile();
+        SearchScopeButton.Click += (_, _) => ToggleSearchScope();
+        LayoutButton.Click += (_, _) => CycleLayout();
+        StatusLayoutButton.Click += (_, _) => CycleLayout();
+        ThemeButton.Click += (_, _) => CycleTheme();
+        HomeButton.Click += (_, _) => Navigate(_home);
+        RecentButton.Click += (_, _) => ShowRecentLocations();
+        FavoriteButton.Click += (_, _) => ToggleFavorite();
+        UserHomeButton.Click += (_, _) => Navigate(_home);
+        DocumentsButton.Click += (_, _) => Navigate(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+        DownloadsButton.Click += (_, _) => Navigate(Path.Combine(_home, "Downloads"));
+        PicturesButton.Click += (_, _) => Navigate(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures));
+        SortButton.Click += (_, _) => CycleSort();
+        SortDirectionButton.Click += (_, _) => ToggleSortDirection();
+        HiddenButton.Click += (_, _) => ToggleHidden();
+        ViewButton.Click += (_, _) => ToggleView();
+        CopyButton.Click += (_, _) => SetClipboard(cut: false);
+        CutButton.Click += (_, _) => SetClipboard(cut: true);
+        PasteButton.Click += (_, _) => PasteClipboard();
+        CancelOperationButton.Click += (_, _) => _operationCancellation?.Cancel();
+        ChooseSecondLocationButton.Click += async (_, _) => await ChooseSecondLocation();
+        Closing += (_, _) => _operationCancellation?.Cancel();
         Application.Current.ActualThemeVariantChanged += (_, _) =>
         {
             _themeRoles = MdThemeManager.Apply(Application.Current, MdThemeManager.Current, Application.Current.ActualThemeVariant == ThemeVariant.Dark);
             RefreshThemeColors();
         };
-        BuildShell();
+
+        ApplyLayoutPositions();
         RefreshThemeColors();
         _ = LoadDirectoryAsync(_currentPath);
+        _ = LoadSecondDirectoryAsync(_secondPath);
     }
 
-    private void BuildShell()
+    private void ApplyLayoutPositions()
     {
-        var root = new DockPanel();
-        Content = root;
-        var header = BuildHeader();
-        DockPanel.SetDock(header, Dock.Top);
-        root.Children.Add(header);
-        var statusBar = BuildStatusBar();
-        DockPanel.SetDock(statusBar, Dock.Bottom);
-        root.Children.Add(statusBar);
-        _operationPanel = BuildOperationPanel();
-        DockPanel.SetDock(_operationPanel, Dock.Bottom);
-        root.Children.Add(_operationPanel);
-        _workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(205)));
-        _workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-        _workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(340)));
-        var sidebar = BuildSidebar();
-        Grid.SetColumn(sidebar, 0);
-        _workspace.Children.Add(sidebar);
-        var main = BuildMainPane();
-        Grid.SetColumn(main, 1);
-        _workspace.Children.Add(main);
-        var details = BuildDetailsPane();
-        Grid.SetColumn(details, 2);
-        _workspace.Children.Add(details);
-        root.Children.Add(_workspace);
-    }
-
-    private Control BuildHeader()
-    {
-        var bar = new Grid { Height = 62, Background = Brush("#FAF9FB"), ColumnSpacing = 14 };
-        bar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(185)));
-        bar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(92)));
-        bar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-        bar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(290)));
-        bar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        var brand = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(20, 0) };
-        brand.Children.Add(new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(9), Background = Brush("#6750A4"), Child = new TextBlock { Text = "M", Foreground = Brushes.White, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
-        brand.Children.Add(new TextBlock { Text = "MdExplorer", FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
-        AddAt(bar, brand, 0);
-        var nav = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        _backButton = ActionButton("‹", NavigateBack, "后退");
-        _forwardButton = ActionButton("›", NavigateForward, "前进");
-        _backButton.IsEnabled = false; _forwardButton.IsEnabled = false;
-        nav.Children.Add(_backButton);
-        nav.Children.Add(_forwardButton);
-        AddAt(bar, nav, 1);
-        var pathRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
-        pathRow.Children.Add(new TextBlock { Text = "⌂", FontSize = 17, VerticalAlignment = VerticalAlignment.Center });
-        _pathLabel.Text = _currentPath;
-        _pathLabel.TextTrimming = TextTrimming.CharacterEllipsis;
-        _pathLabel.VerticalAlignment = VerticalAlignment.Center;
-        pathRow.Children.Add(_pathLabel);
-        AddAt(bar, pathRow, 2);
-        _search.PlaceholderText = "搜索此文件夹";
-        _search.Height = 36;
-        _search.VerticalAlignment = VerticalAlignment.Center;
-        _search.Margin = new Thickness(0, 0, 0, 0);
-        _search.TextChanged += (_, _) => _ = LoadDirectoryAsync(_currentPath);
-        AddAt(bar, _search, 3);
-        var tools = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 14, 0) };
-        tools.Children.Add(ActionButton("＋ 文件夹", CreateFolder, "新建文件夹"));
-        tools.Children.Add(ActionButton("＋ 文本", CreateTextFile, "新建空白文本文件"));
-        _searchScopeButton = ActionButton(SearchScopeLabel(), ToggleSearchScope, "切换搜索范围：当前目录 / 包含子目录");
-        tools.Children.Add(_searchScopeButton);
-        tools.Children.Add(ActionButton("⇄", CycleLayout, "切换布局"));
-        _themeButton = ActionButton(ThemeLabel(), CycleTheme, "切换浅色 / 深色 / 跟随系统主题");
-        tools.Children.Add(_themeButton);
-        AddAt(bar, tools, 4);
-        return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(0, 0, 0, 1), Child = bar };
-    }
-
-    private Control BuildSidebar()
-    {
-        var panel = new DockPanel { Background = Brush("#FAF9FB"), LastChildFill = true };
-        var footer = new TextBlock { Text = "●  本地文件 · 用户目录", FontSize = 11, Foreground = Brush("#77737F"), Margin = new Thickness(18, 14) };
-        DockPanel.SetDock(footer, Dock.Bottom);
-        panel.Children.Add(footer);
-        var links = new StackPanel { Margin = new Thickness(12, 22) };
-        links.Children.Add(Section("工作区"));
-        links.Children.Add(SideButton("▣　文件", () => Navigate(_home), true));
-        links.Children.Add(SideButton("◷　最近", () => SetStatus("最近访问列表将在后续版本提供")));
-        links.Children.Add(Section("收藏夹"));
-        _favoriteButton = SideButton(FavoriteLabel(), ToggleFavorite);
-        links.Children.Add(_favoriteButton);
-        _favoriteLinks = new StackPanel();
-        links.Children.Add(_favoriteLinks);
-        RenderFavorites();
-        links.Children.Add(Section("位置"));
-        links.Children.Add(SideButton("▣　主目录", () => Navigate(_home)));
-        links.Children.Add(SideButton("▱　文档", () => Navigate(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))));
-        links.Children.Add(SideButton("▱　下载", () => Navigate(Path.Combine(_home, "Downloads"))));
-        links.Children.Add(SideButton("▱　图片", () => Navigate(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures))));
-        panel.Children.Add(new ScrollViewer { Content = links, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
-        return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(0, 0, 1, 0), Child = panel };
-    }
-
-    private Control BuildMainPane()
-    {
-        var pane = new DockPanel { Margin = new Thickness(24, 20, 20, 0) };
-        var heading = new Grid { Margin = new Thickness(2, 0, 2, 16) };
-        heading.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-        heading.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        var labels = new StackPanel { Spacing = 4 };
-        labels.Children.Add(new TextBlock { Text = "文件", FontSize = 21, FontWeight = FontWeight.SemiBold });
-        _countLabel.Text = "加载中…";
-        _countLabel.FontSize = 12;
-        _countLabel.Foreground = Brush("#77737F");
-        labels.Children.Add(_countLabel);
-        AddAt(heading, labels, 0);
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
-        _sortButton = ActionButton(SortLabel(), CycleSort, "循环切换排序字段");
-        _sortDirectionButton = ActionButton(SortDirectionLabel(), ToggleSortDirection, "升序 / 降序");
-        _hiddenButton = ActionButton(HiddenLabel(), ToggleHidden, "显示或隐藏隐藏文件");
-        actions.Children.Add(_sortButton);
-        actions.Children.Add(_sortDirectionButton);
-        actions.Children.Add(_hiddenButton);
-        _viewButton = ActionButton(ViewLabel(), ToggleView, "列表 / 网格视图");
-        actions.Children.Add(_viewButton);
-        _copyButton = ActionButton("复制", () => SetClipboard(cut: false), "复制所选项目");
-        _cutButton = ActionButton("剪切", () => SetClipboard(cut: true), "剪切所选项目");
-        _pasteButton = ActionButton("粘贴", PasteClipboard, "粘贴到当前文件夹");
-        _copyButton.IsEnabled = _selectedPaths.Count > 0;
-        _cutButton.IsEnabled = _selectedPaths.Count > 0;
-        _pasteButton.IsEnabled = _clipboardPaths.Count > 0;
-        actions.Children.Add(_copyButton);
-        actions.Children.Add(_cutButton);
-        actions.Children.Add(_pasteButton);
-        AddAt(heading, actions, 1);
-        DockPanel.SetDock(heading, Dock.Top);
-        pane.Children.Add(heading);
-        var columns = _listColumnHeader = new Grid { Height = 32, IsVisible = _viewMode == ViewMode.List };
-        columns.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-        columns.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(120)));
-        columns.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(90)));
-        columns.Children.Add(new TextBlock { Text = "名称", FontSize = 11, Foreground = Brush("#85808B"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0) });
-        var date = new TextBlock { Text = "修改日期", FontSize = 11, Foreground = Brush("#85808B"), VerticalAlignment = VerticalAlignment.Center };
-        Grid.SetColumn(date, 1); columns.Children.Add(date);
-        var size = new TextBlock { Text = "大小", FontSize = 11, Foreground = Brush("#85808B"), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 12, 0) };
-        Grid.SetColumn(size, 2); columns.Children.Add(size);
-        DockPanel.SetDock(columns, Dock.Top);
-        pane.Children.Add(columns);
-        var listHost = _listHost = new Grid();
+        Workspace.ColumnDefinitions.Clear();
+        Workspace.RowDefinitions.Clear();
+        Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(205)));
+        Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+        Workspace.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+        Workspace.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+        Grid.SetColumn(SidebarPane, 0);
+        Grid.SetRow(SidebarPane, 0);
+        Grid.SetRowSpan(SidebarPane, 2);
+        Grid.SetColumn(MainPane, 1);
+        Grid.SetColumn(PreviewPane, 2);
+        Grid.SetColumn(SecondPane, 3);
+        PreviewPane.IsVisible = _mode == LayoutMode.Preview;
+        SecondPane.IsVisible = _mode != LayoutMode.Preview;
+        if (_mode == LayoutMode.Preview)
+        {
+            Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(340)));
+            Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(0)));
+            Grid.SetRow(MainPane, 0);
+            Grid.SetRowSpan(MainPane, 2);
+            Grid.SetRow(PreviewPane, 0);
+            Grid.SetRowSpan(PreviewPane, 2);
+            Grid.SetRow(SecondPane, 0);
+            Grid.SetRowSpan(SecondPane, 2);
+            SecondPane.IsVisible = false;
+        }
+        else if (_mode == LayoutMode.SideBySide)
+        {
+            Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            Grid.SetRow(MainPane, 0);
+            Grid.SetRowSpan(MainPane, 2);
+            Grid.SetRow(SecondPane, 0);
+            Grid.SetRowSpan(SecondPane, 2);
+            PreviewPane.IsVisible = false;
+            SecondPane.IsVisible = true;
+        }
+        else
+        {
+            Workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(0)));
+            Grid.SetColumn(MainPane, 1);
+            Grid.SetRow(MainPane, 0);
+            Grid.SetRowSpan(MainPane, 1);
+            Grid.SetColumn(SecondPane, 1);
+            Grid.SetRow(SecondPane, 1);
+            Grid.SetRowSpan(SecondPane, 1);
+            PreviewPane.IsVisible = false;
+            SecondPane.IsVisible = true;
+        }
+        ListColumnHeader.IsVisible = _viewMode == ViewMode.List;
         _fileList.IsVisible = _viewMode == ViewMode.List;
         _gridList.IsVisible = _viewMode == ViewMode.Grid;
-        listHost.Children.Add(_fileList);
-        listHost.Children.Add(_gridList);
-        var scroll = new ScrollViewer { Content = listHost, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        pane.Children.Add(scroll);
-        return pane;
-    }
-
-    private Control BuildDetailsPane()
-    {
-        var pane = new DockPanel { Background = Brush("#FCFBFD"), Margin = new Thickness(0) };
-        var title = new TextBlock { Text = "预览与文件信息", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(20, 20, 20, 12) };
-        DockPanel.SetDock(title, Dock.Top);
-        pane.Children.Add(title);
-        var scroll = _previewScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = _preview };
-        pane.Children.Add(scroll);
-        return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(1, 0, 0, 0), Child = pane };
-    }
-
-    private Control BuildStatusBar()
-    {
-        var bar = new Grid { Height = 34, Background = Brush("#FAF9FB"), ColumnSpacing = 10 };
-        bar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-        bar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        bar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        _status.Text = "就绪";
-        _status.FontSize = 11;
-        _status.Foreground = Brush("#77737F");
-        _status.VerticalAlignment = VerticalAlignment.Center;
-        _status.Margin = new Thickness(16, 0);
-        AddAt(bar, _status, 0);
-        AddAt(bar, new TextBlock { Text = "桌面 · 本地文件", FontSize = 11, Foreground = Brush("#77737F"), VerticalAlignment = VerticalAlignment.Center }, 1);
-        AddAt(bar, ActionButton(LayoutLabel(), CycleLayout, "切换布局"), 2);
-        return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(0, 1, 0, 0), Child = bar };
-    }
-
-    private Border BuildOperationPanel()
-    {
-        var row = new Grid { ColumnSpacing = 14, RowSpacing = 4, Margin = new Thickness(16, 5) };
-        row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-        row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        row.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        row.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        _operationText = new TextBlock { FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
-        AddAt(row, _operationText, 0);
-        _operationProgress = new MdLinearProgressIndicator { Minimum = 0, Maximum = 1, Value = 0, Height = 5, IsIndeterminate = false };
-        Grid.SetRow(_operationProgress, 1); Grid.SetColumnSpan(_operationProgress, 2); row.Children.Add(_operationProgress);
-        var cancel = ActionButton("取消", () => _operationCancellation?.Cancel());
-        Grid.SetColumn(cancel, 1); row.Children.Add(cancel);
-        var panel = new Border { Background = Brush("#FAF9FB"), BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(0, 1, 0, 0), IsVisible = false, Child = row };
-        _operationPanel = panel;
-        return panel;
+        StatusLayoutButton.Content = LayoutLabel();
     }
 
     private (CancellationTokenSource Source, IProgress<OperationProgress> Progress) StartOperation(string title, int total)
@@ -340,23 +247,14 @@ public sealed class MainWindow : Window
         var sortDescending = _sortDescending;
         try
         {
-            var entries = await Task.Run(() =>
-            {
-                List<FileSystemInfo> all;
-                if (searchSubfolders && !string.IsNullOrWhiteSpace(query))
-                    all = SearchSubtree(path, query, showHidden, cts.Token);
-                else
-                    all = Directory.EnumerateFileSystemEntries(path)
-                        .Select(p => (FileSystemInfo)(Directory.Exists(p) ? new DirectoryInfo(p) : new FileInfo(p)))
-                        .Where(x => showHidden || !IsHidden(x))
-                        .Where(x => string.IsNullOrEmpty(query) || x.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                        .Take(1000).ToList();
-                return SortEntries(all, sortMode, sortDescending);
-            }, cts.Token);
+            var entries = await Task.Run(
+                () => _fileSystem.ListDirectory(path, query, showHidden, searchSubfolders, sortMode, sortDescending, cts.Token),
+                cts.Token);
             if (cts.IsCancellationRequested) return;
             _currentPath = path;
             _pathLabel.Text = path;
             if (_favoriteButton is not null) _favoriteButton.Content = FavoriteLabel();
+            RecordRecentLocation(path);
             _countLabel.Text = string.IsNullOrWhiteSpace(query)
                 ? $"{entries.Count} 个项目 · {SortLabel()}"
                 : $"搜索结果 {entries.Count} 项 · {(searchSubfolders ? "包含子目录" : "当前目录")}";
@@ -374,67 +272,6 @@ public sealed class MainWindow : Window
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { SetStatus($"无法读取目录：{ex.Message}"); }
-    }
-
-    private static List<FileSystemInfo> SearchSubtree(string root, string query, bool showHidden, CancellationToken cancellationToken)
-    {
-        var found = new List<FileSystemInfo>();
-        var pending = new Stack<(string Path, int Depth)>();
-        var visited = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        pending.Push((root, 0));
-        while (pending.Count > 0 && found.Count < 1000)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var (directory, depth) = pending.Pop();
-            string canonical;
-            try { canonical = Path.GetFullPath(directory); }
-            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException) { continue; }
-            if (!visited.Add(canonical)) continue;
-            try
-            {
-                foreach (var child in Directory.EnumerateFileSystemEntries(directory))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    try
-                    {
-                        var attributes = File.GetAttributes(child);
-                        if (!showHidden && ((attributes & FileAttributes.Hidden) != 0 || Path.GetFileName(child).StartsWith(".", StringComparison.Ordinal))) continue;
-                        var isDirectory = (attributes & FileAttributes.Directory) != 0;
-                        FileSystemInfo item = isDirectory ? new DirectoryInfo(child) : new FileInfo(child);
-                        if (item.Name.Contains(query, StringComparison.OrdinalIgnoreCase)) found.Add(item);
-                        if (isDirectory && depth < 31 && (attributes & FileAttributes.ReparsePoint) == 0) pending.Push((child, depth + 1));
-                        if (found.Count >= 1000) break;
-                    }
-                    catch (IOException) { }
-                    catch (UnauthorizedAccessException) { }
-                }
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
-        return found;
-    }
-
-    private static List<FileSystemInfo> SortEntries(List<FileSystemInfo> entries, SortMode mode, bool descending)
-    {
-        static IOrderedEnumerable<FileSystemInfo> SortGroup(IEnumerable<FileSystemInfo> group, SortMode current, bool reverse) => current switch
-        {
-            SortMode.Modified => reverse ? group.OrderByDescending(x => x.LastWriteTimeUtc).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase) : group.OrderBy(x => x.LastWriteTimeUtc).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
-            SortMode.Size => reverse ? group.OrderByDescending(x => x is FileInfo f ? f.Length : -1L).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase) : group.OrderBy(x => x is FileInfo f ? f.Length : -1L).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
-            SortMode.Type => reverse ? group.OrderByDescending(x => x is DirectoryInfo ? "" : x.Extension, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase) : group.OrderBy(x => x is DirectoryInfo ? "" : x.Extension, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
-            _ => reverse ? group.OrderByDescending(x => x.Name, StringComparer.CurrentCultureIgnoreCase) : group.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
-        };
-        var folders = entries.Where(x => x is DirectoryInfo);
-        var files = entries.Where(x => x is not DirectoryInfo);
-        return SortGroup(folders, mode, descending).Concat(SortGroup(files, mode, descending)).ToList();
-    }
-
-    private static bool IsHidden(FileSystemInfo entry)
-    {
-        if (entry.Name.StartsWith(".", StringComparison.Ordinal)) return true;
-        try { return (File.GetAttributes(entry.FullName) & FileAttributes.Hidden) != 0; }
-        catch (IOException) { return false; }
-        catch (UnauthorizedAccessException) { return false; }
     }
 
     private string SortLabel() => _sortMode switch { SortMode.Name => "名称排序", SortMode.Modified => "修改时间", SortMode.Size => "大小排序", _ => "类型排序" };
@@ -639,73 +476,35 @@ public sealed class MainWindow : Window
     private void CycleLayout()
     {
         _mode = _mode switch { LayoutMode.Preview => LayoutMode.SideBySide, LayoutMode.SideBySide => LayoutMode.Stacked, _ => LayoutMode.Preview };
-        _listHost?.Children.Remove(_fileList); _listHost?.Children.Remove(_gridList);
-        if (_previewScroll is not null) _previewScroll.Content = null;
-        if (_secondScroll is not null) _secondScroll.Content = null;
-        _workspace.ColumnDefinitions.Clear();
-        _workspace.RowDefinitions.Clear();
-        _workspace.Children.Clear();
-        _workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(205)));
-        _workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-        var sidebar = BuildSidebar(); Grid.SetColumn(sidebar, 0); _workspace.Children.Add(sidebar);
-        var main = BuildMainPane(); Grid.SetColumn(main, 1); _workspace.Children.Add(main);
-        if (_mode == LayoutMode.Preview)
-        {
-            _workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(340)));
-            var details = BuildDetailsPane(); Grid.SetColumn(details, 2); _workspace.Children.Add(details);
-            if (_selected is not null) SelectEntry(_selected);
-        }
-        else
-        {
-            var second = BuildSecondPane();
-            if (_mode == LayoutMode.SideBySide)
-            {
-                _workspace.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
-                _workspace.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-                Grid.SetColumn(second, 2);
-            }
-            else
-            {
-                _workspace.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
-                _workspace.RowDefinitions = new RowDefinitions("*,*");
-                Grid.SetRow(main, 0); Grid.SetColumn(main, 1);
-                Grid.SetRow(second, 1); Grid.SetColumn(second, 1);
-                Grid.SetColumnSpan(sidebar, 1);
-                Grid.SetRowSpan(sidebar, 2);
-            }
-            _workspace.Children.Add(second);
-        }
+        ApplyLayoutPositions();
+        if (_mode != LayoutMode.Preview) _ = LoadSecondDirectoryAsync(_secondPath);
+        if (_mode == LayoutMode.Preview && _selected is not null) SelectEntry(_selected);
         SetStatus(_mode switch { LayoutMode.Preview => "预览与信息面板", LayoutMode.SideBySide => "左右双栏 · 第二栏可浏览独立位置", _ => "上下双栏 · 第二栏可浏览独立位置" });
     }
 
-    private Control BuildSecondPane()
+    private async Task LoadSecondDirectoryAsync(string path)
     {
-        var box = new DockPanel { Margin = new Thickness(18, 12) };
-        var heading = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(4, 4, 4, 12) };
-        heading.Children.Add(new TextBlock { Text = _mode == LayoutMode.SideBySide ? "第二面板" : "第二面板 · 下载", FontWeight = FontWeight.SemiBold });
-        heading.Children.Add(ActionButton("选择位置…", async () => await ChooseSecondLocation()));
-        DockPanel.SetDock(heading, Dock.Top); box.Children.Add(heading);
+        _secondPath = path;
+        SecondPathLabel.Text = path;
         _secondList.Children.Clear();
         try
         {
-            foreach (var path in Directory.EnumerateFileSystemEntries(_secondPath).Take(200))
+            var paths = await Task.Run(() => Directory.EnumerateFileSystemEntries(path).Take(500).ToArray());
+            foreach (var itemPath in paths)
             {
-                var info = (FileSystemInfo)(Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path));
-                _secondList.Children.Add(ActionButton($"{(info is DirectoryInfo ? "▰" : "▤")}　{info.Name}", () => { if (info is DirectoryInfo) { _secondPath = info.FullName; CycleLayoutRefresh(); } else SetStatus(info.FullName); }));
+                var info = (FileSystemInfo)(Directory.Exists(itemPath) ? new DirectoryInfo(itemPath) : new FileInfo(itemPath));
+                _secondList.Children.Add(ActionButton($"{(info is DirectoryInfo ? "▰" : "▤")}　{info.Name}", () =>
+                {
+                    if (info is DirectoryInfo) _ = LoadSecondDirectoryAsync(info.FullName);
+                    else SetStatus(info.FullName);
+                }));
             }
         }
-        catch (Exception ex) { _secondList.Children.Add(new TextBlock { Text = ex.Message }); }
-        _secondScroll = new ScrollViewer { Content = _secondList };
-        box.Children.Add(_secondScroll);
-        return new Border { BorderBrush = Brush("#EAE7EE"), BorderThickness = new Thickness(1, 0, 0, 0), Child = box };
+        catch (Exception ex) { _secondList.Children.Add(new TextBlock { Text = $"无法读取目录：{ex.Message}" }); }
+        SecondListHost.Content = _secondList;
     }
 
-    private void CycleLayoutRefresh()
-    {
-        var old = _mode;
-        _mode = old == LayoutMode.SideBySide ? LayoutMode.Preview : LayoutMode.Preview;
-        CycleLayout();
-    }
+    private void CycleLayoutRefresh() => _ = LoadSecondDirectoryAsync(_secondPath);
 
     private async Task ChooseSecondLocation()
     {
@@ -1071,6 +870,40 @@ public sealed class MainWindow : Window
     private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B" : bytes < 1024 * 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes / (1024d * 1024):0.#} MB";
     private static IBrush Brush(string hex) => new SolidColorBrush(Color.Parse(hex));
     private static void AddAt(Grid grid, Control control, int column) { Grid.SetColumn(control, column); grid.Children.Add(control); }
+    private void ShowRecentLocations()
+    {
+        RecentLinks.IsVisible = !RecentLinks.IsVisible;
+        if (RecentLinks.IsVisible) RenderRecentLocations();
+    }
+
+    private void RecordRecentLocation(string path)
+    {
+        if (!Directory.Exists(path)) return;
+        var fullPath = Path.GetFullPath(path);
+        _recentLocations.RemoveAll(item => PathEquals(item, fullPath));
+        _recentLocations.Insert(0, fullPath);
+        if (_recentLocations.Count > 12) _recentLocations.RemoveRange(12, _recentLocations.Count - 12);
+        try { RecentLocationStore.Save(_recentLocations); }
+        catch (Exception ex) { SetStatus($"保存最近位置失败：{ex.Message}"); }
+        RenderRecentLocations();
+    }
+
+    private void RenderRecentLocations()
+    {
+        _recentLinks.Children.Clear();
+        foreach (var path in _recentLocations)
+        {
+            var label = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(label)) label = path;
+            var exists = Directory.Exists(path);
+            _recentLinks.Children.Add(SideButton($"　{label}{(exists ? "" : " · 不可用")}", () =>
+            {
+                if (exists) Navigate(path);
+                else SetStatus($"最近访问位置不存在：{path}");
+            }));
+        }
+    }
+
     private string FavoriteLabel() => _favorites.Any(path => PathEquals(path, _currentPath)) ? "★　取消收藏当前目录" : "☆　收藏当前目录";
 
     private void ToggleFavorite()
