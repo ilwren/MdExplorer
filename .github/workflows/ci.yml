@@ -4,6 +4,10 @@ on:
   push:
     branches: [main, "arena/**"]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # ci-artifacts 分支回传截图与测试日志
 
 env:
   DOTNET_NOLOGO: "1"
@@ -23,7 +27,15 @@ jobs:
       - name: Build
         run: dotnet build MdExplorer.slnx -c Release --no-restore
       - name: Unit tests
-        run: dotnet test tests/MdExplorer.Tests -c Release --no-build
+        run: |
+          set -o pipefail
+          dotnet test tests/MdExplorer.Tests -c Release --no-build 2>&1 | tee test-output.txt
+      - name: Publish test log (回传 ci-artifacts 分支)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/publish-artifacts.sh logs test-output.txt
 
   ui-screenshots:
     name: UI screenshots (headless)
@@ -36,7 +48,9 @@ jobs:
       - name: Install CJK fonts (截图中文字形)
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
       - name: Render breakpoint screenshots
-        run: dotnet test tests/MdExplorer.Screenshots -c Release
+        run: |
+          set -o pipefail
+          dotnet test tests/MdExplorer.Screenshots -c Release 2>&1 | tee screenshot-output.txt
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,6 +58,14 @@ jobs:
           name: ui-screenshots
           path: tests/MdExplorer.Screenshots/bin/Release/**/screenshots/*.png
           if-no-files-found: warn
+      - name: Publish screenshots (回传 ci-artifacts 分支)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash .github/publish-artifacts.sh screenshots tests/MdExplorer.Screenshots/bin/Release/net10.0/screenshots
+          bash .github/publish-artifacts.sh screenshot-logs screenshot-output.txt
 
   publish-desktop:
     name: Desktop publish (self-contained)
@@ -63,7 +85,17 @@ jobs:
           dotnet-version: "10.0.x"
       - name: Unit tests (windows only)
         if: runner.os == 'Windows'
-        run: dotnet test tests/MdExplorer.Tests -c Release
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet test tests/MdExplorer.Tests -c Release 2>&1 | tee test-output-win.txt
+      - name: Publish test log (回传 ci-artifacts 分支)
+        if: always() && runner.os == 'Windows'
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/publish-artifacts.sh logs-win test-output-win.txt
       - name: Publish self-contained
         run: dotnet publish src/MdExplorer.Desktop -c Release -r ${{ matrix.rid }} --self-contained true -o artifacts/${{ matrix.rid }}
       - name: Upload app
