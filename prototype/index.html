@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f8f7fa"><title>MdExplorer · 本地文件</title><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">M</span><span>MdExplorer</span></div>
+  <div class="nav-arrows"><button aria-label="返回">‹</button><button aria-label="前进">›</button></div>
+  <div class="crumbs"><span>⌂</span><span>此电脑</span><b>›</b><span>用户</span><b>›</b><span>文档</span><b>›</b><strong>项目资料</strong><span class="caret">⌄</span></div>
+  <label class="search"><span>⌕</span><input id="search" placeholder="搜索此文件夹" autocomplete="off"><kbd>⌘ K</kbd></label>
+  <div class="top-actions"><button id="newFolder" title="新建文件夹">＋ <span>新建</span></button><button id="layoutBtn" title="切换布局">▥ <span>布局</span></button><button class="avatar">A</button></div>
+</header>
+<div class="mobile-head"><button id="mobileBack">‹</button><strong>项目资料</strong><button id="mobileSearch">⌕</button><button id="mobileMore">⋯</button></div>
+<div class="workspace">
+<aside class="sidebar">
+  <div class="section-label">工作区</div><button class="side-item active"><span>▣</span>文件</button><button class="side-item"><span>◷</span>最近</button><button class="side-item"><span>★</span>收藏</button>
+  <div class="section-label locations">位置 <button>＋</button></div><button class="side-item"><span>▣</span>此电脑</button><button class="side-item nested">⌄　用户</button><button class="side-item nested deeper">文档</button><button class="side-item nested deeper">下载</button><button class="side-item nested deeper">图片</button><button class="side-item"><span>▤</span>外部磁盘</button>
+  <div class="side-foot"><span class="status-dot"></span>本地文件 · 2 个位置</div>
+</aside>
+<main class="content-area">
+  <div class="pane-toolbar"><div><h1>项目资料</h1><p id="itemCount">12 个项目 · 按名称排序</p></div><div class="view-tools"><button class="chip-button">名称　⌄</button><button class="icon-button" title="列表视图">☷</button><button class="icon-button selected" title="网格视图">▦</button></div></div>
+  <div class="file-columns"><span>名称</span><span>修改日期</span><span>类型</span><span>大小</span></div>
+  <div class="file-list" id="fileList"></div>
+  <footer class="list-footer"><span id="selectionStatus">未选择项目</span><span>此文件夹共 8 项</span></footer>
+</main>
+<aside class="details" id="details">
+ <div class="details-heading"><h2>预览</h2><button id="closeDetails" title="关闭预览">×</button></div>
+ <div id="previewContent"></div>
+</aside>
+</div>
+<footer class="statusbar"><span><i class="status-dot"></i> 本地文件</span><span>8 个项目</span><span class="status-spacer"></span><button id="splitToggle">双栏模式　⌄</button><span>▦</span></footer>
+<div class="mobile-nav"><button class="on"><span>▣</span>文件</button><button><span>★</span>收藏</button><button><span>◷</span>最近</button><button><span>⚙</span>设置</button></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body></html>
