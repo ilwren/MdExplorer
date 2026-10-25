@@ -21,7 +21,7 @@ public static class ThemeService
 
     public static void Apply(AppSettings settings)
     {
-        if (Application.Current is not { } app)
+        if (Avalonia.Application.Current is not { } app)
             return;
 
         var mode = ParseMode(settings.ThemeMode);
