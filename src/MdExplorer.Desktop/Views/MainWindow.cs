@@ -21,6 +21,7 @@ public sealed class MainWindow : Window
     private readonly StackPanel _fileList = new() { Spacing = 2 };
     private readonly StackPanel _secondList = new() { Spacing = 2 };
     private readonly StackPanel _preview = new() { Spacing = 10 };
+    private Avalonia.Media.Imaging.Bitmap? _currentPreviewBitmap;
     private readonly TextBlock _pathLabel = new();
     private readonly TextBlock _countLabel = new();
     private readonly MdTextBox _search = new() { PlaceholderText = "搜索此文件夹", Variant = MdTextBoxVariant.Outlined, ShowClearButton = true };
@@ -292,7 +293,7 @@ public sealed class MainWindow : Window
     {
         if (!PathEquals(path, _currentPath))
         {
-            _selectedPaths.Clear(); _selectionAnchor = null; _selected = null; _preview.Children.Clear();
+            _selectedPaths.Clear(); _selectionAnchor = null; _selected = null; ClearPreview();
             if (_copyButton is not null) _copyButton.IsEnabled = false;
             if (_cutButton is not null) _cutButton.IsEnabled = false;
         }
@@ -328,7 +329,7 @@ public sealed class MainWindow : Window
             _selected = _selectedPaths.Count == 0 ? null : _visibleEntries.LastOrDefault(entry => _selectedPaths.Contains(entry.FullName));
             if (_selected is null)
             {
-                _preview.Children.Clear();
+                ClearPreview();
                 if (_copyButton is not null) _copyButton.IsEnabled = false;
                 if (_cutButton is not null) _cutButton.IsEnabled = false;
             }
@@ -452,7 +453,7 @@ public sealed class MainWindow : Window
             SelectEntry(entry, _toggleSelectionOnClick, _rangeSelectionOnClick);
             _toggleSelectionOnClick = false; _rangeSelectionOnClick = false;
         };
-        button.DoubleTapped += (_, _) => { if (isDirectory) _ = LoadDirectoryAsync(entry.FullName); else SelectEntry(entry); };
+        button.DoubleTapped += (_, _) => { if (isDirectory) _ = LoadDirectoryAsync(entry.FullName); else OpenEntry(entry); };
         return button;
     }
 
@@ -483,14 +484,14 @@ public sealed class MainWindow : Window
         if (_cutButton is not null) _cutButton.IsEnabled = _selectedPaths.Count > 0;
         if (_selected is null)
         {
-            _preview.Children.Clear();
+            ClearPreview();
             SetStatus("未选择项目");
             _fileList.Children.Clear(); foreach (var item in _visibleEntries) _fileList.Children.Add(FileRow(item));
             return;
         }
         entry = _selected;
         SetStatus(_selectedPaths.Count > 1 ? $"已选择 {_selectedPaths.Count} 项" : entry.Name);
-        _preview.Children.Clear();
+        ClearPreview();
         _preview.Margin = new Thickness(20, 4, 20, 20);
         var ext = entry.Extension.ToLowerInvariant();
         _preview.Children.Add(new TextBlock { Text = entry.Name, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
@@ -502,7 +503,11 @@ public sealed class MainWindow : Window
             previewBox.Content = new TextBlock { Text = ReadTextPreview(entry.FullName), TextWrapping = TextWrapping.Wrap, FontSize = 12, MaxHeight = 260 };
         else if (new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" }.Contains(ext))
         {
-            try { previewBox.Content = new Image { Source = new Avalonia.Media.Imaging.Bitmap(entry.FullName), Stretch = Stretch.Uniform, MaxHeight = 250 }; }
+            try
+            {
+                _currentPreviewBitmap = new Avalonia.Media.Imaging.Bitmap(entry.FullName);
+                previewBox.Content = new Image { Source = _currentPreviewBitmap, Stretch = Stretch.Uniform, MaxHeight = 250 };
+            }
             catch { previewBox.Content = new TextBlock { Text = "无法解码此图片" }; }
         }
         else previewBox.Content = new TextBlock { Text = "暂无内置预览\n可使用系统应用打开。", TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
@@ -510,6 +515,7 @@ public sealed class MainWindow : Window
         _preview.Children.Add(new TextBlock { Text = "文件信息", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
         AddInfo("类型", entry is DirectoryInfo ? "文件夹" : (string.IsNullOrEmpty(ext) ? "文件" : ext.TrimStart('.').ToUpperInvariant()));
         AddInfo("修改时间", entry.LastWriteTime.ToString("yyyy-MM-dd HH:mm"));
+        if (_currentPreviewBitmap is { } image) AddInfo("图像尺寸", $"{image.PixelSize.Width} × {image.PixelSize.Height} px");
         AddInfo("位置", entry.FullName);
         if (entry is FileInfo file) AddInfo("大小", FormatSize(file.Length));
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Margin = new Thickness(0, 5, 0, 0) };
@@ -518,6 +524,13 @@ public sealed class MainWindow : Window
         actions.Children.Add(ActionButton("删除", DeleteSelectedEntries));
         _preview.Children.Add(actions);
         _fileList.Children.Clear(); foreach (var item in _visibleEntries) _fileList.Children.Add(FileRow(item));
+    }
+
+    private void ClearPreview()
+    {
+        _preview.Children.Clear();
+        _currentPreviewBitmap?.Dispose();
+        _currentPreviewBitmap = null;
     }
 
     private void AddInfo(string label, string value)
@@ -693,7 +706,7 @@ public sealed class MainWindow : Window
         if (_clipboardPaths.Count == 0) _cutPending = false;
         _selectedPaths.RemoveWhere(path => completed.Any(done => PathEquals(path, done)));
         _selected = _visibleEntries.LastOrDefault(x => _selectedPaths.Contains(x.FullName));
-        if (_selected is null) _preview.Children.Clear();
+        if (_selected is null) ClearPreview();
         if (_pasteButton is not null) _pasteButton.IsEnabled = _clipboardPaths.Count > 0;
         if (_copyButton is not null) _copyButton.IsEnabled = _selectedPaths.Count > 0;
         if (_cutButton is not null) _cutButton.IsEnabled = _selectedPaths.Count > 0;
@@ -821,7 +834,7 @@ public sealed class MainWindow : Window
         _selectedPaths.RemoveWhere(path => deleted.Any(done => PathEquals(path, done)));
         _selectionAnchor = null;
         _selected = _visibleEntries.LastOrDefault(x => _selectedPaths.Contains(x.FullName));
-        if (_selected is null) _preview.Children.Clear();
+        if (_selected is null) ClearPreview();
         if (_copyButton is not null) _copyButton.IsEnabled = _selectedPaths.Count > 0;
         if (_cutButton is not null) _cutButton.IsEnabled = _selectedPaths.Count > 0;
         await LoadDirectoryAsync(_currentPath);
@@ -830,6 +843,7 @@ public sealed class MainWindow : Window
 
     private void OpenEntry(FileSystemInfo entry)
     {
+        if (entry is DirectoryInfo) { _ = LoadDirectoryAsync(entry.FullName); return; }
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(entry.FullName) { UseShellExecute = true }); }
         catch (Exception ex) { SetStatus($"无法打开文件：{ex.Message}"); }
     }
