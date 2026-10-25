@@ -19,4 +19,4 @@ GitHub Actions (`.github/workflows/build.yml`) 在 Ubuntu 和 Windows 上 restor
 - [多尺寸布局设计图](docs/layout-design.svg)：手机、平板、桌面与双栏模式示意。
 - [交互式 HTML 参考原型](prototype/index.html)：用于设计对照；采用演示数据，不访问真实文件。
 
-该首版是可工作的桌面 MVP；平台抽象深化、Android SAF、回收站、操作进度/取消、系统剪贴板互通、双栏间完整拖放及专业 PDF 预览仍待后续迭代。
+该首版是可工作的桌面 MVP；平台抽象深化、Android SAF、回收站、系统剪贴板互通、双栏间完整拖放及专业 PDF 预览仍待后续迭代；批量复制/移动/删除已支持应用内取消和进度反馈。
