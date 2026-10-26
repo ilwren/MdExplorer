@@ -54,12 +54,14 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         browser.FilterText = "needle";
         Assert.True(browser.HasActiveSearch);
         Assert.Equal("needle", browser.SearchIslandText);
+        Assert.Equal("当前列表匹配 0 项", browser.SearchPanelStatusText);
         Assert.Empty(browser.Items); // needle 只在子文件夹里，列表筛选看不到
 
         await browser.SearchRecursiveFromPanelCommand.ExecuteAsync(null);
         Assert.False(browser.IsSearchPanelOpen);
         Assert.True(browser.IsSearchMode);
         Assert.Equal("搜索到 1 项", browser.SearchIslandText);
+        Assert.Equal("搜索到 1 项", browser.SearchPanelStatusText);
         Assert.Contains("递归搜索", browser.SearchPanelScopeText, StringComparison.Ordinal);
         Assert.Equal(_needlePath, Assert.Single(browser.Items).FullPath);
 

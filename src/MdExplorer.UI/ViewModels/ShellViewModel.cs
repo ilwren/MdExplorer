@@ -159,6 +159,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsCompact => SizeClass == SizeClass.Compact;
     public bool IsMedium => SizeClass == SizeClass.Medium;
     public bool IsExpandedOrAbove => SizeClass >= SizeClass.Expanded;
+    public bool IsLargeOrAbove => SizeClass >= SizeClass.Large;
     public bool IsCompactOrMedium => SizeClass <= SizeClass.Medium;
     public bool ShowBottomNav => IsCompact;
     public bool ShowRail => IsMedium;
@@ -189,7 +190,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         foreach (var name in new[]
                  {
-                     nameof(IsCompact), nameof(IsMedium), nameof(IsExpandedOrAbove), nameof(IsCompactOrMedium),
+                     nameof(IsCompact), nameof(IsMedium), nameof(IsExpandedOrAbove), nameof(IsLargeOrAbove), nameof(IsCompactOrMedium),
                      nameof(ShowBottomNav), nameof(ShowRail), nameof(ShowDrawerPane), nameof(ShowBrowserTabs),
                      nameof(ShowBreadcrumbBar), nameof(ShowCompactPath),
                      nameof(ShowPreviewPaneNow), nameof(ShowPreviewPageNow), nameof(ShowPreviewPaneEffective),

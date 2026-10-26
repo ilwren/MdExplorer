@@ -168,6 +168,11 @@ public sealed partial class BrowserViewModel : ObservableObject
         ? $"递归搜索 · {CurrentFolderName}"
         : $"当前列表筛选 · {CurrentFolderName}";
 
+    /// <summary>搜索面板状态行：列表筛选报匹配数，递归搜索报搜索进度/结果数。</summary>
+    public string SearchPanelStatusText => !IsSearchMode && !string.IsNullOrWhiteSpace(FilterText)
+        ? $"当前列表匹配 {Items.Count} 项"
+        : StatusText;
+
     /// <summary>截图/测试等待当前加载与缩略图完成。</summary>
     public Task WhenIdleAsync() => _idleTask;
 
@@ -223,6 +228,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         OnPropertyChanged(nameof(SearchIslandText));
         if (!IsSearchMode && !_suppressTabFilterRefilter)
             RefilterAndSort();
+        OnPropertyChanged(nameof(SearchPanelStatusText));
     }
 
     partial void OnIsSearchModeChanged(bool value)
@@ -230,9 +236,14 @@ public sealed partial class BrowserViewModel : ObservableObject
         OnPropertyChanged(nameof(HasActiveSearch));
         OnPropertyChanged(nameof(SearchIslandText));
         OnPropertyChanged(nameof(SearchPanelScopeText));
+        OnPropertyChanged(nameof(SearchPanelStatusText));
     }
 
-    partial void OnStatusTextChanged(string value) => OnPropertyChanged(nameof(SearchIslandText));
+    partial void OnStatusTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(SearchIslandText));
+        OnPropertyChanged(nameof(SearchPanelStatusText));
+    }
 
     partial void OnCurrentFolderNameChanged(string value) => OnPropertyChanged(nameof(SearchPanelScopeText));
 
@@ -1180,6 +1191,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         foreach (var vm in Items.Where(i => previousSelection.Contains(i.FullPath)))
             SelectedItems.Add(vm);
         IsEmpty = Items.Count == 0 && LoadError is null && !IsLoading;
+        OnPropertyChanged(nameof(SearchPanelStatusText));
     }
 
     // ---------- 搜索（递归） ----------

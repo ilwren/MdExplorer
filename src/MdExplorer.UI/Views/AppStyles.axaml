@@ -283,6 +283,10 @@
   <Style Selector="md|MdButton.breadcrumb-segment">
     <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
   </Style>
+  <Style Selector="md|MdButton.menu-action">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+  </Style>
 
   <!-- 迷你“搜索岛”：深色胶囊只占导航行一小段，状态变化时通过文字与缩放反馈。 -->
   <Style Selector="md|MdButton.search-island">
