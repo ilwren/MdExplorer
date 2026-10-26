@@ -1,6 +1,6 @@
 # Eidoria（万象屿）
 
-<img src="docs/assets/brand/eidoria-icon.png" alt="Eidoria 图标：纸页拱门、金日与分枝路径组成的万象屿徽记" width="96" />
+<img src="docs/assets/brand/eidoria-icon.png" alt="Eidoria 图标：蓝色竖向页片左上角翻起，露出绿色背页与橙黄色折面" width="96" />
 
 基于 **Avalonia 12 + .NET 10** 的跨平台（Windows / Linux / Android）**本地**文件资源管理器，采用 **Material Design 3**（`Md3.Avalonia`）设计语言，按窗口尺寸类做真响应式（Adaptive）布局：底部导航栏（Compact）→ 导轨（Medium）→ 永久抽屉 + 预览侧栏（Expanded+）。核心层平台无关，平台能力经接口适配；许可证 Apache-2.0（见 `LICENSE`）。
 

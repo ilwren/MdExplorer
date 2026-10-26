@@ -12,82 +12,109 @@
   <UserControl.Styles>
     <themes:MaterialAvaloniaEditTheme />
   </UserControl.Styles>
-  <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="17,14,17,17">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="17,14,17,17">
     <StackPanel Spacing="3">
       <TextBlock Classes="h2" Text="{Binding Title}" TextWrapping="Wrap" />
       <TextBlock Classes="caption" Text="{Binding Subtitle}" />
     </StackPanel>
 
-    <Grid Grid.Row="1" Margin="0,13">
-      <md:MdCircularProgressIndicator IsVisible="{Binding IsLoading}" IsIndeterminate="True"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
-      <Border CornerRadius="19" ClipToBounds="True" IsVisible="{Binding HasImage}" MaxHeight="390"
-              Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
-              BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
-        <Image Source="{Binding Image}" Stretch="Uniform" />
-      </Border>
-      <Border IsVisible="{Binding HasPdf}" HorizontalAlignment="Center" VerticalAlignment="Bottom"
-              Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}" CornerRadius="18"
-              Padding="4,2" Margin="0,0,0,6">
-        <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
-          <md:MdIconButton Icon="{x:Static md:MdSymbols.FirstPage}" Command="{Binding FirstPdfPageCommand}"
-                           IsEnabled="{Binding CanPreviousPdfPage}" AutomationProperties.Name="第一页" />
-          <md:MdIconButton Icon="{x:Static md:MdSymbols.ChevronLeft}" Command="{Binding PreviousPdfPageCommand}"
-                           IsEnabled="{Binding CanPreviousPdfPage}" AutomationProperties.Name="上一页" />
-          <TextBlock Classes="caption" Text="{Binding PdfPageText}" VerticalAlignment="Center" Margin="4,0" MinWidth="72"
-                     TextAlignment="Center" />
-          <md:MdIconButton Icon="{x:Static md:MdSymbols.ChevronRight}" Command="{Binding NextPdfPageCommand}"
-                           IsEnabled="{Binding CanNextPdfPage}" AutomationProperties.Name="下一页" />
-          <md:MdIconButton Icon="{x:Static md:MdSymbols.LastPage}" Command="{Binding LastPdfPageCommand}"
-                           IsEnabled="{Binding CanNextPdfPage}" AutomationProperties.Name="最后一页" />
-        </StackPanel>
-      </Border>
-      <Border IsVisible="{Binding ShowPlainText}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
-              CornerRadius="16" Padding="12" ClipToBounds="True" MaxHeight="480">
-        <ScrollViewer>
-          <SelectableTextBlock Classes="mono" Text="{Binding TextContent}" />
-        </ScrollViewer>
-      </Border>
-      <Border IsVisible="{Binding ShowSource}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
-              CornerRadius="16" ClipToBounds="True" Height="440">
-        <ae:TextEditor x:Name="CodeEditor" IsReadOnly="True" ShowLineNumbers="True"
-                       HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" />
-      </Border>
-      <mdm:MarkdownScrollViewer Markdown="{Binding MarkdownText}" IsVisible="{Binding HasMarkdown}" MaxHeight="500">
-        <mdm:MarkdownScrollViewer.MarkdownStyle>
-          <themes:MaterialMarkdownTheme />
-        </mdm:MarkdownScrollViewer.MarkdownStyle>
-      </mdm:MarkdownScrollViewer>
-      <ScrollViewer IsVisible="{Binding HasArchive}" MaxHeight="440">
-        <ItemsControl ItemsSource="{Binding ArchiveEntries}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:ArchiveEntryRowModel">
-              <Grid ColumnDefinitions="*,Auto" Margin="2,3">
-                <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="1" Classes="caption" Text="{Binding SizeText}" />
-              </Grid>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
-      <TextBlock Classes="caption" Text="{Binding FailureText}" IsVisible="{Binding HasFailure}"
-                 HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-    </Grid>
+    <md:MdTabs x:Name="PreviewTabs" Grid.Row="1" Margin="0,10,0,0"
+               Variant="Secondary" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
+      <md:MdTabItem Content="预览" Icon="{x:Static md:MdSymbols.FindInPage}" IsIconInline="True" />
+      <md:MdTabItem Content="属性" Icon="{x:Static md:MdSymbols.Info}" IsIconInline="True" />
+    </md:MdTabs>
 
-    <ItemsControl Grid.Row="2" ItemsSource="{Binding MetadataRows}">
-      <ItemsControl.ItemTemplate>
-        <DataTemplate x:DataType="vm:MetadataRowModel">
-          <Border BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1"
-                  Padding="0,6">
-            <Grid ColumnDefinitions="82,*">
-              <TextBlock Classes="caption" Text="{Binding Key}" VerticalAlignment="Center" />
-              <SelectableTextBlock Grid.Column="1" Classes="body" FontSize="12.5" Text="{Binding Value}"
-                                   TextWrapping="Wrap" />
-            </Grid>
+    <md:MdTabsView Grid.Row="2" Tabs="{Binding #PreviewTabs}" Margin="0,8,0,0">
+      <!-- 页 1：内容预览。外层 MdScrollViewer 保证窄高窗格里也能拖到全部内容。 -->
+      <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                         AllowMouseDrag="True">
+        <Grid Margin="0,4,2,10">
+          <md:MdCircularProgressIndicator IsVisible="{Binding IsLoading}" IsIndeterminate="True"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <Border CornerRadius="19" ClipToBounds="True" IsVisible="{Binding HasImage}" MaxHeight="390"
+                  Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
+                  BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
+            <Image Source="{Binding Image}" Stretch="Uniform" />
           </Border>
-        </DataTemplate>
-      </ItemsControl.ItemTemplate>
-    </ItemsControl>
+          <Border IsVisible="{Binding HasPdf}" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                  Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}" CornerRadius="18"
+                  Padding="4,2" Margin="0,0,0,6">
+            <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
+              <md:MdIconButton Icon="{x:Static md:MdSymbols.FirstPage}" Command="{Binding FirstPdfPageCommand}"
+                               IsEnabled="{Binding CanPreviousPdfPage}" AutomationProperties.Name="第一页" />
+              <md:MdIconButton Icon="{x:Static md:MdSymbols.ChevronLeft}" Command="{Binding PreviousPdfPageCommand}"
+                               IsEnabled="{Binding CanPreviousPdfPage}" AutomationProperties.Name="上一页" />
+              <TextBlock Classes="caption" Text="{Binding PdfPageText}" VerticalAlignment="Center" Margin="4,0" MinWidth="72"
+                         TextAlignment="Center" />
+              <md:MdIconButton Icon="{x:Static md:MdSymbols.ChevronRight}" Command="{Binding NextPdfPageCommand}"
+                               IsEnabled="{Binding CanNextPdfPage}" AutomationProperties.Name="下一页" />
+              <md:MdIconButton Icon="{x:Static md:MdSymbols.LastPage}" Command="{Binding LastPdfPageCommand}"
+                               IsEnabled="{Binding CanNextPdfPage}" AutomationProperties.Name="最后一页" />
+            </StackPanel>
+          </Border>
+          <Border IsVisible="{Binding ShowPlainText}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
+                  CornerRadius="16" Padding="12" ClipToBounds="True" MaxHeight="480">
+            <md:MdScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <SelectableTextBlock Classes="mono" Text="{Binding TextContent}" />
+            </md:MdScrollViewer>
+          </Border>
+          <Border IsVisible="{Binding ShowSource}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
+                  CornerRadius="16" ClipToBounds="True" Height="440">
+            <ae:TextEditor x:Name="CodeEditor" IsReadOnly="True" ShowLineNumbers="True"
+                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" />
+          </Border>
+          <mdm:MarkdownScrollViewer Markdown="{Binding MarkdownText}" IsVisible="{Binding HasMarkdown}" MaxHeight="500">
+            <mdm:MarkdownScrollViewer.MarkdownStyle>
+              <themes:MaterialMarkdownTheme />
+            </mdm:MarkdownScrollViewer.MarkdownStyle>
+          </mdm:MarkdownScrollViewer>
+          <md:MdScrollViewer IsVisible="{Binding HasArchive}" MaxHeight="440"
+                             HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                             AllowMouseDrag="True">
+            <ItemsControl ItemsSource="{Binding ArchiveEntries}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ArchiveEntryRowModel">
+                  <Grid ColumnDefinitions="*,Auto" Margin="2,3">
+                    <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Classes="caption" Text="{Binding SizeText}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </md:MdScrollViewer>
+          <TextBlock Classes="caption" Text="{Binding FailureText}" IsVisible="{Binding HasFailure}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+        </Grid>
+      </md:MdScrollViewer>
+
+      <!-- 页 2：文件属性。 -->
+      <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                         AllowMouseDrag="True">
+        <StackPanel Margin="0,4,2,10" Spacing="14">
+          <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" CornerRadius="16" Padding="13,10">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="body" FontWeight="SemiBold" Text="{Binding Title}" TextWrapping="Wrap" />
+              <TextBlock Classes="caption" Text="{Binding Subtitle}" />
+            </StackPanel>
+          </Border>
+          <ItemsControl ItemsSource="{Binding MetadataRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MetadataRowModel">
+                <Border BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1"
+                        Padding="0,7">
+                  <Grid ColumnDefinitions="82,*">
+                    <TextBlock Classes="caption" Text="{Binding Key}" VerticalAlignment="Center" />
+                    <SelectableTextBlock Grid.Column="1" Classes="body" FontSize="12.5" Text="{Binding Value}"
+                                         TextWrapping="Wrap" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </md:MdScrollViewer>
+    </md:MdTabsView>
 
     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" Margin="0,14,0,0"
                 IsVisible="{Binding CanOpen}">

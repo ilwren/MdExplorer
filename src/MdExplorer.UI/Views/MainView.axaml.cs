@@ -135,7 +135,33 @@ public partial class MainView : UserControl
     {
         base.OnSizeChanged(e);
         Shell?.SetViewportSize(e.NewSize.Width, e.NewSize.Height);
+        LayoutFloatingPreview(e.NewSize);
         ScheduleBreadcrumbEndScroll();
+    }
+
+    private void LayoutFloatingPreview(Size size)
+    {
+        if (size.Width <= 0 || size.Height <= 0)
+            return;
+
+        var maxWidth = Math.Max(300, size.Width - 20);
+        var maxHeight = Math.Max(360, size.Height - 96);
+        var width = double.IsNaN(FloatingPreview.Width) || FloatingPreview.Width <= 0
+            ? Math.Min(400, maxWidth)
+            : FloatingPreview.Width;
+        FloatingPreview.Width = Math.Clamp(width, 300, maxWidth);
+        FloatingPreview.MaxHeight = maxHeight;
+        if (double.IsNaN(FloatingPreview.Height) || FloatingPreview.Height <= 0)
+            FloatingPreview.Height = Math.Min(620, maxHeight);
+        else
+            FloatingPreview.Height = Math.Min(FloatingPreview.Height, maxHeight);
+
+        if (FloatingPreview.X + FloatingPreview.Width > size.Width - 8)
+            FloatingPreview.X = Math.Max(8, size.Width - FloatingPreview.Width - 8);
+        if (FloatingPreview.Y < 54)
+            FloatingPreview.Y = 58;
+        if (FloatingPreview.Y > size.Height - 64)
+            FloatingPreview.Y = Math.Max(58, size.Height - 64);
     }
 
     // ---------- 三栏分隔条与入场动画 ----------
@@ -198,7 +224,7 @@ public partial class MainView : UserControl
         PersistPaneWidths(null, DefaultPreviewPaneWidth);
     }
 
-    private Control[] MotionHosts => [PageHost, FileDropArea, PreviewPane, ModalDrawerHost, TaskCenterCard];
+    private Control[] MotionHosts => [PageHost, FileDropArea, PreviewPane, ModalDrawerHost, TaskCenterCard, SearchIslandPanel];
 
     private void CaptureMotionTransitions()
     {
@@ -335,6 +361,11 @@ public partial class MainView : UserControl
             AnimateIn(ModalDrawerHost, -18, 0);
         if (e.PropertyName is nameof(ShellViewModel.IsTaskCenterOpen) && shell.IsTaskCenterOpen)
             AnimateIn(TaskCenterCard, 0, 12);
+        if (e.PropertyName is nameof(ShellViewModel.IsPreviewPageOpen) && shell.IsPreviewPageOpen)
+        {
+            FloatingPreview.IsMinimized = false;
+            LayoutFloatingPreview(Bounds.Size);
+        }
         if (e.PropertyName is nameof(ShellViewModel.ReduceMotion))
             ApplyMotionPreference(shell.ReduceMotion);
 
@@ -744,8 +775,16 @@ public partial class MainView : UserControl
             await shell.Browser.NavigateBreadcrumbAsync(segment);
     }
 
+    private void OnBreadcrumbSegmentTapped(object? sender, TappedEventArgs e)
+    {
+        // 分段（含其中的 chevron）只负责跳转，阻止事件继续落到路径胶囊的“点空白变输入框”逻辑。
+        e.Handled = true;
+    }
+
     private void OnBreadcrumbBarTapped(object? sender, TappedEventArgs e)
     {
+        if (Browser?.IsAddressEditing == true)
+            return;
         if (e.Source is Control source && source.FindAncestorOfType<Button>() is not null)
             return;
         Browser?.BeginEditAddressCommand.Execute(null);
@@ -844,6 +883,15 @@ public partial class MainView : UserControl
             AddressBox.Focus();
             AddressBox.SelectAll();
         }
+        if (e.PropertyName is nameof(BrowserViewModel.IsSearchPanelOpen) && browser.IsSearchPanelOpen)
+        {
+            AnimateIn(SearchIslandPanel, 0, -10);
+            Dispatcher.UIThread.Post(() =>
+            {
+                BrowserSearch.Focus();
+                BrowserSearch.SelectAll();
+            }, DispatcherPriority.Loaded);
+        }
     }
 
     private void MirrorSelectionToDetails()
@@ -877,20 +925,48 @@ public partial class MainView : UserControl
 
     private async void OnSearchKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter || Shell is not { } shell)
+        if (Shell is not { } shell)
             return;
-        var query = BrowserSearch.Text?.Trim() ?? string.Empty;
-        if (query.Length > 0)
-            await shell.Browser.SearchRecursiveAsync(query);
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            await shell.Browser.SearchRecursiveFromPanelCommand.ExecuteAsync(null);
+        }
+        else if (e.Key == Key.Escape)
+        {
+            shell.Browser.IsSearchPanelOpen = false;
+            FocusActiveFileView();
+            e.Handled = true;
+        }
     }
 
-    private async void OnRecursiveSearchClick(object? sender, RoutedEventArgs e)
+    private void OnApplySearchFilterClick(object? sender, RoutedEventArgs e)
     {
         if (Shell is not { } shell)
             return;
-        var query = BrowserSearch.Text?.Trim() ?? string.Empty;
-        if (query.Length > 0)
-            await shell.Browser.SearchRecursiveAsync(query);
+        shell.Browser.IsSearchPanelOpen = false;
+        FocusActiveFileView();
+    }
+
+    private void OnSearchScrimTapped(object? sender, TappedEventArgs e)
+    {
+        if (Shell is { } shell)
+            shell.Browser.IsSearchPanelOpen = false;
+        e.Handled = true;
+    }
+
+    private void OnFloatingPreviewClosed(object? sender, RoutedEventArgs e)
+    {
+        if (Shell is { } shell)
+            shell.IsPreviewPageOpen = false;
+    }
+
+    private void FocusActiveFileView()
+    {
+        if (Shell?.Browser.IsDetailsView == true)
+            FileDetails.Focus();
+        else
+            FileList.Focus();
     }
 
     // ---------- 菜单与工具栏 ----------
@@ -972,10 +1048,9 @@ public partial class MainView : UserControl
             e.Handled = true;
             return;
         }
-        if (shell.Page == ShellPage.Browser && !shell.IsDialogOpen && ctrl && e.Key == Key.F)
+        if (shell.Page == ShellPage.Browser && !shell.IsDialogOpen && ctrl && (e.Key == Key.F || e.Key == Key.K))
         {
-            BrowserSearch.Focus();
-            BrowserSearch.SelectAll();
+            shell.Browser.OpenSearchPanelCommand.Execute(null);
             e.Handled = true;
             return;
         }

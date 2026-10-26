@@ -5,7 +5,7 @@
              x:Class="MdExplorer.UI.Views.DrawerContentView"
              x:DataType="vm:ShellViewModel"
              Background="Transparent">
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+  <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" AllowMouseDrag="True">
     <StackPanel Margin="14,18,14,20" Spacing="4">
       <StackPanel Orientation="Horizontal" Spacing="11" Margin="8,0,0,16">
         <Border Width="46" Height="46" CornerRadius="14" ClipToBounds="True" BoxShadow="0 5 14 #22000000">
@@ -139,5 +139,5 @@
         </StackPanel>
       </md:MdButton>
     </StackPanel>
-  </ScrollViewer>
+  </md:MdScrollViewer>
 </UserControl>

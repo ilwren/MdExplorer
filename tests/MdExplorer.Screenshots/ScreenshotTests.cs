@@ -359,4 +359,51 @@ public sealed class ScreenshotTests
         _ = shell.BatchRenameAsync(names, []); // 不 await：保持对话框打开供截图
         await Task.Delay(150);
     });
+
+    [AvaloniaFact]
+    public async Task Compact_FloatingPreview() => await CaptureAsync("22-compact-floating-preview.png", 390, 844, shell =>
+    {
+        shell.IsPreviewPageOpen = true;
+        Assert.True(shell.IsPreviewPageOpen);
+        Assert.Equal(0, shell.Preview.SelectedTabIndex);
+        return Task.CompletedTask;
+    });
+
+    [AvaloniaFact]
+    public async Task Large_SearchIslandPanel() => await CaptureAsync("23-large-search-island.png", 1440, 900, async shell =>
+    {
+        shell.Browser.FilterText = "IMG_";
+        shell.Browser.OpenSearchPanelCommand.Execute(null);
+        await shell.Browser.WhenIdleAsync();
+        Assert.True(shell.Browser.IsSearchPanelOpen);
+        Assert.Equal("IMG_", shell.Browser.SearchIslandText);
+    });
+
+    /// <summary>桌面溢出菜单：三列分组 + 限高滚动的呈现冒烟。</summary>
+    [AvaloniaFact]
+    public async Task Large_OverflowMenu_Open()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        var view = new MainView { DataContext = shell };
+        var window = new Window { Width = 1440, Height = 900, Content = view };
+        window.Show();
+        try
+        {
+            await Task.Delay(150);
+            var button = view.FindControl<Button>("OverflowButton");
+            Assert.NotNull(button);
+            Assert.NotNull(button!.Flyout);
+            button.Flyout!.ShowAt(button);
+            await Task.Delay(150);
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            frame!.Save(Path.Combine(OutputDir, "24-large-overflow-menu.png"));
+            button.Flyout.Hide();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 }

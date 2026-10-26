@@ -10,6 +10,7 @@
     <PackageReference Include="Md3.Avalonia.AvaloniaEdit" />
     <PackageReference Include="Md3.Avalonia.Markdown" />
     <PackageReference Include="Md3.Avalonia.DataGrid" />
+    <PackageReference Include="Md3.Avalonia.Extra" />
     <PackageReference Include="Md3.Avalonia.Icons" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="PDFtoImage" />

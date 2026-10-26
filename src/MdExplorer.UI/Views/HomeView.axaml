@@ -4,7 +4,7 @@
              xmlns:vm="using:MdExplorer.UI.ViewModels"
              x:Class="MdExplorer.UI.Views.HomeView"
              x:DataType="vm:ShellViewModel">
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+  <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" AllowMouseDrag="True">
     <StackPanel Margin="22,18,22,30" Spacing="26" MaxWidth="1120" HorizontalAlignment="Stretch">
       <StackPanel Spacing="4">
         <md:MdSearchBar x:Name="HomeSearch" PlaceholderText="搜索文件（在主目录中递归）" ShowClearButton="True" />
@@ -182,5 +182,5 @@
         </ItemsControl>
       </StackPanel>
     </StackPanel>
-  </ScrollViewer>
+  </md:MdScrollViewer>
 </UserControl>

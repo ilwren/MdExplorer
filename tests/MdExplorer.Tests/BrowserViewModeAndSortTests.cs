@@ -101,7 +101,7 @@ public sealed class BrowserViewModeAndSortTests : IDisposable
 
         Assert.True(shell.SettingsStore.Settings.ReduceMotion);
         Assert.True(shell.SettingsStore.Settings.RememberFolderView);
-        Assert.StartsWith("0.10.0", shell.AppVersionText);
+        Assert.StartsWith("0.11.0", shell.AppVersionText);
     }
 
     [Fact]

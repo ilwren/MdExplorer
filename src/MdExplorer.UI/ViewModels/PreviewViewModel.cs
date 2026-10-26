@@ -31,6 +31,8 @@ public sealed partial class PreviewViewModel(
     [ObservableProperty] private string? _failureText;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _canOpen;
+    /// <summary>预览区页签：0=内容，1=属性。切换文件时回到内容，文件夹则直接落到属性。</summary>
+    [ObservableProperty] private int _selectedTabIndex;
     [ObservableProperty] private int _pdfPageIndex;
     [ObservableProperty] private int _pdfPageCount;
 
@@ -109,6 +111,7 @@ public sealed partial class PreviewViewModel(
 
         HasItem = true;
         CanOpen = !item.IsFolder;
+        SelectedTabIndex = item.IsFolder ? 1 : 0;
         Title = item.Name;
         Subtitle = FileKindClassifier.Describe(item);
         BuildMetadata(item);

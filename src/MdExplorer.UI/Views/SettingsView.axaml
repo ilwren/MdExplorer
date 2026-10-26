@@ -4,7 +4,7 @@
              xmlns:vm="using:MdExplorer.UI.ViewModels"
              x:Class="MdExplorer.UI.Views.SettingsView"
              x:DataType="vm:ShellViewModel">
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+  <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" AllowMouseDrag="True">
     <StackPanel Margin="20,12,20,28" Spacing="24" MaxWidth="720" HorizontalAlignment="Stretch">
       <TextBlock Classes="h1" Text="设置" />
 
@@ -89,5 +89,5 @@
         <md:MdButton Variant="Outlined" Content="开源许可证" HorizontalAlignment="Left" Click="OnLicensesClick" />
       </StackPanel>
     </StackPanel>
-  </ScrollViewer>
+  </md:MdScrollViewer>
 </UserControl>

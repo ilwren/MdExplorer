@@ -16,9 +16,9 @@
           <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}"
                   BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
                   CornerRadius="16" ClipToBounds="True" BoxShadow="0 10 30 #24000000">
-            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" MaxHeight="440" AllowMouseDrag="True">
               <ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" />
-            </ScrollViewer>
+            </md:MdScrollViewer>
           </Border>
         </ControlTemplate>
       </Setter>
@@ -282,6 +282,29 @@
   </Style>
   <Style Selector="md|MdButton.breadcrumb-segment">
     <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+  </Style>
+
+  <!-- 迷你“搜索岛”：深色胶囊只占导航行一小段，状态变化时通过文字与缩放反馈。 -->
+  <Style Selector="md|MdButton.search-island">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.InverseSurface.Brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.InverseOnSurface.Brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.InverseSurface.Brush}" />
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" />
+        <BrushTransition Property="Background" Duration="0:0:0.16" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="md|MdButton.search-island md|MdIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.InverseOnSurface.Brush}" />
+  </Style>
+  <Style Selector="md|MdButton.search-island:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1.035)" />
+  </Style>
+  <Style Selector="md|MdButton.search-island:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.96)" />
   </Style>
 
   <!-- 导航按钮（导轨/抽屉条目共用横向布局微调） -->

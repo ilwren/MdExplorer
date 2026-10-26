@@ -116,6 +116,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     [ObservableProperty] private string _statusText = string.Empty;
     [ObservableProperty] private string _filterText = string.Empty;
     [ObservableProperty] private bool _isSearchMode;
+    [ObservableProperty] private bool _isSearchPanelOpen;
     [ObservableProperty] private bool _isSelectionMode;
     [ObservableProperty] private int _selectedCount;
     [ObservableProperty] private bool _canGoBack;
@@ -147,6 +148,25 @@ public sealed partial class BrowserViewModel : ObservableObject
     public bool HasSelection => SelectedCount > 0;
     public bool HasClipboard => _clipboardPaths.Count > 0;
     public string SelectionText => SelectedCount == 0 ? StatusText : $"已选 {SelectedCount} 项";
+
+    /// <summary>迷你搜索岛是否应显示清除入口。</summary>
+    public bool HasActiveSearch => IsSearchMode || !string.IsNullOrWhiteSpace(FilterText);
+
+    /// <summary>迷你搜索岛文案：闲置只说“搜索”，活动中回显关键词或实时结果数。</summary>
+    public string SearchIslandText
+    {
+        get
+        {
+            var query = FilterText.Trim();
+            if (IsSearchMode)
+                return string.IsNullOrWhiteSpace(StatusText) ? "搜索中" : StatusText;
+            return query.Length == 0 ? "搜索" : query;
+        }
+    }
+
+    public string SearchPanelScopeText => IsSearchMode
+        ? $"递归搜索 · {CurrentFolderName}"
+        : $"当前列表筛选 · {CurrentFolderName}";
 
     /// <summary>截图/测试等待当前加载与缩略图完成。</summary>
     public Task WhenIdleAsync() => _idleTask;
@@ -199,8 +219,46 @@ public sealed partial class BrowserViewModel : ObservableObject
 
     partial void OnFilterTextChanged(string value)
     {
+        OnPropertyChanged(nameof(HasActiveSearch));
+        OnPropertyChanged(nameof(SearchIslandText));
         if (!IsSearchMode && !_suppressTabFilterRefilter)
             RefilterAndSort();
+    }
+
+    partial void OnIsSearchModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(HasActiveSearch));
+        OnPropertyChanged(nameof(SearchIslandText));
+        OnPropertyChanged(nameof(SearchPanelScopeText));
+    }
+
+    partial void OnStatusTextChanged(string value) => OnPropertyChanged(nameof(SearchIslandText));
+
+    partial void OnCurrentFolderNameChanged(string value) => OnPropertyChanged(nameof(SearchPanelScopeText));
+
+    [RelayCommand]
+    private void OpenSearchPanel() => IsSearchPanelOpen = true;
+
+    [RelayCommand]
+    private void CloseSearchPanel() => IsSearchPanelOpen = false;
+
+    [RelayCommand]
+    private void ToggleSearchPanel() => IsSearchPanelOpen = !IsSearchPanelOpen;
+
+    [RelayCommand]
+    private void ClearFilter() => FilterText = string.Empty;
+
+    [RelayCommand]
+    private void CancelCurrentSearch() => CancelSearch();
+
+    [RelayCommand]
+    private async Task SearchRecursiveFromPanelAsync()
+    {
+        var query = FilterText.Trim();
+        if (query.Length == 0)
+            return;
+        IsSearchPanelOpen = false;
+        await SearchRecursiveAsync(query).ConfigureAwait(true);
     }
 
     partial void OnCurrentPathChanged(string? value)
@@ -1188,6 +1246,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     [RelayCommand]
     private async Task ExitSearchAsync()
     {
+        IsSearchPanelOpen = false;
         IsSearchMode = false;
         FilterText = string.Empty;
         if (CurrentPath is not null)

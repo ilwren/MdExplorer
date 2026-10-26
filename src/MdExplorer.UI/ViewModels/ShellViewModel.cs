@@ -174,6 +174,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     partial void OnPageChanged(ShellPage value)
     {
+        if (value != ShellPage.Browser)
+            Browser.IsSearchPanelOpen = false;
         OnPropertyChanged(nameof(PageTitle));
         OnPropertyChanged(nameof(IsHome));
         OnPropertyChanged(nameof(IsBrowser));
@@ -539,7 +541,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         await ShowPropertiesAsync("键盘快捷键", string.Join("\n", [
             "导航",
-            "· Ctrl+L：编辑路径    Ctrl+F：搜索当前文件夹",
+            "· Ctrl+L：编辑路径    Ctrl+F / Ctrl+K：悬浮搜索面板（回车递归搜索）",
             "· Alt+← / Alt+→：后退 / 前进    Alt+↑：上一级",
             "· F5 或 Ctrl+R：刷新",
             "",
@@ -598,7 +600,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     /// <summary>同步预判系统返回是否会被消费（决定 RoutedEventArgs.Handled）。</summary>
     public bool WouldHandleBack =>
-        IsDialogOpen || IsTaskCenterOpen || IsDrawerOpen || IsPreviewPageOpen ||
+        IsDialogOpen || IsTaskCenterOpen || IsDrawerOpen || IsPreviewPageOpen || Browser.IsSearchPanelOpen ||
         Page != ShellPage.Home ||
         Browser.CanConsumeBack;
 
@@ -607,6 +609,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         if (IsDialogOpen) return true; // 模态开着时吞掉返回，由对话框按钮收尾
         if (IsTaskCenterOpen) { IsTaskCenterOpen = false; return true; }
+        if (Browser.IsSearchPanelOpen) { Browser.IsSearchPanelOpen = false; return true; }
         if (IsDrawerOpen) { IsDrawerOpen = false; return true; }
         if (IsPreviewPageOpen) { IsPreviewPageOpen = false; return true; }
         if (Page == ShellPage.Browser && await Browser.TryGoBackAsync().ConfigureAwait(true)) return true;
