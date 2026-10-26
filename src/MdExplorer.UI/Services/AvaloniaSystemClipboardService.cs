@@ -41,6 +41,22 @@ public sealed class AvaloniaSystemClipboardService : ISystemClipboardService
         }
     }
 
+    public async Task SetTextAsync(string text, CancellationToken cancellationToken)
+    {
+        if (TopLevelProvider?.Invoke() is not { Clipboard: { } clipboard })
+            return;
+
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await clipboard.SetTextAsync(text).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // 与文件格式相同：部分桌面会话可能拒绝剪贴板写入，调用方只给短提示，不升级为错误弹窗。
+        }
+    }
+
     public async Task<IReadOnlyList<string>> TryGetFilesAsync(CancellationToken cancellationToken)
     {
         if (TopLevelProvider?.Invoke() is not { Clipboard: { } clipboard })

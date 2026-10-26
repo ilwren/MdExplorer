@@ -31,7 +31,7 @@ public interface IDialogs
     void Notify(string message);
 
     /// <summary>
-    /// 在进度弹窗中运行文件写操作：自动处理进度上报、取消按钮、结果提示与错误明细弹窗。
+    /// 在任务中心队列中运行文件写操作：自动处理串行排队、进度上报、单项取消、结果提示与错误明细留档。
     /// 返回操作结果供调用方决定刷新。
     /// </summary>
     Task<OperationOutcome> RunOperationAsync(

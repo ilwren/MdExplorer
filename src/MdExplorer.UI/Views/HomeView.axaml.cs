@@ -53,6 +53,12 @@ public partial class HomeView : UserControl
         }
     }
 
+    private async void OnRecentFileTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is Control { DataContext: FileItemViewModel item } && Shell is { } shell)
+            await shell.OpenRecentFileAsync(item);
+    }
+
     private async void OnAuthorizedRootTapped(object? sender, TappedEventArgs e)
     {
         if (e.Source is Button) return; // 移除按钮的轻触不触发打开

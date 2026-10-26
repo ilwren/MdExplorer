@@ -62,6 +62,15 @@ public sealed class BrowserClipboardAndTransferTests : IDisposable
 
         public Task<IReadOnlyList<string>> TryGetFilesAsync(CancellationToken cancellationToken) =>
             Task.FromResult(ExternalPaths);
+
+        public string? Text { get; private set; }
+
+        public Task SetTextAsync(string text, CancellationToken cancellationToken)
+        {
+            Text = text;
+            ExternalPaths = [];
+            return Task.CompletedTask;
+        }
     }
 
     private ShellViewModel CreateShell(FakeSystemClipboardService clipboard)

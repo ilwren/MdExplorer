@@ -26,6 +26,8 @@ public sealed partial class BrowserViewModel : ObservableObject
     private readonly ISettingsStore _settingsStore;
     private readonly IDialogs _dialogs;
     private readonly PreviewViewModel _preview;
+    private readonly Func<IFileLauncherService> _launcher;
+    private IFileLauncherService Launcher => _launcher();
 
     // 指向当前标签页的历史栈（切换标签时随 ActiveTab 一起换绑）
     private Stack<string> _backStack;
@@ -42,13 +44,23 @@ public sealed partial class BrowserViewModel : ObservableObject
     private bool _clipboardCut;
     private IReadOnlyList<string> _externalClipboardBaseline = [];
     private bool _clipboardOwnedByApp;
+    private readonly Stack<ClosedTabSnapshot> _closedTabs = [];
+
+    private sealed record ClosedTabSnapshot(
+        string Path,
+        string Title,
+        string[] BackPaths,
+        string[] ForwardPaths,
+        string FilterText,
+        IReadOnlyList<string> SelectedPaths,
+        int Index);
 
     public BrowserViewModel(
         IFileSystemService fileSystem, IFileOperationService operations, ITrashService trash,
         IArchiveService archive, ISearchService search, ISettingsStore settingsStore,
         IFileInspectorService inspector, IFolderWatchService folderWatch,
         ISystemClipboardService systemClipboard,
-        IDialogs dialogs, PreviewViewModel preview)
+        IDialogs dialogs, PreviewViewModel preview, Func<IFileLauncherService> launcher)
     {
         _fileSystem = fileSystem;
         _operations = operations;
@@ -61,6 +73,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         _settingsStore = settingsStore;
         _dialogs = dialogs;
         _preview = preview;
+        _launcher = launcher;
 
         var s = settingsStore.Settings;
         _watchEnabled = s.WatchFolderChanges;
@@ -103,6 +116,13 @@ public sealed partial class BrowserViewModel : ObservableObject
     [ObservableProperty] private bool _canGoBack;
     [ObservableProperty] private bool _canGoForward;
     [ObservableProperty] private bool _canGoUp;
+    [ObservableProperty] private bool _isAddressEditing;
+    [ObservableProperty] private string _addressText = string.Empty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAddressError))]
+    private string? _addressError;
+
+    public bool HasAddressError => !string.IsNullOrWhiteSpace(AddressError);
 
     public ObservableCollection<FileItemViewModel> Items { get; } = [];
     public ObservableCollection<FileItemViewModel> SelectedItems { get; } = [];
@@ -111,6 +131,10 @@ public sealed partial class BrowserViewModel : ObservableObject
     [ObservableProperty] private BrowserTabViewModel? _activeTab;
     public ObservableCollection<BrowserTabViewModel> Tabs { get; } = [];
     public bool HasMultipleTabs => Tabs.Count > 1;
+    public bool HasClosedTabs => _closedTabs.Count > 0;
+
+    /// <summary>最近访问文件夹/文件变化时通知 Shell 刷新主页入口。</summary>
+    public event EventHandler? RecentsChanged;
 
     public bool IsListView => ViewMode == BrowserViewMode.List;
     public bool IsGridView => ViewMode == BrowserViewMode.Grid;
@@ -163,6 +187,18 @@ public sealed partial class BrowserViewModel : ObservableObject
             RefilterAndSort();
     }
 
+    partial void OnCurrentPathChanged(string? value)
+    {
+        if (!IsAddressEditing)
+            AddressText = value ?? string.Empty;
+    }
+
+    partial void OnAddressTextChanged(string value)
+    {
+        if (IsAddressEditing)
+            AddressError = null;
+    }
+
     partial void OnActiveTabChanged(BrowserTabViewModel? value)
     {
         foreach (var tab in Tabs)
@@ -192,6 +228,8 @@ public sealed partial class BrowserViewModel : ObservableObject
         _loadCts = new CancellationTokenSource();
         var ct = _loadCts.Token;
 
+        IsAddressEditing = false;
+        AddressError = null;
         CurrentPath = path;
         CurrentFolderName = TabTitleFor(path);
         if (ActiveTab is { } activeTab)
@@ -271,6 +309,7 @@ public sealed partial class BrowserViewModel : ObservableObject
             _allItems = collected;
             RefilterAndSort();
             StatusText = $"{collected.Count} 个项目";
+            await RecordRecentFolderAsync(path).ConfigureAwait(true);
             StartThumbnails();
         }
         catch (OperationCanceledException) { }
@@ -339,6 +378,219 @@ public sealed partial class BrowserViewModel : ObservableObject
         if (IsSearchMode) { await ExitSearchAsync().ConfigureAwait(true); return true; }
         if (_backStack.Count > 0) { await GoBackAsync().ConfigureAwait(true); return true; }
         return false;
+    }
+
+    // ---------- 地址栏与定位 ----------
+    [RelayCommand]
+    private void BeginEditAddress()
+    {
+        if (CurrentPath is null || IsSearchMode)
+            return;
+        if (FileLocator.IsStorageUri(CurrentPath))
+        {
+            _dialogs.Notify("已授权文件夹不支持手动输入路径，请用面包屑导航");
+            return;
+        }
+        AddressText = CurrentPath;
+        AddressError = null;
+        IsAddressEditing = true;
+    }
+
+    [RelayCommand]
+    private void CancelEditAddress()
+    {
+        IsAddressEditing = false;
+        AddressError = null;
+        AddressText = CurrentPath ?? string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task CommitAddressAsync() => await NavigateToAddressAsync(AddressText).ConfigureAwait(true);
+
+    /// <summary>解析地址栏输入并导航。文件路径会进入其所在文件夹并选中该文件，方便继续在 Eidoria 内预览。</summary>
+    public async Task<bool> NavigateToAddressAsync(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            AddressError = "请输入文件夹或文件路径";
+            IsAddressEditing = true;
+            return false;
+        }
+
+        string candidate;
+        try
+        {
+            candidate = ResolveAddressInput(input.Trim());
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or UriFormatException)
+        {
+            AddressError = "路径格式无效";
+            IsAddressEditing = true;
+            return false;
+        }
+
+        if (FileLocator.IsStorageUri(candidate))
+        {
+            AddressError = "不能手动输入存储提供者 URI";
+            IsAddressEditing = true;
+            return false;
+        }
+
+        FileItem? target;
+        try
+        {
+            target = await _fileSystem.StatAsync(candidate, CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            AddressError = $"无法访问：{ex.Message}";
+            IsAddressEditing = true;
+            return false;
+        }
+
+        if (target is null)
+        {
+            AddressError = "找不到这个路径";
+            IsAddressEditing = true;
+            return false;
+        }
+
+        if (target.IsFolder)
+        {
+            await NavigateToAsync(candidate).ConfigureAwait(true);
+        }
+        else
+        {
+            await NavigateToFileLocationAsync(candidate).ConfigureAwait(true);
+        }
+        return true;
+    }
+
+    private string ResolveAddressInput(string input)
+    {
+        var value = input.Trim();
+        if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
+            value = value[1..^1].Trim();
+
+        if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase) && Uri.TryCreate(value, UriKind.Absolute, out var fileUri))
+            value = fileUri.LocalPath;
+
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (value == "~")
+        {
+            value = home;
+        }
+        else if (value.StartsWith("~/", StringComparison.Ordinal) || value.StartsWith("~\\", StringComparison.Ordinal))
+        {
+            value = Path.Combine(home, value[2..]);
+        }
+        else if (value == "$HOME")
+        {
+            value = home;
+        }
+        else if (value.StartsWith("$HOME/", StringComparison.Ordinal) || value.StartsWith("$HOME\\", StringComparison.Ordinal))
+        {
+            value = Path.Combine(home, value[6..]);
+        }
+
+        value = Environment.ExpandEnvironmentVariables(value);
+        return Path.GetFullPath(value, CurrentPath ?? home);
+    }
+
+    /// <summary>进入目标所在文件夹并单选目标（搜索结果/最近文件/文件地址输入共用）。</summary>
+    public async Task NavigateToFileLocationAsync(string path)
+    {
+        FilterText = string.Empty;
+        var parent = _fileSystem.GetParentPath(path) ?? path;
+        if (IsSearchMode || CurrentPath is null || !PathsEqual(CurrentPath, parent))
+            await NavigateToAsync(parent).ConfigureAwait(true);
+
+        SelectedItems.Clear();
+        if (Items.FirstOrDefault(item => PathsEqual(item.FullPath, path)) is { } target)
+            SelectedItems.Add(target);
+    }
+
+    [RelayCommand]
+    private async Task OpenContainingFolderAsync(FileItemViewModel? item)
+    {
+        item ??= SelectedItems.FirstOrDefault();
+        if (item is not null)
+            await NavigateToFileLocationAsync(item.FullPath).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task RevealInSystemFileManagerAsync(FileItemViewModel? item)
+    {
+        item ??= SelectedItems.FirstOrDefault();
+        if (item is null)
+            return;
+        if (FileLocator.IsStorageUri(item.FullPath))
+        {
+            _dialogs.Notify("已授权文件夹中的项目无法在系统文件管理器中定位");
+            return;
+        }
+
+        var revealed = await Launcher.RevealAsync(item.FullPath, CancellationToken.None).ConfigureAwait(true);
+        if (!revealed)
+            _dialogs.Notify("当前平台不支持在系统文件管理器中显示");
+    }
+
+    [RelayCommand]
+    private async Task CopyPathAsync(FileItemViewModel? item)
+    {
+        IReadOnlyList<string> paths = item is not null
+            ? [item.FullPath]
+            : SelectedItems.Select(selected => selected.FullPath).ToArray();
+        await CopyPathsTextAsync(paths).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task CopyCurrentPathAsync()
+    {
+        if (CurrentPath is not null)
+            await CopyPathsTextAsync([CurrentPath]).ConfigureAwait(true);
+    }
+
+    private async Task CopyPathsTextAsync(IReadOnlyList<string> paths)
+    {
+        if (paths.Count == 0)
+            return;
+        await _systemClipboard.SetTextAsync(string.Join(Environment.NewLine, paths), CancellationToken.None).ConfigureAwait(true);
+
+        // 文本写入会替换系统文件剪贴板；同步清掉应用内待粘贴集合，避免 Ctrl+V 仍粘贴旧文件。
+        _clipboardPaths = [];
+        _clipboardCut = false;
+        _clipboardOwnedByApp = false;
+        _externalClipboardBaseline = [];
+        OnPropertyChanged(nameof(HasClipboard));
+        _dialogs.Notify(paths.Count == 1 ? "已复制路径" : $"已复制 {paths.Count} 条路径");
+    }
+
+    // ---------- 最近访问 ----------
+    public async Task RecordRecentFileAsync(string path)
+    {
+        if (FileLocator.IsStorageUri(path))
+            return;
+        await RecordRecentAsync(_settingsStore.Settings.RecentFilePaths, path).ConfigureAwait(true);
+    }
+
+    private async Task RecordRecentFolderAsync(string path)
+    {
+        if (FileLocator.IsStorageUri(path))
+            return;
+        await RecordRecentAsync(_settingsStore.Settings.RecentFolderPaths, path).ConfigureAwait(true);
+    }
+
+    private async Task RecordRecentAsync(List<string> target, string path)
+    {
+        if (target.Count > 0 && PathsEqual(target[0], path))
+            return;
+        target.RemoveAll(existing => PathsEqual(existing, path));
+        target.Insert(0, path);
+        if (target.Count > 12)
+            target.RemoveRange(12, target.Count - 12);
+        await SaveSettingsAsync().ConfigureAwait(true);
+        RecentsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // ---------- 标签页 ----------
@@ -423,8 +675,28 @@ public sealed partial class BrowserViewModel : ObservableObject
     [RelayCommand]
     private async Task NewTabAsync()
     {
-        if (CurrentPath is not null)
+        if (ActiveTab is not null)
+            await DuplicateTabAsync(ActiveTab).ConfigureAwait(true);
+        else if (CurrentPath is not null)
             await OpenInNewTabAsync(CurrentPath).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task DuplicateTabAsync(BrowserTabViewModel? tab)
+    {
+        if (tab is null || string.IsNullOrWhiteSpace(tab.Path))
+            return;
+        if (ReferenceEquals(tab, ActiveTab))
+            SnapshotActiveTab();
+
+        var copy = CreateTab(tab.Path);
+        copy.Title = tab.Title;
+        CopyStack(tab.BackStack, copy.BackStack);
+        CopyStack(tab.ForwardStack, copy.ForwardStack);
+        copy.FilterTextSnapshot = tab.FilterTextSnapshot;
+        copy.SelectedPathsSnapshot = tab.SelectedPathsSnapshot.ToArray();
+        Tabs.Insert(Tabs.IndexOf(tab) + 1, copy);
+        await ActivateTabCoreAsync(copy, snapshotCurrent: false).ConfigureAwait(true);
     }
 
     [RelayCommand]
@@ -437,6 +709,9 @@ public sealed partial class BrowserViewModel : ObservableObject
             return;
 
         var closingActive = ReferenceEquals(tab, ActiveTab);
+        if (closingActive)
+            SnapshotActiveTab();
+        RememberClosedTab(tab, index);
         Tabs.Remove(tab);
         tab.IsActive = false;
         if (!closingActive)
@@ -447,6 +722,89 @@ public sealed partial class BrowserViewModel : ObservableObject
 
         var target = Tabs[Math.Clamp(index, 0, Tabs.Count - 1)];
         await ActivateTabCoreAsync(target, snapshotCurrent: false).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task CloseOtherTabsAsync(BrowserTabViewModel? tab)
+    {
+        tab ??= ActiveTab;
+        if (tab is null || Tabs.Count <= 1 || !Tabs.Contains(tab))
+            return;
+
+        SnapshotActiveTab();
+        var others = Tabs.Where(candidate => !ReferenceEquals(candidate, tab)).ToArray();
+        // 反序入栈：连续按 Ctrl+Shift+T 时按原来的从左到右顺序恢复。
+        for (var i = others.Length - 1; i >= 0; i--)
+            RememberClosedTab(others[i], Tabs.IndexOf(others[i]), trim: false);
+        TrimClosedTabs();
+
+        foreach (var other in others)
+        {
+            Tabs.Remove(other);
+            other.IsActive = false;
+        }
+
+        if (!ReferenceEquals(tab, ActiveTab))
+            await ActivateTabCoreAsync(tab, snapshotCurrent: false).ConfigureAwait(true);
+        else
+            _ = PersistTabsAsync();
+    }
+
+    [RelayCommand]
+    private async Task ReopenClosedTabAsync()
+    {
+        if (_closedTabs.Count == 0)
+            return;
+        SnapshotActiveTab();
+        var snapshot = _closedTabs.Pop();
+        OnPropertyChanged(nameof(HasClosedTabs));
+
+        var tab = CreateTab(snapshot.Path);
+        tab.Title = snapshot.Title;
+        RestoreStack(tab.BackStack, snapshot.BackPaths);
+        RestoreStack(tab.ForwardStack, snapshot.ForwardPaths);
+        tab.FilterTextSnapshot = snapshot.FilterText;
+        tab.SelectedPathsSnapshot = snapshot.SelectedPaths;
+        Tabs.Insert(Math.Clamp(snapshot.Index, 0, Tabs.Count), tab);
+        await ActivateTabCoreAsync(tab, snapshotCurrent: false).ConfigureAwait(true);
+    }
+
+    private void RememberClosedTab(BrowserTabViewModel tab, int index, bool trim = true)
+    {
+        if (string.IsNullOrWhiteSpace(tab.Path))
+            return;
+        _closedTabs.Push(new ClosedTabSnapshot(
+            tab.Path,
+            tab.Title,
+            tab.BackStack.ToArray(),
+            tab.ForwardStack.ToArray(),
+            tab.FilterTextSnapshot,
+            tab.SelectedPathsSnapshot.ToArray(),
+            index));
+        if (trim)
+            TrimClosedTabs();
+        OnPropertyChanged(nameof(HasClosedTabs));
+    }
+
+    private void TrimClosedTabs()
+    {
+        const int maxClosedTabs = 10;
+        if (_closedTabs.Count <= maxClosedTabs)
+            return;
+        var retained = _closedTabs.Take(maxClosedTabs).Reverse().ToArray();
+        _closedTabs.Clear();
+        foreach (var snapshot in retained)
+            _closedTabs.Push(snapshot);
+    }
+
+    private static void CopyStack(Stack<string> source, Stack<string> destination) =>
+        RestoreStack(destination, source.ToArray());
+
+    private static void RestoreStack(Stack<string> destination, IReadOnlyList<string> topToBottom)
+    {
+        destination.Clear();
+        for (var i = topToBottom.Count - 1; i >= 0; i--)
+            destination.Push(topToBottom[i]);
     }
 
     [RelayCommand]
@@ -505,6 +863,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         foreach (var tab in Tabs)
             tab.CanClose = Tabs.Count > 1;
         OnPropertyChanged(nameof(HasMultipleTabs));
+        OnPropertyChanged(nameof(HasClosedTabs));
     }
 
     // ---------- 打开与选择 ----------
@@ -524,6 +883,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     public async Task OpenItemExternalAsync(FileItemViewModel? item)
     {
         if (item is null || item.IsFolder) return;
+        await RecordRecentFileAsync(item.FullPath).ConfigureAwait(true);
         await _preview.OpenCommand.ExecuteAsync(null).ConfigureAwait(true);
     }
 

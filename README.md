@@ -6,7 +6,7 @@
 
 > **状态：v0.6**——浏览/搜索/预览（图片、文本、**Markdown 渲染、代码高亮、PDF 分页**、ZIP 条目）/复制移动删除（含回收站语义）/ZIP/收藏/设置已可用；v0.2 新增文件夹外部变更自动刷新、文件夹大小、校验和与批量重命名；**v0.3 新增 Android SAF 授权文件夹浏览**；**v0.4 新增详细信息视图**；**v0.5 新增拖放与系统剪贴板互通**；**v0.6 新增浏览器标签页与 PDF 分页预览，并将产品品牌定为 Eidoria（万象屿）**（名称与图标见 `docs/BRAND.md`；仓库、命名空间、Android ApplicationId 与数据目录仍保留内部代号 MdExplorer 以兼容既有数据）。标签页各自保存路径、前进/后退栈、过滤词与选集，并可跨启动恢复；PDF 预览采用 MIT 许可的 PDFtoImage/PDFium 按页光栅化（Android 内置预览需 API 31+）。音视频播放为后续里程碑；**插件系统与本地 AI 两条轨道已完成评估、仍排在核心完善之后**。
 
-## 效果（CI 无头渲染实拍，归档于 `docs/assets/screenshots/`，含 Markdown/代码/批量重命名/详细信息视图/拖放提示/标签页/PDF 共 18 张）
+## 效果（CI 无头渲染实拍，归档于 `docs/assets/screenshots/`，含 Markdown/代码/批量重命名/详细信息视图/拖放提示/标签页/PDF/地址栏/任务中心 共 20 张）
 
 <img src="docs/assets/screenshots/05-large-1440x900.png" alt="Large 1440：永久抽屉 + 网格 + 预览侧栏" width="720" />
 

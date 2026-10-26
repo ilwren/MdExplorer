@@ -509,11 +509,55 @@ public partial class MainView : UserControl
             Browser?.CloseTabCommand.Execute(tab);
     }
 
+    private void OnDuplicateTabClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { Tag: BrowserTabViewModel tab })
+            Browser?.DuplicateTabCommand.Execute(tab);
+    }
+
+    private void OnCloseOtherTabsClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { Tag: BrowserTabViewModel tab })
+            Browser?.CloseOtherTabsCommand.Execute(tab);
+    }
+
+    private void OnCloseTabMenuClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { Tag: BrowserTabViewModel tab })
+            Browser?.CloseTabCommand.Execute(tab);
+    }
+
     // ---------- 面包屑/排序/搜索 ----------
     private async void OnBreadcrumbClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Control { DataContext: BreadcrumbSegment segment } && Shell is { } shell)
             await shell.Browser.NavigateBreadcrumbAsync(segment);
+    }
+
+    private void OnBreadcrumbBarTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is Control source && source.FindAncestorOfType<Button>() is not null)
+            return;
+        Browser?.BeginEditAddressCommand.Execute(null);
+    }
+
+    private async void OnAddressKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (Browser is not { } browser)
+            return;
+        if (e.Key == Key.Enter)
+        {
+            await browser.NavigateToAddressAsync(AddressBox.Text);
+            if (!browser.IsAddressEditing)
+                FileList.Focus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            browser.CancelEditAddressCommand.Execute(null);
+            FileList.Focus();
+            e.Handled = true;
+        }
     }
 
     private bool _ascending = true;
@@ -558,6 +602,11 @@ public partial class MainView : UserControl
     {
         if (e.PropertyName is nameof(BrowserViewModel.IsDetailsView))
             MirrorSelectionToDetails();
+        if (e.PropertyName is nameof(BrowserViewModel.IsAddressEditing) && Shell?.Browser.IsAddressEditing == true)
+        {
+            AddressBox.Focus();
+            AddressBox.SelectAll();
+        }
     }
 
     private void MirrorSelectionToDetails()
@@ -644,12 +693,21 @@ public partial class MainView : UserControl
     private void OnMenuBatchRename(object? sender, RoutedEventArgs e) => Browser?.BatchRenameSelectionCommand.Execute(null);
     private void OnMenuChecksums(object? sender, RoutedEventArgs e) => Browser?.ComputeChecksumsCommand.Execute(Browser.SelectedItems.FirstOrDefault());
     private void OnMenuProperties(object? sender, RoutedEventArgs e) => Browser?.ShowPropertiesCommand.Execute(Browser.SelectedItems.FirstOrDefault());
+    private void OnMenuCopyPath(object? sender, RoutedEventArgs e) => Browser?.CopyPathCommand.Execute(null);
+    private void OnMenuOpenContainingFolder(object? sender, RoutedEventArgs e) => Browser?.OpenContainingFolderCommand.Execute(Browser.SelectedItems.FirstOrDefault());
+    private void OnMenuRevealInSystemFileManager(object? sender, RoutedEventArgs e) => Browser?.RevealInSystemFileManagerCommand.Execute(Browser.SelectedItems.FirstOrDefault());
     private void OnMenuDelete(object? sender, RoutedEventArgs e) => Browser?.DeleteSelectionCommand.Execute(null);
 
     private void OnScrimTapped(object? sender, TappedEventArgs e)
     {
         if (Shell is { } shell)
             shell.IsDrawerOpen = false;
+    }
+
+    private void OnTaskCenterScrimTapped(object? sender, TappedEventArgs e)
+    {
+        if (Shell is { } shell)
+            shell.IsTaskCenterOpen = false;
     }
 
     private void OnClosePreviewPane(object? sender, RoutedEventArgs e)
@@ -663,6 +721,28 @@ public partial class MainView : UserControl
     {
         if (Shell is not { } shell)
             return;
+
+        var ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0;
+        if (e.Key == Key.F1 && !shell.IsDialogOpen)
+        {
+            shell.ShowKeyboardShortcutsCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+        if (shell.Page == ShellPage.Browser && !shell.IsDialogOpen && ctrl && e.Key == Key.L)
+        {
+            shell.Browser.BeginEditAddressCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+        if (shell.Page == ShellPage.Browser && !shell.IsDialogOpen && ctrl && e.Key == Key.F)
+        {
+            BrowserSearch.Focus();
+            BrowserSearch.SelectAll();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Source is TextBox)
         {
             if (e.Key == Key.Escape)
@@ -670,7 +750,6 @@ public partial class MainView : UserControl
             return;
         }
 
-        var ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0;
         switch (e.Key)
         {
             case Key.Escape:
@@ -685,6 +764,11 @@ public partial class MainView : UserControl
             case Key.Right when (e.KeyModifiers & KeyModifiers.Alt) != 0:
                 if (shell.Page == ShellPage.Browser)
                     shell.Browser.GoForwardCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.Up when (e.KeyModifiers & KeyModifiers.Alt) != 0:
+                if (shell.Page == ShellPage.Browser)
+                    shell.Browser.GoUpCommand.Execute(null);
                 e.Handled = true;
                 break;
         }
@@ -706,6 +790,14 @@ public partial class MainView : UserControl
                 shell.Browser.RefreshCommand.Execute(null);
                 e.Handled = true;
                 break;
+            case Key.R when ctrl:
+                shell.Browser.RefreshCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.C when ctrl && (e.KeyModifiers & KeyModifiers.Shift) != 0:
+                shell.Browser.CopyPathCommand.Execute(null);
+                e.Handled = true;
+                break;
             case Key.C when ctrl:
                 shell.Browser.CopySelectionCommand.Execute(null);
                 e.Handled = true;
@@ -720,6 +812,10 @@ public partial class MainView : UserControl
                 break;
             case Key.A when ctrl:
                 shell.Browser.SelectAllCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.T when ctrl && (e.KeyModifiers & KeyModifiers.Shift) != 0:
+                shell.Browser.ReopenClosedTabCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.T when ctrl:

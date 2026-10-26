@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
+using MdExplorer.Domain;
 using MdExplorer.UI.Services;
 using MdExplorer.UI.ViewModels;
 using MdExplorer.UI.Views;
@@ -134,6 +135,56 @@ public sealed class ScreenshotTests
         Assert.Equal(1, shell.Preview.PdfPageIndex);
         Assert.NotNull(shell.Preview.Image);
     });
+
+    [AvaloniaFact]
+    public async Task Large_AddressBar() => await CaptureAsync("19-large-address.png", 1440, 900, shell =>
+    {
+        shell.Browser.BeginEditAddressCommand.Execute(null);
+        Assert.True(shell.Browser.IsAddressEditing);
+        return Task.CompletedTask;
+    });
+
+    [AvaloniaFact]
+    public async Task Large_TaskCenter()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        var window = new Window
+        {
+            Width = 1440,
+            Height = 900,
+            Content = new MainView { DataContext = shell },
+        };
+        window.Show();
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            await Task.Delay(120);
+            var running = shell.RunOperationAsync("正在复制 128 个项目…", async (progress, ct) =>
+            {
+                progress.Report(new OperationProgress(0.46, "IMG_20261026_081500.jpg", 59, 128));
+                await release.Task.WaitAsync(ct);
+                return new OperationOutcome(128, [], []);
+            });
+            var queued = shell.RunOperationAsync("正在压缩为 ZIP…", (_, _) =>
+                Task.FromResult(new OperationOutcome(1, [], [])));
+            shell.IsTaskCenterOpen = true;
+            await Task.Delay(180);
+            window.CaptureRenderedFrame();
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            frame!.Save(Path.Combine(OutputDir, "20-large-task-center.png"));
+
+            release.TrySetResult();
+            Assert.True((await running).Success);
+            Assert.True((await queued).Success);
+        }
+        finally
+        {
+            release.TrySetResult();
+            window.Close();
+        }
+    }
 
     [AvaloniaFact]
     public async Task Expanded_BrowserPreview() => await CaptureAsync("04-expanded-1100x760.png", 1100, 760);

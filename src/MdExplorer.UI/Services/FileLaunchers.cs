@@ -31,6 +31,43 @@ public sealed class ProcessFileLauncher : IFileLauncherService
             return Task.FromResult(false);
         }
     }
+
+    public Task<bool> RevealAsync(string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var start = new ProcessStartInfo("explorer.exe") { UseShellExecute = false };
+                start.ArgumentList.Add($"/select,{path}");
+                Process.Start(start);
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                var start = new ProcessStartInfo("open") { UseShellExecute = false };
+                start.ArgumentList.Add("-R");
+                start.ArgumentList.Add(path);
+                Process.Start(start);
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                // xdg-open 没有跨桌面统一的“选中文件”语义，能稳定承诺的是打开所在文件夹。
+                var target = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
+                if (target is null)
+                    return Task.FromResult(false);
+                Process.Start(new ProcessStartInfo("xdg-open", target) { UseShellExecute = false });
+            }
+            else
+            {
+                return Task.FromResult(false);
+            }
+            return Task.FromResult(true);
+        }
+        catch (Exception)
+        {
+            return Task.FromResult(false);
+        }
+    }
 }
 
 /// <summary>
@@ -54,4 +91,8 @@ public sealed class AvaloniaFileLauncher(Func<TopLevel?> topLevelProvider) : IFi
             return false;
         }
     }
+
+    public Task<bool> RevealAsync(string path, CancellationToken cancellationToken) =>
+        // Android 没有可移植的“在系统文件管理器中选中此文件”Intent；Eidoria 内定位由 Browser 承担。
+        Task.FromResult(false);
 }

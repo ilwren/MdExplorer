@@ -137,6 +137,8 @@ public sealed class AppSettings
     public bool WatchFolderChanges { get; set; } = true;   // 外部增删改时自动刷新当前文件夹
     public List<string> OpenTabPaths { get; set; } = [];   // 上次会话的浏览器标签页（按显示顺序）
     public int ActiveTabIndex { get; set; }                // OpenTabPaths 中上次活动标签的下标
+    public List<string> RecentFolderPaths { get; set; } = []; // 最近访问文件夹（最新优先，仅本地路径）
+    public List<string> RecentFilePaths { get; set; } = [];   // 最近打开文件（最新优先，仅本地路径）
 }
 
 /// <summary>设置与收藏的持久化端口。</summary>

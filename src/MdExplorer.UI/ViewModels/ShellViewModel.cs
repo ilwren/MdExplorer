@@ -46,8 +46,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             services.FileSystem, services.Operations, services.Trash,
             services.Archive, services.Search, services.SettingsStore,
             services.Inspector, services.FolderWatch, services.SystemClipboard,
-            this, Preview);
+            this, Preview, () => Launcher);
         Browser.FavoritesChanged += async (_, _) => await RefreshFavoritesAsync().ConfigureAwait(true);
+        Browser.RecentsChanged += async (_, _) => await RefreshRecentsAsync().ConfigureAwait(true);
         Browser.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(BrowserViewModel.CurrentFolderName))
@@ -56,7 +57,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                 OnPropertyChanged(nameof(PageTitle));
         };
         FavoriteItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFavorites));
+        RecentFolders.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasRecentFolders));
+            OnPropertyChanged(nameof(HasRecents));
+        };
+        RecentFiles.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasRecentFiles));
+            OnPropertyChanged(nameof(HasRecents));
+        };
         TrashItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowTrashEmpty));
+        OperationTasks.CollectionChanged += (_, _) => RefreshTaskCenterSummary();
         Preview.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(PreviewViewModel.HasItem))
@@ -103,6 +115,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     };
 
     public bool HasFavorites => FavoriteItems.Count > 0;
+    public bool HasRecentFolders => RecentFolders.Count > 0;
+    public bool HasRecentFiles => RecentFiles.Count > 0;
+    public bool HasRecents => HasRecentFolders || HasRecentFiles;
     /// <summary>可浏览平台的回收站为空时展示占位（Windows/Android 走平台说明分支）。</summary>
     public bool ShowTrashEmpty => Capabilities.CanBrowseTrash && TrashItems.Count == 0;
 
@@ -177,7 +192,22 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public ObservableCollection<VolumeItemModel> Volumes { get; } = [];
     public ObservableCollection<NavEntry> Places { get; } = [];
     public ObservableCollection<FileItemViewModel> FavoriteItems { get; } = [];
+    public ObservableCollection<NavEntry> RecentFolders { get; } = [];
+    public ObservableCollection<FileItemViewModel> RecentFiles { get; } = [];
     public ObservableCollection<TrashItemModel> TrashItems { get; } = [];
+    public ObservableCollection<OperationTaskViewModel> OperationTasks { get; } = [];
+
+    [ObservableProperty] private bool _isTaskCenterOpen;
+
+    public bool HasOperationTasks => OperationTasks.Count > 0;
+    public int ActiveOperationTaskCount => OperationTasks.Count(task => task.IsActive);
+    public bool HasActiveOperationTasks => ActiveOperationTaskCount > 0;
+    public string TaskCenterText => ActiveOperationTaskCount switch
+    {
+        0 => "任务",
+        1 => "任务 · 运行中",
+        var count => $"任务 · {count} 个进行中",
+    };
 
 
     private static readonly (KnownFolder Folder, string Title, Func<string?> Glyph)[] KnownPlaceDefs =
@@ -207,6 +237,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                 Places.Add(new NavEntry(title, glyph(), path));
         }
         await RefreshFavoritesAsync().ConfigureAwait(true);
+        await RefreshRecentsAsync().ConfigureAwait(true);
         Volumes.Clear();
         var volumes = await _services.Volumes.GetVolumesAsync(CancellationToken.None).ConfigureAwait(true);
         foreach (var volume in volumes)
@@ -230,6 +261,51 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             if (item is not null)
                 FavoriteItems.Add(new FileItemViewModel(item) { IsFavorite = true });
         }
+    }
+
+    private async Task RefreshRecentsAsync()
+    {
+        RecentFolders.Clear();
+        foreach (var path in _services.SettingsStore.Settings.RecentFolderPaths.Take(12))
+        {
+            var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
+            if (item?.IsFolder == true)
+            {
+                RecentFolders.Add(new NavEntry(
+                    item.Name,
+                    MdSymbols.Folder,
+                    item.FullPath,
+                    _services.FileSystem.GetParentPath(item.FullPath)));
+            }
+        }
+
+        RecentFiles.Clear();
+        foreach (var path in _services.SettingsStore.Settings.RecentFilePaths.Take(12))
+        {
+            var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
+            if (item is not null && !item.IsFolder)
+                RecentFiles.Add(new FileItemViewModel(item) { IsFavorite = _services.SettingsStore.IsFavorite(path) });
+        }
+    }
+
+    [RelayCommand]
+    private async Task ClearRecentsAsync()
+    {
+        _services.SettingsStore.Settings.RecentFolderPaths.Clear();
+        _services.SettingsStore.Settings.RecentFilePaths.Clear();
+        RecentFolders.Clear();
+        RecentFiles.Clear();
+        await SaveAsync().ConfigureAwait(true);
+        Notify("已清除最近访问");
+    }
+
+    public async Task OpenRecentFileAsync(FileItemViewModel item)
+    {
+        Page = ShellPage.Browser;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        await Browser.NavigateToFileLocationAsync(item.FullPath).ConfigureAwait(true);
+        await Browser.RecordRecentFileAsync(item.FullPath).ConfigureAwait(true);
     }
 
     // ---------- 导航命令 ----------
@@ -371,9 +447,56 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [RelayCommand]
     private void ClosePreviewPage() => IsPreviewPageOpen = false;
 
+    [RelayCommand]
+    private void ToggleTaskCenter() => IsTaskCenterOpen = !IsTaskCenterOpen;
+
+    [RelayCommand]
+    private void CloseTaskCenter() => IsTaskCenterOpen = false;
+
+    [RelayCommand]
+    private void ClearFinishedTasks()
+    {
+        foreach (var task in OperationTasks.Where(task => task.IsFinished).ToArray())
+        {
+            OperationTasks.Remove(task);
+            task.Dispose();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ShowKeyboardShortcutsAsync()
+    {
+        await ShowPropertiesAsync("键盘快捷键", string.Join("\n", [
+            "导航",
+            "· Ctrl+L：编辑路径    Ctrl+F：搜索当前文件夹",
+            "· Alt+← / Alt+→：后退 / 前进    Alt+↑：上一级",
+            "· F5 或 Ctrl+R：刷新",
+            "",
+            "标签页",
+            "· Ctrl+T：复制当前标签    Ctrl+W：关闭标签",
+            "· Ctrl+Tab / Ctrl+Shift+Tab：切换标签    Ctrl+Shift+T：恢复已关闭标签",
+            "",
+            "文件操作",
+            "· Ctrl+C / Ctrl+X / Ctrl+V：复制 / 剪切 / 粘贴",
+            "· Ctrl+Shift+C：复制路径    Ctrl+A：全选",
+            "· F2：重命名    Delete：删除    Enter：打开",
+            "",
+            "F1：打开此快捷键说明",
+        ])).ConfigureAwait(true);
+    }
+
+    private void RefreshTaskCenterSummary()
+    {
+        OnPropertyChanged(nameof(HasOperationTasks));
+        OnPropertyChanged(nameof(ActiveOperationTaskCount));
+        OnPropertyChanged(nameof(HasActiveOperationTasks));
+        OnPropertyChanged(nameof(TaskCenterText));
+    }
+
     /// <summary>文件被点开时由视图调用：小断点进预览页，大断点预览窗格随选集变化即可。</summary>
     public void OnFileOpened(FileItemViewModel item)
     {
+        _ = Browser.RecordRecentFileAsync(item.FullPath);
         if (IsCompactOrMedium)
             IsPreviewPageOpen = true;
     }
@@ -404,7 +527,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     /// <summary>同步预判系统返回是否会被消费（决定 RoutedEventArgs.Handled）。</summary>
     public bool WouldHandleBack =>
-        IsDialogOpen || IsDrawerOpen || IsPreviewPageOpen ||
+        IsDialogOpen || IsTaskCenterOpen || IsDrawerOpen || IsPreviewPageOpen ||
         Page != ShellPage.Home ||
         Browser.CanConsumeBack;
 
@@ -412,6 +535,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public async Task<bool> TryGoBackAsync()
     {
         if (IsDialogOpen) return true; // 模态开着时吞掉返回，由对话框按钮收尾
+        if (IsTaskCenterOpen) { IsTaskCenterOpen = false; return true; }
         if (IsDrawerOpen) { IsDrawerOpen = false; return true; }
         if (IsPreviewPageOpen) { IsPreviewPageOpen = false; return true; }
         if (Page == ShellPage.Browser && await Browser.TryGoBackAsync().ConfigureAwait(true)) return true;
@@ -546,7 +670,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private DialogKind _dialogKind = DialogKind.None;
     private TaskCompletionSource<object?>? _dialogTcs;
     private Func<string, string?>? _dialogValidate;
-    private CancellationTokenSource? _operationCts;
+    private readonly SemaphoreSlim _operationGate = new(1, 1);
 
     public bool IsPromptDialog => IsDialogOpen && _dialogKind == DialogKind.Prompt;
     public bool IsProgressDialog => IsDialogOpen && _dialogKind == DialogKind.Progress;
@@ -711,13 +835,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private static readonly object _sentinel = new();
 
     [RelayCommand]
-    private void DialogCancel()
-    {
-        if (_dialogKind == DialogKind.Progress)
-            _operationCts?.Cancel();
-        else
-            _dialogTcs?.TrySetResult(_dialogKind == DialogKind.Confirm ? false : null);
-    }
+    private void DialogCancel() =>
+        _dialogTcs?.TrySetResult(_dialogKind == DialogKind.Confirm ? false : null);
 
     [RelayCommand]
     private void ConflictChoice(string policy)
@@ -750,52 +869,60 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [RelayCommand]
     private void DismissSnackbar() => IsSnackbarVisible = false;
 
-    // ---------- 操作进度 ----------
+    // ---------- 任务中心 ----------
     public async Task<OperationOutcome> RunOperationAsync(
         string title,
         Func<IProgress<OperationProgress>, CancellationToken, Task<OperationOutcome>> operation)
     {
-        _dialogKind = DialogKind.Progress;
-        DialogTitle = title;
-        OperationPercent = 0;
-        OperationDetail = string.Empty;
-        IsDialogOpen = true;
-        NotifyDialogKinds();
-        _operationCts = new CancellationTokenSource();
-        var progress = new Progress<OperationProgress>(p =>
+        var task = new OperationTaskViewModel(title);
+        task.PropertyChanged += (_, e) =>
         {
-            OperationPercent = p.Fraction < 0 ? 0 : p.Fraction * 100;
-            OperationDetail = p.ItemsTotal > 0 ? $"{p.CurrentItemName}（{p.ItemsDone}/{p.ItemsTotal}）" : p.CurrentItemName;
-        });
+            if (e.PropertyName is nameof(OperationTaskViewModel.Status))
+                RefreshTaskCenterSummary();
+            if (e.PropertyName is nameof(OperationTaskViewModel.ProgressPercent))
+                OperationPercent = task.ProgressPercent;
+            if (e.PropertyName is nameof(OperationTaskViewModel.Detail))
+                OperationDetail = task.Detail;
+        };
+        OperationTasks.Insert(0, task);
+        TrimOperationHistory();
+        OperationPercent = 0;
+        OperationDetail = task.Detail;
 
+        var acquired = false;
         OperationOutcome outcome;
         try
         {
-            outcome = await operation(progress, _operationCts.Token).ConfigureAwait(true);
+            await _operationGate.WaitAsync(task.CancellationToken).ConfigureAwait(true);
+            acquired = true;
+            task.MarkRunning();
+            var progress = new Progress<OperationProgress>(task.Report);
+            outcome = await operation(progress, task.CancellationToken).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
             outcome = new OperationOutcome(0, [], [], Cancelled: true);
         }
+        catch (Exception ex)
+        {
+            outcome = new OperationOutcome(0, [new OperationError(title, ex.Message)], []);
+        }
         finally
         {
-            IsDialogOpen = false;
-            _dialogKind = DialogKind.None;
-            NotifyDialogKinds();
-            _operationCts?.Dispose();
-            _operationCts = null;
+            if (acquired)
+                _operationGate.Release();
         }
 
+        task.Complete(outcome);
+        RefreshTaskCenterSummary();
         if (outcome.Cancelled)
         {
             Notify("已取消");
         }
         else if (outcome.Errors.Count > 0)
         {
-            var details = string.Join("\n", outcome.Errors.Take(8).Select(e => $"· {e.ItemName}：{e.Message}"));
-            if (outcome.Errors.Count > 8)
-                details += $"\n…等共 {outcome.Errors.Count} 项失败";
-            await ConfirmAsync("部分操作未完成", details, "知道了").ConfigureAwait(true);
+            IsTaskCenterOpen = true;
+            Notify("部分操作未完成，详情见任务中心");
         }
         else
         {
@@ -803,5 +930,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         }
 
         return outcome;
+    }
+
+    private void TrimOperationHistory()
+    {
+        const int maxTasks = 20;
+        while (OperationTasks.Count > maxTasks)
+        {
+            var oldestFinished = OperationTasks.LastOrDefault(task => task.IsFinished);
+            if (oldestFinished is null)
+                return;
+            OperationTasks.Remove(oldestFinished);
+            oldestFinished.Dispose();
+        }
     }
 }
