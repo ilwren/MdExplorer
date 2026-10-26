@@ -22,6 +22,22 @@
       <md:MdCircularProgressIndicator IsVisible="{Binding IsLoading}" IsIndeterminate="True"
                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
       <Image Source="{Binding Image}" Stretch="Uniform" IsVisible="{Binding HasImage}" />
+      <Border IsVisible="{Binding HasPdf}" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+              Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}" CornerRadius="18"
+              Padding="4,2" Margin="0,0,0,6">
+        <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
+          <md:MdIconButton Icon="{x:Static md:MdSymbols.FirstPage}" Command="{Binding FirstPdfPageCommand}"
+                           IsEnabled="{Binding CanPreviousPdfPage}" AutomationProperties.Name="第一页" />
+          <md:MdIconButton Icon="{x:Static md:MdSymbols.ChevronLeft}" Command="{Binding PreviousPdfPageCommand}"
+                           IsEnabled="{Binding CanPreviousPdfPage}" AutomationProperties.Name="上一页" />
+          <TextBlock Classes="caption" Text="{Binding PdfPageText}" VerticalAlignment="Center" Margin="4,0" MinWidth="72"
+                     TextAlignment="Center" />
+          <md:MdIconButton Icon="{x:Static md:MdSymbols.ChevronRight}" Command="{Binding NextPdfPageCommand}"
+                           IsEnabled="{Binding CanNextPdfPage}" AutomationProperties.Name="下一页" />
+          <md:MdIconButton Icon="{x:Static md:MdSymbols.LastPage}" Command="{Binding LastPdfPageCommand}"
+                           IsEnabled="{Binding CanNextPdfPage}" AutomationProperties.Name="最后一页" />
+        </StackPanel>
+      </Border>
       <Border IsVisible="{Binding ShowPlainText}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
               CornerRadius="12" Padding="10" ClipToBounds="True">
         <ScrollViewer>

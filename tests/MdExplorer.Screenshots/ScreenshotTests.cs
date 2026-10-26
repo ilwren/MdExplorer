@@ -117,6 +117,25 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task Large_TwoTabs() => await CaptureAsync("17-large-tabs.png", 1440, 900, async shell =>
+    {
+        await shell.Browser.OpenInNewTabAsync(Path.Combine(PicturesDir, "Camera"));
+        await shell.Browser.WhenIdleAsync();
+        Assert.Equal(2, shell.Browser.Tabs.Count);
+        Assert.Equal("Camera", shell.Browser.ActiveTab!.Title);
+    });
+
+    [AvaloniaFact]
+    public async Task Large_PdfPreview() => await CaptureAsync("18-large-pdf.png", 1440, 900, async shell =>
+    {
+        await SelectByNameAsync(shell, "设计规范 v3.pdf", () => shell.Preview.HasPdf && shell.Preview.Image is not null);
+        Assert.Equal(2, shell.Preview.PdfPageCount);
+        await shell.Preview.NextPdfPageCommand.ExecuteAsync(null);
+        Assert.Equal(1, shell.Preview.PdfPageIndex);
+        Assert.NotNull(shell.Preview.Image);
+    });
+
+    [AvaloniaFact]
     public async Task Expanded_BrowserPreview() => await CaptureAsync("04-expanded-1100x760.png", 1100, 760);
 
     [AvaloniaFact]

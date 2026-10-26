@@ -135,6 +135,8 @@ public sealed class AppSettings
     public bool ShowPreviewPane { get; set; } = true;
     public bool ConfirmPermanentDelete { get; set; } = true;
     public bool WatchFolderChanges { get; set; } = true;   // 外部增删改时自动刷新当前文件夹
+    public List<string> OpenTabPaths { get; set; } = [];   // 上次会话的浏览器标签页（按显示顺序）
+    public int ActiveTabIndex { get; set; }                // OpenTabPaths 中上次活动标签的下标
 }
 
 /// <summary>设置与收藏的持久化端口。</summary>

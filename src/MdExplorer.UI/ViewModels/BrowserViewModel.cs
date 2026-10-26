@@ -27,8 +27,10 @@ public sealed partial class BrowserViewModel : ObservableObject
     private readonly IDialogs _dialogs;
     private readonly PreviewViewModel _preview;
 
-    private readonly Stack<string> _backStack = [];
-    private readonly Stack<string> _forwardStack = [];
+    // 指向当前标签页的历史栈（切换标签时随 ActiveTab 一起换绑）
+    private Stack<string> _backStack;
+    private Stack<string> _forwardStack;
+    private bool _suppressTabFilterRefilter;
     private List<FileItem> _allItems = [];
     private IDisposable? _watchSubscription;
     private bool _watchEnabled;
@@ -69,6 +71,15 @@ public sealed partial class BrowserViewModel : ObservableObject
             _ => BrowserViewMode.List,
         };
         _sortFieldLabel = SortFieldText(ParseSort(s.SortField));
+
+        var initialTab = new BrowserTabViewModel(null, "新标签页") { IsActive = true };
+        Tabs.Add(initialTab);
+        _activeTab = initialTab;
+        _backStack = initialTab.BackStack;
+        _forwardStack = initialTab.ForwardStack;
+        Tabs.CollectionChanged += (_, _) => UpdateTabMetadata();
+        UpdateTabMetadata();
+
         SelectedItems.CollectionChanged += (_, _) => OnSelectionChanged();
     }
 
@@ -96,6 +107,10 @@ public sealed partial class BrowserViewModel : ObservableObject
     public ObservableCollection<FileItemViewModel> Items { get; } = [];
     public ObservableCollection<FileItemViewModel> SelectedItems { get; } = [];
     public ObservableCollection<BreadcrumbSegment> Breadcrumbs { get; } = [];
+
+    [ObservableProperty] private BrowserTabViewModel? _activeTab;
+    public ObservableCollection<BrowserTabViewModel> Tabs { get; } = [];
+    public bool HasMultipleTabs => Tabs.Count > 1;
 
     public bool IsListView => ViewMode == BrowserViewMode.List;
     public bool IsGridView => ViewMode == BrowserViewMode.Grid;
@@ -144,8 +159,19 @@ public sealed partial class BrowserViewModel : ObservableObject
 
     partial void OnFilterTextChanged(string value)
     {
-        if (!IsSearchMode)
+        if (!IsSearchMode && !_suppressTabFilterRefilter)
             RefilterAndSort();
+    }
+
+    partial void OnActiveTabChanged(BrowserTabViewModel? value)
+    {
+        foreach (var tab in Tabs)
+            tab.IsActive = ReferenceEquals(tab, value);
+        if (value is not null)
+        {
+            _backStack = value.BackStack;
+            _forwardStack = value.ForwardStack;
+        }
     }
 
     // ---------- 导航与加载 ----------
@@ -167,9 +193,12 @@ public sealed partial class BrowserViewModel : ObservableObject
         var ct = _loadCts.Token;
 
         CurrentPath = path;
-        CurrentFolderName = FileLocator.IsStorageUri(path)
-            ? _fileSystem.GetBreadcrumbs(path).LastOrDefault()?.Name ?? path
-            : FolderDisplayName(path);
+        CurrentFolderName = TabTitleFor(path);
+        if (ActiveTab is { } activeTab)
+        {
+            activeTab.Path = path;
+            activeTab.Title = CurrentFolderName;
+        }
         IsSearchMode = false;
         ExitSelectionMode();
         RebuildBreadcrumbs(path);
@@ -183,6 +212,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         _idleTask = LoadCoreAsync(path, ct);
         await _idleTask.ConfigureAwait(true);
         ArmFolderWatch(path);
+        _ = PersistTabsAsync();
     }
 
     // ---------- 文件夹外部变更监视 ----------
@@ -309,6 +339,172 @@ public sealed partial class BrowserViewModel : ObservableObject
         if (IsSearchMode) { await ExitSearchAsync().ConfigureAwait(true); return true; }
         if (_backStack.Count > 0) { await GoBackAsync().ConfigureAwait(true); return true; }
         return false;
+    }
+
+    // ---------- 标签页 ----------
+    // 每个标签页保存自己的路径、前进/后退栈、列表过滤词与选集快照；剪贴板与视图/排序是全局会话状态，不随标签拆分。
+    // 切换时按快照重载目标文件夹（顺带拿到外部最新状态），滚动位置与一次性递归搜索结果不持久化。
+    private string TabTitleFor(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return "新标签页";
+        return FileLocator.IsStorageUri(path)
+            ? _fileSystem.GetBreadcrumbs(path).LastOrDefault()?.Name ?? path
+            : FolderDisplayName(path);
+    }
+
+    private BrowserTabViewModel CreateTab(string? path) => new(path, TabTitleFor(path));
+
+    private void SnapshotActiveTab()
+    {
+        if (ActiveTab is not { } tab)
+            return;
+        tab.Path = CurrentPath;
+        tab.Title = string.IsNullOrWhiteSpace(CurrentFolderName) ? TabTitleFor(CurrentPath) : CurrentFolderName;
+        tab.FilterTextSnapshot = IsSearchMode ? string.Empty : FilterText;
+        tab.SelectedPathsSnapshot = IsSearchMode
+            ? []
+            : SelectedItems.Select(item => item.FullPath).ToArray();
+    }
+
+    private async Task ActivateTabCoreAsync(BrowserTabViewModel tab, bool snapshotCurrent)
+    {
+        if (string.IsNullOrWhiteSpace(tab.Path))
+            return;
+        if (snapshotCurrent)
+            SnapshotActiveTab();
+
+        ActiveTab = tab;
+        var selectedPaths = tab.SelectedPathsSnapshot;
+        _suppressTabFilterRefilter = true;
+        FilterText = tab.FilterTextSnapshot;
+        _suppressTabFilterRefilter = false;
+
+        await LoadFolderAsync(tab.Path).ConfigureAwait(true);
+
+        if (selectedPaths.Count > 0)
+        {
+            foreach (var item in Items.Where(item => selectedPaths.Any(path => PathsEqual(path, item.FullPath))))
+                SelectedItems.Add(item);
+        }
+        _ = PersistTabsAsync();
+    }
+
+    [RelayCommand]
+    private async Task ActivateTabAsync(BrowserTabViewModel? tab)
+    {
+        if (tab is null || ReferenceEquals(tab, ActiveTab))
+            return;
+        await ActivateTabCoreAsync(tab, snapshotCurrent: true).ConfigureAwait(true);
+    }
+
+    public async Task OpenInNewTabAsync(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+        SnapshotActiveTab();
+        var tab = CreateTab(path);
+        Tabs.Add(tab);
+        await ActivateTabCoreAsync(tab, snapshotCurrent: false).ConfigureAwait(true);
+    }
+
+    public async Task OpenItemInNewTabAsync(FileItemViewModel? item)
+    {
+        if (item is null)
+            return;
+        if (!item.IsFolder)
+        {
+            _dialogs.Notify("只有文件夹可以在新标签页中打开");
+            return;
+        }
+        await OpenInNewTabAsync(item.FullPath).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task NewTabAsync()
+    {
+        if (CurrentPath is not null)
+            await OpenInNewTabAsync(CurrentPath).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task CloseTabAsync(BrowserTabViewModel? tab)
+    {
+        if (tab is null || Tabs.Count <= 1)
+            return;
+        var index = Tabs.IndexOf(tab);
+        if (index < 0)
+            return;
+
+        var closingActive = ReferenceEquals(tab, ActiveTab);
+        Tabs.Remove(tab);
+        tab.IsActive = false;
+        if (!closingActive)
+        {
+            _ = PersistTabsAsync();
+            return;
+        }
+
+        var target = Tabs[Math.Clamp(index, 0, Tabs.Count - 1)];
+        await ActivateTabCoreAsync(target, snapshotCurrent: false).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task CloseActiveTabAsync() => await CloseTabAsync(ActiveTab).ConfigureAwait(true);
+
+    [RelayCommand]
+    private async Task NextTabAsync()
+    {
+        if (Tabs.Count < 2 || ActiveTab is null)
+            return;
+        var index = Tabs.IndexOf(ActiveTab);
+        await ActivateTabAsync(Tabs[(index + 1) % Tabs.Count]).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task PreviousTabAsync()
+    {
+        if (Tabs.Count < 2 || ActiveTab is null)
+            return;
+        var index = Tabs.IndexOf(ActiveTab);
+        await ActivateTabAsync(Tabs[(index - 1 + Tabs.Count) % Tabs.Count]).ConfigureAwait(true);
+    }
+
+    /// <summary>启动恢复：优先打开上次会话的标签页（最多 12 个）；没有记录时打开宿主起始文件夹。</summary>
+    public async Task RestoreTabsAsync(string fallbackPath)
+    {
+        var savedPaths = _settingsStore.Settings.OpenTabPaths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Take(12)
+            .ToArray();
+
+        Tabs.Clear();
+        foreach (var path in savedPaths)
+            Tabs.Add(CreateTab(path));
+        if (Tabs.Count == 0)
+            Tabs.Add(CreateTab(fallbackPath));
+
+        var index = Math.Clamp(_settingsStore.Settings.ActiveTabIndex, 0, Tabs.Count - 1);
+        await ActivateTabCoreAsync(Tabs[index], snapshotCurrent: false).ConfigureAwait(true);
+    }
+
+    private async Task PersistTabsAsync()
+    {
+        var settings = _settingsStore.Settings;
+        settings.OpenTabPaths = Tabs
+            .Where(tab => !string.IsNullOrWhiteSpace(tab.Path))
+            .Select(tab => tab.Path!)
+            .Take(12)
+            .ToList();
+        settings.ActiveTabIndex = ActiveTab is null ? 0 : Math.Max(0, Tabs.IndexOf(ActiveTab));
+        await SaveSettingsAsync().ConfigureAwait(true);
+    }
+
+    private void UpdateTabMetadata()
+    {
+        foreach (var tab in Tabs)
+            tab.CanClose = Tabs.Count > 1;
+        OnPropertyChanged(nameof(HasMultipleTabs));
     }
 
     // ---------- 打开与选择 ----------
@@ -1026,4 +1222,24 @@ public sealed partial class BrowserViewModel : ObservableObject
         catch (ArgumentException) { return false; }
         catch (NotSupportedException) { return false; }
     }
+}
+
+/// <summary>一个浏览器标签页的会话快照。条目集合仍由 BrowserViewModel 持有，切换标签时按路径重载。</summary>
+public sealed partial class BrowserTabViewModel : ObservableObject
+{
+    internal BrowserTabViewModel(string? path, string title)
+    {
+        _path = path;
+        _title = string.IsNullOrWhiteSpace(title) ? "新标签页" : title;
+    }
+
+    [ObservableProperty] private string? _path;
+    [ObservableProperty] private string _title;
+    [ObservableProperty] private bool _isActive;
+    [ObservableProperty] private bool _canClose;
+
+    internal Stack<string> BackStack { get; } = [];
+    internal Stack<string> ForwardStack { get; } = [];
+    internal string FilterTextSnapshot { get; set; } = string.Empty;
+    internal IReadOnlyList<string> SelectedPathsSnapshot { get; set; } = [];
 }

@@ -8,8 +8,11 @@
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="12,16" Spacing="4">
       <StackPanel Orientation="Horizontal" Spacing="10" Margin="8,0,0,12">
-        <Image Source="avares://MdExplorer.UI/Assets/layerfold.png" Width="38" Height="38" VerticalAlignment="Center" />
-        <TextBlock Classes="h2" Text="Layerfold" VerticalAlignment="Center" />
+        <Image Source="avares://MdExplorer.UI/Assets/eidoria.png" Width="44" Height="44" VerticalAlignment="Center" />
+        <StackPanel Spacing="0" VerticalAlignment="Center">
+          <TextBlock Classes="h2" Text="Eidoria" />
+          <TextBlock Classes="caption" Text="万象屿" />
+        </StackPanel>
       </StackPanel>
 
       <md:MdButton Classes="nav-entry" Variant="Text" Command="{Binding GoHomeCommand}">

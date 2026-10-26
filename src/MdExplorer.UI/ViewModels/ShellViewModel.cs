@@ -194,7 +194,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public async Task InitializeAsync()
     {
         await RefreshHomeAsync().ConfigureAwait(true);
-        await Browser.NavigateToAsync(_services.StartFolder, pushHistory: false).ConfigureAwait(true);
+        await Browser.RestoreTabsAsync(_services.StartFolder).ConfigureAwait(true);
     }
 
     public async Task RefreshHomeAsync()
@@ -307,7 +307,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         {
             picked = await provider.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {
-                Title = "选择要在 Layerfold 中浏览的文件夹",
+                Title = "选择要在 Eidoria 中浏览的文件夹",
                 AllowMultiple = true,
             }).ConfigureAwait(true);
         }

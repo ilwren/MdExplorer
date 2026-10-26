@@ -8,7 +8,7 @@ using AvaloniaApp = MdExplorer.UI.App;
 namespace MdExplorer.Android;
 
 [Activity(
-    Label = "Layerfold",
+    Label = "Eidoria",
     Theme = "@style/MyTheme.NoActionBar",
     Icon = "@mipmap/ic_launcher",
     MainLauncher = true,

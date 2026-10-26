@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Eidoria — 万象屿</title>
+  <desc id="desc">珊瑚、琥珀与墨青三层纸页拱门，环绕金日下舒展的蕨叶路径与岛屿地层。</desc>
+  <defs>
+    <linearGradient id="twilight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#182B5B"/>
+      <stop offset="0.46" stop-color="#103E5D"/>
+      <stop offset="1" stop-color="#006A6A"/>
+    </linearGradient>
+    <linearGradient id="archBack" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#FF7A66"/>
+      <stop offset="1" stop-color="#E85D75"/>
+    </linearGradient>
+    <linearGradient id="archMid" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#FFC96B"/>
+      <stop offset="1" stop-color="#F59E5B"/>
+    </linearGradient>
+    <linearGradient id="archFront" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A344D"/>
+      <stop offset="1" stop-color="#063A3D"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.36" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#FFF0B3"/>
+      <stop offset="0.55" stop-color="#FFC94D"/>
+      <stop offset="1" stop-color="#FF8F5E"/>
+    </radialGradient>
+    <linearGradient id="strataA" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#159E93"/>
+      <stop offset="1" stop-color="#43C4B5"/>
+    </linearGradient>
+    <linearGradient id="strataB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#73DAC5"/>
+      <stop offset="1" stop-color="#C2F3D8"/>
+    </linearGradient>
+    <clipPath id="frontClip">
+      <path d="M318 828 L318 512 C318 354 406 238 512 238 C618 238 706 354 706 512 L706 828 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Deep twilight field, with a quiet orbit rather than decorative blobs. -->
+  <rect width="1024" height="1024" rx="230" fill="url(#twilight)"/>
+  <path d="M168 214 l9 20 20 9 -20 9 -9 20 -9 -20 -20 -9 20 -9 Z" fill="#FFE8A3" opacity="0.86"/>
+  <path d="M832 302 l7 15 15 7 -15 7 -7 15 -7 -15 -15 -7 15 -7 Z" fill="#C2F3D8" opacity="0.72"/>
+  <circle cx="826" cy="174" r="7" fill="#FFB36B"/>
+  <circle cx="150" cy="430" r="6" fill="#B9F1D6" opacity="0.8"/>
+
+  <!-- Misregistered-print paper arches: coral breathes at upper left, amber at lower right. -->
+  <path d="M222 820 L222 502 C222 300 340 158 478 158 C616 158 734 300 734 502 L734 820 Z" fill="url(#archBack)"/>
+  <path d="M266 846 L266 510 C266 322 380 190 512 190 C644 190 758 322 758 510 L758 846 Z" fill="url(#archMid)"/>
+  <path d="M318 828 L318 512 C318 354 406 238 512 238 C618 238 706 354 706 512 L706 828 Z" fill="url(#archFront)"/>
+
+  <!-- Fine inner arch drawn before the sun, so the disc stays clean. -->
+  <path d="M380 788 L380 532 C380 398 440 306 512 306 C584 306 644 398 644 532 L644 788" fill="none" stroke="#A9E8CE" stroke-width="13" stroke-linecap="round" opacity="0.88"/>
+  <circle cx="512" cy="372" r="70" fill="url(#sun)"/>
+
+  <!-- Ground: page strata becoming an island shoreline. -->
+  <g clip-path="url(#frontClip)">
+    <path d="M292 704 C398 656 484 730 594 682 C656 655 700 662 732 686 L732 852 L292 852 Z" fill="url(#strataA)"/>
+    <path d="M292 754 C398 716 490 780 594 740 C656 716 704 722 732 744 L732 852 L292 852 Z" fill="url(#strataB)"/>
+    <path d="M292 802 C410 768 503 824 614 788 C668 770 706 774 732 790 L732 852 L292 852 Z" fill="#FF8A70"/>
+  </g>
+
+  <!-- File-tree as a young fern: one path, unfurling branches, no literal folder. -->
+  <g fill="none" stroke="#FFF5CF" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M512 726 C505 652 521 584 512 516"/>
+    <path d="M509 668 C469 654 443 630 428 596"/>
+    <path d="M516 626 C555 612 582 588 597 554"/>
+    <path d="M515 586 C480 574 457 552 447 524"/>
+    <path d="M518 546 C548 534 568 515 578 490"/>
+    <path d="M512 516 C490 503 475 486 467 462"/>
+  </g>
+  <g fill="#FFF5CF">
+    <circle cx="512" cy="726" r="19"/>
+    <circle cx="428" cy="596" r="15"/>
+    <circle cx="597" cy="554" r="15"/>
+    <circle cx="447" cy="524" r="13"/>
+    <circle cx="578" cy="490" r="13"/>
+    <circle cx="467" cy="462" r="12"/>
+    <circle cx="512" cy="516" r="13"/>
+  </g>
+
+  <!-- Open-book plinth. -->
+  <path d="M236 834 C340 810 436 821 512 846 C588 821 684 810 788 834 L788 864 C684 842 588 852 512 876 C436 852 340 842 236 864 Z" fill="#F4FFFB"/>
+</svg>

@@ -1,10 +1,10 @@
-# Layerfold（层夹）
+# Eidoria（万象屿）
 
-<img src="docs/assets/brand/layerfold-icon.png" alt="Layerfold 图标：层叠文件夹与文件树" width="96" />
+<img src="docs/assets/brand/eidoria-icon.png" alt="Eidoria 图标：纸页拱门、金日与分枝路径组成的万象屿徽记" width="96" />
 
 基于 **Avalonia 12 + .NET 10** 的跨平台（Windows / Linux / Android）**本地**文件资源管理器，采用 **Material Design 3**（`Md3.Avalonia`）设计语言，按窗口尺寸类做真响应式（Adaptive）布局：底部导航栏（Compact）→ 导轨（Medium）→ 永久抽屉 + 预览侧栏（Expanded+）。核心层平台无关，平台能力经接口适配；许可证 Apache-2.0（见 `LICENSE`）。
 
-> **状态：v0.5**——浏览/搜索/预览（图片、文本、**Markdown 渲染、代码高亮**、ZIP 条目）/复制移动删除（含回收站语义）/ZIP/收藏/设置已可用；v0.2 新增：文件夹外部变更自动刷新、属性文件夹大小、校验和、批量重命名；**v0.3 新增：Android SAF 授权文件夹浏览**（系统选择器授权任意文件夹树，浏览/增删改/双向复制移动/图片·文本·代码·Markdown 预览与缩略图，书签跨会话恢复；真机行为待验）；**v0.4 新增：详细信息视图**（四列表格 + 列头排序，与列表/网格三态切换）；**v0.5 新增：拖放与系统剪贴板互通，并更名为 Layerfold（层夹）**（新品牌与图标见 `docs/BRAND.md`；仓库、命名空间与数据目录仍保留内部代号 MdExplorer 以兼容既有数据）；PDF 渲染、音视频播放为后续里程碑；**插件系统与本地 AI 两条新轨道已完成评估立项**（见开发文档 §16/§17、变更纪要与下表两文）。
+> **状态：v0.6**——浏览/搜索/预览（图片、文本、**Markdown 渲染、代码高亮、PDF 分页**、ZIP 条目）/复制移动删除（含回收站语义）/ZIP/收藏/设置已可用；v0.2 新增文件夹外部变更自动刷新、文件夹大小、校验和与批量重命名；**v0.3 新增 Android SAF 授权文件夹浏览**；**v0.4 新增详细信息视图**；**v0.5 新增拖放与系统剪贴板互通**；**v0.6 新增浏览器标签页与 PDF 分页预览，并将产品品牌定为 Eidoria（万象屿）**（名称与图标见 `docs/BRAND.md`；仓库、命名空间、Android ApplicationId 与数据目录仍保留内部代号 MdExplorer 以兼容既有数据）。标签页各自保存路径、前进/后退栈、过滤词与选集，并可跨启动恢复；PDF 预览采用 MIT 许可的 PDFtoImage/PDFium 按页光栅化（Android 内置预览需 API 31+）。音视频播放为后续里程碑；**插件系统与本地 AI 两条轨道已完成评估、仍排在核心完善之后**。
 
 ## 效果（CI 无头渲染实拍，归档于 `docs/assets/screenshots/`，含 Markdown/代码/批量重命名/详细信息视图/拖放提示共 16 张）
 
@@ -53,6 +53,7 @@ tests/                               单元测试 + 无头截图冒烟
 | 文档 | 内容 |
 |---|---|
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 开发文档：选型与许可证/AOT 考据、分层架构、接口规范、功能规格、平台适配、AOT 合规、路线图与决策记录 |
+| [docs/BRAND.md](docs/BRAND.md) | Eidoria（万象屿）命名、图标构造、核心色与品牌资产落点 |
 | [docs/RESPONSIVE-LAYOUT.md](docs/RESPONSIVE-LAYOUT.md) | 五档断点布局规格（含 `docs/assets/layouts/` 五张 SVG 线框与高保真方向图） |
 | [docs/IMAGE-PROMPTS.md](docs/IMAGE-PROMPTS.md) | GPT-image-2 效果图提示词（中英双语） |
 | [docs/PLUGIN-SYSTEM.md](docs/PLUGIN-SYSTEM.md) | 插件系统计划与可行性评估（AOT 约束下的五机制选型、P0–P3 分期） |

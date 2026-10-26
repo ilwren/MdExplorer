@@ -18,6 +18,7 @@
   <UserControl.Resources>
     <ContextMenu x:Key="ItemMenu">
       <MenuItem Header="打开" Click="OnMenuOpen" />
+      <MenuItem Header="在新标签页打开" Click="OnMenuOpenInNewTab" />
       <MenuItem Header="用系统应用打开" Click="OnMenuOpenExternal" />
       <Separator />
       <MenuItem Header="复制" Click="OnMenuCopy" />
@@ -168,8 +169,42 @@
           <views:HomeView IsVisible="{Binding IsHome}" />
 
           <!-- 浏览器页 -->
-          <Grid IsVisible="{Binding IsBrowser}" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="12,4,12,0">
-            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,2">
+          <Grid IsVisible="{Binding IsBrowser}" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Margin="12,4,12,0">
+            <!-- 浏览器标签页：点按切换、× 关闭、末尾 + 新开（复制当前文件夹） -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+              <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="TabStrip" ItemsSource="{Binding Browser.Tabs}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:BrowserTabViewModel">
+                      <Border CornerRadius="10" Padding="4,2" Tapped="OnTabTapped" PointerPressed="OnTabPointerPressed" Cursor="Hand"
+                              MinWidth="112" MaxWidth="220">
+                        <Grid>
+                          <Border CornerRadius="10" Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}"
+                                  IsVisible="{Binding IsActive}" />
+                          <Border CornerRadius="10" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
+                                  IsVisible="{Binding !IsActive}" />
+                          <Grid ColumnDefinitions="Auto,*,Auto" Margin="8,4">
+                            <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="16" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="12.5" Margin="6,0"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.Close}" Click="OnTabCloseClick"
+                                             IsVisible="{Binding CanClose}" AutomationProperties.Name="关闭标签页" />
+                          </Grid>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+              <md:MdIconButton Grid.Column="1" Icon="{x:Static md:MdSymbols.Add}" Command="{Binding Browser.NewTabCommand}"
+                               AutomationProperties.Name="新建标签页" />
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,2">
               <StackPanel Orientation="Horizontal" Spacing="2">
                 <md:MdIconButton Icon="{x:Static md:MdSymbols.ArrowBack}" Command="{Binding Browser.GoBackCommand}"
                                  IsEnabled="{Binding Browser.CanGoBack}" AutomationProperties.Name="后退" />
@@ -203,6 +238,7 @@
                   <Flyout>
                     <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}" CornerRadius="14" Padding="6">
                     <StackPanel Spacing="2" MinWidth="180">
+                      <md:MdButton Variant="Text" Content="新建标签页" Command="{Binding Browser.NewTabCommand}" />
                       <md:MdButton Variant="Text" Content="新建文件夹" Command="{Binding Browser.NewFolderCommand}" />
                       <md:MdButton Variant="Text" Content="新建文件" Command="{Binding Browser.NewFileCommand}" />
                       <md:MdButton Variant="Text" Content="粘贴" Command="{Binding Browser.PasteCommand}" />
@@ -223,7 +259,7 @@
               </md:MdIconButton>
             </Grid>
 
-            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,4">
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,4">
               <md:MdSearchBar x:Name="BrowserSearch" PlaceholderText="搜索当前文件夹"
                               Text="{Binding Browser.FilterText}" ShowClearButton="True"
                               KeyDown="OnSearchKeyDown" />
@@ -234,7 +270,7 @@
               </StackPanel>
             </Grid>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="4" Margin="0,2"
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="4" Margin="0,2"
                         IsVisible="{Binding IsExpandedOrAbove}">
               <md:MdButton Variant="Tonal" Command="{Binding Browser.NewFolderCommand}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -254,7 +290,7 @@
                                AutomationProperties.Name="切换视图" />
             </StackPanel>
 
-            <Grid Grid.Row="3">
+            <Grid Grid.Row="4">
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -411,7 +447,7 @@
               </Grid>
             </Grid>
 
-            <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="2,4,2,8">
+            <Grid Grid.Row="5" ColumnDefinitions="*,Auto" Margin="2,4,2,8">
               <TextBlock Classes="caption" Text="{Binding Browser.SelectionText}" VerticalAlignment="Center" />
               <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center">
                 <Run Text="排序：" /><Run Text="{Binding Browser.SortFieldLabel}" />

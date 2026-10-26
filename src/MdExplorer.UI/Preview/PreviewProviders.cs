@@ -3,6 +3,8 @@ using Avalonia.Media.Imaging;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.ViewModels;
+using PDFtoImage;
+using PDFtoImage.Exceptions;
 
 namespace MdExplorer.UI.Preview;
 
@@ -16,7 +18,11 @@ public sealed record PreviewContent(
     IReadOnlyList<ArchiveEntryRowModel>? Entries = null,
     string? Message = null,
     string? Markdown = null,
-    string? HighlightLanguage = null);
+    string? HighlightLanguage = null,
+    PdfPreviewDocument? Pdf = null);
+
+/// <summary>PDF 预览负载：原始字节仅在内存中保留，翻页时按需光栅化，避免整本同时驻留位图。</summary>
+public sealed record PdfPreviewDocument(byte[] Data, int PageCount, Bitmap FirstPage);
 
 /// <summary>
 /// 预览提供者：插件体系 P0 的第一类扩展点。P1 起同名能力由声明式清单描述，
@@ -57,6 +63,7 @@ public static class BuiltInPreviewProviders
     public static PreviewProviderRegistry Create(IArchiveService archive, IFileSystemService fileSystem) => new(
     [
         new ImagePreviewProvider(fileSystem),
+        new PdfPreviewProvider(fileSystem),
         new MarkdownPreviewProvider(fileSystem),
         new TextPreviewProvider(fileSystem),
         new HexPreviewProvider(fileSystem),
@@ -76,6 +83,113 @@ internal sealed class ImagePreviewProvider(IFileSystemService fileSystem) : IPre
         await using var stream = await fileSystem.OpenReadAsync(item.FullPath, cancellationToken).ConfigureAwait(true);
         var bitmap = await Task.Run(() => Bitmap.DecodeToWidth(stream, 1600), cancellationToken).ConfigureAwait(true);
         return new PreviewContent(Image: bitmap);
+    }
+}
+
+/// <summary>
+/// PDFium 光栅化收口（PDFtoImage，MIT）。PDFium 本身不保证同进程并行安全，
+/// 故全进程串行调用；输出经 PNG 中转成 Avalonia Bitmap，视图层不接触 Skia 类型。
+/// </summary>
+internal static class PdfPreviewRenderer
+{
+    private static readonly SemaphoreSlim Gate = new(1, 1);
+    private const int RenderWidth = 1200;
+
+    private static RenderOptions Options => new(
+        Dpi: 144,
+        Width: RenderWidth,
+        WithAnnotations: true,
+        WithFormFill: true,
+        WithAspectRatio: true);
+
+    internal static async Task<PdfPreviewDocument> LoadAsync(byte[] data, CancellationToken cancellationToken)
+    {
+        return await Task.Run(() =>
+        {
+            Gate.Wait(cancellationToken);
+            try
+            {
+                var pageCount = Conversion.GetPageCount(data);
+                if (pageCount <= 0)
+                    throw new InvalidDataException("PDF 不包含任何页面。");
+                return new PdfPreviewDocument(data, pageCount, RenderPageLocked(data, 0));
+            }
+            finally
+            {
+                Gate.Release();
+            }
+        }, cancellationToken).ConfigureAwait(true);
+    }
+
+    internal static async Task<Bitmap> RenderPageAsync(byte[] data, int pageIndex, CancellationToken cancellationToken)
+    {
+        return await Task.Run(() =>
+        {
+            Gate.Wait(cancellationToken);
+            try
+            {
+                return RenderPageLocked(data, pageIndex);
+            }
+            finally
+            {
+                Gate.Release();
+            }
+        }, cancellationToken).ConfigureAwait(true);
+    }
+
+    private static Bitmap RenderPageLocked(byte[] data, int pageIndex)
+    {
+        using var png = new MemoryStream();
+        Conversion.SavePng(png, data, new Index(pageIndex), options: Options);
+        png.Position = 0;
+        return new Bitmap(png);
+    }
+}
+
+internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPreviewProvider
+{
+    public string Id => "builtin.pdf";
+    public int Priority => 120;
+    public bool CanHandle(FileItem item) =>
+        item.Kind == FileKind.Document && FileKindClassifier.IsPdf(item);
+
+    public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
+    {
+        if (OperatingSystem.IsAndroid() && !OperatingSystem.IsAndroidVersionAtLeast(31))
+            return new PreviewContent(Message: "内置 PDF 预览需要 Android 12（API 31）或更高版本；此设备可先用系统应用打开。");
+
+        var limit = (OperatingSystem.IsAndroid() ? 64L : 128L) * 1024 * 1024;
+        if (item.Length is { } knownLength && knownLength > limit)
+            return new PreviewContent(Message: $"此 PDF 为 {Formatting.Bytes(item.Length)}，超过内置预览的 {Formatting.Bytes(limit)} 安全上限；可先用系统应用打开。");
+
+        try
+        {
+            await using var source = await fileSystem.OpenReadAsync(item.FullPath, cancellationToken).ConfigureAwait(true);
+            using var memory = new MemoryStream();
+            var buffer = new byte[81920];
+            int read;
+            while ((read = await source.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(true)) > 0)
+            {
+                if (memory.Length + read > limit)
+                    return new PreviewContent(Message: $"此 PDF 超过内置预览的 {Formatting.Bytes(limit)} 安全上限；可先用系统应用打开。");
+                await memory.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(true);
+            }
+
+            var document = await PdfPreviewRenderer.LoadAsync(memory.ToArray(), cancellationToken).ConfigureAwait(true);
+            return new PreviewContent(Pdf: document);
+        }
+        catch (PdfPasswordProtectedException)
+        {
+            return new PreviewContent(Message: "此 PDF 已加密或需要密码，内置预览暂不支持输入密码；可先用系统应用打开。");
+        }
+        catch (PdfException ex)
+        {
+            return new PreviewContent(Message: $"无法读取此 PDF：{ex.Message} 可先用系统应用打开。");
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
+        {
+            return new PreviewContent(Message: "当前平台的 PDF 渲染组件不可用；可先用系统应用打开。");
+        }
     }
 }
 
@@ -216,7 +330,7 @@ internal sealed class FallbackPreviewProvider : IPreviewProvider
     public Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken) =>
         Task.FromResult(new PreviewContent(Message: item.Kind switch
         {
-            FileKind.Document when FileKindClassifier.IsPdf(item) => "PDF 内置预览将在后续版本提供，可先用系统应用打开。",
+            FileKind.Document when FileKindClassifier.IsPdf(item) => "PDF 内置预览当前不可用，可先用系统应用打开。",
             FileKind.Video or FileKind.Audio => "内置播放将在后续版本提供，可先用系统应用打开。",
             _ => "此类型暂不支持内置预览，可先用系统应用打开。",
         }));

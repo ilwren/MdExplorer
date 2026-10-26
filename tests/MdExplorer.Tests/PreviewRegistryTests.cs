@@ -22,6 +22,7 @@ public sealed class PreviewRegistryTests
 
     [Theory]
     [InlineData("photo.jpg", FileKind.Image, "builtin.image")]
+    [InlineData("doc.pdf", FileKind.Document, "builtin.pdf")]
     [InlineData("README.md", FileKind.Text, "builtin.markdown")]
     [InlineData("notes.txt", FileKind.Text, "builtin.text")]
     [InlineData("Program.cs", FileKind.Code, "builtin.text")]
@@ -43,13 +44,38 @@ public sealed class PreviewRegistryTests
     public async Task Fallback_MessagesMatchKind()
     {
         var registry = BuiltIns();
-        var pdf = await registry.Resolve(Item("doc.pdf", FileKind.Document))!
-            .LoadAsync(Item("doc.pdf", FileKind.Document), TestContext.Current.CancellationToken);
-        Assert.Contains("PDF", pdf.Message);
-
         var video = await registry.Resolve(Item("film.mp4", FileKind.Video))!
             .LoadAsync(Item("film.mp4", FileKind.Video), TestContext.Current.CancellationToken);
         Assert.Contains("播放", video.Message);
+    }
+
+    [Fact]
+    public async Task InvalidPdf_ReturnsFriendlyMessageInsteadOfThrowing()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"eidoria-invalid-{Guid.NewGuid():N}.pdf");
+        await File.WriteAllTextAsync(path, "%PDF-1.4 this is not a complete PDF");
+        try
+        {
+            var item = new FileItem(
+                FileLocator.FromPath(path),
+                Path.GetFileName(path),
+                FileKind.Document,
+                new FileInfo(path).Length,
+                DateTimeOffset.UtcNow,
+                IsHidden: false,
+                IsSymlink: false,
+                ".pdf");
+            var provider = BuiltIns().Resolve(item);
+            Assert.Equal("builtin.pdf", provider!.Id);
+
+            var content = await provider.LoadAsync(item, TestContext.Current.CancellationToken);
+            Assert.Null(content.Pdf);
+            Assert.Contains("PDF", content.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     private sealed class OverrideImageProvider : IPreviewProvider

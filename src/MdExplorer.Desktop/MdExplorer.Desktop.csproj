@@ -4,9 +4,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MdExplorer.Desktop</RootNamespace>
     <AssemblyName>MdExplorer</AssemblyName>
-    <Product>Layerfold</Product>
-    <AssemblyTitle>Layerfold</AssemblyTitle>
-    <ApplicationIcon>..\MdExplorer.UI\Assets\layerfold.ico</ApplicationIcon>
+    <Product>Eidoria</Product>
+    <AssemblyTitle>Eidoria</AssemblyTitle>
+    <ApplicationIcon>..\MdExplorer.UI\Assets\eidoria.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <IsAotCompatible>false</IsAotCompatible>
     <!-- Native AOT 由 CI 的发布 Job 以 -p:PublishAot=true 驱动（见 .github/workflows/ci.yml） -->

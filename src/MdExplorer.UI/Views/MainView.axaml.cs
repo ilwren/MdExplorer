@@ -167,8 +167,14 @@ public partial class MainView : UserControl
     }
 
     // ---------- 列表交互 ----------
-    private void OnListPointerPressed(object? sender, PointerPressedEventArgs e)
+    private async void OnListPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (e.Properties.IsMiddleButtonPressed && ItemFromEvent(e) is { IsFolder: true } folder && Browser is { } browser)
+        {
+            await browser.OpenItemInNewTabAsync(folder);
+            e.Handled = true;
+            return;
+        }
         if (!e.Properties.IsRightButtonPressed)
             return;
         if (ItemFromEvent(e) is { } item && Shell is { } shell &&
@@ -477,6 +483,32 @@ public partial class MainView : UserControl
                ?? source.FindAncestorOfType<DataGridRow>()?.DataContext as FileItemViewModel;
     }
 
+    // ---------- 标签页 ----------
+    private void OnTabTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is Control source && source.FindAncestorOfType<Button>() is not null)
+            return; // 关闭按钮自己处理
+        if (sender is Control { DataContext: BrowserTabViewModel tab })
+            Browser?.ActivateTabCommand.Execute(tab);
+    }
+
+    private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsMiddleButtonPressed)
+            return;
+        if (sender is Control { DataContext: BrowserTabViewModel tab })
+        {
+            Browser?.CloseTabCommand.Execute(tab);
+            e.Handled = true;
+        }
+    }
+
+    private void OnTabCloseClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: BrowserTabViewModel tab })
+            Browser?.CloseTabCommand.Execute(tab);
+    }
+
     // ---------- 面包屑/排序/搜索 ----------
     private async void OnBreadcrumbClick(object? sender, RoutedEventArgs e)
     {
@@ -588,6 +620,12 @@ public partial class MainView : UserControl
             shell.OnFileOpened(item);
     }
 
+    private async void OnMenuOpenInNewTab(object? sender, RoutedEventArgs e)
+    {
+        if (Browser is { } browser)
+            await browser.OpenItemInNewTabAsync(browser.SelectedItems.FirstOrDefault());
+    }
+
     private async void OnMenuOpenExternal(object? sender, RoutedEventArgs e)
     {
         if (Browser is { } browser)
@@ -682,6 +720,21 @@ public partial class MainView : UserControl
                 break;
             case Key.A when ctrl:
                 shell.Browser.SelectAllCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.T when ctrl:
+                shell.Browser.NewTabCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.W when ctrl:
+                shell.Browser.CloseActiveTabCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.Tab when ctrl:
+                if ((e.KeyModifiers & KeyModifiers.Shift) != 0)
+                    shell.Browser.PreviousTabCommand.Execute(null);
+                else
+                    shell.Browser.NextTabCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.Enter:

@@ -6,8 +6,8 @@
         x:DataType="vm:ShellViewModel"
         Width="1280" Height="840"
         MinWidth="360" MinHeight="520"
-        Title="Layerfold"
-        Icon="/Assets/layerfold.ico"
+        Title="Eidoria"
+        Icon="/Assets/eidoria.ico"
         Background="{DynamicResource Md.Sys.Color.Surface.Brush}">
   <views:MainView />
 </Window>

@@ -38,7 +38,7 @@ internal static class SampleData
                 "# MdExplorer\n\n跨平台本地文件资源管理器（Avalonia 12 + .NET 10 + Material Design 3）。\n\n- 五档断点响应式布局\n- 预览与递归搜索\n- Native AOT 发布\n");
             File.WriteAllText(Path.Combine(pictures, "会议纪要.txt"),
                 "会议纪要（样例）\n\n1. 决策：许可证采用 Apache-2.0\n2. Android 全文件变体稍后做\n3. 媒体播放后续版本跟进\n");
-            File.WriteAllBytes(Path.Combine(pictures, "设计规范 v3.pdf"), "%PDF-1.4 sample"u8.ToArray());
+            WriteSamplePdf(Path.Combine(pictures, "设计规范 v3.pdf"));
             File.WriteAllBytes(Path.Combine(pictures, "演示视频.mp4"), new byte[8192]);
             File.WriteAllBytes(Path.Combine(pictures, "录音 001.m4a"), new byte[4096]);
             File.WriteAllText(Path.Combine(pictures, "数据.csv"), "名称,大小\n报告,128\n图片,4096\n");
@@ -109,6 +109,41 @@ internal static class SampleData
             zlib.Write(pixels);
         WriteChunk(stream, "IDAT", compressed.ToArray());
         WriteChunk(stream, "IEND", []);
+    }
+
+    /// <summary>手写一份最小两页 PDF（正确 xref 偏移），让 PDFium 截图测试渲染真实分页而非占位文本。</summary>
+    private static void WriteSamplePdf(string path)
+    {
+        const string page1 = "BT /F1 30 Tf 64 720 Td (Eidoria PDF Preview) Tj /F1 16 Tf 0 -42 Td (Page 1 - layered pages, paths and light.) Tj ET\n";
+        const string page2 = "BT /F1 30 Tf 64 720 Td (Eidoria PDF Preview) Tj /F1 16 Tf 0 -42 Td (Page 2 - paging renders on demand.) Tj ET\n";
+        var objects = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> >> /Contents 5 0 R >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> >> /Contents 7 0 R >>",
+            $"<< /Length {Encoding.ASCII.GetByteCount(page1)} >>\nstream\n{page1}endstream",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            $"<< /Length {Encoding.ASCII.GetByteCount(page2)} >>\nstream\n{page2}endstream",
+        };
+
+        using var stream = new MemoryStream();
+        void WriteAscii(string text) => stream.Write(Encoding.ASCII.GetBytes(text));
+
+        WriteAscii("%PDF-1.4\n");
+        var offsets = new long[objects.Length + 1];
+        for (int i = 0; i < objects.Length; i++)
+        {
+            offsets[i + 1] = stream.Length;
+            WriteAscii($"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+        }
+
+        var xref = stream.Length;
+        WriteAscii($"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+        for (int i = 1; i < offsets.Length; i++)
+            WriteAscii($"{offsets[i]:D10} 00000 n \n");
+        WriteAscii($"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        File.WriteAllBytes(path, stream.ToArray());
     }
 
     private static byte[] BuildIhdr(int w, int h)

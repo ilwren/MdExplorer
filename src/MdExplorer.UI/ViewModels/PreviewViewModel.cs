@@ -18,6 +18,8 @@ public sealed partial class PreviewViewModel(
     Func<IFileLauncherService> launcherRefresh) : ObservableObject
 {
     private int _generation;
+    private int _pdfRenderGeneration;
+    private byte[]? _pdfData;
 
     [ObservableProperty] private bool _hasItem;
     [ObservableProperty] private string _title = string.Empty;
@@ -29,6 +31,8 @@ public sealed partial class PreviewViewModel(
     [ObservableProperty] private string? _failureText;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _canOpen;
+    [ObservableProperty] private int _pdfPageIndex;
+    [ObservableProperty] private int _pdfPageCount;
 
     public bool HasImage => Image is not null;
     public bool HasText => TextContent is not null;
@@ -38,6 +42,10 @@ public sealed partial class PreviewViewModel(
     public bool ShowPlainText => TextContent is not null && HighlightLanguage is null;
     public bool HasArchive => ArchiveEntries.Count > 0;
     public bool HasFailure => FailureText is not null;
+    public bool HasPdf => PdfPageCount > 0;
+    public string PdfPageText => HasPdf ? $"第 {PdfPageIndex + 1} / {PdfPageCount} 页" : string.Empty;
+    public bool CanPreviousPdfPage => HasPdf && PdfPageIndex > 0;
+    public bool CanNextPdfPage => HasPdf && PdfPageIndex < PdfPageCount - 1;
 
     public ObservableCollection<MetadataRowModel> MetadataRows { get; } = [];
     public ObservableCollection<ArchiveEntryRowModel> ArchiveEntries { get; } = [];
@@ -60,6 +68,18 @@ public sealed partial class PreviewViewModel(
     }
     partial void OnFailureTextChanged(string? value) => OnPropertyChanged(nameof(HasFailure));
 
+    partial void OnPdfPageIndexChanged(int value) => RaisePdfState();
+
+    partial void OnPdfPageCountChanged(int value) => RaisePdfState();
+
+    private void RaisePdfState()
+    {
+        OnPropertyChanged(nameof(HasPdf));
+        OnPropertyChanged(nameof(PdfPageText));
+        OnPropertyChanged(nameof(CanPreviousPdfPage));
+        OnPropertyChanged(nameof(CanNextPdfPage));
+    }
+
 
     public async Task LoadAsync(FileItem? item)
     {
@@ -70,6 +90,9 @@ public sealed partial class PreviewViewModel(
         MarkdownText = null;
         HighlightLanguage = null;
         FailureText = null;
+        _pdfData = null;
+        PdfPageIndex = 0;
+        PdfPageCount = 0;
         ArchiveEntries.Clear();
         MetadataRows.Clear();
         OnPropertyChanged(nameof(HasArchive));
@@ -117,6 +140,14 @@ public sealed partial class PreviewViewModel(
                     ArchiveEntries.Add(entry);
                 OnPropertyChanged(nameof(HasArchive));
             }
+            if (content.Pdf is { } pdf)
+            {
+                _pdfData = pdf.Data;
+                PdfPageCount = pdf.PageCount;
+                PdfPageIndex = 0;
+                Image = pdf.FirstPage;
+                MetadataRows.Add(new MetadataRowModel("页数", $"{pdf.PageCount:N0} 页"));
+            }
             FailureText = content.Message;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException or ArgumentException)
@@ -127,6 +158,59 @@ public sealed partial class PreviewViewModel(
         finally
         {
             if (generation == _generation)
+                IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task PreviousPdfPageAsync() => await GoToPdfPageAsync(PdfPageIndex - 1).ConfigureAwait(true);
+
+    [RelayCommand]
+    private async Task NextPdfPageAsync() => await GoToPdfPageAsync(PdfPageIndex + 1).ConfigureAwait(true);
+
+    [RelayCommand]
+    private async Task FirstPdfPageAsync() => await GoToPdfPageAsync(0).ConfigureAwait(true);
+
+    [RelayCommand]
+    private async Task LastPdfPageAsync() => await GoToPdfPageAsync(PdfPageCount - 1).ConfigureAwait(true);
+
+    private async Task GoToPdfPageAsync(int pageIndex)
+    {
+        if (_pdfData is null || PdfPageCount <= 0)
+            return;
+        var target = Math.Clamp(pageIndex, 0, PdfPageCount - 1);
+        if (target == PdfPageIndex && Image is not null)
+            return;
+
+        var documentGeneration = _generation;
+        var renderGeneration = ++_pdfRenderGeneration;
+        PdfPageIndex = target;
+        FailureText = null;
+        IsLoading = true;
+        try
+        {
+            var bitmap = await PdfPreviewRenderer
+                .RenderPageAsync(_pdfData, target, CancellationToken.None)
+                .ConfigureAwait(true);
+            if (documentGeneration != _generation || renderGeneration != _pdfRenderGeneration)
+            {
+                bitmap.Dispose();
+                return;
+            }
+
+            var previous = Image;
+            Image = bitmap;
+            if (previous is not null && !ReferenceEquals(previous, bitmap))
+                previous.Dispose();
+        }
+        catch (Exception ex)
+        {
+            if (documentGeneration == _generation && renderGeneration == _pdfRenderGeneration)
+                FailureText = $"无法渲染此 PDF 页面：{ex.Message}";
+        }
+        finally
+        {
+            if (documentGeneration == _generation && renderGeneration == _pdfRenderGeneration)
                 IsLoading = false;
         }
     }
