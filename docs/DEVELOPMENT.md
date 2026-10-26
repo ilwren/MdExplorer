@@ -1,4 +1,4 @@
-# MdExplorer 开发文档
+# Layerfold 开发文档（内部代号 MdExplorer）
 
 > 基于 **Avalonia 12 + .NET 10** 的跨平台（Windows / Linux / Android）本地文件资源管理器，采用 **Material Design 3** 风格，**Native AOT 优先、响应式（Adaptive）优先、核心平台无关**。
 
@@ -1046,6 +1046,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | 2026-10-26 | **v0.2 完善批**：Markdown 渲染预览（Md3.Avalonia.Markdown，其上游 Markdown.Avalonia.Tight 12.0.0-a3 为预发布，风险在册、钉版随 Md3 走）+ 代码高亮（Md3.Avalonia.AvaloniaEdit/AvaloniaEdit 12.0）——均以 P0 内置提供者接入；文件夹外部变更监视与保留选集的软刷新；属性含文件夹大小；右键校验和（流式 SHA-256/MD5）；批量重命名（Application 规划器 + 前预览校验 + 两段落盘）。插件/AI 按维护者指示只定可行性、排最后 | CI run 40279677011 全绿（55+15 测试） |
 | 2026-10-26 | **v0.3 Android SAF 授权文件夹浏览**：`FileLocator` 双形态（本地路径 / `content:` URI）；`IFileSystemService` 增 `OpenReadAsync/GetParentPath/GetBreadcrumbs`，Browser 上级/面包屑/预览/缩略图统一走服务层。UI 层 `DelegatingFileSystemService`/`DelegatingFileOperationService` 包装本地引擎（整批本地直通；含存储走统一流引擎：同树移动优先 `MoveAsync`、改名=复制+删除、递归删除子先父后、冲突策略对齐 §5.5）；Avalonia 存储接口为 `[NotClientImplementable]`（隐藏成员编译期封死、Bcl 实现 internal），故委托层只依赖自有 `IStorageEntry` 接缝（生产适配器 + 测试内存树 8 例）。系统文件夹选择器授权 + 书签持久化（尽力而为，失效可重授）；Home/抽屉「已授权文件夹」。存储内 v1 不做：递归搜索/压缩/解压/校验和/文件夹大小/变更监视（逐项守卫提示）。**无模拟器：SAF 真机行为（书签恢复、流语义）待验，结论以真机为准** | CI run 40282351805 全绿（63+15 测试） |
 | 2026-10-26 | **v0.4 详细信息视图**：文件区三态视图（列表/网格/详细信息，`AppSettings.ViewMode` 增 `Details` 兼容旧值；工具栏循环 + 菜单三项直达）。详细信息为 Avalonia `DataGrid` 四列（名称含图标/缩略图、大小、类型、修改时间；可调列宽），主题用 Md3 卫星 `Md3.Avalonia.DataGrid` 的 `MaterialDataGridTheme`（按视图作用域，同 AvaloniaEdit 接法）。列头排序把 `Sorting` 事件 `Handled` 后收回 VM 管线（`ApplyColumnSort → SetSort → RefilterAndSort`），自然序/文件夹在前保持单一真相源，方向箭头自绘并与菜单排序同步。`DataGrid.SelectedItems` 为只读 IList 不可绑定整集（首跑 AVLN3000），选集以代码后置事件与 VM 双向同步；首跑另注：DataGrid 源码自 Avalonia 拆至独立仓库 Avalonia.Controls.DataGrid | CI run 40284210982 全绿（67+16 测试） |
+| 2026-10-26 | **v0.5 拖放与系统剪贴板 + 品牌更名 Layerfold（层夹）**：新增 `ISystemClipboardService` 与 Avalonia 文件剪贴板实现（复制与系统同步、外部复制在窗口激活/粘贴时导入；跨应用剪切效果无统一编码，剪切保留应用内并以基线集合防旧外部内容覆盖）。粘贴与拖放统一经 `Browser.TransferItemsAsync`（storage-safe 名称/父链、冲突预检、禁止目标为来源自身或后代）；列表/网格/详细信息可拖多选，文件区、文件夹条目与面包屑可投放，应用内私有格式承载 storage URI、标准 File 格式与外部应用互拖，Ctrl=复制/Shift=移动，MD3 投放提示浮层。产品显示名改为 **Layerfold** 并接入新手写 SVG 图标（种子色 `#006A6A`、层叠文件夹+纸页+文件树分支；PNG/ICO/Android adaptive 同步，规范见 `docs/BRAND.md`）；仓库、命名空间、Android ApplicationId、桌面 AssemblyName 与数据目录仍保留 MdExplorer 内部代号，避免升级与数据断裂。OS 级拖放/剪贴板互通由 Avalonia 平台层承载，本轮以逻辑单测（剪贴板替身）+ 全平台编译/截图验证，Explorer/Nautilus/Android 真机互拖仍待人工验 | 功能 run 40286511652、品牌 run 40288811139 均全绿（78+17 测试） |
 
 ### F. 文档变更规则
 
