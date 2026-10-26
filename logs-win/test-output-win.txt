@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\MdExplorer.Application.csproj (in 8.96 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\MdExplorer.Infrastructure.csproj (in 8.98 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\MdExplorer.Platform.Abstractions.csproj (in 8.98 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\MdExplorer.Infrastructure.csproj (in 3.57 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\MdExplorer.Application.csproj (in 3.6 sec).
   Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\MdExplorer.Domain.csproj (in 3 ms).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj (in 9.91 sec).
-  Restored D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj (in 20.11 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\MdExplorer.Platform.Abstractions.csproj (in 2 ms).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj (in 20.82 sec).
+  Restored D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj (in 20.93 sec).
   MdExplorer.Domain -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\bin\Release\net10.0\MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\bin\Release\net10.0\MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\bin\Release\net10.0\MdExplorer.Application.dll
@@ -13,24 +13,26 @@ D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\TrashService.cs(23,34):
 D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\Preview\PreviewProviders.cs(112,33): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj]
 D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\Preview\PreviewProviders.cs(143,9): warning CA1416: This call site is reachable on all platforms. 'Conversion.SavePng(Stream, byte[], Index, string?, RenderOptions)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj]
   MdExplorer.UI -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\bin\Release\net10.0\MdExplorer.UI.dll
-D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserClipboardAndTransferTests.cs(140,39): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\StorageDelegationTests.cs(193,38): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
-D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserClipboardAndTransferTests.cs(159,37): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\StorageDelegationTests.cs(201,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
+D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserClipboardAndTransferTests.cs(159,37): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
+D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserClipboardAndTransferTests.cs(140,39): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserClipboardAndTransferTests.cs(175,39): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\StorageDelegationTests.cs(249,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\PreviewRegistryTests.cs(56,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
   MdExplorer.Tests -> D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\bin\Release\net10.0\MdExplorer.Tests.dll
 Test run for D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\bin\Release\net10.0\MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:01.17]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:01.17] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:01.17]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:01.17] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:01.17]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:01.17] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:01.18]     MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [FAIL]
-  Failed MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [176 ms]
+[xUnit.net 00:00:01.06]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:01.06] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:01.06]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:01.06] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:01.06]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:01.06] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:01.09]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:01.09] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:01.13]     MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [FAIL]
+  Failed MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [257 ms]
   Error Message:
    System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
   Stack Trace:
@@ -43,57 +45,59 @@ A total of 1 test files matched the specified pattern.
    at MdExplorer.UI.ViewModels.ShellViewModel.RefreshHomeAsync() in D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\ViewModels\ShellViewModel.cs:line 237
    at MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable() in D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserNavigationAndTasksTests.cs:line 112
 --- End of stack trace from previous location ---
-[xUnit.net 00:00:01.26]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:01.26] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:01.94]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:01.94] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:02.90]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:02.90] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:03.90]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:03.90] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:04.41]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:04.41] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:05.41]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:05.41] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:06.42]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:06.42] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:07.44]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:07.44] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:08.45]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:08.45] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:08.95]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:08.95] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:09.96]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:09.96] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:10.96]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:10.96] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:11.96]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:11.96] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:12.96]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:12.96] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:13.97]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:13.97] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:14.48]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:14.48] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:15.48]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:15.48] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:16.49]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:16.49] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:17.49]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:17.49] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:18.49]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:18.49] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:19.00]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:19.00] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:20.00]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:20.00] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:20.51]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:20.51] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:21.51]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:21.52] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:22.53]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:22.53] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:23.53]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:23.53] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:02.26]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:02.26] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:03.26]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:03.26] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:04.26]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:04.26] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:04.77]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:04.77] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:05.28]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:05.28] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:06.28]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:06.28] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:07.28]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:07.28] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:07.79]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:07.79] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:08.81]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:08.81] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:09.31]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:09.31] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:10.33]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:10.33] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:11.34]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:11.34] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:12.36]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:12.36] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:13.36]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:13.36] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:14.36]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:14.36] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:15.37]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:15.37] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:16.38]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:16.38] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:17.38]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:17.38] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:18.39]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:18.39] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:19.39]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:19.39] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:20.39]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:20.39] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:21.39]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:21.39] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:22.40]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:22.40] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:23.42]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:23.42] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:24.42]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:24.42] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:24.93]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:24.93] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:25.93]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:25.93] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
 
-Failed!  - Failed:     1, Passed:    89, Skipped:     0, Total:    90, Duration: 23 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:    89, Skipped:     0, Total:    90, Duration: 26 s - MdExplorer.Tests.dll (net10.0)
