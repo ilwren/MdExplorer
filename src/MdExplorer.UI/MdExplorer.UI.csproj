@@ -4,6 +4,7 @@
     <RootNamespace>MdExplorer.UI</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Md3.Avalonia" />
     <PackageReference Include="Md3.Avalonia.AvaloniaEdit" />

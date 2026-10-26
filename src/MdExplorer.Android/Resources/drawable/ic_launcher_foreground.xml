@@ -1,0 +1,42 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <!-- folder back and tab -->
+  <path
+      android:fillColor="#69D2C3"
+      android:pathData="M26,39 q0,-6 6,-6 h12 l6,6 h28 q6,0 6,6 v29 q0,6 -6,6 h-46 q-6,0 -6,-6 z"/>
+  <!-- rear sheet -->
+  <path
+      android:fillColor="#C9F4EA"
+      android:pathData="M35,31 q0,-3 3,-3 h24 l8,8 v24 h-35 z"/>
+  <!-- main sheet -->
+  <path
+      android:fillColor="#F4FFFB"
+      android:pathData="M39,24 q0,-3 3,-3 h25 l10,10 v29 h-38 z"/>
+  <path
+      android:fillColor="#A9E7DC"
+      android:pathData="M67,21 v10 h10 z"/>
+  <!-- three folder layers -->
+  <path
+      android:fillColor="#43C4B5"
+      android:pathData="M25,49 q0,-6 6,-6 h46 q6,0 6,6 v24 q0,6 -6,6 h-46 q-6,0 -6,-6 z"/>
+  <path
+      android:fillColor="#159E93"
+      android:pathData="M23,56 q0,-6 6,-6 h50 q6,0 6,6 v21 q0,6 -6,6 h-50 q-6,0 -6,-6 z"/>
+  <path
+      android:fillColor="#058E85"
+      android:pathData="M21,64 q0,-7 7,-7 h52 q7,0 7,7 v16 q0,7 -7,7 h-52 q-7,0 -7,-7 z"/>
+  <!-- folder-tree mark -->
+  <path
+      android:fillColor="#00000000"
+      android:pathData="M49,71 h5 q4,0 4,-4 v-0.5 M49,71 h5 q4,0 4,4 v0.5"
+      android:strokeWidth="2"
+      android:strokeColor="#D8FFF6"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"/>
+  <path
+      android:fillColor="#D8FFF6"
+      android:pathData="M43.3,71 a2.7,2.7 0 1,0 5.4,0 a2.7,2.7 0 1,0 -5.4,0 M58.3,63.5 a2.7,2.7 0 1,0 5.4,0 a2.7,2.7 0 1,0 -5.4,0 M58.3,78.5 a2.7,2.7 0 1,0 5.4,0 a2.7,2.7 0 1,0 -5.4,0"/>
+</vector>

@@ -7,7 +7,10 @@
              Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="12,16" Spacing="4">
-      <TextBlock Classes="h2" Text="MdExplorer" Margin="8,0,0,12" />
+      <StackPanel Orientation="Horizontal" Spacing="10" Margin="8,0,0,12">
+        <Image Source="avares://MdExplorer.UI/Assets/layerfold.png" Width="38" Height="38" VerticalAlignment="Center" />
+        <TextBlock Classes="h2" Text="Layerfold" VerticalAlignment="Center" />
+      </StackPanel>
 
       <md:MdButton Classes="nav-entry" Variant="Text" Command="{Binding GoHomeCommand}">
         <StackPanel Orientation="Horizontal" Spacing="12">

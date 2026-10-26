@@ -8,9 +8,9 @@ using AvaloniaApp = MdExplorer.UI.App;
 namespace MdExplorer.Android;
 
 [Activity(
-    Label = "MdExplorer",
+    Label = "Layerfold",
     Theme = "@style/MyTheme.NoActionBar",
-    Icon = "@drawable/icon",
+    Icon = "@mipmap/ic_launcher",
     MainLauncher = true,
     Exported = true,
     ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode |

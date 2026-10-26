@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Layerfold app icon</title>
+  <desc id="desc">A Material Design 3 style folder formed from layered paper sheets.</desc>
+  <defs>
+    <linearGradient id="bg" x1="112" y1="72" x2="920" y2="986" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#008F89"/>
+      <stop offset="0.55" stop-color="#006A6A"/>
+      <stop offset="1" stop-color="#013B4A"/>
+    </linearGradient>
+    <linearGradient id="folderFront" x1="180" y1="500" x2="846" y2="776" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14B8A6"/>
+      <stop offset="1" stop-color="#007F79"/>
+    </linearGradient>
+    <clipPath id="squircle">
+      <rect width="1024" height="1024" rx="230"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#squircle)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+    <circle cx="864" cy="122" r="328" fill="#FFFFFF" opacity="0.038"/>
+    <circle cx="92" cy="920" r="284" fill="#9EF1F0" opacity="0.052"/>
+
+    <!-- soft ground shadow -->
+    <path d="M180 552 Q180 490 242 490 H782 Q844 490 844 552 V736 Q844 798 782 798 H242 Q180 798 180 736 Z"
+          fill="#00252D" opacity="0.22" transform="translate(0 26)"/>
+
+    <!-- folder back with tab -->
+    <path d="M194 382 Q194 318 258 318 H398 L462 378 H766 Q830 378 830 442 V700 Q830 764 766 764 H258 Q194 764 194 700 Z"
+          fill="#69D2C3"/>
+
+    <!-- back paper layer -->
+    <path d="M282 286 Q282 262 306 262 H642 L722 342 V574 H282 Z" fill="#C9F4EA"/>
+    <path d="M642 262 V342 H722 Z" fill="#8ADBCF"/>
+
+    <!-- main paper sheet -->
+    <path d="M318 238 Q318 214 342 214 H646 L738 306 V574 H318 Z" fill="#F4FFFB"/>
+    <path d="M646 214 V306 H738 Z" fill="#A9E7DC"/>
+
+    <!-- three cascading folder fronts: the Layerfold idea -->
+    <path d="M210 452 Q210 392 270 392 H786 Q846 392 846 452 V692 Q846 752 786 752 H270 Q210 752 210 692 Z"
+          fill="#43C4B5"/>
+    <path d="M188 502 Q188 440 250 440 H798 Q860 440 860 502 V716 Q860 778 798 778 H250 Q188 778 188 716 Z"
+          fill="#159E93"/>
+    <path d="M164 556 Q164 494 226 494 H802 Q864 494 864 556 V736 Q864 802 798 802 H230 Q164 802 164 736 Z"
+          fill="url(#folderFront)"/>
+
+    <!-- minimal folder-tree / path mark in negative space -->
+    <g fill="none" stroke="#D8FFF6" stroke-width="19" stroke-linecap="round" stroke-linejoin="round" opacity="0.94">
+      <path d="M458 648 H510 Q550 648 550 608 V604"/>
+      <path d="M458 648 H510 Q550 648 550 688 V692"/>
+    </g>
+    <g fill="#D8FFF6">
+      <circle cx="430" cy="648" r="25"/>
+      <circle cx="576" cy="578" r="25"/>
+      <circle cx="576" cy="718" r="25"/>
+    </g>
+  </g>
+</svg>

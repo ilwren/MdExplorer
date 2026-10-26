@@ -307,7 +307,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         {
             picked = await provider.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {
-                Title = "选择要在 MdExplorer 中浏览的文件夹",
+                Title = "选择要在 Layerfold 中浏览的文件夹",
                 AllowMultiple = true,
             }).ConfigureAwait(true);
         }
