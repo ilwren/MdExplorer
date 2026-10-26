@@ -139,6 +139,8 @@ public partial class MainView : UserControl
         BreadcrumbScroller.LayoutUpdated -= OnBreadcrumbScrollerLayoutUpdated;
         _breadcrumbEndScrollPending = false;
         // 布局完成后再滚到末端，窄屏优先露出当前目录而非根目录。
+        if (Shell?.Browser.Breadcrumbs.LastOrDefault() is { } last)
+            BreadcrumbBar.ScrollIntoView(last);
         BreadcrumbScroller.Offset = new Vector(maxOffset, 0);
     }
 
