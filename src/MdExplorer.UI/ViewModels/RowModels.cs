@@ -11,3 +11,9 @@ public sealed record MetadataRowModel(string Key, string Value);
 
 /// <summary>压缩包条目行。</summary>
 public sealed record ArchiveEntryRowModel(string Name, string SizeText);
+
+/// <summary>批量重命名预览行（Error 非空=整批阻断并标红）。</summary>
+public sealed record BatchRenameRowModel(string Original, string Proposed, string? Error)
+{
+    public bool HasError => Error is not null;
+}

@@ -1,10 +1,17 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:md="using:Md3.Avalonia.Controls"
+             xmlns:themes="using:Md3.Avalonia.Themes"
+             xmlns:mdm="using:Markdown.Avalonia"
+             xmlns:ae="using:AvaloniaEdit"
              xmlns:vm="using:MdExplorer.UI.ViewModels"
              x:Class="MdExplorer.UI.Views.PreviewView"
              x:DataType="vm:PreviewViewModel"
              Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
+  <!-- 编辑器主题作用域限定在本视图内（同 Md3 Gallery 做法），不污染全局 -->
+  <UserControl.Styles>
+    <themes:MaterialAvaloniaEditTheme />
+  </UserControl.Styles>
   <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16">
     <StackPanel Spacing="2">
       <TextBlock Classes="h3" Text="{Binding Title}" TextWrapping="Wrap" />
@@ -15,12 +22,22 @@
       <md:MdCircularProgressIndicator IsVisible="{Binding IsLoading}" IsIndeterminate="True"
                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
       <Image Source="{Binding Image}" Stretch="Uniform" IsVisible="{Binding HasImage}" />
-      <Border IsVisible="{Binding HasText}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
+      <Border IsVisible="{Binding ShowPlainText}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
               CornerRadius="12" Padding="10" ClipToBounds="True">
         <ScrollViewer>
           <SelectableTextBlock Classes="mono" Text="{Binding TextContent}" />
         </ScrollViewer>
       </Border>
+      <Border IsVisible="{Binding ShowSource}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
+              CornerRadius="12" ClipToBounds="True">
+        <ae:TextEditor x:Name="CodeEditor" IsReadOnly="True" ShowLineNumbers="True"
+                       HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" />
+      </Border>
+      <mdm:MarkdownScrollViewer Markdown="{Binding MarkdownText}" IsVisible="{Binding HasMarkdown}">
+        <mdm:MarkdownScrollViewer.MarkdownStyle>
+          <themes:MaterialMarkdownTheme />
+        </mdm:MarkdownScrollViewer.MarkdownStyle>
+      </mdm:MarkdownScrollViewer>
       <ScrollViewer IsVisible="{Binding HasArchive}">
         <ItemsControl ItemsSource="{Binding ArchiveEntries}">
           <ItemsControl.ItemTemplate>

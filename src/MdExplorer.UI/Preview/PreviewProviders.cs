@@ -14,7 +14,9 @@ public sealed record PreviewContent(
     Bitmap? Image = null,
     string? Text = null,
     IReadOnlyList<ArchiveEntryRowModel>? Entries = null,
-    string? Message = null);
+    string? Message = null,
+    string? Markdown = null,
+    string? HighlightLanguage = null);
 
 /// <summary>
 /// 预览提供者：插件体系 P0 的第一类扩展点。P1 起同名能力由声明式清单描述，
@@ -55,6 +57,7 @@ public static class BuiltInPreviewProviders
     public static PreviewProviderRegistry Create(IArchiveService archive) => new(
     [
         new ImagePreviewProvider(),
+        new MarkdownPreviewProvider(),
         new TextPreviewProvider(),
         new HexPreviewProvider(),
         new ArchivePreviewProvider(archive),
@@ -79,15 +82,12 @@ internal sealed class ImagePreviewProvider : IPreviewProvider
     }
 }
 
-internal sealed class TextPreviewProvider : IPreviewProvider
+/// <summary>文本类预览的统一读取（前 512KB + 截断提示，与既有 UX 一致）。</summary>
+internal static class PreviewTextReader
 {
-    private const long TextLimit = 512 * 1024;
+    internal const long TextLimit = 512 * 1024;
 
-    public string Id => "builtin.text";
-    public int Priority => 100;
-    public bool CanHandle(FileItem item) => item.Kind is FileKind.Text or FileKind.Code or FileKind.Data;
-
-    public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
+    internal static async Task<string> ReadAsync(FileItem item, CancellationToken cancellationToken)
     {
         await using var stream = new FileStream(item.FullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         var buffer = new byte[Math.Min(TextLimit, Math.Max(0, stream.Length))];
@@ -95,8 +95,57 @@ internal sealed class TextPreviewProvider : IPreviewProvider
         var text = Encoding.UTF8.GetString(buffer, 0, read);
         if (stream.Length > TextLimit)
             text += $"\n\n…（仅预览前 {Formatting.Bytes(TextLimit)}，文件共 {Formatting.Bytes(item.Length)}）";
-        return new PreviewContent(Text: text);
+        return text;
     }
+}
+
+internal sealed class MarkdownPreviewProvider : IPreviewProvider
+{
+    public string Id => "builtin.markdown";
+    public int Priority => 110; // .md 先于纯文本提供者（渲染而非原文）
+    public bool CanHandle(FileItem item) =>
+        string.Equals(item.Extension, ".md", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(item.Extension, ".markdown", StringComparison.OrdinalIgnoreCase);
+
+    public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken) =>
+        new(Markdown: await PreviewTextReader.ReadAsync(item, cancellationToken).ConfigureAwait(true));
+}
+
+internal sealed class TextPreviewProvider : IPreviewProvider
+{
+    public string Id => "builtin.text";
+    public int Priority => 100;
+    public bool CanHandle(FileItem item) => item.Kind is FileKind.Text or FileKind.Code or FileKind.Data;
+
+    public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
+    {
+        var text = await PreviewTextReader.ReadAsync(item, cancellationToken).ConfigureAwait(true);
+        // 代码走编辑器呈现（行号+高亮）；HighlightLanguage 为 "" 表示无对应高亮定义时纯文本编辑器
+        var language = item.Kind == FileKind.Code ? SourceLanguages.ForExtension(item.Extension) ?? "" : null;
+        return new PreviewContent(Text: text, HighlightLanguage: language);
+    }
+}
+
+/// <summary>扩展名 → AvaloniaEdit 内置高亮定义名（未知返回 null，呈现层回退纯文本）。</summary>
+internal static class SourceLanguages
+{
+    internal static string? ForExtension(string? extension) => extension?.ToLowerInvariant() switch
+    {
+        ".cs" => "C#",
+        ".js" or ".mjs" or ".cjs" or ".ts" or ".tsx" or ".jsx" => "JavaScript",
+        ".json" => "JavaScript",
+        ".xml" or ".xaml" or ".axaml" or ".csproj" or ".props" or ".targets" or ".svg" or ".xshd" => "XML",
+        ".html" or ".htm" => "HTML",
+        ".css" or ".scss" or ".less" => "CSS",
+        ".py" => "Python",
+        ".java" => "Java",
+        ".c" or ".h" or ".cpp" or ".hpp" or ".cc" or ".cxx" => "C++",
+        ".ps1" or ".psm1" => "PowerShell",
+        ".sql" => "SQL",
+        ".php" => "PHP",
+        ".rb" => "Ruby",
+        _ => null,
+    };
 }
 
 internal sealed class HexPreviewProvider : IPreviewProvider

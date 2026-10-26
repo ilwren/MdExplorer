@@ -29,6 +29,29 @@ public interface IFileOperationService
         IProgress<OperationProgress>? progress, CancellationToken cancellationToken);
 }
 
+/// <summary>文件夹统计结果（无权访问的子树被跳过时 IsPartial=true，数值为下限；不穿目录符号链接）。</summary>
+public sealed record FolderSizeResult(long TotalBytes, long FileCount, long FolderCount, bool IsPartial);
+
+/// <summary>文件检视端口：文件夹大小统计与流式校验和（大文件不整载内存）。</summary>
+public interface IFileInspectorService
+{
+    Task<FolderSizeResult> GetFolderSizeAsync(string path, CancellationToken cancellationToken);
+
+    /// <param name="algorithm">"SHA256" | "MD5"（不区分大小写）。</param>
+    /// <param name="progress">0..1 完成度。</param>
+    /// <returns>小写十六进制摘要。</returns>
+    Task<string> ComputeHashAsync(string path, string algorithm, IProgress<double>? progress, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// 当前文件夹外部变更监视端口：Watch 返回的句柄 Dispose 即停。变更回调已做防抖合并，
+/// 且可能在任意线程触发（UI 层需自行切回 UI 线程）。监视不可用（特殊文件系统）时静默降级为不回调。
+/// </summary>
+public interface IFolderWatchService
+{
+    IDisposable Watch(string folderPath, Action changed);
+}
+
 /// <summary>回收站端口。各平台能力不一致，调用前查能力位。</summary>
 public interface ITrashService
 {
@@ -94,6 +117,7 @@ public sealed class AppSettings
     public bool FoldersFirst { get; set; } = true;
     public bool ShowPreviewPane { get; set; } = true;
     public bool ConfirmPermanentDelete { get; set; } = true;
+    public bool WatchFolderChanges { get; set; } = true;   // 外部增删改时自动刷新当前文件夹
 }
 
 /// <summary>设置与收藏的持久化端口。</summary>

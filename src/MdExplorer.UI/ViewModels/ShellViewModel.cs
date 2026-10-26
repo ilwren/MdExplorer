@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Md3.Avalonia.Controls;
+using MdExplorer.Application;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.Services;
@@ -11,7 +12,7 @@ namespace MdExplorer.UI.ViewModels;
 
 public enum ShellPage { Home, Browser, Favorites, Trash, Settings }
 public enum SizeClass { Compact, Medium, Expanded, Large, ExtraLarge }
-internal enum DialogKind { None, Prompt, Confirm, Conflict, Message, Progress }
+internal enum DialogKind { None, Prompt, Confirm, Conflict, Message, Progress, BatchRename }
 
 /// <summary>根视图模型：页面切换、断点状态、主页数据、设置、对话框与操作进度（实现 IDialogs）。</summary>
 public sealed partial class ShellViewModel : ObservableObject, IDialogs
@@ -33,6 +34,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         Browser = new BrowserViewModel(
             services.FileSystem, services.Operations, services.Trash,
             services.Archive, services.Search, services.SettingsStore,
+            services.Inspector, services.FolderWatch,
             this, Preview);
         Browser.FavoritesChanged += async (_, _) => await RefreshFavoritesAsync().ConfigureAwait(true);
         Browser.PropertyChanged += (_, e) =>
@@ -59,6 +61,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _showHidden = s.ShowHidden;
         _foldersFirst = s.FoldersFirst;
         _showPreviewPane = s.ShowPreviewPane;
+        _watchFolderChanges = s.WatchFolderChanges;
     }
 
     /// <summary>Android 挂载后将打开方式切换为 Avalonia Launcher 实现。</summary>
@@ -354,6 +357,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private string _themeMode = "System";
     [ObservableProperty] private string _seedColor = "#006A6A";
     [ObservableProperty] private bool _showHidden;
+    [ObservableProperty] private bool _watchFolderChanges = true;
     [ObservableProperty] private bool _foldersFirst = true;
     [ObservableProperty] private bool _showPreviewPane = true;
 
@@ -395,6 +399,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         RefreshPreviewVisibility();
     }
 
+    partial void OnWatchFolderChangesChanged(bool value)
+    {
+        _services.SettingsStore.Settings.WatchFolderChanges = value;
+        _ = SaveAsync();
+        Browser.SetWatchEnabled(value);
+    }
+
     [RelayCommand]
     private void SetThemeMode(string mode) => ThemeMode = mode;
 
@@ -433,8 +444,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsProgressDialog => IsDialogOpen && _dialogKind == DialogKind.Progress;
     public bool IsMessageDialog => IsDialogOpen && _dialogKind is DialogKind.Confirm or DialogKind.Message;
     public bool IsConflictDialog => IsDialogOpen && _dialogKind == DialogKind.Conflict;
-    public bool ShowDialogCancel => _dialogKind is DialogKind.Prompt or DialogKind.Confirm or DialogKind.Conflict;
-    public bool ShowDialogConfirm => _dialogKind is DialogKind.Prompt or DialogKind.Confirm or DialogKind.Message;
+    public bool IsBatchRenameDialog => IsDialogOpen && _dialogKind == DialogKind.BatchRename;
+    public bool ShowDialogCancel => _dialogKind is DialogKind.Prompt or DialogKind.Confirm or DialogKind.Conflict or DialogKind.BatchRename;
+    public bool ShowDialogConfirm => _dialogKind is DialogKind.Prompt or DialogKind.Confirm or DialogKind.Message or DialogKind.BatchRename;
 
     private void NotifyDialogKinds()
     {
@@ -442,6 +454,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsProgressDialog));
         OnPropertyChanged(nameof(IsMessageDialog));
         OnPropertyChanged(nameof(IsConflictDialog));
+        OnPropertyChanged(nameof(IsBatchRenameDialog));
         OnPropertyChanged(nameof(ShowDialogCancel));
         OnPropertyChanged(nameof(ShowDialogConfirm));
     }
@@ -493,6 +506,62 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         return result as ConflictPolicy?;
     }
 
+    // ---------- 批量重命名对话框 ----------
+    [ObservableProperty] private string _batchPattern = "{name}_{n}";
+    [ObservableProperty] private string _batchFind = string.Empty;
+    [ObservableProperty] private string _batchReplace = string.Empty;
+    [ObservableProperty] private string _batchStartText = "1";
+    [ObservableProperty] private string _batchStepText = "1";
+    [ObservableProperty] private string _batchCaseMode = "Keep";
+    [ObservableProperty] private bool _batchHasErrors;
+
+    public ObservableCollection<BatchRenameRowModel> BatchRows { get; } = [];
+    private IReadOnlyList<string> _batchNames = [];
+    private IReadOnlyList<string> _batchSiblings = [];
+
+    public async Task<IReadOnlyList<string>?> BatchRenameAsync(IReadOnlyList<string> names, IReadOnlyList<string> siblingNames)
+    {
+        _dialogKind = DialogKind.BatchRename;
+        _dialogValidate = null;
+        _batchNames = names;
+        _batchSiblings = siblingNames;
+        DialogTitle = $"批量重命名（{names.Count} 项）";
+        DialogConfirmLabel = "重命名";
+        DialogDestructive = false;
+        BatchPattern = "{name}_{n}";
+        BatchFind = string.Empty;
+        BatchReplace = string.Empty;
+        BatchStartText = "1";
+        BatchStepText = "1";
+        BatchCaseMode = "Keep";
+        RecomputeBatchRename();
+        var result = await ShowDialogAsync().ConfigureAwait(true);
+        return result as IReadOnlyList<string>;
+    }
+
+    [RelayCommand]
+    private void SetBatchCaseMode(string mode) => BatchCaseMode = mode;
+
+    partial void OnBatchPatternChanged(string value) => RecomputeBatchRename();
+    partial void OnBatchFindChanged(string value) => RecomputeBatchRename();
+    partial void OnBatchReplaceChanged(string value) => RecomputeBatchRename();
+    partial void OnBatchStartTextChanged(string value) => RecomputeBatchRename();
+    partial void OnBatchStepTextChanged(string value) => RecomputeBatchRename();
+    partial void OnBatchCaseModeChanged(string value) => RecomputeBatchRename();
+
+    private void RecomputeBatchRename()
+    {
+        if (_batchNames.Count == 0) return;
+        var start = int.TryParse(BatchStartText, out var s) ? s : 1;
+        var step = int.TryParse(BatchStepText, out var st) ? st : 1;
+        var options = new BatchRenameOptions(BatchPattern, BatchFind, BatchReplace, start, step, BatchCaseMode);
+        var rows = BatchRenamePlanner.Plan(_batchNames, options, _batchSiblings);
+        BatchRows.Clear();
+        foreach (var row in rows)
+            BatchRows.Add(new BatchRenameRowModel(row.Original, row.Proposed, row.Error));
+        BatchHasErrors = rows.Any(r => r.Error is not null);
+    }
+
     private async Task<object?> ShowDialogAsync()
     {
         _dialogTcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -512,6 +581,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         {
             DialogKind.Prompt => ValidatePrompt() ? DialogInput : _sentinel,
             DialogKind.Confirm or DialogKind.Message => true,
+            DialogKind.BatchRename => BatchHasErrors ? _sentinel : BatchRows.Select(r => r.Proposed).ToArray(),
             _ => null,
         };
         if (ReferenceEquals(result, _sentinel)) return;

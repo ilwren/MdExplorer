@@ -264,6 +264,8 @@ public partial class MainView : UserControl
     private void OnMenuCompress(object? sender, RoutedEventArgs e) => Browser?.CompressSelectionCommand.Execute(null);
     private void OnMenuExtract(object? sender, RoutedEventArgs e) => Browser?.ExtractSelectionCommand.Execute(Browser.SelectedItems.FirstOrDefault());
     private void OnMenuSelectionMode(object? sender, RoutedEventArgs e) => Browser?.EnterSelectionModeCommand.Execute(null);
+    private void OnMenuBatchRename(object? sender, RoutedEventArgs e) => Browser?.BatchRenameSelectionCommand.Execute(null);
+    private void OnMenuChecksums(object? sender, RoutedEventArgs e) => Browser?.ComputeChecksumsCommand.Execute(Browser.SelectedItems.FirstOrDefault());
     private void OnMenuProperties(object? sender, RoutedEventArgs e) => Browser?.ShowPropertiesCommand.Execute(Browser.SelectedItems.FirstOrDefault());
     private void OnMenuDelete(object? sender, RoutedEventArgs e) => Browser?.DeleteSelectionCommand.Execute(null);
 

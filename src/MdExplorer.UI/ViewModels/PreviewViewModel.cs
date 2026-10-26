@@ -24,12 +24,18 @@ public sealed partial class PreviewViewModel(
     [ObservableProperty] private string _subtitle = string.Empty;
     [ObservableProperty] private Bitmap? _image;
     [ObservableProperty] private string? _textContent;
+    [ObservableProperty] private string? _markdownText;
+    [ObservableProperty] private string? _highlightLanguage;
     [ObservableProperty] private string? _failureText;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _canOpen;
 
     public bool HasImage => Image is not null;
     public bool HasText => TextContent is not null;
+    public bool HasMarkdown => MarkdownText is not null;
+    /// <summary>代码呈现（编辑器：行号/高亮）——HighlightLanguage 非空即进入，包括 ""（无高亮定义）。</summary>
+    public bool ShowSource => HighlightLanguage is not null;
+    public bool ShowPlainText => TextContent is not null && HighlightLanguage is null;
     public bool HasArchive => ArchiveEntries.Count > 0;
     public bool HasFailure => FailureText is not null;
 
@@ -39,7 +45,19 @@ public sealed partial class PreviewViewModel(
     public FileItem? CurrentItem { get; private set; }
 
     partial void OnImageChanged(Bitmap? value) => OnPropertyChanged(nameof(HasImage));
-    partial void OnTextContentChanged(string? value) => OnPropertyChanged(nameof(HasText));
+    partial void OnTextContentChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasText));
+        OnPropertyChanged(nameof(ShowPlainText));
+    }
+
+    partial void OnMarkdownTextChanged(string? value) => OnPropertyChanged(nameof(HasMarkdown));
+
+    partial void OnHighlightLanguageChanged(string? value)
+    {
+        OnPropertyChanged(nameof(ShowSource));
+        OnPropertyChanged(nameof(ShowPlainText));
+    }
     partial void OnFailureTextChanged(string? value) => OnPropertyChanged(nameof(HasFailure));
 
 
@@ -49,6 +67,8 @@ public sealed partial class PreviewViewModel(
         CurrentItem = item;
         Image = null;
         TextContent = null;
+        MarkdownText = null;
+        HighlightLanguage = null;
         FailureText = null;
         ArchiveEntries.Clear();
         MetadataRows.Clear();
@@ -89,6 +109,8 @@ public sealed partial class PreviewViewModel(
             if (generation != _generation) return;
             Image = content.Image;
             TextContent = content.Text;
+            MarkdownText = content.Markdown;
+            HighlightLanguage = content.HighlightLanguage;
             if (content.Entries is not null)
             {
                 foreach (var entry in content.Entries)

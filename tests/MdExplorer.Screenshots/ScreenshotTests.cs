@@ -217,4 +217,29 @@ public sealed class ScreenshotTests
             "no thumbnails decoded; kinds=" + string.Join(",", shell.Browser.Items.Select(i => i.Name + ":" + i.Kind)));
         Assert.NotNull(shell.Preview.Image);
     }
+    private static async Task SelectByNameAsync(ShellViewModel shell, string name, Func<bool> ready)
+    {
+        var item = shell.Browser.Items.First(i => i.Name == name);
+        shell.Browser.SelectedItems.Clear();
+        shell.Browser.SelectedItems.Add(item);
+        for (int i = 0; i < 80 && !ready(); i++)
+            await Task.Delay(50);
+    }
+
+    [AvaloniaFact]
+    public async Task Large_MarkdownPreview() => await CaptureAsync("12-large-markdown.png", 1440, 900,
+        shell => SelectByNameAsync(shell, "README.md", () => shell.Preview.MarkdownText is not null));
+
+    [AvaloniaFact]
+    public async Task Large_CodePreview() => await CaptureAsync("13-large-code.png", 1440, 900,
+        shell => SelectByNameAsync(shell, "Program.cs", () => shell.Preview.ShowSource));
+
+    [AvaloniaFact]
+    public async Task Expanded_BatchRenameDialog() => await CaptureAsync("14-expanded-batch-rename.png", 1100, 760, async shell =>
+    {
+        var names = shell.Browser.Items.Where(i => !i.Model.IsFolder).Take(4).Select(i => i.Name).ToArray();
+        Assert.True(names.Length >= 2);
+        _ = shell.BatchRenameAsync(names, []); // 不 await：保持对话框打开供截图
+        await Task.Delay(150);
+    });
 }

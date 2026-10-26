@@ -6,6 +6,8 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Md3.Avalonia" />
+    <PackageReference Include="Md3.Avalonia.AvaloniaEdit" />
+    <PackageReference Include="Md3.Avalonia.Markdown" />
     <PackageReference Include="Md3.Avalonia.Icons" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <ProjectReference Include="..\MdExplorer.Domain\MdExplorer.Domain.csproj" />

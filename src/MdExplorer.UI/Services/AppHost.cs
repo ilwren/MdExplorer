@@ -19,7 +19,9 @@ public static class AppHost
         IFileLauncherService Launcher,
         PlatformCapabilities Capabilities,
         string DataDirectory,
-        string StartFolder);
+        string StartFolder,
+        IFileInspectorService Inspector,
+        IFolderWatchService FolderWatch);
 
     /// <param name="dataDirectory">设置/收藏落点；为空时按平台默认（LocalApplicationData/MdExplorer）。</param>
     /// <param name="startFolder">初始文件夹；为空时桌面=用户主目录，Android=个人目录。</param>
@@ -58,7 +60,9 @@ public static class AppHost
             launcher ?? new ProcessFileLauncher(),
             capabilities,
             dataDir,
-            start);
+            start,
+            new FileInspectorService(),
+            new FolderWatchService());
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);

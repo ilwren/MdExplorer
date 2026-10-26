@@ -24,6 +24,8 @@
       <MenuItem Header="解压到文件夹" Click="OnMenuExtract" />
       <Separator />
       <MenuItem Header="选择模式" Click="OnMenuSelectionMode" />
+      <MenuItem Header="批量重命名…" Click="OnMenuBatchRename" />
+      <MenuItem Header="计算校验和…" Click="OnMenuChecksums" />
       <MenuItem Header="属性" Click="OnMenuProperties" />
       <MenuItem Header="删除" Click="OnMenuDelete" />
     </ContextMenu>
@@ -397,7 +399,7 @@
     <!-- 浮层：对话框 -->
     <Grid IsVisible="{Binding IsDialogOpen}">
       <Border Background="#66000000" />
-      <Border HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="300" MaxWidth="440"
+      <Border HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="320" MaxWidth="560"
               Margin="20" CornerRadius="24" Padding="24"
               Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}">
         <StackPanel Spacing="14">
@@ -411,6 +413,42 @@
             <md:MdTextBox x:Name="DialogInputBox" Text="{Binding DialogInput}" Variant="Outlined" />
             <TextBlock FontSize="12" Text="{Binding DialogInputError}" TextWrapping="Wrap"
                        Foreground="{DynamicResource Md.Sys.Color.Error.Brush}" />
+          </StackPanel>
+
+          <StackPanel Spacing="8" IsVisible="{Binding IsBatchRenameDialog}">
+            <md:MdTextBox Text="{Binding BatchPattern}" Variant="Outlined" Label="命名模板"
+                          SupportingText="占位符 {name} {ext} {n} {n:3}；无 {ext} 时保留原扩展名" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+              <md:MdTextBox Text="{Binding BatchFind}" Variant="Outlined" Label="查找（主干）" />
+              <md:MdTextBox Grid.Column="1" Text="{Binding BatchReplace}" Variant="Outlined" Label="替换为" />
+            </Grid>
+            <Grid ColumnDefinitions="*,*,Auto,Auto,Auto" ColumnSpacing="8">
+              <md:MdTextBox Text="{Binding BatchStartText}" Variant="Outlined" Label="起始" />
+              <md:MdTextBox Grid.Column="1" Text="{Binding BatchStepText}" Variant="Outlined" Label="步长" />
+              <md:MdButton Grid.Column="2" Variant="Text" Content="Aa 原样" VerticalAlignment="Bottom"
+                           Command="{Binding SetBatchCaseModeCommand}" CommandParameter="Keep" />
+              <md:MdButton Grid.Column="3" Variant="Text" Content="aa 小写" VerticalAlignment="Bottom"
+                           Command="{Binding SetBatchCaseModeCommand}" CommandParameter="Lower" />
+              <md:MdButton Grid.Column="4" Variant="Text" Content="AA 大写" VerticalAlignment="Bottom"
+                           Command="{Binding SetBatchCaseModeCommand}" CommandParameter="Upper" />
+            </Grid>
+            <ScrollViewer MaxHeight="220">
+              <ItemsControl ItemsSource="{Binding BatchRows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:BatchRenameRowModel">
+                    <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto" Margin="0,2" ColumnSpacing="6">
+                      <TextBlock Classes="caption" Text="{Binding Original}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Classes="caption" Text="→" />
+                      <TextBlock Grid.Column="2" Classes="caption" Text="{Binding Proposed}"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Row="1" Grid.ColumnSpan="3" FontSize="11" Text="{Binding Error}"
+                                 IsVisible="{Binding HasError}"
+                                 Foreground="{DynamicResource Md.Sys.Color.Error.Brush}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
           </StackPanel>
 
           <StackPanel Spacing="6" IsVisible="{Binding IsConflictDialog}">

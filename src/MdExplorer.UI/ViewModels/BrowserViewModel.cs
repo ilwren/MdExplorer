@@ -17,6 +17,8 @@ public sealed partial class BrowserViewModel : ObservableObject
     private readonly ITrashService _trash;
     private readonly IArchiveService _archive;
     private readonly ISearchService _search;
+    private readonly IFileInspectorService _inspector;
+    private readonly IFolderWatchService _folderWatch;
     private readonly ISettingsStore _settingsStore;
     private readonly IDialogs _dialogs;
     private readonly PreviewViewModel _preview;
@@ -24,6 +26,8 @@ public sealed partial class BrowserViewModel : ObservableObject
     private readonly Stack<string> _backStack = [];
     private readonly Stack<string> _forwardStack = [];
     private List<FileItem> _allItems = [];
+    private IDisposable? _watchSubscription;
+    private bool _watchEnabled;
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _thumbCts;
     private Task _idleTask = Task.CompletedTask;
@@ -34,6 +38,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     public BrowserViewModel(
         IFileSystemService fileSystem, IFileOperationService operations, ITrashService trash,
         IArchiveService archive, ISearchService search, ISettingsStore settingsStore,
+        IFileInspectorService inspector, IFolderWatchService folderWatch,
         IDialogs dialogs, PreviewViewModel preview)
     {
         _fileSystem = fileSystem;
@@ -41,11 +46,14 @@ public sealed partial class BrowserViewModel : ObservableObject
         _trash = trash;
         _archive = archive;
         _search = search;
+        _inspector = inspector;
+        _folderWatch = folderWatch;
         _settingsStore = settingsStore;
         _dialogs = dialogs;
         _preview = preview;
 
         var s = settingsStore.Settings;
+        _watchEnabled = s.WatchFolderChanges;
         _isGridView = string.Equals(s.ViewMode, "Grid", StringComparison.Ordinal);
         _sortFieldLabel = SortFieldText(ParseSort(s.SortField));
         SelectedItems.CollectionChanged += (_, _) => OnSelectionChanged();
@@ -141,6 +149,51 @@ public sealed partial class BrowserViewModel : ObservableObject
 
         _idleTask = LoadCoreAsync(path, ct);
         await _idleTask.ConfigureAwait(true);
+        ArmFolderWatch(path);
+    }
+
+    // ---------- 文件夹外部变更监视 ----------
+    private void ArmFolderWatch(string path)
+    {
+        _watchSubscription?.Dispose();
+        _watchSubscription = null;
+        if (!_watchEnabled) return;
+        _watchSubscription = _folderWatch.Watch(path, () =>
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!IsSearchMode && CurrentPath is not null && PathsEqual(CurrentPath, path))
+                    _ = SoftReloadAsync();
+            }));
+    }
+
+    private void DisarmFolderWatch()
+    {
+        _watchSubscription?.Dispose();
+        _watchSubscription = null;
+    }
+
+    /// <summary>设置页开关即时生效（Shell 调用）。</summary>
+    public void SetWatchEnabled(bool enabled)
+    {
+        _watchEnabled = enabled;
+        if (enabled && CurrentPath is not null && !IsSearchMode)
+            ArmFolderWatch(CurrentPath);
+        else
+            DisarmFolderWatch();
+    }
+
+    /// <summary>软刷新：仅重枚举与再排序，保留选集与浏览模式（手动刷新/外部变更共用）。</summary>
+    private async Task SoftReloadAsync()
+    {
+        if (CurrentPath is null || IsSearchMode) return;
+        _loadCts?.Cancel();
+        _thumbCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+        LoadError = null;
+        IsLoading = true;
+        _idleTask = LoadCoreAsync(CurrentPath, ct);
+        await _idleTask.ConfigureAwait(true);
     }
 
     private async Task LoadCoreAsync(string path, CancellationToken ct)
@@ -186,8 +239,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     private async Task RefreshAsync()
     {
         if (IsSearchMode) { await ExitSearchAsync().ConfigureAwait(true); return; }
-        if (CurrentPath is not null)
-            await LoadFolderAsync(CurrentPath).ConfigureAwait(true);
+        await SoftReloadAsync().ConfigureAwait(true);
     }
 
     [RelayCommand]
@@ -326,6 +378,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
         var ct = _loadCts.Token;
+        DisarmFolderWatch();
         IsSearchMode = true;
         ExitSelectionMode();
         Items.Clear();
@@ -587,7 +640,81 @@ public sealed partial class BrowserViewModel : ObservableObject
             $"路径：{m.FullPath}" +
             (m.IsSymlink ? "\n链接：符号链接" : "") +
             (m.IsHidden ? "\n可见性：隐藏" : "");
+        if (m.IsFolder)
+        {
+            try
+            {
+                var size = await _inspector.GetFolderSizeAsync(m.FullPath, CancellationToken.None).ConfigureAwait(true);
+                body += $"\n大小：{Formatting.Bytes(size.TotalBytes)}（{size.FileCount:N0} 个文件、{size.FolderCount:N0} 个文件夹）"
+                        + (size.IsPartial ? "（部分项目无权访问，结果为下限）" : "");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                body += "\n大小：（计算失败）";
+            }
+        }
         await _dialogs.ShowPropertiesAsync("属性", body).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task ComputeChecksumsAsync(FileItemViewModel? item)
+    {
+        item ??= SelectedItems.FirstOrDefault();
+        if (item is null || item.Model.IsFolder) return;
+        var path = item.FullPath;
+        var name = item.Name;
+        string? sha256 = null, md5 = null;
+        var outcome = await _dialogs.RunOperationAsync("计算校验和", async (progress, ct) =>
+        {
+            var fraction = new Progress<double>(v =>
+                progress.Report(new OperationProgress(v, name, 0, 0)));
+            sha256 = await _inspector.ComputeHashAsync(path, "SHA256", fraction, ct).ConfigureAwait(true);
+            md5 = await _inspector.ComputeHashAsync(path, "MD5", fraction, ct).ConfigureAwait(true);
+            return new OperationOutcome(1, [], []);
+        }).ConfigureAwait(true);
+        if (outcome.Success && sha256 is not null)
+        {
+            await _dialogs.ShowPropertiesAsync("校验和",
+                $"文件：{name}\n\nSHA-256：\n{sha256}\n\nMD5：\n{md5}").ConfigureAwait(true);
+        }
+    }
+
+    [RelayCommand]
+    private async Task BatchRenameSelectionAsync()
+    {
+        if (CurrentPath is null) return;
+        var targets = SelectedItems.ToList();
+        if (targets.Count < 2)
+        {
+            _dialogs.Notify("请先选择至少 2 个项目");
+            return;
+        }
+        var names = targets.Select(t => t.Name).ToList();
+        var siblings = _allItems.Select(i => i.Name)
+            .Where(n => !names.Contains(n, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        var proposed = await _dialogs.BatchRenameAsync(names, siblings).ConfigureAwait(true);
+        if (proposed is null) return;
+
+        var folder = CurrentPath;
+        await RunSimpleAsync("批量重命名", async () =>
+        {
+            // 两段改名：先全部改至临时名再落终名，消除互换名/占用顺序问题
+            var stamp = Guid.NewGuid().ToString("N")[..8];
+            var changed = targets
+                .Select((t, i) => (t, i))
+                .Where(x => !string.Equals(names[x.i], proposed[x.i], StringComparison.Ordinal))
+                .ToList();
+            var temps = new Dictionary<int, string>();
+            foreach (var (target, i) in changed)
+            {
+                var temp = $".mdexplorer-rename-{stamp}-{i}";
+                await _fileSystem.RenameAsync(target.FullPath, temp, CancellationToken.None).ConfigureAwait(true);
+                temps[i] = Path.Combine(folder, temp);
+            }
+            foreach (var (_, i) in changed)
+                await _fileSystem.RenameAsync(temps[i], proposed[i], CancellationToken.None).ConfigureAwait(true);
+        }).ConfigureAwait(true);
     }
 
     private async Task RunSimpleAsync(string title, Func<Task> action)

@@ -50,13 +50,20 @@
           </StackPanel>
           <md:MdSwitch Grid.Column="1" IsChecked="{Binding ShowPreviewPane}" VerticalAlignment="Center" />
         </Grid>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="外部变更自动刷新" />
+            <TextBlock Classes="caption" Text="其他程序增删改当前文件夹时自动同步列表" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding WatchFolderChanges}" VerticalAlignment="Center" />
+        </Grid>
       </StackPanel>
 
       <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
 
       <StackPanel Spacing="8">
         <TextBlock Classes="h3" Text="关于" />
-        <TextBlock Classes="body" Text="MdExplorer 0.1.0" />
+        <TextBlock Classes="body" Text="MdExplorer 0.2.0" />
         <TextBlock Classes="caption" Text="Avalonia 12 · .NET 10 · Material Design 3（Md3.Avalonia）" />
         <TextBlock Classes="caption" TextWrapping="Wrap">
           <Run Text="数据目录：" /><Run Text="{Binding DataDirectoryText}" />

@@ -21,6 +21,12 @@ public interface IDialogs
     /// <summary>属性弹窗（只读信息）。</summary>
     Task ShowPropertiesAsync(string title, string body);
 
+    /// <summary>
+    /// 批量重命名弹窗：规则编辑 + 实时预览校验。确认返回与 <paramref name="names"/> 一一对应的新名；
+    /// 取消返回 null。<paramref name="siblingNames"/> 为同目录未选中条目名（撞名校验）。
+    /// </summary>
+    Task<IReadOnlyList<string>?> BatchRenameAsync(IReadOnlyList<string> names, IReadOnlyList<string> siblingNames);
+
     /// <summary>短提示（Snackbar 语义）。</summary>
     void Notify(string message);
 

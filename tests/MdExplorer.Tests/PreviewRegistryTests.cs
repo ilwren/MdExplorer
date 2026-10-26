@@ -22,6 +22,7 @@ public sealed class PreviewRegistryTests
 
     [Theory]
     [InlineData("photo.jpg", FileKind.Image, "builtin.image")]
+    [InlineData("README.md", FileKind.Text, "builtin.markdown")]
     [InlineData("notes.txt", FileKind.Text, "builtin.text")]
     [InlineData("Program.cs", FileKind.Code, "builtin.text")]
     [InlineData("data.csv", FileKind.Data, "builtin.text")]
