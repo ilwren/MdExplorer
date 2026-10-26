@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
@@ -39,13 +40,22 @@ public partial class MainView : UserControl
             }
         }
         if (Shell is { } vm)
+        {
             vm.PropertyChanged += OnShellPropertyChanged;
+            // DataGrid.SelectedItems 为只读 IList（不可绑定整集），选集与 VM 手动双向同步
+            vm.Browser.SelectedItems.CollectionChanged += OnBrowserSelectionChanged;
+            vm.Browser.PropertyChanged += OnBrowserPropertyChanged;
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         if (Shell is { } vm)
+        {
             vm.PropertyChanged -= OnShellPropertyChanged;
+            vm.Browser.SelectedItems.CollectionChanged -= OnBrowserSelectionChanged;
+            vm.Browser.PropertyChanged -= OnBrowserPropertyChanged;
+        }
         if (TopLevel.GetTopLevel(this) is { } topLevel)
             topLevel.RemoveHandler(TopLevel.BackRequestedEvent, OnBackRequested);
         base.OnDetachedFromVisualTree(e);
@@ -222,6 +232,46 @@ public partial class MainView : UserControl
         if (Shell is { } shell)
             shell.Browser.SetSort(Enum.TryParse<SortField>(shell.SettingsStore.Settings.SortField, out var f) ? f : SortField.Name,
                 _ascending ? SortDirection.Ascending : SortDirection.Descending);
+    }
+
+    // ---------- 详细信息视图选集同步（DataGrid.SelectedItems 只读） ----------
+    private bool _syncingDetailsSelection;
+
+    private void OnDetailsSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_syncingDetailsSelection || Shell is not { } shell) return;
+        _syncingDetailsSelection = true;
+        try
+        {
+            var target = shell.Browser.SelectedItems;
+            target.Clear();
+            foreach (var item in FileDetails.SelectedItems)
+                if (item is FileItemViewModel vm)
+                    target.Add(vm);
+        }
+        finally { _syncingDetailsSelection = false; }
+    }
+
+    private void OnBrowserSelectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        MirrorSelectionToDetails();
+
+    private void OnBrowserPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(BrowserViewModel.IsDetailsView))
+            MirrorSelectionToDetails();
+    }
+
+    private void MirrorSelectionToDetails()
+    {
+        if (_syncingDetailsSelection || Shell is not { } shell || !shell.Browser.IsDetailsView) return;
+        _syncingDetailsSelection = true;
+        try
+        {
+            FileDetails.SelectedItems.Clear();
+            foreach (var vm in shell.Browser.SelectedItems)
+                FileDetails.SelectedItems.Add(vm);
+        }
+        finally { _syncingDetailsSelection = false; }
     }
 
     /// <summary>详细信息点列头：排序统一收回 VM 管线（自然序/文件夹在前），控件自排被 Handled 拦截。</summary>

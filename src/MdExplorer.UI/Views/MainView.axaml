@@ -284,8 +284,8 @@
                 <!-- 详细信息视图：排序经 Sorting 事件收回 VM 管线（控件自排关闭），箭头自绘于表头 -->
                 <DataGrid x:Name="FileDetails"
                           ItemsSource="{Binding Browser.Items}"
-                          SelectedItems="{Binding Browser.SelectedItems}"
                           SelectionMode="Extended"
+                          SelectionChanged="OnDetailsSelectionChanged"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
                           CanUserSortColumns="True"
