@@ -278,7 +278,7 @@
               <Border Grid.Column="1" Classes="path-pill" MinHeight="38">
                <Grid>
                 <ScrollViewer x:Name="BreadcrumbScroller" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
-                              IsVisible="{Binding !Browser.IsAddressEditing}" Tapped="OnBreadcrumbBarTapped">
+                              IsVisible="{Binding ShowBreadcrumbBar}" Tapped="OnBreadcrumbBarTapped">
                   <ItemsControl x:Name="BreadcrumbBar" ItemsSource="{Binding Browser.Breadcrumbs}" VerticalAlignment="Center">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -295,6 +295,14 @@
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                 </ScrollViewer>
+                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            IsVisible="{Binding ShowCompactPath}" Tapped="OnBreadcrumbBarTapped">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="16"
+                             Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                  <TextBlock Text="{Binding Browser.CurrentFolderName}" FontSize="13" FontWeight="SemiBold"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                </StackPanel>
                 <Grid RowDefinitions="Auto,Auto" IsVisible="{Binding Browser.IsAddressEditing}">
                   <Grid ColumnDefinitions="*,Auto,Auto">
                     <md:MdTextBox x:Name="AddressBox" Text="{Binding Browser.AddressText}" Variant="Outlined"

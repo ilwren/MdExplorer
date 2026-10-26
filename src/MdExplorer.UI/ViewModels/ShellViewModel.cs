@@ -61,6 +61,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                 OnPropertyChanged(nameof(PageTitle));
             if (e.PropertyName is nameof(BrowserViewModel.HasMultipleTabs))
                 OnPropertyChanged(nameof(ShowBrowserTabs));
+            if (e.PropertyName is nameof(BrowserViewModel.IsAddressEditing))
+            {
+                OnPropertyChanged(nameof(ShowBreadcrumbBar));
+                OnPropertyChanged(nameof(ShowCompactPath));
+            }
         };
         FavoriteItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFavorites));
         RecentFolders.CollectionChanged += (_, _) =>
@@ -145,6 +150,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool ShowPreviewPageNow => IsPreviewPageOpen && IsCompactOrMedium;
     /// <summary>Compact 单标签时隐藏标签轨，避免与顶栏标题重复；出现第二个标签后即显示。</summary>
     public bool ShowBrowserTabs => !IsCompact || Browser.HasMultipleTabs;
+    /// <summary>完整面包屑只在非 Compact 显示；窄屏折叠为当前目录胶囊。</summary>
+    public bool ShowBreadcrumbBar => !IsCompact && !Browser.IsAddressEditing;
+    public bool ShowCompactPath => IsCompact && !Browser.IsAddressEditing;
 
     partial void OnPageChanged(ShellPage value)
     {
@@ -163,6 +171,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                  {
                      nameof(IsCompact), nameof(IsMedium), nameof(IsExpandedOrAbove), nameof(IsCompactOrMedium),
                      nameof(ShowBottomNav), nameof(ShowRail), nameof(ShowDrawerPane), nameof(ShowBrowserTabs),
+                     nameof(ShowBreadcrumbBar), nameof(ShowCompactPath),
                      nameof(ShowPreviewPaneNow), nameof(ShowPreviewPageNow), nameof(ShowPreviewPaneEffective),
                  })
             OnPropertyChanged(name);
