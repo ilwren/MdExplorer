@@ -1,22 +1,22 @@
 using System.Collections.ObjectModel;
-using System.Text;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
+using MdExplorer.UI.Preview;
 
 namespace MdExplorer.UI.ViewModels;
 
 /// <summary>
-/// 预览状态机（v0.1）：图片位图 / 文本（含代码、数据、未知二进制 Hex 摘要）/ ZIP 条目 / 纯元数据卡。
-/// 每次 Load 先递增代次并作废上一轮，快速切选不串内容。
+/// 预览状态机：图片位图 / 文本（含代码、数据、未知二进制 Hex 摘要）/ ZIP 条目 / 纯元数据卡。
+/// 内容生产已插件化（P0，docs/PLUGIN-SYSTEM.md §6）：经 <see cref="PreviewProviderRegistry"/>
+/// 按优先级择一提供者，本类只管呈现状态与代次防串。每次 Load 先递增代次作废上一轮。
 /// </summary>
 public sealed partial class PreviewViewModel(
-    IArchiveService archive,
+    PreviewProviderRegistry previews,
     Func<IFileLauncherService> launcherRefresh) : ObservableObject
 {
-    private const long TextLimit = 512 * 1024;
     private int _generation;
 
     [ObservableProperty] private bool _hasItem;
@@ -78,44 +78,26 @@ public sealed partial class PreviewViewModel(
         IsLoading = true;
         try
         {
-            switch (item.Kind)
+            var provider = previews.Resolve(item);
+            if (provider is null)
             {
-                case FileKind.Image:
-                    Image = await Task.Run(() =>
-                    {
-                        using var stream = File.OpenRead(item.FullPath);
-                        return Bitmap.DecodeToWidth(stream, 1600);
-                    }).ConfigureAwait(true);
-                    break;
-
-                case FileKind.Text or FileKind.Code or FileKind.Data:
-                    TextContent = await ReadTextPreviewAsync(item).ConfigureAwait(true);
-                    break;
-
-                case FileKind.Archive when archive.CanOpen(item.FullPath):
-                    var entries = await archive.ListEntriesAsync(item.FullPath, 500, CancellationToken.None).ConfigureAwait(true);
-                    if (generation != _generation) return;
-                    foreach (var entry in entries)
-                        ArchiveEntries.Add(new ArchiveEntryRowModel(entry.FullName, entry.IsFolder ? "" : Formatting.Bytes(entry.Length)));
-                    OnPropertyChanged(nameof(HasArchive));
-                    break;
-
-                case FileKind.Unknown:
-                    TextContent = await ReadHexPreviewAsync(item).ConfigureAwait(true);
-                    break;
-
-                default:
-                    // PDF/音视频/字体/可执行：元数据卡 + 系统打开（开发文档 §6.5；PDF 渲染与播放为后续里程碑）
-                    FailureText = item.Kind switch
-                    {
-                        FileKind.Document when FileKindClassifier.IsPdf(item) => "PDF 内置预览将在后续版本提供，可先用系统应用打开。",
-                        FileKind.Video or FileKind.Audio => "内置播放将在后续版本提供，可先用系统应用打开。",
-                        _ => "此类型暂不支持内置预览，可先用系统应用打开。",
-                    };
-                    break;
+                FailureText = "此类型暂不支持内置预览，可先用系统应用打开。";
+                return;
             }
+
+            var content = await provider.LoadAsync(item, CancellationToken.None).ConfigureAwait(true);
+            if (generation != _generation) return;
+            Image = content.Image;
+            TextContent = content.Text;
+            if (content.Entries is not null)
+            {
+                foreach (var entry in content.Entries)
+                    ArchiveEntries.Add(entry);
+                OnPropertyChanged(nameof(HasArchive));
+            }
+            FailureText = content.Message;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException or ArgumentException)
         {
             if (generation == _generation)
                 FailureText = $"预览失败：{ex.Message}";
@@ -146,39 +128,5 @@ public sealed partial class PreviewViewModel(
             MetadataRows.Add(new MetadataRowModel("链接", "符号链接"));
         if (item.IsHidden)
             MetadataRows.Add(new MetadataRowModel("可见性", "隐藏"));
-    }
-
-    private static async Task<string> ReadTextPreviewAsync(FileItem item)
-    {
-        await using var stream = new FileStream(item.FullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        var buffer = new byte[Math.Min(TextLimit, Math.Max(0, stream.Length))];
-        var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(true);
-        var text = Encoding.UTF8.GetString(buffer, 0, read);
-        if (stream.Length > TextLimit)
-            text += $"\n\n…（仅预览前 {Formatting.Bytes(TextLimit)}，文件共 {Formatting.Bytes(item.Length)}）";
-        return text;
-    }
-
-    private static async Task<string> ReadHexPreviewAsync(FileItem item)
-    {
-        await using var stream = new FileStream(item.FullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        var buffer = new byte[Math.Min(512, Math.Max(0, stream.Length))];
-        var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(true);
-        var builder = new StringBuilder();
-        for (int offset = 0; offset < read; offset += 16)
-        {
-            builder.Append(offset.ToString("X8")).Append("  ");
-            for (int i = 0; i < 16; i++)
-                builder.Append(offset + i < read ? buffer[offset + i].ToString("X2") + ' ' : "   ");
-            builder.Append(" |");
-            for (int i = 0; i < 16 && offset + i < read; i++)
-            {
-                var b = buffer[offset + i];
-                builder.Append(b is >= 0x20 and < 0x7F ? (char)b : '.');
-            }
-            builder.Append("|\n");
-        }
-        builder.Append($"\n（十六进制预览 · 前 {read} 字节）");
-        return builder.ToString();
     }
 }

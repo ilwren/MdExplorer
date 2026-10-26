@@ -5,6 +5,7 @@ using Md3.Avalonia.Controls;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.Services;
+using MdExplorer.UI.Preview;
 
 namespace MdExplorer.UI.ViewModels;
 
@@ -28,7 +29,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         _services = services;
         _launcher = () => services.Launcher;
-        Preview = new PreviewViewModel(services.Archive, () => Launcher);
+        Preview = new PreviewViewModel(MdExplorer.UI.Preview.BuiltInPreviewProviders.Create(services.Archive), () => Launcher);
         Browser = new BrowserViewModel(
             services.FileSystem, services.Operations, services.Trash,
             services.Archive, services.Search, services.SettingsStore,

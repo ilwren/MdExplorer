@@ -957,6 +957,14 @@ dotnet publish src/MdExplorer.Android -c Release -p:PublishTrimmed=true -p:RunAO
 
 双窗格正式化、批量重命名、校验和工具、文本轻编辑保存、PDF 文本搜、应用内回收站（Android）、MSIX/系统集成深化、视频/音频内置播放（取决于 D-03）。
 
+### 插件轨道（2026-10-26 立项，详见 `docs/PLUGIN-SYSTEM.md`）
+
+P0 内置提供者注册表（预览先行，**已随本纪要落地**）→ P1 声明式插件（主题包/外部命令动作/打开方式，`.mepx` 包 + 权限 + 哈希校验）→ P2 进程外工作者（JSON-RPC over stdio，承载 PDF 预览/重解码/AI 模型）→ P3 脚本插件（Jint，商店版 Android 关闭）。红线：Native AOT 禁动态加载，M5 程序集插件不进主线。决策见 D-07。
+
+### 本地 AI 轨道（2026-10-26 立项，详见 `docs/LOCAL-AI.md`）
+
+A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图（SigLIP 2 ONNX + SQLite 向量索引，与 M3 搜索索引同批）→ A3 识图标签/说明（Florence-2）+ 文档语义 → A4 语音转写与桌面 VLM 问答（可选）。全本地推理、模型按需下载、许可白名单。决策见 D-08/D-09。
+
 ---
 
 ## 17. 风险与待决策事项
@@ -984,6 +992,9 @@ dotnet publish src/MdExplorer.Android -c Release -p:PublishTrimmed=true -p:RunAO
 | D-04 | 详细信息视图实现 | DataGrid 若 Trim 零警告则用之省两周工，否则自实现虚拟化表——**以 S-01 实测裁决**，自实现的骨架在 S-01 里顺带搭出作保底 |
 | D-05 | Linux 首发包形态 | AppImage（单文件易发、桌面集成弱）vs tar.gz+`.desktop` 安装脚本——**推荐先 tar.gz**（AOT 已是单 exe，附加集成文件即可)，AppImage 待用户呼声 |
 | D-06 | 双窗格进 MVP 的程度 | 推荐：布局稿预留、实现排 Phase 2 首位（信息架构已留 `BrowserSession` 双实例位，届时成本主要在焦点/拖拽语义） |
+| D-07 | 插件机制形态 | **推荐采纳**`docs/PLUGIN-SYSTEM.md` 组合：声明式（先行）+ 进程外工作者（主力）+ 脚本（后置）；程序集插件与 AOT 冲突不进主线。待维护者确认 |
+| D-08 | 本地 AI 运行时与模型目录 | **推荐**运行时以 ONNX Runtime 为主线、sherpa-onnx 担语音、llama.cpp 备线；模型目录只收 Apache-2.0/MIT/BSD 权重（`docs/LOCAL-AI.md` §4），全部按需下载不打包。待维护者确认首发模型（建议 SigLIP 2 Base int8） |
+| D-09 | 向量检索存储实现 | **推荐**SQLite BLOB + 内存全扫起步（≤10 万张），ANN 引擎（sqlite-vec 等）待 D-08 首发模型维度锁定后 Spike 定 |
 
 ### 17.3 已定版决策（摘要，防反复）
 
@@ -1031,6 +1042,7 @@ dotnet publish src/MdExplorer.Android -c Release -p:PublishTrimmed=true -p:RunAO
 | 2026-10-25 | D-01 采用 Apache-2.0 并补 `LICENSE`；D-02 侧载变体后置；D-03 媒体播放后续再议；Avalonia 钉版对齐 Md3 兼容线 `12.1.2`；v0.1 第一版实现说明：服务暂合一在 Infrastructure（接口边界不变）、压缩先以 `System.IO.Compression` 的 ZIP 覆盖、文本预览暂为无高亮版、PDF/音视频暂为元数据卡，回收站在 Windows 仅送站不可浏览；Android v0.1 浏览应用专属目录。上述偏差均为「实现分期」而非规范变更，§6/§9 目标不变 | 维护者确认 + 首版落地 |
 | 2026-10-25 | v0.1 落地验收：GitHub Actions 六个 Job 全绿（构建+33 项测试于 Ubuntu/Windows 双跑、11 张断点截图冒烟、linux-x64/win-x64 自包含发布、linux-x64 Native AOT 发布、Android APK）；验收截图归档 `docs/assets/screenshots/`（每 PR 由无头渲染自动更新） | CI run 40209876370 |
 | 2026-10-25 | 实现注记（库 quirks）：Md3 未给原生 `ListBox` 注册无键 ControlTheme（Gallery 亦全程不用）→ 全仓统一用 `MdList`；原生 `ContextMenu` 亦无无键主题 → 在 `AppStyles` 补齐（MenuItem/Separator 由 Md3 `MdDesktopAdapters` 覆盖）；`Flyout` 呈现层无表面 → 弹出内容自带 SurfaceContainer 底卡 | 无头截图对比实证 |
+| 2026-10-26 | 新增两条开发轨道并完成可行性评估：插件系统（`docs/PLUGIN-SYSTEM.md`，P0 预览提供者注册表已落地）与本地 AI（`docs/LOCAL-AI.md`，A1–A4 分期）；新增待决策 D-07/D-08/D-09 | 维护者提出新计划 + 技术调研实证 |
 
 ### F. 文档变更规则
 
