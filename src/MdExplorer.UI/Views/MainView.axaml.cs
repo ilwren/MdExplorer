@@ -4,7 +4,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MdExplorer.Application;
 using MdExplorer.Domain;
@@ -23,6 +25,12 @@ public partial class MainView : UserControl
     private DragCandidate? _dragCandidate;
     private bool _dragInProgress;
     private bool _breadcrumbEndScrollPending;
+    private double _drawerPaneWidth = 288;
+    private double _previewPaneWidth = 316;
+    private bool _previewPaneVisible;
+    private string? _lastBrowserPath;
+    private bool _pendingFileContentAnimation;
+    private double _fileContentSlideX = 12;
 
     private sealed record DragCandidate(
         PointerPressedEventArgs Trigger,
@@ -81,6 +89,10 @@ public partial class MainView : UserControl
         }
         if (Shell is { } vm)
         {
+            _drawerPaneWidth = Math.Clamp(vm.SettingsStore.Settings.DrawerPaneWidth, 216, 440);
+            _previewPaneWidth = Math.Clamp(vm.SettingsStore.Settings.PreviewPaneWidth, 260, 520);
+            _lastBrowserPath = vm.Browser.CurrentPath;
+            ApplyPaneColumnWidths();
             vm.PropertyChanged += OnShellPropertyChanged;
             // DataGrid.SelectedItems 为只读 IList（不可绑定整集），选集与 VM 手动双向同步
             vm.Browser.SelectedItems.CollectionChanged += OnBrowserSelectionChanged;
@@ -118,6 +130,86 @@ public partial class MainView : UserControl
         Shell?.SetViewportSize(e.NewSize.Width, e.NewSize.Height);
         ScheduleBreadcrumbEndScroll();
     }
+
+    // ---------- 三栏分隔条与入场动画 ----------
+    private void ApplyPaneColumnWidths()
+    {
+        if (Shell is not { } shell)
+            return;
+
+        if (shell.ShowDrawerPane)
+        {
+            DrawerColumn.MinWidth = 216;
+            DrawerColumn.MaxWidth = 440;
+            DrawerColumn.Width = new GridLength(_drawerPaneWidth);
+        }
+        else
+        {
+            if (DrawerColumn.ActualWidth > 0)
+                _drawerPaneWidth = Math.Clamp(DrawerColumn.ActualWidth, 216, 440);
+            DrawerColumn.MinWidth = 0;
+            DrawerColumn.Width = new GridLength(0);
+        }
+
+        if (shell.ShowPreviewPaneEffective)
+        {
+            PreviewColumn.MinWidth = 260;
+            PreviewColumn.MaxWidth = 520;
+            PreviewColumn.Width = new GridLength(_previewPaneWidth);
+        }
+        else
+        {
+            if (PreviewColumn.ActualWidth > 0)
+                _previewPaneWidth = Math.Clamp(PreviewColumn.ActualWidth, 260, 520);
+            PreviewColumn.MinWidth = 0;
+            PreviewColumn.Width = new GridLength(0);
+        }
+        _previewPaneVisible = shell.ShowPreviewPaneEffective;
+    }
+
+    private void OnDrawerSplitterDragCompleted(object? sender, VectorEventArgs e) =>
+        Dispatcher.UIThread.Post(() => PersistPaneWidths(DrawerColumn.ActualWidth, null), DispatcherPriority.Loaded);
+
+    private void OnPreviewSplitterDragCompleted(object? sender, VectorEventArgs e) =>
+        Dispatcher.UIThread.Post(() => PersistPaneWidths(null, PreviewColumn.ActualWidth), DispatcherPriority.Loaded);
+
+    private void PersistPaneWidths(double? drawerWidth, double? previewWidth)
+    {
+        if (Shell is not { } shell)
+            return;
+        if (drawerWidth is > 0)
+        {
+            _drawerPaneWidth = Math.Clamp(drawerWidth.Value, 216, 440);
+            shell.SettingsStore.Settings.DrawerPaneWidth = _drawerPaneWidth;
+        }
+        if (previewWidth is > 0)
+        {
+            _previewPaneWidth = Math.Clamp(previewWidth.Value, 260, 520);
+            shell.SettingsStore.Settings.PreviewPaneWidth = _previewPaneWidth;
+        }
+        _ = shell.SettingsStore.SaveSettingsAsync(CancellationToken.None);
+    }
+
+    /// <summary>短时入场：先无过渡地放到起点，再恢复 XAML Transitions 回到原位（Shared Axis 的轻量版）。</summary>
+    private static void AnimateIn(Control control, double offsetX, double offsetY)
+    {
+        if (control.Transitions is not { } transitions)
+            return;
+        control.Transitions = null;
+        control.Opacity = 0.45;
+        control.RenderTransform = new TranslateTransform(offsetX, offsetY);
+        Dispatcher.UIThread.Post(() =>
+        {
+            control.Transitions = transitions;
+            control.Opacity = 1;
+            control.RenderTransform = new TranslateTransform(0, 0);
+        }, DispatcherPriority.Loaded);
+    }
+
+    private static int PathDepth(string? path) =>
+        string.IsNullOrWhiteSpace(path)
+            ? 0
+            : path.TrimEnd('/', '\\').Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Length;
 
     private void OnBreadcrumbsChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
         ScheduleBreadcrumbEndScroll();
@@ -157,8 +249,26 @@ public partial class MainView : UserControl
 
     private void OnShellPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(ShellViewModel.Page) || Shell is not { } shell)
+        if (Shell is not { } shell)
             return;
+
+        if (e.PropertyName is nameof(ShellViewModel.ShowDrawerPane)
+            or nameof(ShellViewModel.ShowPreviewPaneEffective))
+        {
+            var previewWasVisible = _previewPaneVisible;
+            ApplyPaneColumnWidths();
+            if (!previewWasVisible && shell.ShowPreviewPaneEffective)
+                AnimateIn(PreviewPane, 12, 0);
+        }
+        if (e.PropertyName is nameof(ShellViewModel.IsDrawerOpen) && shell.IsDrawerOpen)
+            AnimateIn(ModalDrawerHost, -18, 0);
+        if (e.PropertyName is nameof(ShellViewModel.IsTaskCenterOpen) && shell.IsTaskCenterOpen)
+            AnimateIn(TaskCenterCard, 0, 12);
+
+        if (e.PropertyName != nameof(ShellViewModel.Page))
+            return;
+        ApplyPaneColumnWidths();
+        AnimateIn(PageHost, 0, 7);
         var index = shell.Page switch
         {
             ShellPage.Home => 0,
@@ -170,11 +280,6 @@ public partial class MainView : UserControl
         _suppressBottomNavEcho = true;
         BottomNav.SelectedIndex = index;
         _suppressBottomNavEcho = false;
-
-        if (shell.IsDialogOpen)
-        {
-            // 对话框出现时把焦点给输入框（若有）
-        }
     }
 
     // ---------- 底部导航 ----------
@@ -632,9 +737,32 @@ public partial class MainView : UserControl
 
     private void OnBrowserPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (Shell?.Browser is not { } browser)
+            return;
+        if (e.PropertyName is nameof(BrowserViewModel.CurrentPath))
+        {
+            var oldDepth = PathDepth(_lastBrowserPath);
+            var newDepth = PathDepth(browser.CurrentPath);
+            _fileContentSlideX = newDepth > oldDepth ? 14 : newDepth < oldDepth ? -14 : 8;
+            _lastBrowserPath = browser.CurrentPath;
+            _pendingFileContentAnimation = true;
+        }
+        if (e.PropertyName is nameof(BrowserViewModel.IsSearchMode))
+        {
+            _fileContentSlideX = 10;
+            _pendingFileContentAnimation = true;
+        }
+        if (e.PropertyName is nameof(BrowserViewModel.IsLoading)
+            && !browser.IsLoading && _pendingFileContentAnimation)
+        {
+            _pendingFileContentAnimation = false;
+            AnimateIn(FileDropArea, _fileContentSlideX, 0);
+        }
+        if (e.PropertyName is nameof(BrowserViewModel.ViewMode))
+            AnimateIn(FileDropArea, 0, 5);
         if (e.PropertyName is nameof(BrowserViewModel.IsDetailsView))
             MirrorSelectionToDetails();
-        if (e.PropertyName is nameof(BrowserViewModel.IsAddressEditing) && Shell?.Browser.IsAddressEditing == true)
+        if (e.PropertyName is nameof(BrowserViewModel.IsAddressEditing) && browser.IsAddressEditing)
         {
             AddressBox.Focus();
             AddressBox.SelectAll();

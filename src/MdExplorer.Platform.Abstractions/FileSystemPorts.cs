@@ -137,6 +137,8 @@ public sealed class AppSettings
     public bool ShowHidden { get; set; }
     public bool FoldersFirst { get; set; } = true;
     public bool ShowPreviewPane { get; set; } = true;
+    public double DrawerPaneWidth { get; set; } = 288;    // Expanded+ 永久抽屉宽度（MaterialGridSplitter 拖后回写）
+    public double PreviewPaneWidth { get; set; } = 316;   // Expanded+ 预览卡宽度（同上）
     public bool ConfirmPermanentDelete { get; set; } = true;
     public bool WatchFolderChanges { get; set; } = true;   // 外部增删改时自动刷新当前文件夹
     public List<string> OpenTabPaths { get; set; } = [];   // 上次会话的浏览器标签页（按显示顺序）

@@ -90,8 +90,8 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:VolumeItemModel">
             <md:MdButton Classes="nav-entry" Variant="Text" Height="58" Click="OnVolumeClick"
-                         ToolTip.Tip="{Binding UsageText}">
-              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Width="218">
+                         HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding UsageText}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" MinWidth="168">
                 <Border Width="34" Height="34" CornerRadius="10" VerticalAlignment="Center"
                         Background="{DynamicResource Md.Sys.Color.Surface.Brush}">
                   <md:MdIcon Glyph="{Binding Glyph}" Size="19" />

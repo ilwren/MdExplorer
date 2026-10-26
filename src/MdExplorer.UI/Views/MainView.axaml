@@ -3,6 +3,7 @@
              xmlns:md="using:Md3.Avalonia.Controls"
              xmlns:vm="using:MdExplorer.UI.ViewModels"
              xmlns:views="using:MdExplorer.UI.Views"
+             xmlns:controls="using:MdExplorer.UI.Controls"
              xmlns:themes="using:Md3.Avalonia.Themes"
              x:Class="MdExplorer.UI.Views.MainView"
              x:DataType="vm:ShellViewModel"
@@ -136,8 +137,16 @@
         </Border>
       </Grid>
 
-      <!-- 主区：导轨 / 抽屉 / 内容 / 预览栏 -->
-      <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*,Auto">
+      <!-- 主区：导轨 / 抽屉 / 分隔条 / 内容 / 分隔条 / 预览栏（Expanded+ 可拖） -->
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition x:Name="DrawerColumn" Width="288" MinWidth="216" MaxWidth="440" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" MinWidth="300" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition x:Name="PreviewColumn" Width="316" MinWidth="260" MaxWidth="520" />
+        </Grid.ColumnDefinitions>
         <Border Grid.Column="0" IsVisible="{Binding ShowRail}" Width="84"
                 Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
           <StackPanel Margin="8,12" Spacing="6">
@@ -183,9 +192,19 @@
           </StackPanel>
         </Border>
 
-        <views:DrawerContentView Grid.Column="1" IsVisible="{Binding ShowDrawerPane}" Width="288" />
+        <views:DrawerContentView Grid.Column="1" IsVisible="{Binding ShowDrawerPane}" />
+        <controls:MaterialGridSplitter x:Name="DrawerSplitter" Grid.Column="2"
+                                       IsVisible="{Binding ShowDrawerPane}"
+                                       DragCompleted="OnDrawerSplitterDragCompleted"
+                                       AutomationProperties.Name="调整侧边栏宽度" />
 
-        <Grid Grid.Column="2">
+        <Grid x:Name="PageHost" Grid.Column="3">
+          <Grid.Transitions>
+            <Transitions>
+              <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" />
+            </Transitions>
+          </Grid.Transitions>
           <views:HomeView IsVisible="{Binding IsHome}" />
 
           <!-- 浏览器页：独立白色工作区浮在外层柔和底板上（预览亦同语言） -->
@@ -430,6 +449,12 @@
               <md:MdLinearProgressIndicator Grid.Row="0" IsIndeterminate="True" Height="3"
                                             IsVisible="{Binding Browser.IsLoading}" />
               <Grid x:Name="FileDropArea" Grid.Row="1">
+                <Grid.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.17" />
+                  </Transitions>
+                </Grid.Transitions>
                 <md:MdList x:Name="FileList" Classes="file-list" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
                          ItemsSource="{Binding Browser.Items}"
                          SelectedItems="{Binding Browser.SelectedItems}"
@@ -616,8 +641,18 @@
           <views:SettingsView IsVisible="{Binding IsSettingsPage}" />
         </Grid>
 
-        <Border Grid.Column="3" IsVisible="{Binding ShowPreviewPaneEffective}" Width="316" Margin="0,10,10,10"
+        <controls:MaterialGridSplitter x:Name="PreviewSplitter" Grid.Column="4"
+                                       IsVisible="{Binding ShowPreviewPaneEffective}"
+                                       DragCompleted="OnPreviewSplitterDragCompleted"
+                                       AutomationProperties.Name="调整预览栏宽度" />
+        <Border x:Name="PreviewPane" Grid.Column="5" IsVisible="{Binding ShowPreviewPaneEffective}" Margin="0,10,10,10"
                 Classes="workspace-surface" ClipToBounds="True">
+          <Border.Transitions>
+            <Transitions>
+              <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" />
+            </Transitions>
+          </Border.Transitions>
           <Grid RowDefinitions="Auto,*">
             <Grid ColumnDefinitions="*,Auto" Margin="17,12,8,0">
               <TextBlock Classes="h3" Text="预览" VerticalAlignment="Center" />
@@ -650,8 +685,14 @@
     <!-- 浮层：模态抽屉 -->
     <Grid IsVisible="{Binding IsDrawerOpen}">
       <Border Background="#66000000" Tapped="OnScrimTapped" />
-      <Border Width="304" HorizontalAlignment="Left"
+      <Border x:Name="ModalDrawerHost" Width="304" HorizontalAlignment="Left"
               Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" />
+          </Transitions>
+        </Border.Transitions>
         <views:DrawerContentView />
       </Border>
     </Grid>
@@ -672,11 +713,17 @@
     <!-- 浮层：任务中心（非模态；操作继续在队列中运行） -->
     <Grid IsVisible="{Binding IsTaskCenterOpen}">
       <Border Background="#22000000" Tapped="OnTaskCenterScrimTapped" />
-      <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" MinWidth="320" MaxWidth="440"
+      <Border x:Name="TaskCenterCard" HorizontalAlignment="Right" VerticalAlignment="Bottom" MinWidth="320" MaxWidth="440"
               Margin="16,16,16,84" CornerRadius="26" Padding="19"
               Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
               BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
               BoxShadow="0 18 42 #2B000000">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" />
+          </Transitions>
+        </Border.Transitions>
         <Grid RowDefinitions="Auto,*">
           <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
             <StackPanel Orientation="Horizontal" Spacing="8">
