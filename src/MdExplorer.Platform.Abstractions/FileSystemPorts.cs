@@ -95,6 +95,13 @@ public interface IFileLauncherService
     Task<bool> OpenAsync(string path, CancellationToken cancellationToken);
 }
 
+/// <summary>系统剪贴板中的文件（跨应用复制/粘贴）。仅承载本地路径；存储提供者 URI 无跨应用文件语义。</summary>
+public interface ISystemClipboardService
+{
+    Task SetFilesAsync(IReadOnlyList<string> localPaths, CancellationToken cancellationToken);
+    Task<IReadOnlyList<string>> TryGetFilesAsync(CancellationToken cancellationToken);
+}
+
 /// <summary>ZIP 压缩包端口（v0.1 以 System.IO.Compression 实现，格式扩展见选型表）。</summary>
 public interface IArchiveService
 {

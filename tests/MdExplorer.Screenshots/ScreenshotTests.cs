@@ -133,6 +133,35 @@ public sealed class ScreenshotTests
         await shell.Browser.WhenIdleAsync();
     });
 
+    /// <summary>拖放进行中的投放提示浮层（原生 DnD 无法在无头环境完整驱动，这里直接呈现浮层做视觉冒烟）。</summary>
+    [AvaloniaFact]
+    public async Task Large_DropHint()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        var view = new MainView { DataContext = shell };
+        var window = new Window { Width = 1440, Height = 900, Content = view };
+        window.Show();
+        try
+        {
+            await Task.Delay(150);
+            var hint = view.FindControl<Border>("DropHint");
+            var text = view.FindControl<TextBlock>("DropHintText");
+            Assert.NotNull(hint);
+            Assert.NotNull(text);
+            text!.Text = "释放以复制到「Pictures」";
+            hint!.IsVisible = true;
+            await Task.Delay(120);
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            frame!.Save(Path.Combine(OutputDir, "16-large-drop-hint.png"));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public async Task ExtraLarge_Browser() => await CaptureAsync("06-xlarge-1920x1080.png", 1920, 1080);
 

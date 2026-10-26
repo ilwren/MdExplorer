@@ -181,7 +181,7 @@
                                  AutomationProperties.Name="刷新" />
               </StackPanel>
               <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding Browser.Breadcrumbs}" VerticalAlignment="Center">
+                <ItemsControl x:Name="BreadcrumbBar" ItemsSource="{Binding Browser.Breadcrumbs}" VerticalAlignment="Center">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                   </ItemsControl.ItemsPanel>
@@ -261,7 +261,7 @@
               </Grid.RowDefinitions>
               <md:MdLinearProgressIndicator Grid.Row="0" IsIndeterminate="True" Height="3"
                                             IsVisible="{Binding Browser.IsLoading}" />
-              <Grid Grid.Row="1">
+              <Grid x:Name="FileDropArea" Grid.Row="1">
                 <md:MdList x:Name="FileList" Classes="file-list" SelectionMode="Multiple"
                          ItemsSource="{Binding Browser.Items}"
                          SelectedItems="{Binding Browser.SelectedItems}"
@@ -379,6 +379,19 @@
                   <md:MdButton Variant="Tonal" Content="重试" HorizontalAlignment="Center"
                                Command="{Binding Browser.RefreshCommand}" />
                 </StackPanel>
+
+                <Border x:Name="DropHint" IsVisible="False" IsHitTestVisible="False"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Padding="16,10" CornerRadius="18"
+                        Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}"
+                        BorderBrush="{DynamicResource Md.Sys.Color.Primary.Brush}" BorderThickness="1">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <md:MdIcon Glyph="{x:Static md:MdSymbols.DriveFileMove}" Size="22"
+                               Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                    <TextBlock x:Name="DropHintText" Text="释放以移动到此处" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                  </StackPanel>
+                </Border>
 
                 <md:MdFloatingActionButton x:Name="FabCompact" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                            Margin="0,0,16,16" IsVisible="{Binding IsCompact}"

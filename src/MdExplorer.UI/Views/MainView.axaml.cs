@@ -4,7 +4,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using MdExplorer.Application;
 using MdExplorer.Domain;
 using MdExplorer.UI.ViewModels;
 
@@ -12,7 +14,19 @@ namespace MdExplorer.UI.Views;
 
 public partial class MainView : UserControl
 {
+    // 应用内拖放专用格式：可承载 storage URI；标准 File 格式同时提供给外部应用。
+    private static readonly DataFormat<string> DragPathsFormat =
+        DataFormat.CreateStringApplicationFormat("x-mdexplorer-paths");
+
     private bool _suppressBottomNavEcho;
+    private WindowBase? _clipboardWindow;
+    private DragCandidate? _dragCandidate;
+    private bool _dragInProgress;
+
+    private sealed record DragCandidate(
+        PointerPressedEventArgs Trigger,
+        IReadOnlyList<FileItemViewModel> Items,
+        Point Origin);
 
     public MainView()
     {
@@ -21,6 +35,25 @@ public partial class MainView : UserControl
         FileList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         FileGrid.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         FileDetails.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
+
+        // 拖拽源：三种视图共用阈值判定，避免普通点击被误判为拖动。
+        foreach (var control in new Control[] { FileList, FileGrid, FileDetails })
+        {
+            control.AddHandler(PointerPressedEvent, OnDragPointerPressed, RoutingStrategies.Tunnel);
+            control.AddHandler(PointerMovedEvent, OnDragPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+            control.AddHandler(PointerReleasedEvent, OnDragPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+            control.AddHandler(PointerCaptureLostEvent, OnDragPointerCaptureLost, RoutingStrategies.Tunnel, handledEventsToo: true);
+        }
+
+        // 投放目标：文件区（含条目与空白）与面包屑。
+        foreach (var target in new Control[] { FileDropArea, BreadcrumbBar })
+        {
+            DragDrop.SetAllowDrop(target, true);
+            target.AddHandler(DragDrop.DragEnterEvent, OnFileDragOver);
+            target.AddHandler(DragDrop.DragOverEvent, OnFileDragOver);
+            target.AddHandler(DragDrop.DragLeaveEvent, OnFileDragLeave);
+            target.AddHandler(DragDrop.DropEvent, OnFileDrop);
+        }
     }
 
     private ShellViewModel? Shell => DataContext as ShellViewModel;
@@ -31,6 +64,12 @@ public partial class MainView : UserControl
         if (TopLevel.GetTopLevel(this) is { } topLevel)
         {
             topLevel.AddHandler(TopLevel.BackRequestedEvent, OnBackRequested, RoutingStrategies.Bubble);
+            Shell?.UseSystemClipboard(() => TopLevel.GetTopLevel(this));
+            if (topLevel is WindowBase window)
+            {
+                _clipboardWindow = window;
+                window.Activated += OnTopLevelActivated;
+            }
             // Android 的打开方式走 Avalonia Launcher；桌面沿用进程实现
             if (Shell is { Capabilities.IsAndroid: true } shell)
             {
@@ -45,11 +84,17 @@ public partial class MainView : UserControl
             // DataGrid.SelectedItems 为只读 IList（不可绑定整集），选集与 VM 手动双向同步
             vm.Browser.SelectedItems.CollectionChanged += OnBrowserSelectionChanged;
             vm.Browser.PropertyChanged += OnBrowserPropertyChanged;
+            _ = vm.Browser.RefreshExternalClipboardAsync();
         }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (_clipboardWindow is not null)
+        {
+            _clipboardWindow.Activated -= OnTopLevelActivated;
+            _clipboardWindow = null;
+        }
         if (Shell is { } vm)
         {
             vm.PropertyChanged -= OnShellPropertyChanged;
@@ -132,6 +177,228 @@ public partial class MainView : UserControl
             shell.Browser.SelectedItems.Clear();
             shell.Browser.SelectedItems.Add(item);
         }
+    }
+
+    private async void OnTopLevelActivated(object? sender, EventArgs e)
+    {
+        if (Shell is { } shell)
+            await shell.Browser.RefreshExternalClipboardAsync();
+    }
+
+    // ---------- 文件拖放 ----------
+
+    private void OnDragPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_dragInProgress || Shell is not { } shell || shell.Browser.IsSelectionMode)
+            return;
+        if (e.Pointer.Type != PointerType.Mouse)
+            return;
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed || point.Properties.IsRightButtonPressed)
+            return;
+        if (e.Source is Control source && source.FindAncestorOfType<Button>() is not null)
+            return;
+        if (ItemFromEvent(e) is not { } item)
+            return;
+        // Tunnel 阶段先拍选集快照：控件在随后的按下处理中可能把多选收敛为单选。
+        IReadOnlyList<FileItemViewModel> draggedItems = shell.Browser.SelectedItems.Contains(item)
+            ? shell.Browser.SelectedItems.ToList()
+            : [item];
+        _dragCandidate = new DragCandidate(e, draggedItems, e.GetPosition(this));
+    }
+
+    private async void OnDragPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_dragInProgress || _dragCandidate is not { } candidate)
+            return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _dragCandidate = null;
+            return;
+        }
+
+        var delta = e.GetPosition(this) - candidate.Origin;
+        if (Math.Abs(delta.X) < 6 && Math.Abs(delta.Y) < 6)
+            return;
+
+        _dragCandidate = null;
+        _dragInProgress = true;
+        e.Handled = true;
+        try
+        {
+            await StartItemDragAsync(candidate.Trigger, candidate.Items);
+        }
+        finally
+        {
+            _dragInProgress = false;
+            HideDropHint();
+        }
+    }
+
+    private void OnDragPointerReleased(object? sender, PointerReleasedEventArgs e) => _dragCandidate = null;
+
+    private void OnDragPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => _dragCandidate = null;
+
+    private async Task StartItemDragAsync(
+        PointerPressedEventArgs trigger, IReadOnlyList<FileItemViewModel> draggedItems)
+    {
+        if (Shell is not { } shell || draggedItems.Count == 0)
+            return;
+
+        // 恢复按下前快照，确保拖的是用户看到的多选集合。
+        if (!shell.Browser.SelectedItems.SequenceEqual(draggedItems))
+        {
+            shell.Browser.SelectedItems.Clear();
+            foreach (var item in draggedItems)
+                shell.Browser.SelectedItems.Add(item);
+        }
+
+        var paths = draggedItems.Select(i => i.FullPath).ToList();
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(DragPathsFormat, string.Join('\n', paths)));
+
+        if (TopLevel.GetTopLevel(this) is { } topLevel)
+        {
+            foreach (var item in draggedItems.Where(i => !i.Model.Locator.IsStorage))
+            {
+                IStorageItem? storageItem = item.IsFolder
+                    ? await topLevel.StorageProvider.TryGetFolderFromPathAsync(item.FullPath).ConfigureAwait(true)
+                    : await topLevel.StorageProvider.TryGetFileFromPathAsync(item.FullPath).ConfigureAwait(true);
+                if (storageItem is not null)
+                    data.Add(DataTransferItem.Create(DataFormat.File, storageItem));
+            }
+        }
+
+        await DragDrop.DoDragDropAsync(trigger, data, DragDropEffects.Copy | DragDropEffects.Move).ConfigureAwait(true);
+    }
+
+    private void OnFileDragOver(object? sender, DragEventArgs e)
+    {
+        if (Shell is not { } shell || shell.Browser.CurrentPath is null)
+        {
+            RejectDrop(e);
+            return;
+        }
+        if (!e.DataTransfer.Contains(DragPathsFormat) && !e.DataTransfer.Contains(DataFormat.File))
+        {
+            RejectDrop(e);
+            return;
+        }
+        if (ResolveDropDestination(e) is not { } destination)
+        {
+            RejectDrop(e);
+            return;
+        }
+
+        var sources = ExtractDraggedPaths(e.DataTransfer);
+        if (sources.Count == 0 || !shell.Browser.CanTransferItems(sources, destination))
+        {
+            RejectDrop(e);
+            return;
+        }
+
+        var isMove = FileTransferRules.ShouldMove(
+            e.DataTransfer.Contains(DragPathsFormat),
+            (e.KeyModifiers & KeyModifiers.Control) != 0,
+            (e.KeyModifiers & KeyModifiers.Shift) != 0);
+        e.DragEffects = isMove ? DragDropEffects.Move : DragDropEffects.Copy;
+        DropHintText.Text = isMove
+            ? $"释放以移动到「{DropDestinationLabel(e)}」"
+            : $"释放以复制到「{DropDestinationLabel(e)}」";
+        DropHint.IsVisible = true;
+        e.Handled = true;
+    }
+
+    private void OnFileDragLeave(object? sender, DragEventArgs e) => HideDropHint();
+
+    private async void OnFileDrop(object? sender, DragEventArgs e)
+    {
+        HideDropHint();
+        if (Shell is not { } shell || ResolveDropDestination(e) is not { } destination)
+        {
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        var sources = ExtractDraggedPaths(e.DataTransfer);
+        if (sources.Count == 0 || !shell.Browser.CanTransferItems(sources, destination))
+        {
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        var isMove = FileTransferRules.ShouldMove(
+            e.DataTransfer.Contains(DragPathsFormat),
+            (e.KeyModifiers & KeyModifiers.Control) != 0,
+            (e.KeyModifiers & KeyModifiers.Shift) != 0);
+        e.DragEffects = isMove ? DragDropEffects.Move : DragDropEffects.Copy;
+        e.Handled = true;
+        await shell.Browser.TransferItemsAsync(sources, destination, isMove);
+    }
+
+    private void RejectDrop(DragEventArgs e)
+    {
+        e.DragEffects = DragDropEffects.None;
+        HideDropHint();
+        e.Handled = true;
+    }
+
+    private void HideDropHint() => DropHint.IsVisible = false;
+
+    private string? ResolveDropDestination(DragEventArgs e)
+    {
+        if (Shell is not { } shell)
+            return null;
+        if (ItemFromEvent(e) is { IsFolder: true } folder)
+            return folder.FullPath;
+        if (BreadcrumbFromEvent(e) is { } segment)
+            return segment.FullPath;
+        // 搜索结果的条目来自不同父目录：空格区域不猜当前目录，只允许明确投到某个文件夹条目。
+        return shell.Browser.IsSearchMode ? null : shell.Browser.CurrentPath;
+    }
+
+    private string DropDestinationLabel(DragEventArgs e)
+    {
+        if (ItemFromEvent(e) is { IsFolder: true } folder)
+            return folder.Name;
+        if (BreadcrumbFromEvent(e) is { } segment)
+            return segment.Name;
+        return Shell?.Browser.CurrentFolderName ?? "此处";
+    }
+
+    private static BreadcrumbSegment? BreadcrumbFromEvent(RoutedEventArgs e)
+    {
+        if (e.Source is not Visual source)
+            return null;
+        foreach (var visual in source.GetSelfAndVisualAncestors())
+        {
+            if (visual is Control { DataContext: BreadcrumbSegment segment })
+                return segment;
+        }
+        return null;
+    }
+
+    private static IReadOnlyList<string> ExtractDraggedPaths(IDataTransfer dataTransfer)
+    {
+        if (dataTransfer.TryGetValue(DragPathsFormat) is { Length: > 0 } payload)
+        {
+            // 不用 TrimEntries：合法文件名可以以空格开头或结尾。
+            return payload
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(path => path.TrimEnd('\r'))
+                .Where(path => path.Length > 0)
+                .ToArray();
+        }
+
+        var files = dataTransfer.TryGetFiles();
+        if (files is null)
+            return [];
+        return files
+            .Select(item => item.TryGetLocalPath())
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private async void OnItemTapped(object? sender, TappedEventArgs e)

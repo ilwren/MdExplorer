@@ -23,12 +23,17 @@ public static class AppHost
         IFileInspectorService Inspector,
         IFolderWatchService FolderWatch,
         DelegatingFileSystemService StorageFileSystem,
-        IReadOnlyList<AuthorizedRoot> PersistedRoots);
+        IReadOnlyList<AuthorizedRoot> PersistedRoots,
+        ISystemClipboardService SystemClipboard);
 
     /// <param name="dataDirectory">设置/收藏落点；为空时按平台默认（LocalApplicationData/MdExplorer）。</param>
     /// <param name="startFolder">初始文件夹；为空时桌面=用户主目录，Android=个人目录。</param>
     /// <param name="launcher">打开方式服务；为空时使用桌面进程拉起实现（Android 宿主运行期由 MainView 重绑为 Launcher 实现）。</param>
-    public static AppServices Build(string? dataDirectory = null, string? startFolder = null, IFileLauncherService? launcher = null)
+    public static AppServices Build(
+        string? dataDirectory = null,
+        string? startFolder = null,
+        IFileLauncherService? launcher = null,
+        ISystemClipboardService? systemClipboard = null)
     {
         var dataDir = dataDirectory ?? DefaultDataDirectory();
         Directory.CreateDirectory(dataDir);
@@ -68,7 +73,8 @@ public static class AppHost
             new FileInspectorService(),
             new FolderWatchService(),
             fileSystem,
-            AuthorizedRootsStore.Load(dataDir));
+            AuthorizedRootsStore.Load(dataDir),
+            systemClipboard ?? new AvaloniaSystemClipboardService());
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);

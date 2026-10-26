@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -44,7 +45,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         Browser = new BrowserViewModel(
             services.FileSystem, services.Operations, services.Trash,
             services.Archive, services.Search, services.SettingsStore,
-            services.Inspector, services.FolderWatch,
+            services.Inspector, services.FolderWatch, services.SystemClipboard,
             this, Preview);
         Browser.FavoritesChanged += async (_, _) => await RefreshFavoritesAsync().ConfigureAwait(true);
         Browser.PropertyChanged += (_, e) =>
@@ -76,6 +77,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     /// <summary>Android 挂载后将打开方式切换为 Avalonia Launcher 实现。</summary>
     public void UseLauncher(IFileLauncherService launcher) => _launcher = () => launcher;
+
+    /// <summary>视图挂载后把 TopLevel 提供者交给 Avalonia 系统剪贴板实现（测试替身则忽略）。</summary>
+    public void UseSystemClipboard(Func<TopLevel?> topLevelProvider)
+    {
+        if (_services.SystemClipboard is AvaloniaSystemClipboardService clipboard)
+            clipboard.TopLevelProvider = topLevelProvider;
+    }
 
     // ---------- 页面与断点 ----------
     [ObservableProperty] private ShellPage _page = ShellPage.Home;

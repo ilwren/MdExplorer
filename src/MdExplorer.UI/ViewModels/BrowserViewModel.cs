@@ -22,6 +22,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     private readonly ISearchService _search;
     private readonly IFileInspectorService _inspector;
     private readonly IFolderWatchService _folderWatch;
+    private readonly ISystemClipboardService _systemClipboard;
     private readonly ISettingsStore _settingsStore;
     private readonly IDialogs _dialogs;
     private readonly PreviewViewModel _preview;
@@ -37,11 +38,14 @@ public sealed partial class BrowserViewModel : ObservableObject
 
     private IReadOnlyList<string> _clipboardPaths = [];
     private bool _clipboardCut;
+    private IReadOnlyList<string> _externalClipboardBaseline = [];
+    private bool _clipboardOwnedByApp;
 
     public BrowserViewModel(
         IFileSystemService fileSystem, IFileOperationService operations, ITrashService trash,
         IArchiveService archive, ISearchService search, ISettingsStore settingsStore,
         IFileInspectorService inspector, IFolderWatchService folderWatch,
+        ISystemClipboardService systemClipboard,
         IDialogs dialogs, PreviewViewModel preview)
     {
         _fileSystem = fileSystem;
@@ -51,6 +55,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         _search = search;
         _inspector = inspector;
         _folderWatch = folderWatch;
+        _systemClipboard = systemClipboard;
         _settingsStore = settingsStore;
         _dialogs = dialogs;
         _preview = preview;
@@ -556,54 +561,170 @@ public sealed partial class BrowserViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void CopySelection() => SetClipboard(cut: false);
+    private async Task CopySelectionAsync() => await SetClipboardAsync(cut: false).ConfigureAwait(true);
 
     [RelayCommand]
-    private void CutSelection() => SetClipboard(cut: true);
+    private async Task CutSelectionAsync() => await SetClipboardAsync(cut: true).ConfigureAwait(true);
 
-    private void SetClipboard(bool cut)
+    private async Task SetClipboardAsync(bool cut)
     {
         if (SelectedItems.Count == 0) return;
-        _clipboardPaths = SelectedItems.Select(i => i.FullPath).ToList();
+        var paths = SelectedItems.Select(i => i.FullPath).ToList();
+
+        // 先记住操作前系统剪贴板的文件集合：粘贴/窗口激活时据此判断外部内容是否
+        // 在本应用复制/剪切之后又被另一个应用更新，避免旧外部内容覆盖应用内剪切状态。
+        _externalClipboardBaseline = await _systemClipboard.TryGetFilesAsync(CancellationToken.None).ConfigureAwait(true);
+        _clipboardPaths = paths;
         _clipboardCut = cut;
+        _clipboardOwnedByApp = true;
         OnPropertyChanged(nameof(HasClipboard));
-        _dialogs.Notify(cut ? $"已剪切 {_clipboardPaths.Count} 项" : $"已复制 {_clipboardPaths.Count} 项");
+
+        if (!cut)
+        {
+            // Avalonia 高层文件格式没有跨应用的统一“剪切效果”编码：复制与系统同步，
+            // 剪切保留在应用内，避免把用户预期为移动的动作在外部悄悄变成复制。
+            await _systemClipboard.SetFilesAsync(paths, CancellationToken.None).ConfigureAwait(true);
+            _externalClipboardBaseline = paths.Where(p => !FileLocator.IsStorageUri(p)).ToList();
+        }
+
+        _dialogs.Notify(cut ? $"已剪切 {paths.Count} 项" : $"已复制 {paths.Count} 项");
+    }
+
+    /// <summary>视图挂载/窗口激活时导入其他应用新写入的文件剪贴板。</summary>
+    public async Task RefreshExternalClipboardAsync() =>
+        await ImportExternalClipboardAsync().ConfigureAwait(true);
+
+    private async Task ImportExternalClipboardAsync()
+    {
+        var external = await _systemClipboard.TryGetFilesAsync(CancellationToken.None).ConfigureAwait(true);
+        if (external.Count == 0)
+            return;
+        if (_clipboardOwnedByApp && PathSetsEqual(external, _externalClipboardBaseline))
+            return;
+        if (PathSetsEqual(external, _clipboardPaths))
+        {
+            _externalClipboardBaseline = external;
+            return;
+        }
+
+        _clipboardPaths = external.ToList();
+        _clipboardCut = false;
+        _clipboardOwnedByApp = false;
+        _externalClipboardBaseline = external;
+        OnPropertyChanged(nameof(HasClipboard));
     }
 
     [RelayCommand]
     private async Task PasteAsync()
     {
-        if (CurrentPath is null || _clipboardPaths.Count == 0) return;
-        var sources = _clipboardPaths;
-        var existing = sources
-            .Select(s => Path.Combine(CurrentPath, Path.GetFileName(s.TrimEnd('/', '\\'))))
-            .Where(p => _fileSystem.Exists(p))
-            .ToList();
-        var policy = ConflictPolicy.KeepBoth;
-        if (existing.Count > 0 && !_clipboardCut)
-        {
-            // 复制到新位置才需要问；粘回原地默认保留两者
-            var pastingInPlace = sources.All(s => PathsEqual(Path.GetDirectoryName(s), CurrentPath));
-            if (!pastingInPlace)
-            {
-                var asked = await _dialogs.AskConflictAsync(Path.GetFileName(existing[0])).ConfigureAwait(true);
-                if (asked is null) return;
-                policy = asked.Value;
-            }
-        }
+        if (CurrentPath is null) return;
+        await ImportExternalClipboardAsync().ConfigureAwait(true);
+        if (_clipboardPaths.Count == 0) return;
 
+        var sources = _clipboardPaths.ToList();
         var cut = _clipboardCut;
-        var title = cut ? "正在移动…" : "正在复制…";
-        var outcome = await _dialogs.RunOperationAsync(title, (progress, ct) =>
-            cut
-                ? _operations.MoveAsync(sources, CurrentPath, policy, progress, ct)
-                : _operations.CopyAsync(sources, CurrentPath, policy, progress, ct)).ConfigureAwait(true);
-        if (cut && outcome.Success)
+        var outcome = await TransferItemsAsync(sources, CurrentPath, cut).ConfigureAwait(true);
+        if (cut && outcome?.Success == true)
         {
             _clipboardPaths = [];
+            _clipboardOwnedByApp = false;
+            _externalClipboardBaseline = [];
             OnPropertyChanged(nameof(HasClipboard));
         }
-        await ReloadAfterOperationAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// 通用文件传输：粘贴与拖放共用。含同源/后代目标防护、复制冲突询问、进度对话框与必要时刷新。
+    /// 全程使用文件系统服务的名称/父链语义，本地路径与 storage URI 均不做 Path.* 拼接。
+    /// </summary>
+    public async Task<OperationOutcome?> TransferItemsAsync(
+        IReadOnlyList<string> sourcePaths, string destinationFolder, bool isMove)
+    {
+        var sources = sourcePaths
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (sources.Count == 0 || string.IsNullOrWhiteSpace(destinationFolder))
+            return null;
+        if (!CanTransferItems(sources, destinationFolder))
+        {
+            _dialogs.Notify("目标文件夹不能是所选文件夹本身或其子文件夹");
+            return null;
+        }
+
+        var names = new List<string>(sources.Count);
+        foreach (var source in sources)
+            names.Add(await GetTransferDisplayNameAsync(source).ConfigureAwait(true));
+
+        var destinationNames = await GetDestinationNamesAsync(destinationFolder).ConfigureAwait(true);
+        var conflict = names.FirstOrDefault(destinationNames.Contains);
+        var policy = ConflictPolicy.KeepBoth;
+        var allFromDestination = sources.All(s =>
+            TransferPathsEqual(_fileSystem.GetParentPath(s), destinationFolder));
+        if (conflict is not null && !isMove && !allFromDestination)
+        {
+            var asked = await _dialogs.AskConflictAsync(conflict).ConfigureAwait(true);
+            if (asked is null) return null;
+            policy = asked.Value;
+        }
+
+        var outcome = await _dialogs.RunOperationAsync(isMove ? "正在移动…" : "正在复制…", (progress, ct) =>
+            isMove
+                ? _operations.MoveAsync(sources, destinationFolder, policy, progress, ct)
+                : _operations.CopyAsync(sources, destinationFolder, policy, progress, ct)).ConfigureAwait(true);
+
+        var affectsCurrentFolder = TransferPathsEqual(destinationFolder, CurrentPath)
+            || sources.Any(s => TransferPathsEqual(_fileSystem.GetParentPath(s), CurrentPath));
+        if (affectsCurrentFolder)
+            await ReloadAfterOperationAsync().ConfigureAwait(true);
+        return outcome;
+    }
+
+    /// <summary>拖放 DragOver 阶段的目标合法性预判（禁止落入来源自身或其子文件夹）。</summary>
+    public bool CanTransferItems(IReadOnlyList<string> sourcePaths, string destinationFolder) =>
+        sourcePaths.All(source => !FileTransferRules.IsSameOrDescendant(
+            destinationFolder, source, _fileSystem.GetParentPath, static (a, b) => TransferPathsEqual(a, b)));
+
+    private async Task<string> GetTransferDisplayNameAsync(string source)
+    {
+        var known = _allItems.FirstOrDefault(i => TransferPathsEqual(i.FullPath, source));
+        if (known is not null)
+            return known.Name;
+        if (!FileLocator.IsStorageUri(source))
+        {
+            var localName = Path.GetFileName(source.TrimEnd('/', '\\'));
+            return string.IsNullOrEmpty(localName) ? source : localName;
+        }
+        var stat = await _fileSystem.StatAsync(source, CancellationToken.None).ConfigureAwait(true);
+        return stat?.Name ?? source;
+    }
+
+    private async Task<HashSet<string>> GetDestinationNamesAsync(string destinationFolder)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            await foreach (var item in _fileSystem.ListAsync(destinationFolder, includeHidden: true, CancellationToken.None).ConfigureAwait(true))
+                names.Add(item.Name);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 冲突预检尽力而为；真正的打开/写入错误由操作管线汇总报告。
+        }
+        return names;
+    }
+
+    internal static bool PathSetsEqual(IReadOnlyList<string> left, IReadOnlyList<string> right) =>
+        left.Count == right.Count
+        && left.All(a => right.Any(b => TransferPathsEqual(a, b)))
+        && right.All(b => left.Any(a => TransferPathsEqual(a, b)));
+
+    internal static bool TransferPathsEqual(string? a, string? b)
+    {
+        if (a is null || b is null) return false;
+        if (FileLocator.IsStorageUri(a) || FileLocator.IsStorageUri(b))
+            return string.Equals(a, b, StringComparison.Ordinal);
+        return PathsEqual(a, b);
     }
 
     [RelayCommand]
@@ -902,5 +1023,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         }
         catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }
+        catch (ArgumentException) { return false; }
+        catch (NotSupportedException) { return false; }
     }
 }
