@@ -138,14 +138,14 @@
       </Grid>
 
       <!-- 主区：导轨 / 抽屉 / 分隔条 / 内容 / 分隔条 / 预览栏（Expanded+ 可拖） -->
-      <Grid Grid.Row="1">
+      <Grid x:Name="PaneGrid" Grid.Row="1">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
-          <ColumnDefinition x:Name="DrawerColumn" Width="288" MinWidth="216" MaxWidth="440" />
+          <ColumnDefinition Width="288" MinWidth="216" MaxWidth="440" />
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="*" MinWidth="300" />
           <ColumnDefinition Width="Auto" />
-          <ColumnDefinition x:Name="PreviewColumn" Width="316" MinWidth="260" MaxWidth="520" />
+          <ColumnDefinition Width="316" MinWidth="260" MaxWidth="520" />
         </Grid.ColumnDefinitions>
         <Border Grid.Column="0" IsVisible="{Binding ShowRail}" Width="84"
                 Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">

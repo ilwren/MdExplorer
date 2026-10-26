@@ -132,6 +132,10 @@ public partial class MainView : UserControl
     }
 
     // ---------- 三栏分隔条与入场动画 ----------
+    // 本项目 XAML 编译器不为命名 ColumnDefinition 生成字段，按 PaneGrid 列索引取（列序见 MainView.axaml）。
+    private ColumnDefinition DrawerColumn => PaneGrid.ColumnDefinitions[1];
+    private ColumnDefinition PreviewColumn => PaneGrid.ColumnDefinitions[5];
+
     private void ApplyPaneColumnWidths()
     {
         if (Shell is not { } shell)
