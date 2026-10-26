@@ -8,30 +8,148 @@ using MdExplorer.Platform.Abstractions;
 
 namespace MdExplorer.UI.Services;
 
+// ---------- 存储条目接缝 ----------
+// Avalonia 的 IStorageItem/IStorageFile/IStorageFolder 标注 [NotClientImplementable]
+//（隐藏接口成员，编译期拒绝用户实现）。委托层只依赖本接缝：生产用适配器包装 Avalonia 条目，
+// 测试以内存树实现同一接缝（无模拟器环境下验证 SAF 委托行为的唯一途径）。
+
+/// <summary>存储条目接缝（文件/文件夹共有面）。Key 为定位串（content:// URI 等）。</summary>
+public interface IStorageEntry
+{
+    string Name { get; }
+    string Key { get; }
+    bool IsFolder { get; }
+
+    /// <summary>（字节数，修改时间）；提供者缺数据时长度为 null、时间退回 MinValue。</summary>
+    Task<(long? Length, DateTimeOffset LastWrite)> GetInfoAsync();
+
+    Task DeleteAsync();
+
+    /// <summary>整树移动到目标夹；返回移动后的条目（Key 可能变化）。</summary>
+    Task<IStorageEntry> MoveToAsync(IStorageEntryFolder destinationFolder);
+}
+
+public interface IStorageEntryFile : IStorageEntry
+{
+    Task<Stream> OpenReadAsync();
+    Task<Stream> OpenWriteAsync();
+}
+
+public interface IStorageEntryFolder : IStorageEntry
+{
+    IAsyncEnumerable<IStorageEntry> GetChildrenAsync();
+
+    /// <summary>按名取子条目（文件优先于同名夹）；不存在为 null。</summary>
+    Task<IStorageEntry?> GetChildAsync(string name);
+
+    Task<IStorageEntryFile> CreateFileAsync(string name);
+    Task<IStorageEntryFolder> CreateFolderAsync(string name);
+}
+
+/// <summary>Avalonia 存储条目 → 接缝适配。</summary>
+internal static class AvaloniaStorageEntry
+{
+    public static IStorageEntry Wrap(IStorageItem item) => item switch
+    {
+        IStorageFolder folder => new Folder(folder),
+        IStorageFile file => new File(file),
+        _ => new File(item),
+    };
+
+    private abstract class EntryBase(IStorageItem item) : IStorageEntry
+    {
+        protected IStorageItem Item => item;
+        public string Name => item.Name;
+        public string Key => item.Path.ToString();
+        public abstract bool IsFolder { get; }
+
+        public async Task<(long? Length, DateTimeOffset LastWrite)> GetInfoAsync()
+        {
+            var props = await item.GetBasicPropertiesAsync().ConfigureAwait(false);
+            long? length = props?.Size is { } size ? (long)Math.Min(size, (ulong)long.MaxValue) : null;
+            return (length, props?.DateModified ?? props?.DateCreated ?? DateTimeOffset.MinValue);
+        }
+
+        public Task DeleteAsync() => item.DeleteAsync();
+
+        public async Task<IStorageEntry> MoveToAsync(IStorageEntryFolder destinationFolder)
+        {
+            if (destinationFolder is not Folder dest)
+                throw new InvalidOperationException("跨提供者移动不受支持。");
+            var moved = await item.MoveAsync(dest.Item).ConfigureAwait(false);
+            return Wrap(moved ?? item);
+        }
+    }
+
+    private sealed class File(IStorageItem item) : EntryBase(item), IStorageEntryFile
+    {
+        public override bool IsFolder => false;
+
+        public Task<Stream> OpenReadAsync() =>
+            Item is IStorageFile file ? file.OpenReadAsync() : throw new InvalidOperationException("不是可读文件。");
+
+        public Task<Stream> OpenWriteAsync() =>
+            Item is IStorageFile file ? file.OpenWriteAsync() : throw new InvalidOperationException("不是可写文件。");
+    }
+
+    private sealed class Folder(IStorageFolder folder) : EntryBase(folder), IStorageEntryFolder
+    {
+        public new IStorageFolder Item => folder;
+        public override bool IsFolder => true;
+
+        public async IAsyncEnumerable<IStorageEntry> GetChildrenAsync()
+        {
+            await foreach (var child in folder.GetItemsAsync().ConfigureAwait(false))
+                yield return Wrap(child);
+        }
+
+        public async Task<IStorageEntry?> GetChildAsync(string name)
+        {
+            if (await folder.GetFileAsync(name).ConfigureAwait(false) is { } file)
+                return Wrap(file);
+            if (await folder.GetFolderAsync(name).ConfigureAwait(false) is { } sub)
+                return Wrap(sub);
+            return null;
+        }
+
+        public async Task<IStorageEntryFile> CreateFileAsync(string name)
+        {
+            var created = await folder.CreateFileAsync(name).ConfigureAwait(false)
+                          ?? throw new IOException($"无法创建文件：{name}");
+            return (IStorageEntryFile)Wrap(created);
+        }
+
+        public async Task<IStorageEntryFolder> CreateFolderAsync(string name)
+        {
+            var created = await folder.CreateFolderAsync(name).ConfigureAwait(false)
+                          ?? await folder.GetFolderAsync(name).ConfigureAwait(false)
+                          ?? throw new IOException($"无法创建文件夹：{name}");
+            return (IStorageEntryFolder)Wrap(created);
+        }
+    }
+}
+
 /// <summary>
-/// 存储提供者条目注册表：URI → IStorageItem 与父链。
-/// 浏览器以 URI 字符串为定位键（FileLocator 存储形态），条目实例由此按会话缓存与复用（不 Dispose）。
+/// 存储条目注册表：定位串 → 接缝条目与父链。
+/// 浏览器以定位串为键（FileLocator 存储形态），条目实例由此按会话缓存与复用。
 /// </summary>
 public sealed class StorageItemRegistry
 {
     private readonly Lock _gate = new();
-    private readonly Dictionary<string, IStorageItem> _items = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IStorageEntry> _items = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _parents = new(StringComparer.Ordinal);
 
-    public static string KeyOf(IStorageItem item) => item.Path.ToString();
-
-    public void Register(IStorageItem item, string? parentKey)
+    public void Register(IStorageEntry item, string? parentKey)
     {
-        var key = KeyOf(item);
         lock (_gate)
         {
-            _items[key] = item;
+            _items[item.Key] = item;
             if (parentKey is not null)
-                _parents[key] = parentKey;
+                _parents[item.Key] = parentKey;
         }
     }
 
-    public IStorageItem? Resolve(string key)
+    public IStorageEntry? Resolve(string key)
     {
         lock (_gate)
             return _items.GetValueOrDefault(key);
@@ -72,15 +190,18 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
     internal static bool IsStorage(string key) => FileLocator.IsStorageUri(key);
 
     /// <summary>根文件夹（选择器/书签打开结果）登记入册，返回其定位串。</summary>
-    public string RegisterRoot(IStorageFolder folder)
+    public string RegisterRoot(IStorageFolder folder) => RegisterRootEntry(AvaloniaStorageEntry.Wrap(folder));
+
+    /// <summary>接缝根登记（测试树与未来其它提供者来源）。</summary>
+    public string RegisterRootEntry(IStorageEntry folder)
     {
         registry.Register(folder, null);
-        return StorageItemRegistry.KeyOf(folder);
+        return folder.Key;
     }
 
-    internal IStorageItem? ResolveItem(string key) => registry.Resolve(key);
+    internal IStorageEntry? ResolveItem(string key) => registry.Resolve(key);
 
-    internal IStorageFolder? ResolveFolder(string key) => registry.Resolve(key) as IStorageFolder;
+    internal IStorageEntryFolder? ResolveFolder(string key) => registry.Resolve(key) as IStorageEntryFolder;
 
     public async IAsyncEnumerable<FileItem> ListAsync(
         string folderPath, bool includeHidden, [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -94,7 +215,7 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
 
         var folder = ResolveFolder(folderPath)
                      ?? throw new DirectoryNotFoundException("授权文件夹不可用，可能授权已被系统撤销。");
-        await foreach (var child in folder.GetItemsAsync().ConfigureAwait(false))
+        await foreach (var child in folder.GetChildrenAsync().ConfigureAwait(false))
         {
             cancellationToken.ThrowIfCancellationRequested();
             registry.Register(child, folderPath);
@@ -112,22 +233,21 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
         return item is null ? null : await ToFileItemAsync(item).ConfigureAwait(false);
     }
 
-    private static async Task<FileItem> ToFileItemAsync(IStorageItem item)
+    private static async Task<FileItem> ToFileItemAsync(IStorageEntry item)
     {
-        StorageItemProperties? props = null;
-        try { props = await item.GetBasicPropertiesAsync().ConfigureAwait(false); }
+        (long? Length, DateTimeOffset LastWrite) info = (null, DateTimeOffset.MinValue);
+        try { info = await item.GetInfoAsync().ConfigureAwait(false); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) { }
 
-        var isFolder = item is IStorageFolder;
         return new FileItem(
-            FileLocator.FromStorage(StorageItemRegistry.KeyOf(item)),
+            FileLocator.FromStorage(item.Key),
             item.Name,
-            isFolder ? FileKind.Folder : FileKindClassifier.Classify(item.Name),
-            props?.Size is { } size ? (long)Math.Min(size, (ulong)long.MaxValue) : null,
-            props?.DateModified ?? props?.DateCreated ?? DateTimeOffset.MinValue,
+            item.IsFolder ? FileKind.Folder : FileKindClassifier.Classify(item.Name),
+            info.Length,
+            info.LastWrite,
             item.Name.StartsWith('.'),
             IsSymlink: false,
-            isFolder ? null : Path.GetExtension(item.Name));
+            item.IsFolder ? null : Path.GetExtension(item.Name));
     }
 
     public async Task<string> CreateFolderAsync(string parentPath, string name, CancellationToken cancellationToken)
@@ -135,11 +255,9 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
         if (!IsStorage(parentPath))
             return await local.CreateFolderAsync(parentPath, name, cancellationToken).ConfigureAwait(false);
         var parent = ResolveFolder(parentPath) ?? throw new DirectoryNotFoundException("授权文件夹不可用。");
-        var created = await parent.CreateFolderAsync(name).ConfigureAwait(false)
-                      ?? await parent.GetFolderAsync(name).ConfigureAwait(false)
-                      ?? throw new IOException($"无法创建文件夹：{name}");
+        var created = await parent.CreateFolderAsync(name).ConfigureAwait(false);
         registry.Register(created, parentPath);
-        return StorageItemRegistry.KeyOf(created);
+        return created.Key;
     }
 
     public async Task<string> CreateFileAsync(string parentPath, string name, CancellationToken cancellationToken)
@@ -147,10 +265,9 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
         if (!IsStorage(parentPath))
             return await local.CreateFileAsync(parentPath, name, cancellationToken).ConfigureAwait(false);
         var parent = ResolveFolder(parentPath) ?? throw new DirectoryNotFoundException("授权文件夹不可用。");
-        var created = await parent.CreateFileAsync(name).ConfigureAwait(false)
-                      ?? throw new IOException($"无法创建文件：{name}");
+        var created = await parent.CreateFileAsync(name).ConfigureAwait(false);
         registry.Register(created, parentPath);
-        return StorageItemRegistry.KeyOf(created);
+        return created.Key;
     }
 
     public async Task<string> RenameAsync(string sourcePath, string newName, CancellationToken cancellationToken)
@@ -159,11 +276,10 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
             return await local.RenameAsync(sourcePath, newName, cancellationToken).ConfigureAwait(false);
 
         // StorageProvider 无原生改名：同夹复制（夹则递归）后删源。v1 已知代价，文档在册。
-        var item = ResolveItem(sourcePath) ?? throw new FileNotFoundException("项目不可用。", sourcePath);
+        _ = ResolveItem(sourcePath) ?? throw new FileNotFoundException("项目不可用。", sourcePath);
         var parentKey = registry.ParentOf(sourcePath) ?? throw new IOException("无法确定父文件夹。");
         var produced = await CopyItemAsync(sourcePath, parentKey, newName, cancellationToken).ConfigureAwait(false);
         await DeleteKeyAsync(sourcePath, cancellationToken).ConfigureAwait(false);
-        registry.Forget(sourcePath);
         return produced;
     }
 
@@ -174,7 +290,7 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
         if (!IsStorage(path))
             return await local.OpenReadAsync(path, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        var file = ResolveItem(path) as IStorageFile ?? throw new FileNotFoundException("文件不可用。", path);
+        var file = ResolveItem(path) as IStorageEntryFile ?? throw new FileNotFoundException("文件不可用。", path);
         return await file.OpenReadAsync().ConfigureAwait(false);
     }
 
@@ -199,6 +315,16 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
 
     // ---------- 供委托操作服务复用的原语（双形态统一） ----------
 
+    internal async Task<IStorageEntry?> ResolveStorageChildAsync(string folderKey, string name)
+    {
+        var folder = ResolveFolder(folderKey);
+        if (folder is null) return null;
+        var child = await folder.GetChildAsync(name).ConfigureAwait(false);
+        if (child is not null)
+            registry.Register(child, folderKey);
+        return child;
+    }
+
     internal async Task<bool> ChildExistsAsync(string folderKey, string name)
     {
         if (!IsStorage(folderKey))
@@ -206,19 +332,7 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
             var full = Path.Combine(folderKey, name);
             return File.Exists(full) || Directory.Exists(full);
         }
-        var folder = ResolveFolder(folderKey);
-        if (folder is null) return false;
-        if (await folder.GetFileAsync(name).ConfigureAwait(false) is { } file)
-        {
-            registry.Register(file, folderKey);
-            return true;
-        }
-        if (await folder.GetFolderAsync(name).ConfigureAwait(false) is { } sub)
-        {
-            registry.Register(sub, folderKey);
-            return true;
-        }
-        return false;
+        return await ResolveStorageChildAsync(folderKey, name).ConfigureAwait(false) is not null;
     }
 
     internal async Task<string?> ChildKeyAsync(string folderKey, string name)
@@ -228,21 +342,13 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
             var full = Path.Combine(folderKey, name);
             return File.Exists(full) || Directory.Exists(full) ? full : null;
         }
-        var folder = ResolveFolder(folderKey);
-        if (folder is null) return null;
-        IStorageItem? item = await folder.GetFileAsync(name).ConfigureAwait(false)
-                             ?? (IStorageItem?)await folder.GetFolderAsync(name).ConfigureAwait(false);
-        if (item is null) return null;
-        registry.Register(item, folderKey);
-        return StorageItemRegistry.KeyOf(item);
+        return (await ResolveStorageChildAsync(folderKey, name).ConfigureAwait(false))?.Key;
     }
 
-    internal async Task<string> CreateFolderDirectAsync(string parentKey, string name, CancellationToken ct) =>
-        IsStorage(parentKey)
-            ? await CreateFolderAsync(parentKey, name, ct).ConfigureAwait(false)
-            : await local.CreateFolderAsync(parentKey, name, ct).ConfigureAwait(false);
+    internal Task<string> CreateFolderDirectAsync(string parentKey, string name, CancellationToken ct) =>
+        CreateFolderAsync(parentKey, name, ct);
 
-    /// <summary>在目标夹中建文件并打开写流（存储形态下先删后建以保证截断语义）。返回定位串。</summary>
+    /// <summary>在目标夹中建文件并打开写流（存储形态下先删同名文件以保证截断语义）。返回定位串。</summary>
     internal async Task<(Stream Stream, string Key)> OpenWriteInFolderAsync(string folderKey, string name, CancellationToken ct)
     {
         if (!IsStorage(folderKey))
@@ -251,16 +357,15 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
             return (new FileStream(full, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true), full);
         }
         var folder = ResolveFolder(folderKey) ?? throw new DirectoryNotFoundException("授权文件夹不可用。");
-        if (await folder.GetFileAsync(name).ConfigureAwait(false) is { } existing)
+        if (await folder.GetChildAsync(name).ConfigureAwait(false) is IStorageEntryFile existing)
             await existing.DeleteAsync().ConfigureAwait(false);
-        var file = await folder.CreateFileAsync(name).ConfigureAwait(false)
-                   ?? throw new IOException($"无法创建文件：{name}");
+        var file = await folder.CreateFileAsync(name).ConfigureAwait(false);
         registry.Register(file, folderKey);
-        return (await file.OpenWriteAsync().ConfigureAwait(false), StorageItemRegistry.KeyOf(file));
+        return (await file.OpenWriteAsync().ConfigureAwait(false), file.Key);
     }
 
     internal bool IsFolderKey(string key) =>
-        IsStorage(key) ? ResolveItem(key) is IStorageFolder : Directory.Exists(key);
+        IsStorage(key) ? ResolveItem(key)?.IsFolder ?? false : Directory.Exists(key);
 
     internal string DisplayNameOf(string key) =>
         IsStorage(key) ? ResolveItem(key)?.Name ?? key : Path.GetFileName(key.TrimEnd(Path.DirectorySeparatorChar));
@@ -296,11 +401,11 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
             return result;
         }
         var folder = ResolveFolder(folderKey) ?? throw new DirectoryNotFoundException("授权文件夹不可用。");
-        await foreach (var child in folder.GetItemsAsync().ConfigureAwait(false))
+        await foreach (var child in folder.GetChildrenAsync().ConfigureAwait(false))
         {
             ct.ThrowIfCancellationRequested();
             registry.Register(child, folderKey);
-            result.Add((StorageItemRegistry.KeyOf(child), child.Name));
+            result.Add((child.Key, child.Name));
         }
         return result;
     }
@@ -318,7 +423,7 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
             return;
         }
         var item = ResolveItem(key) ?? throw new FileNotFoundException("项目不可用。", key);
-        if (item is IStorageFolder)
+        if (item.IsFolder)
         {
             foreach (var (childKey, _) in await ListChildrenKeysAsync(key, ct).ConfigureAwait(false))
                 await DeleteKeyAsync(childKey, ct).ConfigureAwait(false);
@@ -330,7 +435,7 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
 
 /// <summary>
 /// 双形态委托操作服务：整批与目标皆本地时原样转发既有引擎（桌面零行为变化）；
-/// 含存储形态时走统一流复制引擎（移动同树优先 MoveAsync，冲突策略与 §5.5 对齐）。
+/// 含存储形态时走统一流复制引擎（同树移动优先接缝 MoveToAsync，冲突策略与 §5.5 对齐）。
 /// </summary>
 public sealed class DelegatingFileOperationService(
     IFileOperationService local,
@@ -435,10 +540,10 @@ public sealed class DelegatingFileOperationService(
                     && fileSystem.ResolveItem(source) is { } item
                     && fileSystem.ResolveFolder(destinationFolder) is { } destFolder)
                 {
-                    var moved = await item.MoveAsync(destFolder).ConfigureAwait(false) ?? item;
+                    var moved = await item.MoveToAsync(destFolder).ConfigureAwait(false);
                     fileSystem.Registry.Forget(source);
                     fileSystem.Registry.Register(moved, destinationFolder);
-                    producedKey = StorageItemRegistry.KeyOf(moved);
+                    producedKey = moved.Key;
                 }
                 else
                 {

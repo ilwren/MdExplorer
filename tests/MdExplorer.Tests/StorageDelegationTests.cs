@@ -1,5 +1,4 @@
 using System.Text;
-using Avalonia.Platform.Storage;
 using MdExplorer.Domain;
 using MdExplorer.Infrastructure;
 using MdExplorer.UI.Services;
@@ -7,20 +6,18 @@ using Xunit;
 
 namespace MdExplorer.Tests;
 
-// StorageProvider 接口的测试替身（模拟 Android SAF 授权树）：无模拟器环境下验证委托层行为。
-internal sealed class FakeStorageFile(string name, Uri path, FakeStorageFolder? parent) : IStorageFile
+// 存储接缝的内存树替身（模拟 Android SAF 授权树）：Avalonia 存储接口标注 NotClientImplementable
+// 不可自实现，故委托层依赖 IStorageEntry 接缝、测试实现同一接缝（无模拟器环境下验证委托行为）。
+internal sealed class FakeEntryFile(string name, string key, FakeEntryFolder? parent) : IStorageEntryFile
 {
     public byte[] Content = [];
-    public FakeStorageFolder? Parent { get; set; } = parent;
+    public FakeEntryFolder? Parent { get; set; } = parent;
     public string Name { get; } = name;
-    public Uri Path { get; set; } = path;
-    public bool CanBookmark => true;
+    public string Key { get; set; } = key;
+    public bool IsFolder => false;
 
-    public Task<StorageItemProperties> GetBasicPropertiesAsync() =>
-        Task.FromResult(new StorageItemProperties((ulong)Content.Length, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
-
-    public Task<string?> SaveBookmarkAsync() => Task.FromResult<string?>("bm:" + Path);
-    public Task<IStorageFolder?> GetParentAsync() => Task.FromResult<IStorageFolder?>(Parent);
+    public Task<(long? Length, DateTimeOffset LastWrite)> GetInfoAsync() =>
+        Task.FromResult<(long?, DateTimeOffset)>((Content.Length, DateTimeOffset.UnixEpoch));
 
     public Task DeleteAsync()
     {
@@ -28,23 +25,22 @@ internal sealed class FakeStorageFile(string name, Uri path, FakeStorageFolder? 
         return Task.CompletedTask;
     }
 
-    public Task<IStorageItem?> MoveAsync(IStorageFolder destination)
+    public Task<IStorageEntry> MoveToAsync(IStorageEntryFolder destinationFolder)
     {
-        if (destination is FakeStorageFolder dest)
+        if (destinationFolder is FakeEntryFolder dest)
         {
             Parent?.Children.Remove(this);
             Parent = dest;
             dest.Children.Add(this);
-            Path = new Uri(dest.Path + "/" + Name);
+            Key = dest.Key + "/" + Name;
         }
-        return Task.FromResult<IStorageItem?>(this);
+        return Task.FromResult<IStorageEntry>(this);
     }
 
     public Task<Stream> OpenReadAsync() => Task.FromResult<Stream>(new MemoryStream(Content, writable: false));
     public Task<Stream> OpenWriteAsync() => Task.FromResult<Stream>(new CommitStream(this));
-    public void Dispose() { }
 
-    private sealed class CommitStream(FakeStorageFile owner) : MemoryStream
+    private sealed class CommitStream(FakeEntryFile owner) : MemoryStream
     {
         protected override void Dispose(bool disposing)
         {
@@ -54,33 +50,30 @@ internal sealed class FakeStorageFile(string name, Uri path, FakeStorageFolder? 
     }
 }
 
-internal sealed class FakeStorageFolder(string name, Uri path, FakeStorageFolder? parent) : IStorageFolder
+internal sealed class FakeEntryFolder(string name, string key, FakeEntryFolder? parent) : IStorageEntryFolder
 {
-    public List<IStorageItem> Children { get; } = [];
-    public FakeStorageFolder? Parent { get; set; } = parent;
+    public List<IStorageEntry> Children { get; } = [];
+    public FakeEntryFolder? Parent { get; set; } = parent;
     public string Name { get; } = name;
-    public Uri Path { get; set; } = path;
-    public bool CanBookmark => true;
+    public string Key { get; set; } = key;
+    public bool IsFolder => true;
 
-    public FakeStorageFile AddFile(string name, string content)
+    public FakeEntryFile AddFile(string name, string content)
     {
-        var file = new FakeStorageFile(name, new Uri(Path + "/" + name), this) { Content = Encoding.UTF8.GetBytes(content) };
+        var file = new FakeEntryFile(name, Key + "/" + name, this) { Content = Encoding.UTF8.GetBytes(content) };
         Children.Add(file);
         return file;
     }
 
-    public FakeStorageFolder AddFolder(string name)
+    public FakeEntryFolder AddFolder(string name)
     {
-        var folder = new FakeStorageFolder(name, new Uri(Path + "/" + name), this);
+        var folder = new FakeEntryFolder(name, Key + "/" + name, this);
         Children.Add(folder);
         return folder;
     }
 
-    public Task<StorageItemProperties> GetBasicPropertiesAsync() =>
-        Task.FromResult(new StorageItemProperties(null, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
-
-    public Task<string?> SaveBookmarkAsync() => Task.FromResult<string?>("bm:" + Path);
-    public Task<IStorageFolder?> GetParentAsync() => Task.FromResult<IStorageFolder?>(Parent);
+    public Task<(long? Length, DateTimeOffset LastWrite)> GetInfoAsync() =>
+        Task.FromResult<(long?, DateTimeOffset)>((null, DateTimeOffset.UnixEpoch));
 
     public Task DeleteAsync()
     {
@@ -88,19 +81,19 @@ internal sealed class FakeStorageFolder(string name, Uri path, FakeStorageFolder
         return Task.CompletedTask;
     }
 
-    public Task<IStorageItem?> MoveAsync(IStorageFolder destination)
+    public Task<IStorageEntry> MoveToAsync(IStorageEntryFolder destinationFolder)
     {
-        if (destination is FakeStorageFolder dest)
+        if (destinationFolder is FakeEntryFolder dest)
         {
             Parent?.Children.Remove(this);
             Parent = dest;
             dest.Children.Add(this);
-            Path = new Uri(dest.Path + "/" + Name);
+            Key = dest.Key + "/" + Name;
         }
-        return Task.FromResult<IStorageItem?>(this);
+        return Task.FromResult<IStorageEntry>(this);
     }
 
-    public async IAsyncEnumerable<IStorageItem> GetItemsAsync()
+    public async IAsyncEnumerable<IStorageEntry> GetChildrenAsync()
     {
         foreach (var child in Children.ToArray())
         {
@@ -109,19 +102,14 @@ internal sealed class FakeStorageFolder(string name, Uri path, FakeStorageFolder
         }
     }
 
-    public Task<IStorageFolder?> GetFolderAsync(string name) =>
-        Task.FromResult<IStorageFolder?>(Children.OfType<FakeStorageFolder>().FirstOrDefault(f => f.Name == name));
+    public Task<IStorageEntry?> GetChildAsync(string name) =>
+        Task.FromResult(Children.FirstOrDefault(c => c.Name == name));
 
-    public Task<IStorageFile?> GetFileAsync(string name) =>
-        Task.FromResult<IStorageFile?>(Children.OfType<FakeStorageFile>().FirstOrDefault(f => f.Name == name));
+    public Task<IStorageEntryFile> CreateFileAsync(string name) =>
+        Task.FromResult<IStorageEntryFile>(AddFile(name, ""));
 
-    public Task<IStorageFile?> CreateFileAsync(string name) =>
-        Task.FromResult<IStorageFile?>(AddFile(name, ""));
-
-    public Task<IStorageFolder?> CreateFolderAsync(string name) =>
-        Task.FromResult<IStorageFolder?>(AddFolder(name));
-
-    public void Dispose() { }
+    public Task<IStorageEntryFolder> CreateFolderAsync(string name) =>
+        Task.FromResult<IStorageEntryFolder>(AddFolder(name));
 }
 
 public sealed class StorageDelegationTests : IDisposable
@@ -137,7 +125,7 @@ public sealed class StorageDelegationTests : IDisposable
     private sealed record Tree(
         DelegatingFileSystemService Fs,
         DelegatingFileOperationService Ops,
-        FakeStorageFolder Root,
+        FakeEntryFolder Root,
         string RootKey,
         string AKey,
         string SubKey);
@@ -146,13 +134,13 @@ public sealed class StorageDelegationTests : IDisposable
     {
         var fs = new DelegatingFileSystemService(new LocalFileSystemService(), new StorageItemRegistry());
         var ops = new DelegatingFileOperationService(new FileOperationService(), fs);
-        var root = new FakeStorageFolder("授权夹", new Uri("content://tree/root"), null);
+        var root = new FakeEntryFolder("授权夹", "content://tree/root", null);
         var a = root.AddFile("a.txt", "hello");
         root.AddFile(".hidden", "x");
         var sub = root.AddFolder("sub");
         sub.AddFile("b.txt", "world!");
-        var rootKey = fs.RegisterRoot(root);
-        return new Tree(fs, ops, root, rootKey, a.Path.ToString(), sub.Path.ToString());
+        var rootKey = fs.RegisterRootEntry(root);
+        return new Tree(fs, ops, root, rootKey, a.Key, sub.Key);
     }
 
     private static async Task<List<FileItem>> ListAllAsync(DelegatingFileSystemService fs, string key, bool hidden = false)
