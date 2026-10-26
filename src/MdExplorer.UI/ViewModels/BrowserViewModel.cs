@@ -10,6 +10,9 @@ using MdExplorer.Platform.Abstractions;
 namespace MdExplorer.UI.ViewModels;
 
 /// <summary>一个浏览会话的全部状态：当前位置、条目、选集、搜索、剪贴板与写操作。</summary>
+/// <summary>文件区呈现模式（与 AppSettings.ViewMode 字符串一一对应）。</summary>
+public enum BrowserViewMode { List, Grid, Details }
+
 public sealed partial class BrowserViewModel : ObservableObject
 {
     private readonly IFileSystemService _fileSystem;
@@ -54,7 +57,12 @@ public sealed partial class BrowserViewModel : ObservableObject
 
         var s = settingsStore.Settings;
         _watchEnabled = s.WatchFolderChanges;
-        _isGridView = string.Equals(s.ViewMode, "Grid", StringComparison.Ordinal);
+        _viewMode = s.ViewMode switch
+        {
+            "Grid" => BrowserViewMode.Grid,
+            "Details" => BrowserViewMode.Details,
+            _ => BrowserViewMode.List,
+        };
         _sortFieldLabel = SortFieldText(ParseSort(s.SortField));
         SelectedItems.CollectionChanged += (_, _) => OnSelectionChanged();
     }
@@ -69,7 +77,7 @@ public sealed partial class BrowserViewModel : ObservableObject
 
     public bool HasError => LoadError is not null;
     [ObservableProperty] private bool _isEmpty;
-    [ObservableProperty] private bool _isGridView;
+    [ObservableProperty] private BrowserViewMode _viewMode = BrowserViewMode.List;
     [ObservableProperty] private string _sortFieldLabel = "名称";
     [ObservableProperty] private string _statusText = string.Empty;
     [ObservableProperty] private string _filterText = string.Empty;
@@ -84,7 +92,9 @@ public sealed partial class BrowserViewModel : ObservableObject
     public ObservableCollection<FileItemViewModel> SelectedItems { get; } = [];
     public ObservableCollection<BreadcrumbSegment> Breadcrumbs { get; } = [];
 
-    public bool IsListView => !IsGridView;
+    public bool IsListView => ViewMode == BrowserViewMode.List;
+    public bool IsGridView => ViewMode == BrowserViewMode.Grid;
+    public bool IsDetailsView => ViewMode == BrowserViewMode.Details;
     public bool HasSelection => SelectedCount > 0;
     public bool HasClipboard => _clipboardPaths.Count > 0;
     public string SelectionText => SelectedCount == 0 ? StatusText : $"已选 {SelectedCount} 项";
@@ -95,13 +105,29 @@ public sealed partial class BrowserViewModel : ObservableObject
     /// <summary>同步预判「返回」能否被浏览器消费（系统返回事件需同步决定 Handled）。</summary>
     public bool CanConsumeBack => IsSelectionMode || IsSearchMode || _backStack.Count > 0;
 
+    /// <summary>工具栏按钮：列表 → 网格 → 详细信息循环切换。</summary>
     [RelayCommand]
-    private void ToggleViewMode() => IsGridView = !IsGridView;
+    private void ToggleViewMode() => ViewMode = ViewMode switch
+    {
+        BrowserViewMode.List => BrowserViewMode.Grid,
+        BrowserViewMode.Grid => BrowserViewMode.Details,
+        _ => BrowserViewMode.List,
+    };
 
-    partial void OnIsGridViewChanged(bool value)
+    [RelayCommand]
+    private void SetViewMode(string? mode) => ViewMode = mode switch
+    {
+        "Grid" => BrowserViewMode.Grid,
+        "Details" => BrowserViewMode.Details,
+        _ => BrowserViewMode.List,
+    };
+
+    partial void OnViewModeChanged(BrowserViewMode value)
     {
         OnPropertyChanged(nameof(IsListView));
-        _settingsStore.Settings.ViewMode = value ? "Grid" : "List";
+        OnPropertyChanged(nameof(IsGridView));
+        OnPropertyChanged(nameof(IsDetailsView));
+        _settingsStore.Settings.ViewMode = value.ToString();
         _ = SaveSettingsAsync();
     }
 
@@ -346,8 +372,36 @@ public sealed partial class BrowserViewModel : ObservableObject
         _settingsStore.Settings.SortField = field.ToString();
         _settingsStore.Settings.SortDirection = direction.ToString();
         SortFieldLabel = SortFieldText(field);
+        RaiseSortGlyphs();
         _ = SaveSettingsAsync();
         RefilterAndSort();
+    }
+
+    /// <summary>详细信息视图点列头：同字段翻转方向、新字段升序；最终仍经 SetSort → RefilterAndSort 管线，
+    /// 保证自然序与「文件夹在前」不被控件自排覆盖（视图层把 DataGrid 的 Sorting 事件标记 Handled 后调用至此）。</summary>
+    public void ApplyColumnSort(SortField field)
+    {
+        var direction = CurrentSortField == field && CurrentSortDirection == SortDirection.Ascending
+            ? SortDirection.Descending
+            : SortDirection.Ascending;
+        SetSort(field, direction);
+    }
+
+    // 详细信息列头方向指示（控件默认箭头随其自排机制走，我们自己管排序故自绘）
+    public string NameSortGlyph => SortGlyph(SortField.Name);
+    public string SizeSortGlyph => SortGlyph(SortField.Size);
+    public string KindSortGlyph => SortGlyph(SortField.Kind);
+    public string ModifiedSortGlyph => SortGlyph(SortField.LastWriteTime);
+
+    private string SortGlyph(SortField field) =>
+        CurrentSortField != field ? "" : CurrentSortDirection == SortDirection.Ascending ? "↑" : "↓";
+
+    private void RaiseSortGlyphs()
+    {
+        OnPropertyChanged(nameof(NameSortGlyph));
+        OnPropertyChanged(nameof(SizeSortGlyph));
+        OnPropertyChanged(nameof(KindSortGlyph));
+        OnPropertyChanged(nameof(ModifiedSortGlyph));
     }
 
     public void RefilterAndSort()

@@ -112,7 +112,7 @@ public sealed class ScreenshotTests
     [AvaloniaFact]
     public async Task Medium_BrowserGrid() => await CaptureAsync("03-medium-768x1024.png", 768, 1024, async shell =>
     {
-        shell.Browser.IsGridView = true;
+        shell.Browser.ViewMode = BrowserViewMode.Grid;
         await shell.Browser.WhenIdleAsync();
     });
 
@@ -122,7 +122,14 @@ public sealed class ScreenshotTests
     [AvaloniaFact]
     public async Task Large_BrowserGridPreview() => await CaptureAsync("05-large-1440x900.png", 1440, 900, async shell =>
     {
-        shell.Browser.IsGridView = true;
+        shell.Browser.ViewMode = BrowserViewMode.Grid;
+        await shell.Browser.WhenIdleAsync();
+    });
+
+    [AvaloniaFact]
+    public async Task Large_DetailsView() => await CaptureAsync("15-large-details.png", 1440, 900, async shell =>
+    {
+        shell.Browser.ViewMode = BrowserViewMode.Details;
         await shell.Browser.WhenIdleAsync();
     });
 

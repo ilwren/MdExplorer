@@ -3,11 +3,17 @@
              xmlns:md="using:Md3.Avalonia.Controls"
              xmlns:vm="using:MdExplorer.UI.ViewModels"
              xmlns:views="using:MdExplorer.UI.Views"
+             xmlns:themes="using:Md3.Avalonia.Themes"
              x:Class="MdExplorer.UI.Views.MainView"
              x:DataType="vm:ShellViewModel"
              Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
              Foreground="{DynamicResource Md.Sys.Color.OnSurface.Brush}"
              KeyDown="OnRootKeyDown">
+
+  <UserControl.Styles>
+    <!-- DataGrid 的 MD3 主题（Md3.Avalonia.DataGrid 卫星包；按 PreviewView/AvaloniaEdit 的按视图接法） -->
+    <themes:MaterialDataGridTheme />
+  </UserControl.Styles>
 
   <UserControl.Resources>
     <ContextMenu x:Key="ItemMenu">
@@ -206,7 +212,9 @@
                       <md:MdButton Variant="Text" Content="排序 · 大小" Click="OnSortBySize" />
                       <md:MdButton Variant="Text" Content="排序 · 类型" Click="OnSortByKind" />
                       <Border Height="1" Margin="4,4" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
-                      <md:MdButton Variant="Text" Content="切换 列表/网格" Command="{Binding Browser.ToggleViewModeCommand}" />
+                      <md:MdButton Variant="Text" Content="视图 · 列表" Command="{Binding Browser.SetViewModeCommand}" CommandParameter="List" />
+                      <md:MdButton Variant="Text" Content="视图 · 网格" Command="{Binding Browser.SetViewModeCommand}" CommandParameter="Grid" />
+                      <md:MdButton Variant="Text" Content="视图 · 详细信息" Command="{Binding Browser.SetViewModeCommand}" CommandParameter="Details" />
                       <md:MdButton Variant="Text" Content="进入选择模式" Command="{Binding Browser.EnterSelectionModeCommand}" />
                     </StackPanel>
                     </Border>
@@ -273,6 +281,83 @@
                     <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                   </md:MdList.ItemsPanel>
                 </md:MdList>
+                <!-- 详细信息视图：排序经 Sorting 事件收回 VM 管线（控件自排关闭），箭头自绘于表头 -->
+                <DataGrid x:Name="FileDetails"
+                          ItemsSource="{Binding Browser.Items}"
+                          SelectedItems="{Binding Browser.SelectedItems}"
+                          SelectionMode="Extended"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserSortColumns="True"
+                          CanUserResizeColumns="True"
+                          CanUserReorderColumns="False"
+                          GridLinesVisibility="Horizontal"
+                          HeadersVisibility="Column"
+                          IsVisible="{Binding Browser.IsDetailsView}"
+                          ContextMenu="{StaticResource ItemMenu}"
+                          Sorting="OnDetailsSorting"
+                          Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
+                  <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="*" MinWidth="160" SortMemberPath="Name" CanUserSort="True">
+                      <DataGridTemplateColumn.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
+                          <TextBlock Text="名称" VerticalAlignment="Center" />
+                          <TextBlock Text="{Binding Browser.NameSortGlyph}" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </DataGridTemplateColumn.Header>
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:FileItemViewModel">
+                          <StackPanel Orientation="Horizontal" Spacing="8" Margin="6,0" VerticalAlignment="Center">
+                            <Image Source="{Binding Thumbnail}" Width="26" Height="26" Stretch="UniformToFill"
+                                   IsVisible="{Binding HasThumbnail}" VerticalAlignment="Center" />
+                            <md:MdIcon Glyph="{Binding Glyph}" Size="22" Foreground="{Binding GlyphBrush}"
+                                       IsVisible="{Binding ShowGlyph}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Width="120" SortMemberPath="Size" CanUserSort="True">
+                      <DataGridTemplateColumn.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
+                          <TextBlock Text="大小" VerticalAlignment="Center" />
+                          <TextBlock Text="{Binding Browser.SizeSortGlyph}" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </DataGridTemplateColumn.Header>
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:FileItemViewModel">
+                          <TextBlock Text="{Binding SizeText}" Margin="6,0" VerticalAlignment="Center" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Width="160" SortMemberPath="Kind" CanUserSort="True">
+                      <DataGridTemplateColumn.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
+                          <TextBlock Text="类型" VerticalAlignment="Center" />
+                          <TextBlock Text="{Binding Browser.KindSortGlyph}" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </DataGridTemplateColumn.Header>
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:FileItemViewModel">
+                          <TextBlock Text="{Binding KindText}" Margin="6,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Width="180" SortMemberPath="LastWriteTime" CanUserSort="True">
+                      <DataGridTemplateColumn.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
+                          <TextBlock Text="修改时间" VerticalAlignment="Center" />
+                          <TextBlock Text="{Binding Browser.ModifiedSortGlyph}" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </DataGridTemplateColumn.Header>
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:FileItemViewModel">
+                          <TextBlock Text="{Binding ModifiedText}" Margin="6,0" VerticalAlignment="Center" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                  </DataGrid.Columns>
+                </DataGrid>
 
                 <StackPanel IsVisible="{Binding Browser.IsEmpty}" HorizontalAlignment="Center"
                             VerticalAlignment="Center" Spacing="10">

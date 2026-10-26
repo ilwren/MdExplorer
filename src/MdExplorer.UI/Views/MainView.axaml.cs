@@ -19,6 +19,7 @@ public partial class MainView : UserControl
         // 右键菜单打开前确保命中项被选中（ListBox 默认不处理）
         FileList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         FileGrid.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
+        FileDetails.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
     }
 
     private ShellViewModel? Shell => DataContext as ShellViewModel;
@@ -195,7 +196,8 @@ public partial class MainView : UserControl
             return null;
         if (source.DataContext is FileItemViewModel direct)
             return direct;
-        return source.FindAncestorOfType<ListBoxItem>()?.DataContext as FileItemViewModel;
+        return source.FindAncestorOfType<ListBoxItem>()?.DataContext as FileItemViewModel
+               ?? source.FindAncestorOfType<DataGridRow>()?.DataContext as FileItemViewModel;
     }
 
     // ---------- 面包屑/排序/搜索 ----------
@@ -220,6 +222,22 @@ public partial class MainView : UserControl
         if (Shell is { } shell)
             shell.Browser.SetSort(Enum.TryParse<SortField>(shell.SettingsStore.Settings.SortField, out var f) ? f : SortField.Name,
                 _ascending ? SortDirection.Ascending : SortDirection.Descending);
+    }
+
+    /// <summary>详细信息点列头：排序统一收回 VM 管线（自然序/文件夹在前），控件自排被 Handled 拦截。</summary>
+    private void OnDetailsSorting(object? sender, DataGridColumnEventArgs e)
+    {
+        var field = e.Column.SortMemberPath switch
+        {
+            "Name" => SortField.Name,
+            "Size" => SortField.Size,
+            "Kind" => SortField.Kind,
+            "LastWriteTime" => SortField.LastWriteTime,
+            _ => (SortField?)null,
+        };
+        if (field is { } f && Shell is { } shell)
+            shell.Browser.ApplyColumnSort(f);
+        e.Handled = true;
     }
 
     private async void OnSearchKeyDown(object? sender, KeyEventArgs e)

@@ -21,6 +21,11 @@ public sealed partial class FileItemViewModel(FileItem model) : ObservableObject
         : $"{Formatting.Bytes(Model.Length)} · {Formatting.DateTime(Model.LastWriteTime, DateTimeOffset.Now)}";
 
     /// <summary>搜索结果中展示父目录（普通浏览时由 Browser 关闭）。</summary>
+    // 详细信息视图列（纯显示字符串；排序由 Browser 的 FileItemOrdering 管线负责）
+    public string SizeText => Model.IsFolder ? "—" : Formatting.Bytes(Model.Length);
+    public string KindText => FileKindClassifier.Describe(Model);
+    public string ModifiedText => Formatting.FullDateTime(Model.LastWriteTime);
+
     public string ParentText => Path.GetDirectoryName(Model.FullPath) ?? string.Empty;
 
     [ObservableProperty]

@@ -120,7 +120,7 @@ public sealed class AppSettings
     public int SchemaVersion { get; set; } = 1;
     public string ThemeMode { get; set; } = "System";       // System | Light | Dark
     public string SeedColor { get; set; } = "#006A6A";      // MD3 HCT 种子色
-    public string ViewMode { get; set; } = "List";          // List | Grid
+    public string ViewMode { get; set; } = "List";          // List | Grid | Details
     public string SortField { get; set; } = "Name";
     public string SortDirection { get; set; } = "Ascending";
     public bool ShowHidden { get; set; }

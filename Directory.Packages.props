@@ -14,6 +14,7 @@
     <PackageVersion Include="Md3.Avalonia.Icons" Version="0.5.0-preview.2" />
     <PackageVersion Include="Md3.Avalonia.AvaloniaEdit" Version="0.5.0-preview.2" />
     <PackageVersion Include="Md3.Avalonia.Markdown" Version="0.5.0-preview.2" />
+    <PackageVersion Include="Md3.Avalonia.DataGrid" Version="0.5.0-preview.2" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />

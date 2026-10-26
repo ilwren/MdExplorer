@@ -8,6 +8,7 @@
     <PackageReference Include="Md3.Avalonia" />
     <PackageReference Include="Md3.Avalonia.AvaloniaEdit" />
     <PackageReference Include="Md3.Avalonia.Markdown" />
+    <PackageReference Include="Md3.Avalonia.DataGrid" />
     <PackageReference Include="Md3.Avalonia.Icons" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <ProjectReference Include="..\MdExplorer.Domain\MdExplorer.Domain.csproj" />
