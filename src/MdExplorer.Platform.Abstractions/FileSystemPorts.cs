@@ -125,6 +125,14 @@ public interface ISearchService
     IAsyncEnumerable<FileItem> SearchByNameAsync(SearchSpec spec, CancellationToken cancellationToken);
 }
 
+/// <summary>单个文件夹被记住的呈现方式（与全局默认 ViewMode/Sort* 分开保存）。</summary>
+public sealed class FolderViewPreferences
+{
+    public string ViewMode { get; set; } = "List";          // List | Grid | Details
+    public string SortField { get; set; } = "Name";
+    public string SortDirection { get; set; } = "Ascending";
+}
+
 /// <summary>应用设置模型（JSON 持久化，源生成序列化）。</summary>
 public sealed class AppSettings
 {
@@ -137,6 +145,9 @@ public sealed class AppSettings
     public bool ShowHidden { get; set; }
     public bool FoldersFirst { get; set; } = true;
     public bool ShowPreviewPane { get; set; } = true;
+    public bool ReduceMotion { get; set; }                 // 应用内低动效：关闭 Eidoria 自有位移动画与微交互位移
+    public bool RememberFolderView { get; set; }           // 按文件夹记忆视图/排序；关闭时 ViewMode/Sort* 为全局当前值
+    public Dictionary<string, FolderViewPreferences> FolderViewStates { get; set; } = [];
     public double DrawerPaneWidth { get; set; } = 288;    // Expanded+ 永久抽屉宽度（MaterialGridSplitter 拖后回写）
     public double PreviewPaneWidth { get; set; } = 316;   // Expanded+ 预览卡宽度（同上）
     public bool ConfirmPermanentDelete { get; set; } = true;

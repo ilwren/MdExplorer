@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -95,6 +96,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _showHidden = s.ShowHidden;
         _foldersFirst = s.FoldersFirst;
         _showPreviewPane = s.ShowPreviewPane;
+        _reduceMotion = s.ReduceMotion;
+        _rememberFolderView = s.RememberFolderView;
         _watchFolderChanges = s.WatchFolderChanges;
     }
 
@@ -115,6 +118,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _isPreviewPageOpen;
 
     public string DataDirectoryText => _services.DataDirectory;
+
+    /// <summary>设置页版本串：跟随程序集信息版本，避免每次发版手工改 XAML。</summary>
+    public string AppVersionText
+    {
+        get
+        {
+            var assembly = typeof(ShellViewModel).Assembly;
+            var informational = assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrWhiteSpace(informational))
+                return informational.Split('+', 2)[0];
+            var version = assembly.GetName().Version;
+            return version is null ? "开发版" : $"{version.Major}.{version.Minor}.{version.Build}";
+        }
+    }
 
     public string PageTitle => Page switch
     {
@@ -645,6 +663,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _watchFolderChanges = true;
     [ObservableProperty] private bool _foldersFirst = true;
     [ObservableProperty] private bool _showPreviewPane = true;
+    [ObservableProperty] private bool _reduceMotion;
+    [ObservableProperty] private bool _rememberFolderView;
 
     public string ThemeModeText => ThemeMode switch { "Light" => "浅色", "Dark" => "深色", _ => "跟随系统" };
 
@@ -682,6 +702,25 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _services.SettingsStore.Settings.ShowPreviewPane = value;
         _ = SaveAsync();
         RefreshPreviewVisibility();
+    }
+
+    partial void OnReduceMotionChanged(bool value)
+    {
+        _services.SettingsStore.Settings.ReduceMotion = value;
+        _ = SaveAsync();
+    }
+
+    partial void OnRememberFolderViewChanged(bool value)
+    {
+        _services.SettingsStore.Settings.RememberFolderView = value;
+        Browser.OnFolderViewMemorySettingChanged(value);
+    }
+
+    [RelayCommand]
+    private async Task ClearFolderViewPreferencesAsync()
+    {
+        await Browser.ClearFolderViewPreferencesAsync().ConfigureAwait(true);
+        Notify("已清除文件夹视图记忆");
     }
 
     partial void OnWatchFolderChangesChanged(bool value)

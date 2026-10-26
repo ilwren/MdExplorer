@@ -32,7 +32,7 @@ public sealed class SettingsStore : ISettingsStore
                 await using var stream = File.OpenRead(store._settingsPath);
                 var loaded = await JsonSerializer.DeserializeAsync(
                     stream, MdExplorerJsonContext.Default.AppSettings, cancellationToken).ConfigureAwait(false);
-                if (loaded is not null) store.Settings = loaded;
+                if (loaded is not null) store.Settings = Normalize(loaded);
             }
 
             if (File.Exists(store._favoritesPath))
@@ -65,7 +65,7 @@ public sealed class SettingsStore : ISettingsStore
             {
                 var json = File.ReadAllText(store._settingsPath);
                 if (JsonSerializer.Deserialize(json, MdExplorerJsonContext.Default.AppSettings) is { } loaded)
-                    store.Settings = loaded;
+                    store.Settings = Normalize(loaded);
             }
             if (File.Exists(store._favoritesPath))
             {
@@ -78,6 +78,26 @@ public sealed class SettingsStore : ISettingsStore
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
         return store;
+    }
+
+    private static AppSettings Normalize(AppSettings settings)
+    {
+        // 旧版没有这些字段时源生成反序列化会保留默认值；手改 JSON 显式写 null 时则在此兜底。
+        settings.ThemeMode ??= "System";
+        settings.SeedColor ??= "#006A6A";
+        settings.ViewMode ??= "List";
+        settings.SortField ??= "Name";
+        settings.SortDirection ??= "Ascending";
+        settings.OpenTabPaths ??= [];
+        settings.RecentFolderPaths ??= [];
+        settings.RecentFilePaths ??= [];
+        settings.FolderViewStates ??= [];
+        foreach (var key in settings.FolderViewStates
+                     .Where(pair => pair.Value is null)
+                     .Select(pair => pair.Key)
+                     .ToArray())
+            settings.FolderViewStates.Remove(key);
+        return settings;
     }
 
     public async Task SaveSettingsAsync(CancellationToken cancellationToken)

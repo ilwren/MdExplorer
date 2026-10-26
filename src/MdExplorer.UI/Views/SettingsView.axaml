@@ -23,6 +23,13 @@
         <TextBlock Classes="caption">
           <Run Text="当前种子色：" /><Run Text="{Binding SeedColor}" />
         </TextBlock>
+        <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+          <StackPanel>
+            <TextBlock Classes="body" Text="减少动态效果" />
+            <TextBlock Classes="caption" Text="关闭目录/页面位移动画、侧栏微位移与文件卡悬停上浮" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding ReduceMotion}" VerticalAlignment="Center" />
+        </Grid>
       </StackPanel>
 
       <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
@@ -52,6 +59,15 @@
         </Grid>
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel>
+            <TextBlock Classes="body" Text="按文件夹记忆视图与排序" />
+            <TextBlock Classes="caption" Text="每个文件夹单独保存列表/网格/详细信息及排序；新文件夹仍用全局默认" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding RememberFolderView}" VerticalAlignment="Center" />
+        </Grid>
+        <md:MdButton Variant="Outlined" Content="清除文件夹视图记忆" HorizontalAlignment="Left"
+                     Command="{Binding ClearFolderViewPreferencesCommand}" />
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
             <TextBlock Classes="body" Text="外部变更自动刷新" />
             <TextBlock Classes="caption" Text="其他程序增删改当前文件夹时自动同步列表" />
           </StackPanel>
@@ -63,7 +79,9 @@
 
       <StackPanel Spacing="8">
         <TextBlock Classes="h3" Text="关于" />
-        <TextBlock Classes="body" Text="Eidoria（万象屿）0.6.0" />
+        <TextBlock Classes="body">
+          <Run Text="Eidoria（万象屿） " /><Run Text="{Binding AppVersionText}" />
+        </TextBlock>
         <TextBlock Classes="caption" Text="Avalonia 12 · .NET 10 · Material Design 3（Md3.Avalonia）" />
         <TextBlock Classes="caption" TextWrapping="Wrap">
           <Run Text="数据目录：" /><Run Text="{Binding DataDirectoryText}" />

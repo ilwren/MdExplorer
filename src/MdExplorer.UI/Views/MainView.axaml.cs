@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -25,8 +26,12 @@ public partial class MainView : UserControl
     private DragCandidate? _dragCandidate;
     private bool _dragInProgress;
     private bool _breadcrumbEndScrollPending;
-    private double _drawerPaneWidth = 288;
-    private double _previewPaneWidth = 316;
+    private const double DefaultDrawerPaneWidth = 288;
+    private const double DefaultPreviewPaneWidth = 316;
+    private double _drawerPaneWidth = DefaultDrawerPaneWidth;
+    private double _previewPaneWidth = DefaultPreviewPaneWidth;
+    private readonly Dictionary<Control, Transitions> _motionTransitions = [];
+    private bool _reduceMotion;
     private bool _previewPaneVisible;
     private string? _lastBrowserPath;
     private bool _pendingFileContentAnimation;
@@ -40,6 +45,7 @@ public partial class MainView : UserControl
     public MainView()
     {
         InitializeComponent();
+        CaptureMotionTransitions();
         // 右键菜单打开前确保命中项被选中（ListBox 默认不处理）
         FileList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         FileGrid.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
@@ -92,6 +98,7 @@ public partial class MainView : UserControl
             _drawerPaneWidth = Math.Clamp(vm.SettingsStore.Settings.DrawerPaneWidth, 216, 440);
             _previewPaneWidth = Math.Clamp(vm.SettingsStore.Settings.PreviewPaneWidth, 260, 520);
             _lastBrowserPath = vm.Browser.CurrentPath;
+            ApplyMotionPreference(vm.ReduceMotion);
             ApplyPaneColumnWidths();
             vm.PropertyChanged += OnShellPropertyChanged;
             // DataGrid.SelectedItems 为只读 IList（不可绑定整集），选集与 VM 手动双向同步
@@ -177,6 +184,62 @@ public partial class MainView : UserControl
     private void OnPreviewSplitterDragCompleted(object? sender, VectorEventArgs e) =>
         Dispatcher.UIThread.Post(() => PersistPaneWidths(null, PreviewColumn.ActualWidth), DispatcherPriority.Loaded);
 
+    private void OnDrawerSplitterResetRequested(object? sender, EventArgs e)
+    {
+        _drawerPaneWidth = DefaultDrawerPaneWidth;
+        ApplyPaneColumnWidths();
+        PersistPaneWidths(DefaultDrawerPaneWidth, null);
+    }
+
+    private void OnPreviewSplitterResetRequested(object? sender, EventArgs e)
+    {
+        _previewPaneWidth = DefaultPreviewPaneWidth;
+        ApplyPaneColumnWidths();
+        PersistPaneWidths(null, DefaultPreviewPaneWidth);
+    }
+
+    private Control[] MotionHosts => [PageHost, FileDropArea, PreviewPane, ModalDrawerHost, TaskCenterCard];
+
+    private void CaptureMotionTransitions()
+    {
+        foreach (var host in MotionHosts)
+        {
+            if (host.Transitions is { } transitions)
+                _motionTransitions[host] = transitions;
+        }
+    }
+
+    private void ApplyMotionPreference(bool reduceMotion)
+    {
+        _reduceMotion = reduceMotion;
+        const string className = "reduce-motion";
+        if (reduceMotion)
+        {
+            if (!Classes.Contains(className))
+                Classes.Add(className);
+        }
+        else
+        {
+            Classes.Remove(className);
+        }
+
+        foreach (var host in MotionHosts)
+        {
+            if (reduceMotion)
+            {
+                host.Transitions = null;
+                host.Opacity = 1;
+                host.RenderTransform = new TranslateTransform(0, 0);
+            }
+            else if (_motionTransitions.TryGetValue(host, out var transitions))
+            {
+                host.Transitions = transitions;
+            }
+        }
+        if (reduceMotion)
+            _pendingFileContentAnimation = false;
+    }
+
     private void PersistPaneWidths(double? drawerWidth, double? previewWidth)
     {
         if (Shell is not { } shell)
@@ -195,8 +258,10 @@ public partial class MainView : UserControl
     }
 
     /// <summary>短时入场：先无过渡地放到起点，再恢复 XAML Transitions 回到原位（Shared Axis 的轻量版）。</summary>
-    private static void AnimateIn(Control control, double offsetX, double offsetY)
+    private void AnimateIn(Control control, double offsetX, double offsetY)
     {
+        if (_reduceMotion || Shell?.ReduceMotion == true)
+            return;
         if (control.Transitions is not { } transitions)
             return;
         control.Transitions = null;
@@ -204,6 +269,8 @@ public partial class MainView : UserControl
         control.RenderTransform = new TranslateTransform(offsetX, offsetY);
         Dispatcher.UIThread.Post(() =>
         {
+            if (_reduceMotion)
+                return;
             control.Transitions = transitions;
             control.Opacity = 1;
             control.RenderTransform = new TranslateTransform(0, 0);
@@ -268,6 +335,8 @@ public partial class MainView : UserControl
             AnimateIn(ModalDrawerHost, -18, 0);
         if (e.PropertyName is nameof(ShellViewModel.IsTaskCenterOpen) && shell.IsTaskCenterOpen)
             AnimateIn(TaskCenterCard, 0, 12);
+        if (e.PropertyName is nameof(ShellViewModel.ReduceMotion))
+            ApplyMotionPreference(shell.ReduceMotion);
 
         if (e.PropertyName != nameof(ShellViewModel.Page))
             return;
@@ -701,21 +770,25 @@ public partial class MainView : UserControl
         }
     }
 
-    private bool _ascending = true;
     private void OnSortByName(object? sender, RoutedEventArgs e) => SetSort(SortField.Name);
     private void OnSortByDate(object? sender, RoutedEventArgs e) => SetSort(SortField.LastWriteTime);
     private void OnSortBySize(object? sender, RoutedEventArgs e) => SetSort(SortField.Size);
     private void OnSortByKind(object? sender, RoutedEventArgs e) => SetSort(SortField.Kind);
 
-    private void SetSort(SortField field) =>
-        Shell?.Browser.SetSort(field, _ascending ? SortDirection.Ascending : SortDirection.Descending);
+    private void SetSort(SortField field)
+    {
+        if (Browser is { } browser)
+            browser.SetSort(field, browser.CurrentSortDirection);
+    }
 
     private void OnToggleSortDirection(object? sender, RoutedEventArgs e)
     {
-        _ascending = !_ascending;
-        if (Shell is { } shell)
-            shell.Browser.SetSort(Enum.TryParse<SortField>(shell.SettingsStore.Settings.SortField, out var f) ? f : SortField.Name,
-                _ascending ? SortDirection.Ascending : SortDirection.Descending);
+        if (Browser is not { } browser)
+            return;
+        var next = browser.CurrentSortDirection == SortDirection.Ascending
+            ? SortDirection.Descending
+            : SortDirection.Ascending;
+        browser.SetSort(browser.CurrentSortField, next);
     }
 
     // ---------- 详细信息视图选集同步（DataGrid.SelectedItems 只读） ----------

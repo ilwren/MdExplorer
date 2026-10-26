@@ -36,6 +36,9 @@ public sealed partial class BrowserViewModel : ObservableObject
     private List<FileItem> _allItems = [];
     private IDisposable? _watchSubscription;
     private bool _watchEnabled;
+    private SortField _currentSortField = SortField.Name;
+    private SortDirection _currentSortDirection = SortDirection.Ascending;
+    private bool _applyingFolderViewPreferences;
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _thumbCts;
     private Task _idleTask = Task.CompletedTask;
@@ -83,7 +86,9 @@ public sealed partial class BrowserViewModel : ObservableObject
             "Details" => BrowserViewMode.Details,
             _ => BrowserViewMode.List,
         };
-        _sortFieldLabel = SortFieldText(ParseSort(s.SortField));
+        _currentSortField = ParseSort(s.SortField);
+        _currentSortDirection = ParseSortDirection(s.SortDirection);
+        _sortFieldLabel = SortFieldText(_currentSortField);
 
         var initialTab = new BrowserTabViewModel(null, "新标签页") { IsActive = true };
         Tabs.Add(initialTab);
@@ -171,7 +176,18 @@ public sealed partial class BrowserViewModel : ObservableObject
         OnPropertyChanged(nameof(IsListView));
         OnPropertyChanged(nameof(IsGridView));
         OnPropertyChanged(nameof(IsDetailsView));
-        _settingsStore.Settings.ViewMode = value.ToString();
+        if (_applyingFolderViewPreferences)
+            return;
+
+        if (IsFolderViewMemoryEnabled)
+        {
+            // 记忆开启时，全局 ViewMode 只代表未记忆文件夹的默认值；活动文件夹单独落盘。
+            CaptureCurrentFolderViewPreferences();
+        }
+        else if (!IsSearchMode)
+        {
+            _settingsStore.Settings.ViewMode = value.ToString();
+        }
         _ = SaveSettingsAsync();
     }
 
@@ -192,6 +208,119 @@ public sealed partial class BrowserViewModel : ObservableObject
         if (!IsAddressEditing)
             AddressText = value ?? string.Empty;
     }
+
+    // ---------- 按文件夹记忆视图/排序 ----------
+    private bool IsFolderViewMemoryEnabled => _settingsStore.Settings.RememberFolderView;
+
+    /// <summary>Shell 切换设置后同步当前文件夹：开启时立即记下当前呈现，关闭时把当前呈现收回全局默认。</summary>
+    public void OnFolderViewMemorySettingChanged(bool enabled)
+    {
+        if (enabled)
+        {
+            CaptureCurrentFolderViewPreferences();
+        }
+        else if (!IsSearchMode)
+        {
+            var settings = _settingsStore.Settings;
+            settings.ViewMode = ViewMode.ToString();
+            settings.SortField = _currentSortField.ToString();
+            settings.SortDirection = _currentSortDirection.ToString();
+        }
+        _ = SaveSettingsAsync();
+    }
+
+    public async Task ClearFolderViewPreferencesAsync()
+    {
+        _settingsStore.Settings.FolderViewStates.Clear();
+        // 清除后不立刻改变眼前的文件夹；若记忆仍开启，下一次改视图/排序会重新建档。
+        await SaveSettingsAsync().ConfigureAwait(true);
+    }
+
+    private void ApplyFolderViewPreferences(string path)
+    {
+        if (!IsFolderViewMemoryEnabled)
+            return;
+
+        var settings = _settingsStore.Settings;
+        FolderViewPreferences preferences;
+        if (settings.FolderViewStates.TryGetValue(FolderViewKey(path), out var saved))
+        {
+            preferences = saved;
+        }
+        else
+        {
+            preferences = new FolderViewPreferences
+            {
+                ViewMode = settings.ViewMode,
+                SortField = settings.SortField,
+                SortDirection = settings.SortDirection,
+            };
+        }
+
+        _applyingFolderViewPreferences = true;
+        try
+        {
+            ViewMode = ParseViewMode(preferences.ViewMode);
+            _currentSortField = ParseSort(preferences.SortField);
+            _currentSortDirection = ParseSortDirection(preferences.SortDirection);
+            SortFieldLabel = SortFieldText(_currentSortField);
+            RaiseSortGlyphs();
+        }
+        finally
+        {
+            _applyingFolderViewPreferences = false;
+        }
+    }
+
+    private void CaptureCurrentFolderViewPreferences()
+    {
+        if (!IsFolderViewMemoryEnabled || _applyingFolderViewPreferences || IsSearchMode || CurrentPath is null)
+            return;
+
+        var states = _settingsStore.Settings.FolderViewStates;
+        var key = FolderViewKey(CurrentPath);
+        // 删除后重插使字典近似保持最近使用顺序，裁剪时优先丢最久未改过的文件夹。
+        states.Remove(key);
+        states[key] = new FolderViewPreferences
+        {
+            ViewMode = ViewMode.ToString(),
+            SortField = _currentSortField.ToString(),
+            SortDirection = _currentSortDirection.ToString(),
+        };
+        const int maxRememberedFolders = 200;
+        while (states.Count > maxRememberedFolders)
+            states.Remove(states.Keys.First());
+    }
+
+    private static string FolderViewKey(string path)
+    {
+        if (FileLocator.IsStorageUri(path))
+            return path;
+        try
+        {
+            var full = Path.GetFullPath(path);
+            var root = Path.GetPathRoot(full) ?? string.Empty;
+            if (full.Length > root.Length)
+                full = full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return OperatingSystem.IsWindows() ? full.ToLowerInvariant() : full;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return OperatingSystem.IsWindows() ? path.ToLowerInvariant() : path;
+        }
+    }
+
+    private static BrowserViewMode ParseViewMode(string? value) => value switch
+    {
+        "Grid" => BrowserViewMode.Grid,
+        "Details" => BrowserViewMode.Details,
+        _ => BrowserViewMode.List,
+    };
+
+    private static SortDirection ParseSortDirection(string? value) =>
+        string.Equals(value, "Descending", StringComparison.Ordinal)
+            ? SortDirection.Descending
+            : SortDirection.Ascending;
 
     partial void OnAddressTextChanged(string value)
     {
@@ -239,6 +368,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         }
         IsSearchMode = false;
         ExitSelectionMode();
+        ApplyFolderViewPreferences(path);
         RebuildBreadcrumbs(path);
         UpdateHistoryFlags(path);
         LoadError = null;
@@ -923,15 +1053,22 @@ public sealed partial class BrowserViewModel : ObservableObject
     }
 
     // ---------- 排序 / 过滤 ----------
-    private SortField CurrentSortField => ParseSort(_settingsStore.Settings.SortField);
-    private SortDirection CurrentSortDirection =>
-        string.Equals(_settingsStore.Settings.SortDirection, "Descending", StringComparison.Ordinal)
-            ? SortDirection.Descending : SortDirection.Ascending;
+    public SortField CurrentSortField => _currentSortField;
+    public SortDirection CurrentSortDirection => _currentSortDirection;
 
     public void SetSort(SortField field, SortDirection direction)
     {
-        _settingsStore.Settings.SortField = field.ToString();
-        _settingsStore.Settings.SortDirection = direction.ToString();
+        _currentSortField = field;
+        _currentSortDirection = direction;
+        if (IsFolderViewMemoryEnabled)
+        {
+            CaptureCurrentFolderViewPreferences();
+        }
+        else if (!IsSearchMode)
+        {
+            _settingsStore.Settings.SortField = field.ToString();
+            _settingsStore.Settings.SortDirection = direction.ToString();
+        }
         SortFieldLabel = SortFieldText(field);
         RaiseSortGlyphs();
         _ = SaveSettingsAsync();

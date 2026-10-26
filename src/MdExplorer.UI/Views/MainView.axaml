@@ -194,8 +194,11 @@
 
         <views:DrawerContentView Grid.Column="1" IsVisible="{Binding ShowDrawerPane}" />
         <controls:MaterialGridSplitter x:Name="DrawerSplitter" Grid.Column="2"
+                                       ReduceMotion="{Binding ReduceMotion}"
                                        IsVisible="{Binding ShowDrawerPane}"
                                        DragCompleted="OnDrawerSplitterDragCompleted"
+                                       ResetRequested="OnDrawerSplitterResetRequested"
+                                       ToolTip.Tip="拖动调整侧栏宽度；双击或按 Home 恢复默认"
                                        AutomationProperties.Name="调整侧边栏宽度" />
 
         <Grid x:Name="PageHost" Grid.Column="3">
@@ -642,8 +645,11 @@
         </Grid>
 
         <controls:MaterialGridSplitter x:Name="PreviewSplitter" Grid.Column="4"
+                                       ReduceMotion="{Binding ReduceMotion}"
                                        IsVisible="{Binding ShowPreviewPaneEffective}"
                                        DragCompleted="OnPreviewSplitterDragCompleted"
+                                       ResetRequested="OnPreviewSplitterResetRequested"
+                                       ToolTip.Tip="拖动调整预览栏宽度；双击或按 Home 恢复默认"
                                        AutomationProperties.Name="调整预览栏宽度" />
         <Border x:Name="PreviewPane" Grid.Column="5" IsVisible="{Binding ShowPreviewPaneEffective}" Margin="0,10,10,10"
                 Classes="workspace-surface" ClipToBounds="True">

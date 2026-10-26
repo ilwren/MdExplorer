@@ -24,10 +24,10 @@
       </Setter>
     </ControlTheme>
 
-    <!-- MaterialGridSplitter：12px 热区里只露 2px 轨道与胶囊把手；悬停/拖动时把手伸长并转主色。 -->
+    <!-- MaterialGridSplitter：16px 热区里只露 2px 轨道与胶囊把手；悬停/拖动时把手伸长并转主色。 -->
     <ControlTheme x:Key="{x:Type controls:MaterialGridSplitter}" TargetType="controls:MaterialGridSplitter">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="MinWidth" Value="12" />
+      <Setter Property="MinWidth" Value="16" />
       <Setter Property="ResizeDirection" Value="Columns" />
       <Setter Property="Template">
         <ControlTemplate>
@@ -84,6 +84,13 @@
       <Style Selector="^:focus-visible /template/ Border#PART_Handle">
         <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.Primary.Brush}" />
         <Setter Property="Height" Value="76" />
+      </Style>
+      <Style Selector="^:reduce-motion:pointerover /template/ Border#PART_Handle, ^:reduce-motion:pressed /template/ Border#PART_Handle, ^:reduce-motion:focus-visible /template/ Border#PART_Handle">
+        <Setter Property="Height" Value="56" />
+        <Setter Property="Width" Value="6" />
+      </Style>
+      <Style Selector="^:reduce-motion:pressed /template/ Border#PART_Track">
+        <Setter Property="Width" Value="2" />
       </Style>
     </ControlTheme>
   </Styles.Resources>
@@ -318,5 +325,24 @@
   </Style>
   <Style Selector="md|MdButton.nav-entry.active md|MdIcon">
     <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+  </Style>
+
+  <!-- 应用内低动效：根视图挂 reduce-motion 后，取消 Eidoria 自有微交互的位移与过渡。 -->
+  <Style Selector="UserControl.reduce-motion md|MdButton.nav-entry">
+    <Setter Property="RenderTransform" Value="none" />
+    <Setter Property="Transitions"><Transitions /></Setter>
+  </Style>
+  <Style Selector="UserControl.reduce-motion md|MdButton.nav-entry:pointerover">
+    <Setter Property="RenderTransform" Value="none" />
+  </Style>
+  <Style Selector="UserControl.reduce-motion md|MdButton.nav-entry:pressed">
+    <Setter Property="RenderTransform" Value="none" />
+  </Style>
+  <Style Selector="UserControl.reduce-motion Border.file-card">
+    <Setter Property="RenderTransform" Value="none" />
+    <Setter Property="Transitions"><Transitions /></Setter>
+  </Style>
+  <Style Selector="UserControl.reduce-motion Border.file-card:pointerover">
+    <Setter Property="RenderTransform" Value="none" />
   </Style>
 </Styles>
