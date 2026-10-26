@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\MdExplorer.Application.csproj (in 3.2 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\MdExplorer.Platform.Abstractions.csproj (in 3.36 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\MdExplorer.Infrastructure.csproj (in 3.36 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\MdExplorer.Domain.csproj (in 2 ms).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj (in 5.07 sec).
-  Restored D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj (in 8.14 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\MdExplorer.Infrastructure.csproj (in 8.87 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\MdExplorer.Domain.csproj (in 8.18 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\MdExplorer.Application.csproj (in 8.91 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\MdExplorer.Platform.Abstractions.csproj (in 2 ms).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj (in 8.9 sec).
+  Restored D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj (in 18.3 sec).
   MdExplorer.Domain -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\bin\Release\net10.0\MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\bin\Release\net10.0\MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\bin\Release\net10.0\MdExplorer.Application.dll
@@ -21,4 +21,4 @@ D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\StorageDelegationTests.cs(249,
 Test run for D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\bin\Release\net10.0\MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
 
-Passed!  - Failed:     0, Passed:    78, Skipped:     0, Total:    78, Duration: 532 ms - MdExplorer.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    78, Skipped:     0, Total:    78, Duration: 584 ms - MdExplorer.Tests.dll (net10.0)
