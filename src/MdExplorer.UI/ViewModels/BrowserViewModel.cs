@@ -1595,8 +1595,14 @@ public sealed partial class BrowserTabViewModel : ObservableObject
 
     [ObservableProperty] private string? _path;
     [ObservableProperty] private string _title;
-    [ObservableProperty] private bool _isActive;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsInactive))]
+    private bool _isActive;
+
     [ObservableProperty] private bool _canClose;
+
+    public bool IsInactive => !IsActive;
 
     internal Stack<string> BackStack { get; } = [];
     internal Stack<string> ForwardStack { get; } = [];

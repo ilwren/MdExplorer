@@ -8,6 +8,6 @@
         MinWidth="360" MinHeight="520"
         Title="Eidoria"
         Icon="/Assets/eidoria.ico"
-        Background="{DynamicResource Md.Sys.Color.Surface.Brush}">
+        Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
   <views:MainView />
 </Window>

@@ -121,9 +121,20 @@ public sealed class ScreenshotTests
     public async Task Large_TwoTabs() => await CaptureAsync("17-large-tabs.png", 1440, 900, async shell =>
     {
         await shell.Browser.OpenInNewTabAsync(Path.Combine(PicturesDir, "Camera"));
+        await shell.Browser.ActivateTabCommand.ExecuteAsync(shell.Browser.Tabs[0]);
+        shell.Browser.ViewMode = BrowserViewMode.Grid;
         await shell.Browser.WhenIdleAsync();
         Assert.Equal(2, shell.Browser.Tabs.Count);
-        Assert.Equal("Camera", shell.Browser.ActiveTab!.Title);
+        Assert.Equal("Pictures", shell.Browser.ActiveTab!.Title);
+    });
+
+    [AvaloniaFact]
+    public async Task Large_HomePolished() => await CaptureAsync("21-large-home-polished.png", 1440, 900, async shell =>
+    {
+        if (shell.Browser.SelectedItems.FirstOrDefault() is { } item)
+            await shell.Browser.RecordRecentFileAsync(item.FullPath);
+        shell.GoHomeCommand.Execute(null);
+        await Task.Delay(180);
     });
 
     [AvaloniaFact]

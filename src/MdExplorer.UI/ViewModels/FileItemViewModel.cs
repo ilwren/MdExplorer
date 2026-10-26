@@ -61,6 +61,9 @@ public sealed partial class FileItemViewModel(FileItem model) : ObservableObject
 
     public IBrush GlyphBrush { get; } = new SolidColorBrush(Color.ForKind(model));
 
+    /// <summary>与类型色同源的低透明底色：让裸图标变成有材质的图标井（列表/网格共用）。</summary>
+    public IBrush GlyphBackgroundBrush { get; } = new SolidColorBrush(Color.ForKind(model)) { Opacity = 0.14 };
+
     private static class Color
     {
         public static Avalonia.Media.Color ForKind(FileItem item) => item.Kind switch

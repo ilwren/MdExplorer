@@ -5,7 +5,7 @@
              x:Class="MdExplorer.UI.Views.HomeView"
              x:DataType="vm:ShellViewModel">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="20,12,20,28" Spacing="22" MaxWidth="1100" HorizontalAlignment="Stretch">
+    <StackPanel Margin="22,18,22,30" Spacing="26" MaxWidth="1120" HorizontalAlignment="Stretch">
       <StackPanel Spacing="4">
         <md:MdSearchBar x:Name="HomeSearch" PlaceholderText="搜索文件（在主目录中递归）" ShowClearButton="True" />
         <TextBlock Classes="caption" Text="回车开始搜索；进入文件夹后可按名称快速过滤。" />
@@ -19,13 +19,19 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:VolumeItemModel">
-              <Border Classes="card" Width="280" Margin="0,0,12,12" Tapped="OnVolumeTapped" Cursor="Hand">
-                <StackPanel Spacing="8">
-                  <StackPanel Orientation="Horizontal" Spacing="10">
-                    <md:MdIcon Glyph="{Binding Glyph}" Size="24" />
-                    <TextBlock Classes="h3" Text="{Binding Name}" VerticalAlignment="Center" />
-                  </StackPanel>
-                  <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="6" />
+              <Border Classes="card" Width="292" Margin="0,0,12,12" Tapped="OnVolumeTapped" Cursor="Hand">
+                <StackPanel Spacing="10">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Border Width="38" Height="38" CornerRadius="12"
+                            Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                      <md:MdIcon Glyph="{Binding Glyph}" Size="21"
+                                 Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Classes="h3" Text="{Binding Name}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="2" Classes="h3" Text="{Binding UsedPercentText}" VerticalAlignment="Center" />
+                  </Grid>
+                  <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="7" />
                   <TextBlock Classes="caption" Text="{Binding UsageText}" />
                 </StackPanel>
               </Border>
@@ -37,20 +43,35 @@
       <StackPanel Spacing="10">
         <TextBlock Classes="h3" Text="类别" />
         <WrapPanel Orientation="Horizontal">
-          <Border Classes="tap-chip" Margin="0,0,8,8" Tag="Image" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Orientation="Horizontal" Spacing="8"><md:MdIcon Glyph="{x:Static md:MdSymbols.Image}" Size="20" /><TextBlock Text="图片" VerticalAlignment="Center" /></StackPanel>
+          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Image" Tapped="OnCategoryTapped" Cursor="Hand">
+            <StackPanel Spacing="8">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.Image}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+              <TextBlock Text="图片" FontWeight="SemiBold" />
+            </StackPanel>
           </Border>
-          <Border Classes="tap-chip" Margin="0,0,8,8" Tag="Video" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Orientation="Horizontal" Spacing="8"><md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="20" /><TextBlock Text="视频" VerticalAlignment="Center" /></StackPanel>
+          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Video" Tapped="OnCategoryTapped" Cursor="Hand">
+            <StackPanel Spacing="8">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+              <TextBlock Text="视频" FontWeight="SemiBold" />
+            </StackPanel>
           </Border>
-          <Border Classes="tap-chip" Margin="0,0,8,8" Tag="Audio" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Orientation="Horizontal" Spacing="8"><md:MdIcon Glyph="{x:Static md:MdSymbols.MusicNote}" Size="20" /><TextBlock Text="音频" VerticalAlignment="Center" /></StackPanel>
+          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Audio" Tapped="OnCategoryTapped" Cursor="Hand">
+            <StackPanel Spacing="8">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.MusicNote}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+              <TextBlock Text="音频" FontWeight="SemiBold" />
+            </StackPanel>
           </Border>
-          <Border Classes="tap-chip" Margin="0,0,8,8" Tag="Document" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Orientation="Horizontal" Spacing="8"><md:MdIcon Glyph="{x:Static md:MdSymbols.Description}" Size="20" /><TextBlock Text="文档" VerticalAlignment="Center" /></StackPanel>
+          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Document" Tapped="OnCategoryTapped" Cursor="Hand">
+            <StackPanel Spacing="8">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.Description}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+              <TextBlock Text="文档" FontWeight="SemiBold" />
+            </StackPanel>
           </Border>
-          <Border Classes="tap-chip" Margin="0,0,8,8" Tag="Archive" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Orientation="Horizontal" Spacing="8"><md:MdIcon Glyph="{x:Static md:MdSymbols.FolderZip}" Size="20" /><TextBlock Text="压缩包" VerticalAlignment="Center" /></StackPanel>
+          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Archive" Tapped="OnCategoryTapped" Cursor="Hand">
+            <StackPanel Spacing="8">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderZip}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+              <TextBlock Text="压缩包" FontWeight="SemiBold" />
+            </StackPanel>
           </Border>
         </WrapPanel>
       </StackPanel>

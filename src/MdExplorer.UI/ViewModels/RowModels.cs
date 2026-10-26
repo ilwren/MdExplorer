@@ -1,7 +1,10 @@
 namespace MdExplorer.UI.ViewModels;
 
 /// <summary>主页/抽屉中的卷条目（顶层类型便于 XAML 编译绑定引用）。</summary>
-public sealed record VolumeItemModel(string Name, string Path, string UsageText, double UsedPercent, string? Glyph);
+public sealed record VolumeItemModel(string Name, string Path, string UsageText, double UsedPercent, string? Glyph)
+{
+    public string UsedPercentText => $"{UsedPercent:0}%";
+}
 
 /// <summary>已授权文件夹（Android SAF）入口行模型。Path 为 content:// 定位串。</summary>
 public sealed record AuthorizedRootModel(string Name, string Path);
