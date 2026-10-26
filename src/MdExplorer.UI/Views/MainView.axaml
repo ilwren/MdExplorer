@@ -273,6 +273,7 @@
                                  AutomationProperties.Name="刷新" />
               </StackPanel>
               <Border Grid.Column="1" Classes="path-pill" MinHeight="38">
+               <Grid>
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
                               IsVisible="{Binding !Browser.IsAddressEditing}" Tapped="OnBreadcrumbBarTapped">
                   <ItemsControl x:Name="BreadcrumbBar" ItemsSource="{Binding Browser.Breadcrumbs}" VerticalAlignment="Center">
@@ -304,6 +305,7 @@
                              Foreground="{DynamicResource Md.Sys.Color.Error.Brush}"
                              Text="{Binding Browser.AddressError}" IsVisible="{Binding Browser.HasAddressError}" />
                 </Grid>
+               </Grid>
               </Border>
               <md:MdIconButton x:Name="OverflowButton" Grid.Column="2" Icon="{x:Static md:MdSymbols.MoreVert}"
                                AutomationProperties.Name="更多">
