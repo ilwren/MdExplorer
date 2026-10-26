@@ -12,7 +12,7 @@
   <UserControl.Styles>
     <themes:MaterialAvaloniaEditTheme />
   </UserControl.Styles>
-  <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="17,14,17,17">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="17,14,17,17">
     <StackPanel Spacing="3">
       <TextBlock Classes="h2" Text="{Binding Title}" TextWrapping="Wrap" />
       <TextBlock Classes="caption" Text="{Binding Subtitle}" />
@@ -21,7 +21,7 @@
     <Grid Grid.Row="1" Margin="0,13">
       <md:MdCircularProgressIndicator IsVisible="{Binding IsLoading}" IsIndeterminate="True"
                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-      <Border CornerRadius="19" ClipToBounds="True" IsVisible="{Binding HasImage}"
+      <Border CornerRadius="19" ClipToBounds="True" IsVisible="{Binding HasImage}" MaxHeight="390"
               Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
               BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
         <Image Source="{Binding Image}" Stretch="Uniform" />
@@ -43,22 +43,22 @@
         </StackPanel>
       </Border>
       <Border IsVisible="{Binding ShowPlainText}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
-              CornerRadius="12" Padding="10" ClipToBounds="True">
+              CornerRadius="16" Padding="12" ClipToBounds="True" MaxHeight="480">
         <ScrollViewer>
           <SelectableTextBlock Classes="mono" Text="{Binding TextContent}" />
         </ScrollViewer>
       </Border>
       <Border IsVisible="{Binding ShowSource}" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
-              CornerRadius="12" ClipToBounds="True">
+              CornerRadius="16" ClipToBounds="True" Height="440">
         <ae:TextEditor x:Name="CodeEditor" IsReadOnly="True" ShowLineNumbers="True"
                        HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" />
       </Border>
-      <mdm:MarkdownScrollViewer Markdown="{Binding MarkdownText}" IsVisible="{Binding HasMarkdown}">
+      <mdm:MarkdownScrollViewer Markdown="{Binding MarkdownText}" IsVisible="{Binding HasMarkdown}" MaxHeight="500">
         <mdm:MarkdownScrollViewer.MarkdownStyle>
           <themes:MaterialMarkdownTheme />
         </mdm:MarkdownScrollViewer.MarkdownStyle>
       </mdm:MarkdownScrollViewer>
-      <ScrollViewer IsVisible="{Binding HasArchive}">
+      <ScrollViewer IsVisible="{Binding HasArchive}" MaxHeight="440">
         <ItemsControl ItemsSource="{Binding ArchiveEntries}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:ArchiveEntryRowModel">

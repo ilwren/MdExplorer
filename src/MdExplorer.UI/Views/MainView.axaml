@@ -70,7 +70,7 @@
     <DataTemplate x:Key="FileCardTemplate" x:DataType="vm:FileItemViewModel">
       <Border Classes="file-card" Width="164" ClipToBounds="True">
         <Grid RowDefinitions="98,Auto">
-          <Border Grid.Row="0" ClipToBounds="True" Background="{Binding GlyphBackgroundBrush}">
+          <Border Grid.Row="0" ClipToBounds="True" CornerRadius="18,18,0,0" Background="{Binding GlyphBackgroundBrush}">
             <Grid>
               <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasThumbnail}" />
               <md:MdIcon Glyph="{Binding Glyph}" Size="42" Foreground="{Binding GlyphBrush}" IsVisible="{Binding ShowGlyph}" />
@@ -191,7 +191,7 @@
             <!-- 浏览器标签页：与下方白色工作区同面连接；活动页以图标井 + 底部指示线定向，不再排成一列灰卡片 -->
             <Border Grid.Row="0" Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
                     BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1"
-                    CornerRadius="23,23,0,0" Padding="9,7,9,0" MinHeight="49">
+                    CornerRadius="23,23,0,0" Padding="9,7,9,0" MinHeight="49" IsVisible="{Binding ShowBrowserTabs}">
               <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
                 <StackPanel Orientation="Horizontal" Spacing="5">
                   <ItemsControl x:Name="TabStrip" ItemsSource="{Binding Browser.Tabs}">
@@ -274,7 +274,7 @@
               </StackPanel>
               <Border Grid.Column="1" Classes="path-pill" MinHeight="38">
                <Grid>
-                <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                <ScrollViewer x:Name="BreadcrumbScroller" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
                               IsVisible="{Binding !Browser.IsAddressEditing}" Tapped="OnBreadcrumbBarTapped">
                   <ItemsControl x:Name="BreadcrumbBar" ItemsSource="{Binding Browser.Breadcrumbs}" VerticalAlignment="Center">
                     <ItemsControl.ItemsPanel>
@@ -295,6 +295,7 @@
                 <Grid RowDefinitions="Auto,Auto" IsVisible="{Binding Browser.IsAddressEditing}">
                   <Grid ColumnDefinitions="*,Auto,Auto">
                     <md:MdTextBox x:Name="AddressBox" Text="{Binding Browser.AddressText}" Variant="Outlined"
+                                  Background="Transparent" BorderBrush="Transparent" CornerRadius="14"
                                   PlaceholderText="输入路径后按 Enter" KeyDown="OnAddressKeyDown" />
                     <md:MdIconButton Grid.Column="1" Icon="{x:Static md:MdSymbols.Check}"
                                      Command="{Binding Browser.CommitAddressCommand}" AutomationProperties.Name="前往" />
@@ -438,7 +439,7 @@
                   </md:MdList.ItemsPanel>
                 </md:MdList>
                 <!-- 详细信息视图：排序经 Sorting 事件收回 VM 管线（控件自排关闭），箭头自绘于表头 -->
-                <DataGrid x:Name="FileDetails"
+                <DataGrid x:Name="FileDetails" Classes="file-details"
                           ItemsSource="{Binding Browser.Items}"
                           SelectionMode="Extended"
                           SelectionChanged="OnDetailsSelectionChanged"

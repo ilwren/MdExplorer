@@ -110,7 +110,37 @@
     <Setter Property="Padding" Value="8,2" />
   </Style>
 
+  <Style Selector="DataGrid.file-details">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.Surface.Brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="17" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="RowBackground" Value="{DynamicResource Md.Sys.Color.Surface.Brush}" />
+  </Style>
+  <Style Selector="DataGrid.file-details DataGridColumnHeader">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="38" />
+  </Style>
+  <Style Selector="DataGrid.file-details DataGridRow:selected DataGridCell">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurface.Brush}" />
+  </Style>
+
   <!-- 文件列表/网格容器：静止时轻、悬停时浮起、选中时同时给底色与描边。 -->
+  <Style Selector="ListBox.file-list ListBoxItem">
+    <Setter Property="CornerRadius" Value="15" />
+    <Setter Property="Margin" Value="2,1" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="ListBox.file-grid ListBoxItem">
+    <Setter Property="CornerRadius" Value="19" />
+    <Setter Property="Margin" Value="3" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
   <Style Selector="ListBox.file-list">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />

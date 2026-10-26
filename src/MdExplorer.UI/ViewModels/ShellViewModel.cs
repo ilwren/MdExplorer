@@ -20,6 +20,8 @@ internal enum DialogKind { None, Prompt, Confirm, Conflict, Message, Progress, B
 public sealed partial class ShellViewModel : ObservableObject, IDialogs
 {
     private readonly AppHost.AppServices _services;
+    private readonly SemaphoreSlim _favoritesRefreshGate = new(1, 1);
+    private readonly SemaphoreSlim _recentsRefreshGate = new(1, 1);
     private Func<IFileLauncherService> _launcher;
     private IFileLauncherService Launcher => _launcher();
 
@@ -55,6 +57,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                 OnPropertyChanged(nameof(PageTitle));
             if (e.PropertyName is nameof(BrowserViewModel.IsSearchMode))
                 OnPropertyChanged(nameof(PageTitle));
+            if (e.PropertyName is nameof(BrowserViewModel.HasMultipleTabs))
+                OnPropertyChanged(nameof(ShowBrowserTabs));
         };
         FavoriteItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFavorites));
         RecentFolders.CollectionChanged += (_, _) =>
@@ -137,6 +141,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool ShowPreviewPaneNow => IsExpandedOrAbove && SettingsStore.Settings.ShowPreviewPane && Preview.HasItem;
     public bool ShowPreviewPaneEffective => IsBrowser && ShowPreviewPaneNow;
     public bool ShowPreviewPageNow => IsPreviewPageOpen && IsCompactOrMedium;
+    /// <summary>Compact 单标签时隐藏标签轨，避免与顶栏标题重复；出现第二个标签后即显示。</summary>
+    public bool ShowBrowserTabs => !IsCompact || Browser.HasMultipleTabs;
 
     partial void OnPageChanged(ShellPage value)
     {
@@ -154,7 +160,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         foreach (var name in new[]
                  {
                      nameof(IsCompact), nameof(IsMedium), nameof(IsExpandedOrAbove), nameof(IsCompactOrMedium),
-                     nameof(ShowBottomNav), nameof(ShowRail), nameof(ShowDrawerPane),
+                     nameof(ShowBottomNav), nameof(ShowRail), nameof(ShowDrawerPane), nameof(ShowBrowserTabs),
                      nameof(ShowPreviewPaneNow), nameof(ShowPreviewPageNow), nameof(ShowPreviewPaneEffective),
                  })
             OnPropertyChanged(name);
@@ -254,38 +260,65 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     private async Task RefreshFavoritesAsync()
     {
-        FavoriteItems.Clear();
-        foreach (var path in _services.SettingsStore.Favorites)
+        await _favoritesRefreshGate.WaitAsync().ConfigureAwait(true);
+        try
         {
-            var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
-            if (item is not null)
-                FavoriteItems.Add(new FileItemViewModel(item) { IsFavorite = true });
+            var resolved = new List<FileItemViewModel>();
+            foreach (var path in _services.SettingsStore.Favorites)
+            {
+                var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
+                if (item is not null)
+                    resolved.Add(new FileItemViewModel(item) { IsFavorite = true });
+            }
+            FavoriteItems.Clear();
+            foreach (var item in resolved)
+                FavoriteItems.Add(item);
+        }
+        finally
+        {
+            _favoritesRefreshGate.Release();
         }
     }
 
     private async Task RefreshRecentsAsync()
     {
-        RecentFolders.Clear();
-        foreach (var path in _services.SettingsStore.Settings.RecentFolderPaths.Take(12))
+        // 初始化、导航与打开文件可连续触发刷新；串行化并先构建快照，避免 Clear/Add 交错产生重复项。
+        await _recentsRefreshGate.WaitAsync().ConfigureAwait(true);
+        try
         {
-            var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
-            if (item?.IsFolder == true)
+            var folders = new List<NavEntry>();
+            foreach (var path in _services.SettingsStore.Settings.RecentFolderPaths.Take(12))
             {
-                // 字形由 Home 视图模板提供：MdSymbols 需要 Avalonia 字体服务，VM 保持可在无头单元测试中独立刷新。
-                RecentFolders.Add(new NavEntry(
-                    item.Name,
-                    null,
-                    item.FullPath,
-                    _services.FileSystem.GetParentPath(item.FullPath)));
+                var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
+                if (item?.IsFolder == true)
+                {
+                    // 字形由 Home 视图模板提供：MdSymbols 需要 Avalonia 字体服务，VM 保持可在无头单元测试中独立刷新。
+                    folders.Add(new NavEntry(
+                        item.Name,
+                        null,
+                        item.FullPath,
+                        _services.FileSystem.GetParentPath(item.FullPath)));
+                }
             }
-        }
 
-        RecentFiles.Clear();
-        foreach (var path in _services.SettingsStore.Settings.RecentFilePaths.Take(12))
+            var files = new List<FileItemViewModel>();
+            foreach (var path in _services.SettingsStore.Settings.RecentFilePaths.Take(12))
+            {
+                var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
+                if (item is not null && !item.IsFolder)
+                    files.Add(new FileItemViewModel(item) { IsFavorite = _services.SettingsStore.IsFavorite(path) });
+            }
+
+            RecentFolders.Clear();
+            foreach (var folder in folders)
+                RecentFolders.Add(folder);
+            RecentFiles.Clear();
+            foreach (var file in files)
+                RecentFiles.Add(file);
+        }
+        finally
         {
-            var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
-            if (item is not null && !item.IsFolder)
-                RecentFiles.Add(new FileItemViewModel(item) { IsFavorite = _services.SettingsStore.IsFavorite(path) });
+            _recentsRefreshGate.Release();
         }
     }
 

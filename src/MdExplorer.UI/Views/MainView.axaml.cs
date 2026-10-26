@@ -83,6 +83,7 @@ public partial class MainView : UserControl
             vm.PropertyChanged += OnShellPropertyChanged;
             // DataGrid.SelectedItems 为只读 IList（不可绑定整集），选集与 VM 手动双向同步
             vm.Browser.SelectedItems.CollectionChanged += OnBrowserSelectionChanged;
+            vm.Browser.Breadcrumbs.CollectionChanged += OnBreadcrumbsChanged;
             vm.Browser.PropertyChanged += OnBrowserPropertyChanged;
             _ = vm.Browser.RefreshExternalClipboardAsync();
         }
@@ -99,6 +100,7 @@ public partial class MainView : UserControl
         {
             vm.PropertyChanged -= OnShellPropertyChanged;
             vm.Browser.SelectedItems.CollectionChanged -= OnBrowserSelectionChanged;
+            vm.Browser.Breadcrumbs.CollectionChanged -= OnBreadcrumbsChanged;
             vm.Browser.PropertyChanged -= OnBrowserPropertyChanged;
         }
         if (TopLevel.GetTopLevel(this) is { } topLevel)
@@ -110,6 +112,16 @@ public partial class MainView : UserControl
     {
         base.OnSizeChanged(e);
         Shell?.SetViewportSize(e.NewSize.Width, e.NewSize.Height);
+    }
+
+    private void OnBreadcrumbsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        // 等新段完成一次布局后再滚到末端，窄屏优先露出当前目录而非根目录。
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var maxOffset = Math.Max(0, BreadcrumbScroller.Extent.Width - BreadcrumbScroller.Viewport.Width);
+            BreadcrumbScroller.Offset = new Vector(maxOffset, 0);
+        }, Avalonia.Threading.DispatcherPriority.Background);
     }
 
     private void OnBackRequested(object? sender, RoutedEventArgs e)
