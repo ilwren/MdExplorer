@@ -1044,6 +1044,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | 2026-10-25 | 实现注记（库 quirks）：Md3 未给原生 `ListBox` 注册无键 ControlTheme（Gallery 亦全程不用）→ 全仓统一用 `MdList`；原生 `ContextMenu` 亦无无键主题 → 在 `AppStyles` 补齐（MenuItem/Separator 由 Md3 `MdDesktopAdapters` 覆盖）；`Flyout` 呈现层无表面 → 弹出内容自带 SurfaceContainer 底卡 | 无头截图对比实证 |
 | 2026-10-26 | 新增两条开发轨道并完成可行性评估：插件系统（`docs/PLUGIN-SYSTEM.md`，P0 预览提供者注册表已落地）与本地 AI（`docs/LOCAL-AI.md`，A1–A4 分期）；新增待决策 D-07/D-08/D-09 | 维护者提出新计划 + 技术调研实证 |
 | 2026-10-26 | **v0.2 完善批**：Markdown 渲染预览（Md3.Avalonia.Markdown，其上游 Markdown.Avalonia.Tight 12.0.0-a3 为预发布，风险在册、钉版随 Md3 走）+ 代码高亮（Md3.Avalonia.AvaloniaEdit/AvaloniaEdit 12.0）——均以 P0 内置提供者接入；文件夹外部变更监视与保留选集的软刷新；属性含文件夹大小；右键校验和（流式 SHA-256/MD5）；批量重命名（Application 规划器 + 前预览校验 + 两段落盘）。插件/AI 按维护者指示只定可行性、排最后 | CI run 40279677011 全绿（55+15 测试） |
+| 2026-10-26 | **v0.3 Android SAF 授权文件夹浏览**：`FileLocator` 双形态（本地路径 / `content:` URI）；`IFileSystemService` 增 `OpenReadAsync/GetParentPath/GetBreadcrumbs`，Browser 上级/面包屑/预览/缩略图统一走服务层。UI 层 `DelegatingFileSystemService`/`DelegatingFileOperationService` 包装本地引擎（整批本地直通；含存储走统一流引擎：同树移动优先 `MoveAsync`、改名=复制+删除、递归删除子先父后、冲突策略对齐 §5.5）；Avalonia 存储接口为 `[NotClientImplementable]`（隐藏成员编译期封死、Bcl 实现 internal），故委托层只依赖自有 `IStorageEntry` 接缝（生产适配器 + 测试内存树 8 例）。系统文件夹选择器授权 + 书签持久化（尽力而为，失效可重授）；Home/抽屉「已授权文件夹」。存储内 v1 不做：递归搜索/压缩/解压/校验和/文件夹大小/变更监视（逐项守卫提示）。**无模拟器：SAF 真机行为（书签恢复、流语义）待验，结论以真机为准** | CI run 40282351805 全绿（63+15 测试） |
 
 ### F. 文档变更规则
 
