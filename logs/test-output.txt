@@ -1,4 +1,12 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.68]     MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [FAIL]
+  Failed MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [4 ms]
+  Error Message:
+   System.ArgumentOutOfRangeException : Index was out of range. Must be non-negative and less than the size of the collection. (Parameter 'index')
+  Stack Trace:
+     at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/BrowserNavigationAndTasksTests.cs:line 119
+--- End of stack trace from previous location ---
 
-Passed!  - Failed:     0, Passed:    90, Skipped:     0, Total:    90, Duration: 470 ms - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:    89, Skipped:     0, Total:    90, Duration: 494 ms - MdExplorer.Tests.dll (net10.0)
