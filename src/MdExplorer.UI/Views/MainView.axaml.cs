@@ -131,10 +131,13 @@ public partial class MainView : UserControl
 
     private void OnBreadcrumbScrollerLayoutUpdated(object? sender, EventArgs e)
     {
+        // 首个 LayoutUpdated 可能早于面包屑容器全部生成；Extent 尚未超过视口时继续等待下一轮。
+        var maxOffset = Math.Max(0, BreadcrumbScroller.Extent.Width - BreadcrumbScroller.Viewport.Width);
+        if (maxOffset <= 0)
+            return;
         BreadcrumbScroller.LayoutUpdated -= OnBreadcrumbScrollerLayoutUpdated;
         _breadcrumbEndScrollPending = false;
         // 布局完成后再滚到末端，窄屏优先露出当前目录而非根目录。
-        var maxOffset = Math.Max(0, BreadcrumbScroller.Extent.Width - BreadcrumbScroller.Viewport.Width);
         BreadcrumbScroller.Offset = new Vector(maxOffset, 0);
     }
 

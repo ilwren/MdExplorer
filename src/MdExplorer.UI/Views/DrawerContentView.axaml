@@ -89,19 +89,19 @@
       <ItemsControl ItemsSource="{Binding Volumes}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:VolumeItemModel">
-            <md:MdButton Classes="nav-entry" Variant="Text" Height="74" Click="OnVolumeClick">
+            <md:MdButton Classes="nav-entry" Variant="Text" Height="58" Click="OnVolumeClick"
+                         ToolTip.Tip="{Binding UsageText}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Width="218">
                 <Border Width="34" Height="34" CornerRadius="10" VerticalAlignment="Center"
                         Background="{DynamicResource Md.Sys.Color.Surface.Brush}">
                   <md:MdIcon Glyph="{Binding Glyph}" Size="19" />
                 </Border>
-                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Grid.Column="1" Classes="caption" Text="{Binding UsedPercentText}" />
                   </Grid>
                   <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="4" />
-                  <TextBlock Classes="caption" Text="{Binding UsageText}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
               </Grid>
             </md:MdButton>
