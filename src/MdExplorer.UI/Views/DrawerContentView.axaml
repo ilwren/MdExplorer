@@ -89,7 +89,7 @@
       <ItemsControl ItemsSource="{Binding Volumes}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:VolumeItemModel">
-            <md:MdButton Classes="nav-entry" Variant="Text" Height="64" Click="OnVolumeClick">
+            <md:MdButton Classes="nav-entry" Variant="Text" Height="74" Click="OnVolumeClick">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Width="218">
                 <Border Width="34" Height="34" CornerRadius="10" VerticalAlignment="Center"
                         Background="{DynamicResource Md.Sys.Color.Surface.Brush}">

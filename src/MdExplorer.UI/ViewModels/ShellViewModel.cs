@@ -22,6 +22,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private readonly AppHost.AppServices _services;
     private readonly SemaphoreSlim _favoritesRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _recentsRefreshGate = new(1, 1);
+    private int _favoritesRefreshGeneration;
+    private int _recentsRefreshGeneration;
     private Func<IFileLauncherService> _launcher;
     private IFileLauncherService Launcher => _launcher();
 
@@ -260,6 +262,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     private async Task RefreshFavoritesAsync()
     {
+        var generation = Interlocked.Increment(ref _favoritesRefreshGeneration);
         await _favoritesRefreshGate.WaitAsync().ConfigureAwait(true);
         try
         {
@@ -270,6 +273,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                 if (item is not null)
                     resolved.Add(new FileItemViewModel(item) { IsFavorite = true });
             }
+            if (Volatile.Read(ref _favoritesRefreshGeneration) != generation)
+                return;
             FavoriteItems.Clear();
             foreach (var item in resolved)
                 FavoriteItems.Add(item);
@@ -283,6 +288,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private async Task RefreshRecentsAsync()
     {
         // 初始化、导航与打开文件可连续触发刷新；串行化并先构建快照，避免 Clear/Add 交错产生重复项。
+        // 代次同时让清除动作失效所有在途快照，防止旧结果在清除后回填。
+        var generation = Interlocked.Increment(ref _recentsRefreshGeneration);
         await _recentsRefreshGate.WaitAsync().ConfigureAwait(true);
         try
         {
@@ -309,6 +316,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                     files.Add(new FileItemViewModel(item) { IsFavorite = _services.SettingsStore.IsFavorite(path) });
             }
 
+            if (Volatile.Read(ref _recentsRefreshGeneration) != generation)
+                return;
             RecentFolders.Clear();
             foreach (var folder in folders)
                 RecentFolders.Add(folder);
@@ -325,6 +334,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [RelayCommand]
     private async Task ClearRecentsAsync()
     {
+        Interlocked.Increment(ref _recentsRefreshGeneration);
         _services.SettingsStore.Settings.RecentFolderPaths.Clear();
         _services.SettingsStore.Settings.RecentFilePaths.Clear();
         RecentFolders.Clear();

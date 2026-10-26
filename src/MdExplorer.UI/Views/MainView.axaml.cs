@@ -22,6 +22,7 @@ public partial class MainView : UserControl
     private WindowBase? _clipboardWindow;
     private DragCandidate? _dragCandidate;
     private bool _dragInProgress;
+    private bool _breadcrumbEndScrollPending;
 
     private sealed record DragCandidate(
         PointerPressedEventArgs Trigger,
@@ -91,6 +92,8 @@ public partial class MainView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        BreadcrumbScroller.LayoutUpdated -= OnBreadcrumbScrollerLayoutUpdated;
+        _breadcrumbEndScrollPending = false;
         if (_clipboardWindow is not null)
         {
             _clipboardWindow.Activated -= OnTopLevelActivated;
@@ -112,16 +115,27 @@ public partial class MainView : UserControl
     {
         base.OnSizeChanged(e);
         Shell?.SetViewportSize(e.NewSize.Width, e.NewSize.Height);
+        ScheduleBreadcrumbEndScroll();
     }
 
-    private void OnBreadcrumbsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void OnBreadcrumbsChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        ScheduleBreadcrumbEndScroll();
+
+    private void ScheduleBreadcrumbEndScroll()
     {
-        // 等新段完成一次布局后再滚到末端，窄屏优先露出当前目录而非根目录。
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            var maxOffset = Math.Max(0, BreadcrumbScroller.Extent.Width - BreadcrumbScroller.Viewport.Width);
-            BreadcrumbScroller.Offset = new Vector(maxOffset, 0);
-        }, Avalonia.Threading.DispatcherPriority.Background);
+        if (_breadcrumbEndScrollPending)
+            return;
+        _breadcrumbEndScrollPending = true;
+        BreadcrumbScroller.LayoutUpdated += OnBreadcrumbScrollerLayoutUpdated;
+    }
+
+    private void OnBreadcrumbScrollerLayoutUpdated(object? sender, EventArgs e)
+    {
+        BreadcrumbScroller.LayoutUpdated -= OnBreadcrumbScrollerLayoutUpdated;
+        _breadcrumbEndScrollPending = false;
+        // 布局完成后再滚到末端，窄屏优先露出当前目录而非根目录。
+        var maxOffset = Math.Max(0, BreadcrumbScroller.Extent.Width - BreadcrumbScroller.Viewport.Width);
+        BreadcrumbScroller.Offset = new Vector(maxOffset, 0);
     }
 
     private void OnBackRequested(object? sender, RoutedEventArgs e)
