@@ -82,6 +82,9 @@ public sealed partial class OperationTaskViewModel : ObservableObject, IDisposab
 
     internal void Report(OperationProgress progress)
     {
+        // Progress<T> 的回调是异步投递的；终态之后到达的旧进度不得把 100% 回退。
+        if (Status is OperationTaskStatus.Completed or OperationTaskStatus.Failed or OperationTaskStatus.Cancelled)
+            return;
         if (Status == OperationTaskStatus.Queued)
             Status = OperationTaskStatus.Running;
         ProgressPercent = Math.Clamp(progress.Fraction, 0, 1) * 100;

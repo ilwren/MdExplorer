@@ -85,6 +85,7 @@ public partial class MainView : UserControl
             // DataGrid.SelectedItems 为只读 IList（不可绑定整集），选集与 VM 手动双向同步
             vm.Browser.SelectedItems.CollectionChanged += OnBrowserSelectionChanged;
             vm.Browser.Breadcrumbs.CollectionChanged += OnBreadcrumbsChanged;
+            ScheduleBreadcrumbEndScroll();
             vm.Browser.PropertyChanged += OnBrowserPropertyChanged;
             _ = vm.Browser.RefreshExternalClipboardAsync();
         }
