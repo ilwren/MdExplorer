@@ -87,7 +87,7 @@
             <DataTemplate x:DataType="vm:NavEntry">
               <Border Classes="tap-chip" Margin="0,0,8,8" Tapped="OnPlaceTapped" Cursor="Hand">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                  <md:MdIcon Glyph="{Binding Glyph}" Size="20" />
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="20" />
                   <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
                 </StackPanel>
               </Border>

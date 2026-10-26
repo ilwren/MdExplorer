@@ -109,7 +109,9 @@ public sealed class BrowserNavigationTests : IDisposable
         Assert.Equal(_docsDir, settings.RecentFolderPaths[0]);
         Assert.Equal([_filePath], settings.RecentFilePaths);
 
-        await shell.RefreshHomeAsync();
+        // RecentsChanged 由 Shell 以事件方式异步刷新主页集合；等它落定后断言（不在无字体服务的单元进程走完整 RefreshHome）。
+        for (var i = 0; i < 50 && (shell.RecentFolders.Count == 0 || shell.RecentFiles.Count == 0); i++)
+            await Task.Delay(20);
         Assert.Equal(_docsDir, shell.RecentFolders[0].Path);
         Assert.Equal(_filePath, Assert.Single(shell.RecentFiles).FullPath);
 

@@ -271,9 +271,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
             if (item?.IsFolder == true)
             {
+                // 字形由 Home 视图模板提供：MdSymbols 需要 Avalonia 字体服务，VM 保持可在无头单元测试中独立刷新。
                 RecentFolders.Add(new NavEntry(
                     item.Name,
-                    MdSymbols.Folder,
+                    null,
                     item.FullPath,
                     _services.FileSystem.GetParentPath(item.FullPath)));
             }
