@@ -1,4 +1,12 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.89]     MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [FAIL]
+  Failed MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [23 ms]
+  Error Message:
+   Assert.Empty() Failure: Collection was not empty
+Collection: [NavEntry { Title = docs, Glyph = , Path = /tmp/eidoria-navigation-Euefhk/start/docs, Subtitle = /tmp/eidoria-navigation-Euefhk/start }]
+  Stack Trace:
+     at MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/BrowserNavigationAndTasksTests.cs:line 126
+--- End of stack trace from previous location ---
 
-Passed!  - Failed:     0, Passed:    90, Skipped:     0, Total:    90, Duration: 512 ms - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:    89, Skipped:     0, Total:    90, Duration: 430 ms - MdExplorer.Tests.dll (net10.0)
