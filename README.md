@@ -14,6 +14,12 @@
 
 <img src="docs/assets/screenshots/22-compact-floating-preview.png" alt="Compact 悬浮预览：可拖窗内含预览与属性双页签" width="240" /><img src="docs/assets/screenshots/23-large-search-island.png" alt="Large 悬浮搜索面板：迷你搜索岛展开后的搜索控制面" width="520" />
 
+## 下一阶段概念（非实拍）
+
+概念设计 v2 已把当前基线做成深浅成对稿，并预演搜索索引、双窗格、存储洞察、压缩包工作台、编辑/PDF、媒体、插件/Lua 与本地 AI 的界面样式。完整图集、优先级与验收规则见 [docs/CONCEPT-DESIGN.md](docs/CONCEPT-DESIGN.md)；规划图不代表功能已经实现。
+
+<img src="docs/assets/mockups/v2/contact-sheet.png" alt="Eidoria 概念设计 v2 总览：深浅主题、当前基线与下一阶段规划界面" width="720" />
+
 ## 构建与运行
 
 前置：.NET 10 SDK（`global.json`）；Android 另需 `dotnet workload install android` + JDK 17；Linux Native AOT 另需 `clang`、`zlib1g-dev`。
@@ -57,6 +63,7 @@ tests/                               单元测试 + 无头截图冒烟
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 开发文档：选型与许可证/AOT 考据、分层架构、接口规范、功能规格、平台适配、AOT 合规、路线图与决策记录 |
 | [docs/BRAND.md](docs/BRAND.md) | Eidoria（万象屿）命名、图标构造、核心色与品牌资产落点 |
 | [docs/RESPONSIVE-LAYOUT.md](docs/RESPONSIVE-LAYOUT.md) | 五档断点布局规格（含 `docs/assets/layouts/` 五张 SVG 线框与高保真方向图） |
+| [docs/CONCEPT-DESIGN.md](docs/CONCEPT-DESIGN.md) | 概念设计 v2：深浅主题成对稿、下一阶段规划界面、优先级与实现验收单 |
 | [docs/IMAGE-PROMPTS.md](docs/IMAGE-PROMPTS.md) | GPT-image-2 效果图提示词（中英双语） |
 | [docs/PLUGIN-SYSTEM.md](docs/PLUGIN-SYSTEM.md) | 插件系统计划与可行性评估（AOT 约束下的五机制选型、P0–P3 分期） |
 | [docs/LOCAL-AI.md](docs/LOCAL-AI.md) | 本地 AI 接入评估（多模态语义搜图、识图、TTS/ASR：模型许可、体积、A1–A4 分期） |

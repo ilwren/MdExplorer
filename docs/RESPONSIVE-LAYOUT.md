@@ -5,7 +5,8 @@
 | 资产 | 说明 |
 |---|---|
 | [`assets/layouts/layout-compact-390.svg`](assets/layouts/layout-compact-390.svg) 等 5 张 | 规范线框图（源脚本 `scripts/generate-layout-wireframes.py`，改图改脚本后重跑、勿手编 SVG） |
-| [`assets/mockups/mockup-compact-phone.png`](assets/mockups/mockup-compact-phone.png)、[`mockup-large-desktop.png`](assets/mockups/mockup-large-desktop.png) | AI 生成的高保真方向图（浅色、青色种子 `#006A6A`）。已知与规范的出入以本文为准纠正（见 §8 差异对照） |
+| [`assets/mockups/mockup-compact-phone.png`](assets/mockups/mockup-compact-phone.png)、[`mockup-large-desktop.png`](assets/mockups/mockup-large-desktop.png) | v2 矢量概念稿的 Compact/Large 浅色 canonical 副本（青色种子 `#006A6A`）；由 `scripts/generate-concept-mockups.py` 同步 |
+| [`CONCEPT-DESIGN.md`](CONCEPT-DESIGN.md) + [`assets/mockups/v2/`](assets/mockups/v2/) | 深浅成对基线与下一阶段规划界面（SVG 源稿 + PNG）；规划图不是已实现截图 |
 | [`IMAGE-PROMPTS.md`](IMAGE-PROMPTS.md) | 用 GPT-image-2 复刻/扩展全套效果图的提示词（中英双语） |
 
 ---
@@ -162,12 +163,13 @@
 
 ## 9. 高保真方向图的采用说明（与规范的已知差异）
 
-像素稿用 GPT-image-2 批量出图时，以下在样图中出现过的偏差以本文规格纠正，出图验收时逐条核：
+旧 AI 方向图已由概念设计 v2 的矢量稿替代；以下规则继续作为所有概念图与宣发图的验收线：
 
-1. 桌面样图里出现「Google Drive」卷——本产品**仅本地盘**，正式视觉只允许本地卷与（手机）SD 卡。
-2. Compact 样图顶部出现头像 + 右上独立搜索图标——规范是搜索栏胶囊常驻、无账号头像位。
-3. 别把 Android 系统状态栏画进设计源文件交付层（样图可带、实现时由系统提供）；桌面样图的无边框悬浮窗在交付中为系统窗框。
-4. 文件夹/文档的字例量级以线框里那组虚构数据为准（便于逐图比对），详情见提示词文档的「固定样例数据段」。
+1. 本产品**仅本地盘**：正式视觉只允许本地卷、已知文件夹、SD 卡与 Android 已授权目录，禁止云盘、账号头像和联网搜索暗示。
+2. 文件夹页的搜索入口是导航行迷你搜索岛（主页可保留通栏搜索），预览是“预览 / 属性”双页签；不要退回整行搜索框或单页长属性列表。
+3. Android 系统状态栏与桌面系统窗框可以在概念图中示意，但实现时由系统提供，不进入应用自绘层。
+4. `assets/mockups/v2/06–15` 是规划预演：其中出现的索引、双窗格、播放器、插件与 AI 入口在功能真正落地前不得进入正式导航或商店实拍。
+5. 文件夹/文档样例量级以概念稿的固定虚构数据为准（便于深浅与断点逐图比对），不要使用真实用户路径与私人文件名。
 
 ---
 
