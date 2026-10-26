@@ -93,13 +93,17 @@ public interface IKnownFoldersService
 public interface IFileLauncherService
 {
     Task<bool> OpenAsync(string path, CancellationToken cancellationToken);
+
+    /// <summary>在系统文件管理器中显示并尽量选中目标；平台不支持“选中”时退化为打开父文件夹。</summary>
+    Task<bool> RevealAsync(string path, CancellationToken cancellationToken);
 }
 
-/// <summary>系统剪贴板中的文件（跨应用复制/粘贴）。仅承载本地路径；存储提供者 URI 无跨应用文件语义。</summary>
+/// <summary>系统剪贴板中的文件与纯文本（路径文本）。文件格式仅承载本地路径；存储提供者 URI 无跨应用文件语义。</summary>
 public interface ISystemClipboardService
 {
     Task SetFilesAsync(IReadOnlyList<string> localPaths, CancellationToken cancellationToken);
     Task<IReadOnlyList<string>> TryGetFilesAsync(CancellationToken cancellationToken);
+    Task SetTextAsync(string text, CancellationToken cancellationToken);
 }
 
 /// <summary>ZIP 压缩包端口（v0.1 以 System.IO.Compression 实现，格式扩展见选型表）。</summary>
