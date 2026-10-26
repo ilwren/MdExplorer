@@ -136,7 +136,9 @@ public sealed partial class BrowserViewModel : ObservableObject
         var ct = _loadCts.Token;
 
         CurrentPath = path;
-        CurrentFolderName = FolderDisplayName(path);
+        CurrentFolderName = FileLocator.IsStorageUri(path)
+            ? _fileSystem.GetBreadcrumbs(path).LastOrDefault()?.Name ?? path
+            : FolderDisplayName(path);
         IsSearchMode = false;
         ExitSelectionMode();
         RebuildBreadcrumbs(path);
@@ -158,6 +160,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         _watchSubscription?.Dispose();
         _watchSubscription = null;
         if (!_watchEnabled) return;
+        if (FileLocator.IsStorageUri(path)) return; // 存储形态无变更通知，靠手动刷新
         _watchSubscription = _folderWatch.Watch(path, () =>
             Dispatcher.UIThread.Post(() =>
             {
@@ -263,8 +266,8 @@ public sealed partial class BrowserViewModel : ObservableObject
     private async Task GoUpAsync()
     {
         if (CurrentPath is null) return;
-        var parent = Path.GetDirectoryName(CurrentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        if (string.IsNullOrEmpty(parent) || PathsEqual(parent, CurrentPath)) return;
+        var parent = _fileSystem.GetParentPath(CurrentPath);
+        if (parent is null || PathsEqual(parent, CurrentPath)) return;
         await NavigateToAsync(parent).ConfigureAwait(true);
     }
 
@@ -374,6 +377,11 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         var root = rootPath ?? CurrentPath;
         if (root is null) return;
+        if (FileLocator.IsStorageUri(root))
+        {
+            _dialogs.Notify("授权文件夹内暂不支持递归搜索，可用列表内筛选按名称过滤");
+            return;
+        }
 
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
@@ -589,6 +597,11 @@ public sealed partial class BrowserViewModel : ObservableObject
     private async Task CompressSelectionAsync()
     {
         if (SelectedItems.Count == 0 || CurrentPath is null) return;
+        if (FileLocator.IsStorageUri(CurrentPath))
+        {
+            _dialogs.Notify("授权文件夹内暂不支持压缩");
+            return;
+        }
         var first = SelectedItems[0];
         var defaultName = (SelectedItems.Count == 1 ? Path.GetFileNameWithoutExtension(first.Name) : CurrentFolderName) + ".zip";
         var dest = Path.Combine(CurrentPath, defaultName);
@@ -606,6 +619,11 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         item ??= SelectedItems.FirstOrDefault();
         if (item is null || CurrentPath is null) return;
+        if (FileLocator.IsStorageUri(item.FullPath) || FileLocator.IsStorageUri(CurrentPath))
+        {
+            _dialogs.Notify("授权文件夹内暂不支持解压");
+            return;
+        }
         var destDir = Path.Combine(CurrentPath, Path.GetFileNameWithoutExtension(item.Name));
         await _dialogs.RunOperationAsync("正在解压…", (progress, ct) =>
             _archive.ExtractAsync(item.FullPath, destDir, progress, ct)).ConfigureAwait(true);
@@ -640,7 +658,7 @@ public sealed partial class BrowserViewModel : ObservableObject
             $"路径：{m.FullPath}" +
             (m.IsSymlink ? "\n链接：符号链接" : "") +
             (m.IsHidden ? "\n可见性：隐藏" : "");
-        if (m.IsFolder)
+        if (m.IsFolder && !m.Locator.IsStorage)
         {
             try
             {
@@ -661,6 +679,11 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         item ??= SelectedItems.FirstOrDefault();
         if (item is null || item.Model.IsFolder) return;
+        if (item.Model.Locator.IsStorage)
+        {
+            _dialogs.Notify("授权文件夹内暂不支持计算校验和");
+            return;
+        }
         var path = item.FullPath;
         var name = item.Name;
         string? sha256 = null, md5 = null;
@@ -758,11 +781,8 @@ public sealed partial class BrowserViewModel : ObservableObject
                 await gate.WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
-                    var bitmap = await Task.Run(() =>
-                    {
-                        using var stream = File.OpenRead(item.FullPath);
-                        return Bitmap.DecodeToWidth(stream, 192);
-                    }, ct).ConfigureAwait(false);
+                    await using var stream = await _fileSystem.OpenReadAsync(item.FullPath, ct).ConfigureAwait(false);
+                    var bitmap = await Task.Run(() => Bitmap.DecodeToWidth(stream, 192), ct).ConfigureAwait(false);
                     await Dispatcher.UIThread.InvokeAsync(() => item.Thumbnail = bitmap);
                 }
                 finally { gate.Release(); }
@@ -779,7 +799,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     private void RebuildBreadcrumbs(string path)
     {
         Breadcrumbs.Clear();
-        foreach (var segment in PathText.Segments(path))
+        foreach (var segment in _fileSystem.GetBreadcrumbs(path))
             Breadcrumbs.Add(new BreadcrumbSegment(segment.Name, segment.FullPath));
     }
 
@@ -787,8 +807,8 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         CanGoBack = _backStack.Count > 0;
         CanGoForward = _forwardStack.Count > 0;
-        var parent = Path.GetDirectoryName(currentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        CanGoUp = !string.IsNullOrEmpty(parent) && !PathsEqual(parent, currentPath);
+        var parent = _fileSystem.GetParentPath(currentPath);
+        CanGoUp = parent is not null && !PathsEqual(parent, currentPath);
     }
 
     public async Task NavigateBreadcrumbAsync(BreadcrumbSegment segment) => await NavigateToAsync(segment.FullPath).ConfigureAwait(true);

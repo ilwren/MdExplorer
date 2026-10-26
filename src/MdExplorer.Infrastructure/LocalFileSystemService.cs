@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using MdExplorer.Application;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
 
@@ -85,6 +86,22 @@ public sealed class LocalFileSystemService : IFileSystemService
         }, cancellationToken);
 
     public bool Exists(string path) => File.Exists(path) || Directory.Exists(path);
+
+    public Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<Stream>(new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite,
+            bufferSize: 81920, useAsync: true));
+    }
+
+    public string? GetParentPath(string path) =>
+        Path.GetDirectoryName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) is { Length: > 0 } parent
+            ? parent
+            : null;
+
+    public IReadOnlyList<PathSegment> GetBreadcrumbs(string path) =>
+        PathText.Segments(path).Select(s => new PathSegment(s.Name, s.FullPath)).ToArray();
 
     internal static FileItem? StatPath(string path)
     {

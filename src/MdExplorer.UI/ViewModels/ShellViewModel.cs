@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Md3.Avalonia.Controls;
@@ -26,11 +27,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public PlatformCapabilities Capabilities => _services.Capabilities;
     public ISettingsStore SettingsStore => _services.SettingsStore;
 
+    private readonly List<AuthorizedRoot> _persistedRoots = [];
+
+    /// <summary>已授权文件夹入口（Android SAF；含会话内与书签恢复）。</summary>
+    public ObservableCollection<AuthorizedRootModel> AuthorizedRoots { get; } = [];
+
+    public bool HasAuthorizedRoots => AuthorizedRoots.Count > 0;
+
     public ShellViewModel(AppHost.AppServices services)
     {
         _services = services;
         _launcher = () => services.Launcher;
-        Preview = new PreviewViewModel(MdExplorer.UI.Preview.BuiltInPreviewProviders.Create(services.Archive), () => Launcher);
+        Preview = new PreviewViewModel(MdExplorer.UI.Preview.BuiltInPreviewProviders.Create(services.Archive, services.FileSystem), () => Launcher);
+        _persistedRoots.AddRange(services.PersistedRoots);
+        AuthorizedRoots.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAuthorizedRoots));
         Browser = new BrowserViewModel(
             services.FileSystem, services.Operations, services.Trash,
             services.Archive, services.Search, services.SettingsStore,
@@ -255,6 +265,96 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         IsDrawerOpen = false;
         IsPreviewPageOpen = false;
         await Browser.NavigateToAsync(path).ConfigureAwait(true);
+    }
+
+    /// <summary>MainView 挂载后注入平台 StorageProvider 并恢复书签授权（Android SAF；桌面不调用）。</summary>
+    public async Task AttachStorageAsync(IStorageProvider provider)
+    {
+        _services.StorageFileSystem.StorageProvider = provider;
+        foreach (var root in _persistedRoots)
+        {
+            try
+            {
+                if (await provider.OpenFolderBookmarkAsync(root.Bookmark).ConfigureAwait(true) is { } folder)
+                    AddAuthorizedRootModel(folder.Name, _services.StorageFileSystem.RegisterRoot(folder));
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
+            {
+                // 书签/授权失效则跳过（条目保留在持久化中，用户可重新授权覆盖）
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task PickAuthorizedFolderAsync()
+    {
+        var provider = _services.StorageFileSystem.StorageProvider;
+        if (provider is null || !provider.CanPickFolder)
+        {
+            Notify("当前环境不支持文件夹选择");
+            return;
+        }
+        IReadOnlyList<IStorageFolder> picked;
+        try
+        {
+            picked = await provider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "选择要在 MdExplorer 中浏览的文件夹",
+                AllowMultiple = true,
+            }).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
+        {
+            Notify("无法打开系统文件夹选择器");
+            return;
+        }
+        string? firstUri = null;
+        foreach (var folder in picked)
+        {
+            var uri = _services.StorageFileSystem.RegisterRoot(folder);
+            firstUri ??= uri;
+            AddAuthorizedRootModel(folder.Name, uri);
+            try
+            {
+                // 书签持久化尽力而为：失败时该授权仅本次会话有效
+                if (folder.CanBookmark && await folder.SaveBookmarkAsync().ConfigureAwait(true) is { } bookmark)
+                {
+                    _persistedRoots.RemoveAll(r => r.Name == folder.Name);
+                    _persistedRoots.Add(new AuthorizedRoot(folder.Name, bookmark));
+                }
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException) { }
+        }
+        if (picked.Count > 0)
+        {
+            await SaveRootsAsync().ConfigureAwait(true);
+            if (firstUri is not null)
+                await OpenFolderAsync(firstUri).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>移除授权入口与书签（不触碰实际文件；系统侧授权亦可在系统设置撤销）。</summary>
+    public async Task RemoveAuthorizedRootAsync(AuthorizedRootModel root)
+    {
+        AuthorizedRoots.Remove(root);
+        _persistedRoots.RemoveAll(r => r.Name == root.Name);
+        await SaveRootsAsync().ConfigureAwait(true);
+        Notify($"已移除授权：{root.Name}");
+    }
+
+    /// <summary>父文件夹定位串（双形态统一，供收藏跳转等跨界调用）。</summary>
+    public string? BrowserParentOf(string path) => _services.FileSystem.GetParentPath(path);
+
+    private void AddAuthorizedRootModel(string name, string uri)
+    {
+        if (AuthorizedRoots.All(r => r.Path != uri))
+            AuthorizedRoots.Add(new AuthorizedRootModel(name, uri));
+    }
+
+    private async Task SaveRootsAsync()
+    {
+        try { await AuthorizedRootsStore.SaveAsync(_services.DataDirectory, _persistedRoots).ConfigureAwait(true); }
+        catch (IOException) { }
     }
 
     [RelayCommand]

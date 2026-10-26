@@ -31,7 +31,11 @@ public partial class MainView : UserControl
             topLevel.AddHandler(TopLevel.BackRequestedEvent, OnBackRequested, RoutingStrategies.Bubble);
             // Android 的打开方式走 Avalonia Launcher；桌面沿用进程实现
             if (Shell is { Capabilities.IsAndroid: true } shell)
+            {
                 shell.UseLauncher(new Services.AvaloniaFileLauncher(() => TopLevel.GetTopLevel(this)));
+                // SAF：注入 StorageProvider 并恢复书签授权文件夹
+                _ = shell.AttachStorageAsync(topLevel.StorageProvider);
+            }
         }
         if (Shell is { } vm)
             vm.PropertyChanged += OnShellPropertyChanged;

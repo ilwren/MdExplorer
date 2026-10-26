@@ -18,7 +18,7 @@ public sealed class PreviewRegistryTests
         IsSymlink: false,
         Path.GetExtension(name));
 
-    private static PreviewProviderRegistry BuiltIns() => BuiltInPreviewProviders.Create(new ArchiveService());
+    private static PreviewProviderRegistry BuiltIns() => BuiltInPreviewProviders.Create(new ArchiveService(), new LocalFileSystemService());
 
     [Theory]
     [InlineData("photo.jpg", FileKind.Image, "builtin.image")]

@@ -1,8 +1,9 @@
+using System.IO;
 using MdExplorer.Domain;
 
 namespace MdExplorer.Platform.Abstractions;
 
-/// <summary>文件夹枚举与文件读写端口。v0.1 以本地路径定位符为实现（见 FileLocator 注释）。</summary>
+/// <summary>文件夹枚举与文件读写端口。定位串可为本地路径或存储 URI（FileLocator.IsStorageUri 分流，委托实现见 UI 层）。</summary>
 public interface IFileSystemService
 {
     IAsyncEnumerable<FileItem> ListAsync(string folderPath, bool includeHidden, CancellationToken cancellationToken);
@@ -11,6 +12,15 @@ public interface IFileSystemService
     Task<string> CreateFileAsync(string parentPath, string name, CancellationToken cancellationToken);
     Task<string> RenameAsync(string sourcePath, string newName, CancellationToken cancellationToken);
     bool Exists(string path);
+
+    /// <summary>打开文件读流（本地=FileStream；存储形态=提供者流，后者 Length 可能不可用，调用方勿依赖）。</summary>
+    Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken);
+
+    /// <summary>父文件夹定位串；已在根时为 null（存储形态以注册表父链/提供者为准）。</summary>
+    string? GetParentPath(string path);
+
+    /// <summary>面包屑段链（根→当前）。</summary>
+    IReadOnlyList<PathSegment> GetBreadcrumbs(string path);
 }
 
 /// <summary>复制/移动/删除执行器：批处理、进度、冲突策略、部分失败明细（DEVELOPMENT.md §5.5 的 v0.1 串行版）。</summary>

@@ -54,18 +54,18 @@ public sealed class PreviewProviderRegistry(IEnumerable<IPreviewProvider> provid
 /// <summary>内置提供者集合（P0）。未来插件提供者在此并列追加，宿主优先级裁决。</summary>
 public static class BuiltInPreviewProviders
 {
-    public static PreviewProviderRegistry Create(IArchiveService archive) => new(
+    public static PreviewProviderRegistry Create(IArchiveService archive, IFileSystemService fileSystem) => new(
     [
-        new ImagePreviewProvider(),
-        new MarkdownPreviewProvider(),
-        new TextPreviewProvider(),
-        new HexPreviewProvider(),
+        new ImagePreviewProvider(fileSystem),
+        new MarkdownPreviewProvider(fileSystem),
+        new TextPreviewProvider(fileSystem),
+        new HexPreviewProvider(fileSystem),
         new ArchivePreviewProvider(archive),
         new FallbackPreviewProvider(),
     ]);
 }
 
-internal sealed class ImagePreviewProvider : IPreviewProvider
+internal sealed class ImagePreviewProvider(IFileSystemService fileSystem) : IPreviewProvider
 {
     public string Id => "builtin.image";
     public int Priority => 100;
@@ -73,11 +73,8 @@ internal sealed class ImagePreviewProvider : IPreviewProvider
 
     public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
     {
-        var bitmap = await Task.Run(() =>
-        {
-            using var stream = File.OpenRead(item.FullPath);
-            return Bitmap.DecodeToWidth(stream, 1600);
-        }, cancellationToken).ConfigureAwait(true);
+        await using var stream = await fileSystem.OpenReadAsync(item.FullPath, cancellationToken).ConfigureAwait(true);
+        var bitmap = await Task.Run(() => Bitmap.DecodeToWidth(stream, 1600), cancellationToken).ConfigureAwait(true);
         return new PreviewContent(Image: bitmap);
     }
 }
@@ -87,19 +84,27 @@ internal static class PreviewTextReader
 {
     internal const long TextLimit = 512 * 1024;
 
-    internal static async Task<string> ReadAsync(FileItem item, CancellationToken cancellationToken)
+    internal static async Task<string> ReadAsync(IFileSystemService fileSystem, FileItem item, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(item.FullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        var buffer = new byte[Math.Min(TextLimit, Math.Max(0, stream.Length))];
-        var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(true);
+        await using var stream = await fileSystem.OpenReadAsync(item.FullPath, cancellationToken).ConfigureAwait(true);
+        // 存储提供者流可能不可寻址：长度以条目元数据为准，读取循环填满（单次 Read 不保证填满）
+        var total = item.Length ?? (stream.CanSeek ? stream.Length : -1);
+        var buffer = new byte[total >= 0 ? Math.Min(TextLimit, total) : TextLimit];
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var n = await stream.ReadAsync(buffer.AsMemory(read, buffer.Length - read), cancellationToken).ConfigureAwait(true);
+            if (n == 0) break;
+            read += n;
+        }
         var text = Encoding.UTF8.GetString(buffer, 0, read);
-        if (stream.Length > TextLimit)
+        if (total > TextLimit)
             text += $"\n\n…（仅预览前 {Formatting.Bytes(TextLimit)}，文件共 {Formatting.Bytes(item.Length)}）";
         return text;
     }
 }
 
-internal sealed class MarkdownPreviewProvider : IPreviewProvider
+internal sealed class MarkdownPreviewProvider(IFileSystemService fileSystem) : IPreviewProvider
 {
     public string Id => "builtin.markdown";
     public int Priority => 110; // .md 先于纯文本提供者（渲染而非原文）
@@ -108,10 +113,10 @@ internal sealed class MarkdownPreviewProvider : IPreviewProvider
         || string.Equals(item.Extension, ".markdown", StringComparison.OrdinalIgnoreCase);
 
     public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken) =>
-        new(Markdown: await PreviewTextReader.ReadAsync(item, cancellationToken).ConfigureAwait(true));
+        new(Markdown: await PreviewTextReader.ReadAsync(fileSystem, item, cancellationToken).ConfigureAwait(true));
 }
 
-internal sealed class TextPreviewProvider : IPreviewProvider
+internal sealed class TextPreviewProvider(IFileSystemService fileSystem) : IPreviewProvider
 {
     public string Id => "builtin.text";
     public int Priority => 100;
@@ -119,7 +124,7 @@ internal sealed class TextPreviewProvider : IPreviewProvider
 
     public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
     {
-        var text = await PreviewTextReader.ReadAsync(item, cancellationToken).ConfigureAwait(true);
+        var text = await PreviewTextReader.ReadAsync(fileSystem, item, cancellationToken).ConfigureAwait(true);
         // 代码走编辑器呈现（行号+高亮）；HighlightLanguage 为 "" 表示无对应高亮定义时纯文本编辑器
         var language = item.Kind == FileKind.Code ? SourceLanguages.ForExtension(item.Extension) ?? "" : null;
         return new PreviewContent(Text: text, HighlightLanguage: language);
@@ -148,7 +153,7 @@ internal static class SourceLanguages
     };
 }
 
-internal sealed class HexPreviewProvider : IPreviewProvider
+internal sealed class HexPreviewProvider(IFileSystemService fileSystem) : IPreviewProvider
 {
     public string Id => "builtin.hex";
     public int Priority => 100;
@@ -156,9 +161,15 @@ internal sealed class HexPreviewProvider : IPreviewProvider
 
     public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(item.FullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        var buffer = new byte[Math.Min(512, Math.Max(0, stream.Length))];
-        var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(true);
+        await using var stream = await fileSystem.OpenReadAsync(item.FullPath, cancellationToken).ConfigureAwait(true);
+        var buffer = new byte[512];
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var n = await stream.ReadAsync(buffer.AsMemory(read, buffer.Length - read), cancellationToken).ConfigureAwait(true);
+            if (n == 0) break;
+            read += n;
+        }
         var builder = new StringBuilder();
         for (int offset = 0; offset < read; offset += 16)
         {
@@ -182,7 +193,8 @@ internal sealed class ArchivePreviewProvider(IArchiveService archive) : IPreview
 {
     public string Id => "builtin.archive";
     public int Priority => 100;
-    public bool CanHandle(FileItem item) => item.Kind == FileKind.Archive && archive.CanOpen(item.FullPath);
+    public bool CanHandle(FileItem item) =>
+        item.Kind == FileKind.Archive && !item.Locator.IsStorage && archive.CanOpen(item.FullPath);
 
     public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
     {

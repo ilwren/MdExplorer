@@ -21,7 +21,9 @@ public static class AppHost
         string DataDirectory,
         string StartFolder,
         IFileInspectorService Inspector,
-        IFolderWatchService FolderWatch);
+        IFolderWatchService FolderWatch,
+        DelegatingFileSystemService StorageFileSystem,
+        IReadOnlyList<AuthorizedRoot> PersistedRoots);
 
     /// <param name="dataDirectory">设置/收藏落点；为空时按平台默认（LocalApplicationData/MdExplorer）。</param>
     /// <param name="startFolder">初始文件夹；为空时桌面=用户主目录，Android=个人目录。</param>
@@ -31,7 +33,9 @@ public static class AppHost
         var dataDir = dataDirectory ?? DefaultDataDirectory();
         Directory.CreateDirectory(dataDir);
 
-        var fileSystem = new LocalFileSystemService();
+        // 双形态委托：本地路径转发本地实现；content:// 走 StorageProvider（Android SAF，视图挂载后注入）
+        var fileSystem = new DelegatingFileSystemService(new LocalFileSystemService(), new StorageItemRegistry());
+        var operations = new DelegatingFileOperationService(new FileOperationService(), fileSystem);
         var knownFolders = new KnownFoldersService();
         var trash = new TrashService();
         var store = SettingsStore.LoadOrDefault(dataDir);
@@ -50,7 +54,7 @@ public static class AppHost
 
         return new AppServices(
             fileSystem,
-            new FileOperationService(),
+            operations,
             trash,
             new VolumeService(),
             knownFolders,
@@ -62,7 +66,9 @@ public static class AppHost
             dataDir,
             start,
             new FileInspectorService(),
-            new FolderWatchService());
+            new FolderWatchService(),
+            fileSystem,
+            AuthorizedRootsStore.Load(dataDir));
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);

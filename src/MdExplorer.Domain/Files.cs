@@ -23,9 +23,25 @@ public enum FileKind
 /// </summary>
 public readonly record struct FileLocator(string Path)
 {
+    /// <summary>存储提供者形态（Android SAF 等）下为 content:// URI；本地形态为 null。此时 Path 同为该 URI 字符串，
+    /// 保证历史栈/剪贴板/收藏等以字符串为键的通道无需分叉；一切 Path.* 语义调用方须先以 IsStorageUri 分流。</summary>
+    public string? StorageUri { get; init; }
+
+    public bool IsStorage => StorageUri is not null;
+
     public static FileLocator FromPath(string absolutePath) => new(absolutePath);
+
+    public static FileLocator FromStorage(string uri) => new(uri) { StorageUri = uri };
+
+    /// <summary>字符串是否为存储提供者 URI（当前仅 Android SAF 的 content: 方案）。</summary>
+    public static bool IsStorageUri(string? path) =>
+        path is not null && path.StartsWith("content:", StringComparison.OrdinalIgnoreCase);
+
     public override string ToString() => Path;
 }
+
+/// <summary>面包屑段（服务层统一产出口径：本地由路径拆分、存储形态由注册表父链生成）。</summary>
+public sealed record PathSegment(string Name, string FullPath);
 
 /// <summary>文件/文件夹条目（不可变快照）。</summary>
 public sealed record FileItem(

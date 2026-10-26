@@ -74,6 +74,37 @@
         </ItemsControl>
       </StackPanel>
 
+      <StackPanel Spacing="10" IsVisible="{Binding Capabilities.IsAndroid}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Classes="h3" Text="已授权文件夹" VerticalAlignment="Center" />
+          <md:MdButton Variant="Tonal" Command="{Binding PickAuthorizedFolderCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="18" />
+              <TextBlock Text="授权文件夹…" VerticalAlignment="Center" />
+            </StackPanel>
+          </md:MdButton>
+        </StackPanel>
+        <TextBlock Classes="caption" TextWrapping="Wrap"
+                   Text="通过系统选择器授权后，可在此浏览手机存储中的任意文件夹（含 SD 卡/U 盘）。授权夹内删除为永久删除（无回收站）；重命名经复制完成，大文件夹较慢。" />
+        <ItemsControl ItemsSource="{Binding AuthorizedRoots}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthorizedRootModel">
+              <Border Classes="tap-chip" Margin="0,0,8,8" Tapped="OnAuthorizedRootTapped" Cursor="Hand">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="20" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                  <md:MdIconButton Icon="{x:Static md:MdSymbols.Close}" Click="OnRemoveAuthorizedRootClick"
+                                   ToolTip.Tip="移除授权入口（不删除文件）" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
       <StackPanel Spacing="10" IsVisible="{Binding HasFavorites}">
         <TextBlock Classes="h3" Text="收藏" />
         <ItemsControl ItemsSource="{Binding FavoriteItems}">

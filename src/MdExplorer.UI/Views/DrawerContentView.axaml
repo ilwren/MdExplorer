@@ -36,6 +36,28 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
+      <TextBlock Classes="caption" Text="已授权文件夹" Margin="8,14,0,4" FontWeight="SemiBold"
+                 IsVisible="{Binding Capabilities.IsAndroid}" />
+      <ItemsControl ItemsSource="{Binding AuthorizedRoots}" IsVisible="{Binding Capabilities.IsAndroid}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:AuthorizedRootModel">
+            <md:MdButton Classes="nav-entry" Variant="Text" Click="OnAuthorizedRootClick">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="22" />
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+              </StackPanel>
+            </md:MdButton>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <md:MdButton Classes="nav-entry" Variant="Text" Command="{Binding PickAuthorizedFolderCommand}"
+                   IsVisible="{Binding Capabilities.IsAndroid}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="22" />
+          <TextBlock Text="授权文件夹…" VerticalAlignment="Center" />
+        </StackPanel>
+      </md:MdButton>
+
       <TextBlock Classes="caption" Text="存储设备" Margin="8,14,0,4" FontWeight="SemiBold" />
       <ItemsControl ItemsSource="{Binding Volumes}">
         <ItemsControl.ItemTemplate>

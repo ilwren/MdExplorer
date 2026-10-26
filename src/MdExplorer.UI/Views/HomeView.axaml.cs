@@ -42,9 +42,29 @@ public partial class HomeView : UserControl
         {
             if (item.IsFolder)
                 await shell.OpenFolderAsync(item.FullPath);
+            else if (FileLocator.IsStorageUri(item.FullPath))
+            {
+                // 存储内文件收藏：父夹定位需注册表解析，交由 Browser 的服务层处理
+                if (shell.BrowserParentOf(item.FullPath) is { } storageParent)
+                    await shell.OpenFolderAsync(storageParent);
+            }
             else if (Path.GetDirectoryName(item.FullPath) is { } parent)
                 await shell.OpenFolderAsync(parent);
         }
+    }
+
+    private async void OnAuthorizedRootTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is Button) return; // 移除按钮的轻触不触发打开
+        if (sender is Control { DataContext: AuthorizedRootModel root } && Shell is { } shell)
+            await shell.OpenFolderAsync(root.Path);
+    }
+
+    private async void OnRemoveAuthorizedRootClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: AuthorizedRootModel root } && Shell is { } shell)
+            await shell.RemoveAuthorizedRootAsync(root);
+        e.Handled = true;
     }
 
     private async void OnCategoryTapped(object? sender, TappedEventArgs e)

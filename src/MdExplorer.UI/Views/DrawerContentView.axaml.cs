@@ -22,6 +22,12 @@ public partial class DrawerContentView : UserControl
             await shell.OpenFolderAsync(volume.Path);
     }
 
+    private async void OnAuthorizedRootClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: AuthorizedRootModel root } && Shell is { } shell)
+            await shell.OpenFolderAsync(root.Path);
+    }
+
     private async void OnFavoriteClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Control { DataContext: FileItemViewModel item } && Shell is { } shell)
