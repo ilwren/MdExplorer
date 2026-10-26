@@ -104,7 +104,7 @@ MVP 发布须同时满足：三端功能清单 §6 中全部 `MVP` 项在真机/
 | .NET SDK / TFM | SDK `10.0.1xx`、`net10.0` / `net10.0-android` | .NET 10 为 LTS；Avalonia 12 对 Android/iOS 宿主仅支持 .NET 10，故不设多目标 `net8.0` 兼容分支，简化矩阵。`global.json` 固定 SDK 大版本 |
 | 语言 | C# 14 | 可用 `field` 关键字、扩展成员等新特性；禁止依赖运行时反射语法的「魔法」特性 |
 | Avalonia | `12.1.4`（以立项时最新稳定版为准） | MIT。12 的关键收益：Android 后端重构（官方称 NativeAOT 冷启动 1960→460 ms 级）、编译绑定默认开启、SkiaSharp 3.0、开源 WebView（本期不依赖）。注意：12 大版本二进制不兼容，所有第三方 Avalonia 库须为针对 12 的构建 |
-| Md3.Avalonia | `0.5.0-preview.2`（`Md3.Avalonia` + `Md3.Avalonia.Icons.Lite`，按需加 `.DataGrid` / `.AvaloniaEdit` / `.Markdown` 主题包） | Apache-2.0，自有库；核心包目标 `net8.0;net10.0`，声明 `IsTrimmable` / `IsAotCompatible`，HCT 动态配色（49 色角、6 方案、3 对比度），组件覆盖导航/搜索/对话框/列表/自适应布局（`MdAdaptiveLayout` 优先评估复用，见 §7.3）。风险：仍处 preview，API 可能变更——缓解：版本钉死、升级走独立 PR、UI 层对 Md3 类型的使用收敛在自有控件/主题资源中（§17 R-01） |
+| Md3.Avalonia | `0.5.0-preview.2`（`Md3.Avalonia` + `Md3.Avalonia.Icons.Lite`，按需加 `.DataGrid` / `.AvaloniaEdit` / `.Markdown` / `.Extra` 主题与控件包） | Apache-2.0，自有库；核心与 Extra 包目标 `net8.0;net10.0`，声明 `IsTrimmable` / `IsAotCompatible`，HCT 动态配色（49 色角、6 方案、3 对比度），组件覆盖导航/搜索/对话框/列表/自适应布局（`MdAdaptiveLayout` 优先评估复用，见 §7.3）；`.Extra` 自 v0.11 起只取 `MdFloatingWindow` 承载窄断点悬浮预览。风险：仍处 preview，API 可能变更——缓解：版本钉死、升级走独立 PR、UI 层对 Md3 类型的使用收敛在自有控件/主题资源中（§17 R-01） |
 | MVVM | `CommunityToolkit.Mvvm 8.x` | MIT。纯源生成（`[ObservableProperty]` / `[RelayCommand]`），零运行时反射，AOT 安全。禁止 `ReactiveUI`（其当下版本在 Avalonia AOT 下仍有大量 trim 警告与破坏性迁移） |
 | DI | `Microsoft.Extensions.DependencyInjection 10.x` + **显式注册** | MIT。仅用运行时容器做组合根注入；**禁止**程序集扫描/`Scrutor` 式约定注册；注册表集中写在各宿主 `CompositionRoot`。单测时可直接 `new`，ViewModel 构造注入口面要小 |
 | 序列化 | `System.Text.Json` **源生成**（`JsonSerializerContext`） | MIT。禁止无 Context 的反射重载、禁止 `Newtonsoft.Json` |
@@ -548,7 +548,7 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 | F-03 | 位置导航：桌面面包屑（点击任意段跳转、中键新标签打开、点击空白变路径输入框）、Compact 折叠面包屑（仅显当前名 + 点击展开全路径 Sheet）、前进/后退/上一级、历史长按/右键菜单 | MVP | Android 返回键/手势接后退栈（支持预测性返回动画为 P2） |
 | F-04 | 多标签页（桌面 Expanded+）：新建/关闭/拖拽重排/右键菜单（在新标签打开、复制标签、关其它）、`Ctrl+T/W/Tab` | MVP（桌面） | Compact/Medium 不做标签（单会话 + 后退栈），属布局形态差异而非功能阉割（P3） |
 | F-05 | 快速访问：收藏（星标文件夹/文件）、最近（访问与最近修改两种口径切换）、固定到侧栏 | MVP | 存储在本地库；目标失效时置灰保留并可移除 |
-| F-06 | 排序（名称/日期/大小/类型，正逆序，文件夹默认在前可关）与分组（按类型/日期，P2）、过滤（输入即筛当前列表，`Ctrl+F`） | MVP / 分组 P2 | 排序在应用层以自然序比较（`2` 在 `10` 前、大小写与平台规则经 `IPathService`） |
+| F-06 | 排序（名称/日期/大小/类型，正逆序，文件夹默认在前可关）与分组（按类型/日期，P2）、过滤（迷你搜索岛展开悬浮面板，输入即筛当前列表、回车递归，`Ctrl+F`/`Ctrl+K`） | MVP / 分组 P2 | 排序在应用层以自然序比较（`2` 在 `10` 前、大小写与平台规则经 `IPathService`） |
 | F-07 | 显示隐藏文件开关、扩展名恒显、文件夹条目数徽标（可关，后台惰性计算不阻塞滚动） | MVP | 隐藏判定：Windows `Hidden` 属性、Linux/Android 点前缀 + `.nomedia` 不作隐藏处理 |
 | F-08 | 空目录/无权限/卷未就绪等状态页（MD3 空状态：图标+说明+下一步动作） | MVP | 未授权（Android）状态页直达授权流（§9.3） |
 
@@ -574,7 +574,7 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 
 ### 6.4 搜索
 
-三层递进，UI 统一为 `MdSearchBar` → 激活 `MdSearchView`（Compact 全屏、Expanded+ 停靠式结果列，MD3 搜索规范的两种形态）：
+三层递进，UI 统一为迷你搜索岛 → 悬浮控制面板内的 `MdSearchBar`（全断点不离页；输入做当前列表过滤、回车升级递归搜索，`Esc`/系统返回先收面板）：
 
 1. **当前列表过滤**（MVP）：关键词即时过滤已加载条目（300 ms 防抖），零 IO，结果数即时回显；清除即恢复。
 2. **实时递归搜索**（MVP）：从当前目录（或所选根）深度优先遍历按名匹配（子串 + 大小写策略随平台：Windows 不敏感、Linux 可切换默认不敏感以对齐用户直觉、扩展名/类型过滤可加）。流式上屏、随时取消、硬顶上限（10 万条或 60 s 先到先停）并明确声明截断；默认不穿越目录符号链接、默认跳过隐藏目录（可在高级选项打开）。
@@ -601,7 +601,7 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 | 未知/二进制 | 元信息卡 + Hex 视图（前 64 KB 窗滑动） | ✔ | 永远兜底，永不白屏 |
 | Office docx/xlsx/pptx、epub | 不渲染排版：元信息卡（自 zip 内读 `docProps`)+ 系统打开 | ✔（元信息） | docx 纯文本抽取为 P2（解 zip 读 XML 拉文本） |
 
-预览窗格（Expanded+ 侧栏）与全屏查看器共用装卸逻辑：切文件即取消上一加载；加载骨架屏；失败明确区分「格式不支持/文件损坏/无权限/文件已消失」并保持元信息卡可达。
+预览窗格（Expanded+ 侧栏）与 Compact/Medium 悬浮查看窗共用同一 `PreviewView` 与装卸逻辑：文件头与「打开」常驻，内容与属性分「预览 / 属性」双页签（文件默认内容、文件夹默认属性）；切文件即取消上一加载；加载骨架屏；失败明确区分「格式不支持/文件损坏/无权限/文件已消失」并保持元信息卡可达。
 
 ### 6.6 缩略图与元数据
 
@@ -669,7 +669,7 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 
 ### 8.1 主题系统
 
-唯一主题入口 `Md3.Avalonia` 的 `MaterialTheme`（+ 可选主题包），不混 Avalonia Fluent/Simple 样式；需要 Avalonia 原生控件处（`DataGrid` 等）经对应 Md3 主题包罩皮。品牌种子色默认青色 `#006A6A`（与高保真设计方向图一致），经 HCT 生成浅/深两色板；设置里可选方案（TonalSpot 默认、Expressive 等）与对比度，切换经 `MdThemeManager.Apply` 式入口即时生效。**颜色只引用 Token/DynamicResource 角色**（`surface / surfaceContainer / primaryContainer …`），业务 XAML 禁写裸色值；文件类型着色用一组经对比度校验的装饰色常量集中定义（文件夹暖黄、图片青、音频紫、代码绿……仅用于小面积图标/徽标，正文文本禁走装饰色）。
+唯一主题入口 `Md3.Avalonia` 的 `MaterialTheme` + `Md3.Avalonia.Extra` 的 `ExtraTheme`（+ 可选主题包），不混 Avalonia Fluent/Simple 样式；需要 Avalonia 原生控件处（`DataGrid` 等）经对应 Md3 主题包罩皮。品牌种子色默认青色 `#006A6A`（与高保真设计方向图一致），经 HCT 生成浅/深两色板；设置里可选方案（TonalSpot 默认、Expressive 等）与对比度，切换经 `MdThemeManager.Apply` 式入口即时生效。**颜色只引用 Token/DynamicResource 角色**（`surface / surfaceContainer / primaryContainer …`），业务 XAML 禁写裸色值；文件类型着色用一组经对比度校验的装饰色常量集中定义（文件夹暖黄、图片青、音频紫、代码绿……仅用于小面积图标/徽标，正文文本禁走装饰色）。
 
 ### 8.2 组件映射（开发时对照查表）
 
@@ -677,7 +677,9 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 |---|---|---|
 | 一级导航 | `MdNavigationBar / MdNavigation(Rail) / MdNavigationDrawer`（命名以所钉版本实际 API 为准，Spike 时锁死对照表并回写本表） | 见 §7.2 |
 | 顶栏 | `MdTopAppBar`（Small/Center/Medium） | Compact 小顶栏+溢出菜单；Large 可升级为带地址/标签的复合顶区（见线框） |
-| 搜索 | `MdSearchBar` + `MdSearchView` | Docked（Medium+）/ Full-screen（Compact) |
+| 搜索 | 迷你搜索岛（`MdButton`）+ 悬浮面板内的 `MdSearchBar` | 全断点同一悬浮面板；岛上文字只在 Large+ 显示，Compact–Expanded 只留图标 |
+| 预览 | `MdTabs + MdTabsView`（预览 / 属性）；窄断点宿主为 Extra `MdFloatingWindow` | Expanded+ 侧栏；Compact/Medium 可拖/缩放/最小化的应用内悬浮窗 |
+| 滚动 | `MdScrollViewer` | 所有显式溢出区统一使用；虚拟化列表/表格只用控件内部滚动，不外包无限高容器 |
 | 新建主动作 | FAB / Extended FAB（Compact/Medium）、工具栏 Filled Button（Large+） | 移动形态 FAB + 菜单（新建文件/文件夹/扫描不适用项不出现） |
 | 文件行/卡 | `MdList` 项 + 自有 `FileListItem/FileGridCard`（三段式：图标/缩略、两行文本、尾随菜单） | 数据同源，密度与尾随入口位置变 |
 | 确认/表单 | `MdDialog`（基础/全屏）、Compact 下优先 `MdSheetHost` 底部工作表 | 重命名、新建、属性、冲突：大屏对话框、小屏工作表/全屏 |
@@ -1014,7 +1016,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 |---|---|---|---|
 | `Ctrl+T / Ctrl+W` | 新建/关闭标签 | `Ctrl+Tab / Ctrl+Shift+Tab` | 切换标签 |
 | `Alt+← / Alt+→` | 后退/前进 | `Alt+↑` | 上一级 |
-| `Ctrl+L` | 聚焦地址/面包屑输入 | `Ctrl+K / Ctrl+F` | 搜索 / 过滤当前列表（搜索激活后 `Esc` 退出） |
+| `Ctrl+L` | 聚焦地址/面包屑输入 | `Ctrl+K / Ctrl+F` | 展开悬浮搜索面板（输入筛选、回车递归；`Esc`/系统返回先收面板，再返回才退出搜索） |
 | `Enter` | 打开 | `Space` | 快速预览（浮层，再按关） |
 | `F2` | 重命名 | `Ctrl+N / Ctrl+Shift+N` | 新文件 / 新文件夹（冲突时一键以系统顺位让步） |
 | `Ctrl+C / X / V` | 复制/剪切/粘贴 | `Ctrl+Shift+C` | 复制路径 |
@@ -1052,6 +1054,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | 2026-10-26 | **v0.8 视觉层级与标签页精修**：按 `docs/assets/mockups/` 概念稿重建表面阶梯—根层 `SurfaceContainerLow` 柔和底板、浏览器白色工作区、预览浮动卡、细描边与克制阴影：标签轨改为与工作区同面相连的浏览器式页签（活动页图标井 + 主色指示线，25px 关闭键，完整路径 tooltip，新建按钮紧随标签列）；路径收进胶囊、工具栏改为工作区内图标+文案、列表/网格补类型色图标井、描边文件卡与文件夹量行、预览改为内容自然高度 + 元数据分隔行。修复 `ListBox.*` 样式未命中 Md3 `MdList` 的祖先选择器（统一改用精确 `md|MdList.*` 并启用 `Segmented` 容器），使列表/网格选中态真正呈现圆角 + 主色描边；主页/最近刷新改为信号量串行快照 + 世代护栏，清除可失效在途刷新。Compact 在单标签时隐藏标签轨、面包屑折叠为当前目录胶囊（点按进入地址编辑）；非 Compact 面包屑自动滚至当前段。顺带修复任务中心异步进度在终态后把 100% 回退的竞态。 | push run `40326100489`（sha `7aab53c`）六 Job 全绿（90 单元测试 Ubuntu/Windows 双跑 + 22 截图测试/21 张 PNG；Windows/Linux 桌面自包含、linux-x64 Native AOT、Android APK）；此前边界修复跑次的失败与修复见 commit `edcc945` / `9c10760` / `7d2a373` / `7aab53c` |
 | 2026-10-26 | **v0.9 Logo 换新、Material 分隔条与动效层**：图标改为深湖色 squircle + 单线拱门（珊瑚错版回声）+ 金日 + 三色屿浪 + 基线的极简版，桌面 PNG/ICO、Android adaptive vector 与启动背景全套同步（`docs/BRAND.md`）。在 Md3.Avalonia 尚缺分隔条控件的情况下，先在本仓库实现原型 `MaterialGridSplitter`（继承 Avalonia `GridSplitter` 的拖动/键盘/数值逻辑，MD3 皮肤为 2px 轨道 + 垂线胶囊把手 + 悬停/键盘焦点光晕；`AppStyles.axaml` ControlTheme，命中区 12px），三栏（抽屉 216–440、预览 260–520）拖动结束持久化 `DrawerPaneWidth`/`PreviewPaneWidth`，列对象经命名 `PaneGrid` 索引访问（本项目 XAML 编译器不为命名 `ColumnDefinition` 生成字段）。动效以 Avalonia `Transitions` 声明式实现：目录层级按路径深度决定左右横移方向、页面上浮淡入、搜索/视图模式轻移、预览栏/模态抽屉/任务中心入场，以及侧栏条目悬停右移/按下 0.98 微缩放与文件卡悬停上浮；由 `MainView` 观察 Shell/Browser 属性变化触发（ reduced-motion 为后续跟进项）。脚本插件评估定稿：Lua 优先（MoonSharp 纯托管 spike、NLua/KeraLua 生产候选），Python 仅作桌面进程外工作者，IronPython 因 DLR 运行时代码生成与 Native AOT 红线冲突而排除；宿主 `eidoria.*` 白名单 + 操作计划确认，见 `docs/PLUGIN-SYSTEM.md` §3–§5。 | push run `40330799372`（sha `7e94661`）六 Job 全绿（90 单元测试双平台 + 22 截图测试/21 PNG + Windows/Linux 自包含 + linux-x64 Native AOT + Android APK）；初版因命名 `ColumnDefinition` 无生成字段整线红，commit `7e94661` 改为 `PaneGrid` 列索引访问 |
 | 2026-10-26 | **v0.10 文件夹视图记忆、低动效与分隔条复位**：F-02 的 P2 开关落地——`AppSettings.RememberFolderView` 开启后以归一化文件夹路径为键，在 `FolderViewStates` 中分别保存列表/网格/详细信息与排序（最多 200 个、最近更新优先保留）；未记忆文件夹继续使用全局默认，关闭开关时把当前文件夹呈现收回全局默认，设置页可一键清除记忆。Browser 将当前排序从设置直读改为会话字段，菜单与升/降序按钮统一读写该字段，搜索结果中的临时排序不污染文件夹记忆。设置页新增应用内“减少动态效果”：MainView 停用页面/目录/预览/模态抽屉/任务中心的位移入场，样式层取消侧栏与文件卡的位移，`MaterialGridSplitter` 新增可绑定的 `ReduceMotion` StyledProperty 与 `:reduce-motion` 伪类并停用模板过渡；Avalonia 12.1.2 未提供统一系统减动效信号，因此本版诚实限定为应用内开关。分隔条再补 `ResetRequested` 事件（双击或键盘 Home 恢复宿主默认宽度并落盘）、16px 热区与操作提示；设置加载对显式 null 的字符串/集合做归一化，关于区版本改读程序集信息版本（清除残留的 0.6.0 硬编码）。§16 插件轨道同步纠正为已定稿的 Lua 优先。 | push run `40333468143`（sha `0bff3ad`）六 Job 全绿（92 单元测试 Ubuntu/Windows 双跑，新增文件夹记忆全流程与设置/版本用例；22 截图测试/21 PNG；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |
+| 2026-10-26 | **v0.11 搜索岛、悬浮预览与滚动审计**：浏览器删除独立整行搜索框，导航行改为迷你深色“搜索岛”（Large+ 显示关键词/结果、其余断点只留图标），点按或 `Ctrl+F`/`Ctrl+K` 展开悬浮搜索控制面板：输入即筛选、回车递归、状态行区分列表匹配数与递归进度、关闭保留搜索词，Shell 离页自动收起且系统返回优先关面板。预览改为 `MdTabs + MdTabsView` 的“预览 / 属性”双页（文件默认内容、文件夹默认属性）；Compact/Medium 全屏预览页改为同版 `Md3.Avalonia.Extra 0.5.0-preview.2`（Apache-2.0、包声明 AOT 兼容）的 `MdFloatingWindow`，`IsOpen` 与 Shell 双向绑定，视图按视口钳制尺寸/位置（应用内浮窗而非 OS 窗口，Android 触摸拖动/缩放仍待真机验）。全仓显式原生 `ScrollViewer` 清零并统一 `MdScrollViewer`：主页/设置/抽屉、标签轨、面包屑、桌面工具栏、导轨、上下文菜单/溢出菜单、任务中心、对话框、搜索面板与预览两页；虚拟化 `MdList` 模板内本就是 `MdScrollViewer`，`DataGrid` 保留内部滚动不外包。路径胶囊把 chevron 收进分段按钮，点分段只跳转、点空白才编辑且编辑中守卫不重置输入。溢出菜单在 Expanded+ 改三列分组、Compact/Medium 单列，均限高 440 左对齐滚动。图标废止拱门稿，回到早期概念稿的蓝色竖页：左上橙色宽折面露出绿色背页、右下错落薄荷后页，SVG/PNG/ICO 与 Android adaptive/legacy 矢量同步（见 `docs/BRAND.md`）。 | push run `40342079472` 与 PR run `40342090046`（sha `06c79d6`）六 Job 全绿（96 单元测试 Ubuntu/Windows 双跑，新增搜索岛/返回序/预览页签/悬浮开关 4 例；25 截图测试/24 PNG，新增悬浮预览、搜索岛与桌面对齐菜单并对新增图及窄断点导航裁图目检；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |
 
 ### F. 文档变更规则
 
