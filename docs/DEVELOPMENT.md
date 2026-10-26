@@ -1043,6 +1043,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | 2026-10-25 | v0.1 落地验收：GitHub Actions 六个 Job 全绿（构建+33 项测试于 Ubuntu/Windows 双跑、11 张断点截图冒烟、linux-x64/win-x64 自包含发布、linux-x64 Native AOT 发布、Android APK）；验收截图归档 `docs/assets/screenshots/`（每 PR 由无头渲染自动更新） | CI run 40209876370 |
 | 2026-10-25 | 实现注记（库 quirks）：Md3 未给原生 `ListBox` 注册无键 ControlTheme（Gallery 亦全程不用）→ 全仓统一用 `MdList`；原生 `ContextMenu` 亦无无键主题 → 在 `AppStyles` 补齐（MenuItem/Separator 由 Md3 `MdDesktopAdapters` 覆盖）；`Flyout` 呈现层无表面 → 弹出内容自带 SurfaceContainer 底卡 | 无头截图对比实证 |
 | 2026-10-26 | 新增两条开发轨道并完成可行性评估：插件系统（`docs/PLUGIN-SYSTEM.md`，P0 预览提供者注册表已落地）与本地 AI（`docs/LOCAL-AI.md`，A1–A4 分期）；新增待决策 D-07/D-08/D-09 | 维护者提出新计划 + 技术调研实证 |
+| 2026-10-26 | **v0.2 完善批**：Markdown 渲染预览（Md3.Avalonia.Markdown，其上游 Markdown.Avalonia.Tight 12.0.0-a3 为预发布，风险在册、钉版随 Md3 走）+ 代码高亮（Md3.Avalonia.AvaloniaEdit/AvaloniaEdit 12.0）——均以 P0 内置提供者接入；文件夹外部变更监视与保留选集的软刷新；属性含文件夹大小；右键校验和（流式 SHA-256/MD5）；批量重命名（Application 规划器 + 前预览校验 + 两段落盘）。插件/AI 按维护者指示只定可行性、排最后 | CI run 40279677011 全绿（55+15 测试） |
 
 ### F. 文档变更规则
 
