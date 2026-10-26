@@ -1,9 +1,11 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:01.09]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:01.10] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:01.18]     MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [FAIL]
-  Failed MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [25 ms]
+[xUnit.net 00:00:00.60]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:00.60] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:00.63]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:00.64] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:00.64]     MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [FAIL]
+  Failed MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable [10 ms]
   Error Message:
    System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
   Stack Trace:
@@ -16,11 +18,7 @@ A total of 1 test files matched the specified pattern.
    at MdExplorer.UI.ViewModels.ShellViewModel.RefreshHomeAsync() in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/ViewModels/ShellViewModel.cs:line 237
    at MdExplorer.Tests.BrowserNavigationTests.RecentFoldersAndFilesAreDedupedSurfacedAndClearable() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/BrowserNavigationAndTasksTests.cs:line 112
 --- End of stack trace from previous location ---
-[xUnit.net 00:00:01.22]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:01.22] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:01.22]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:01.22] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
-[xUnit.net 00:00:01.23]     [FATAL ERROR] System.InvalidOperationException
-[xUnit.net 00:00:01.23] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
+[xUnit.net 00:00:00.65]     [FATAL ERROR] System.InvalidOperationException
+[xUnit.net 00:00:00.65] Catastrophic failure: System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IFontManagerImpl'.
 
-Failed!  - Failed:     1, Passed:    89, Skipped:     0, Total:    90, Duration: 1 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:    89, Skipped:     0, Total:    90, Duration: 528 ms - MdExplorer.Tests.dll (net10.0)
