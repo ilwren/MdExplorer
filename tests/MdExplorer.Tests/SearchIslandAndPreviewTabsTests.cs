@@ -81,6 +81,27 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
     }
 
     [Fact]
+    public async Task CompactAddressEditingGivesPathFieldTheWholeRow()
+    {
+        var shell = CreateShell();
+        await shell.OpenFolderAsync(_startDir);
+
+        shell.SetViewportSize(390, 844);
+        Assert.True(shell.ShowPathRowActions);
+
+        shell.Browser.BeginEditAddressCommand.Execute(null);
+        Assert.True(shell.Browser.IsAddressEditing);
+        Assert.False(shell.ShowPathRowActions);
+
+        shell.SetViewportSize(1100, 760);
+        Assert.True(shell.ShowPathRowActions);
+
+        shell.Browser.CancelEditAddressCommand.Execute(null);
+        shell.SetViewportSize(390, 844);
+        Assert.True(shell.ShowPathRowActions);
+    }
+
+    [Fact]
     public async Task LeavingBrowserPageClosesSearchPanel()
     {
         var shell = CreateShell();

@@ -66,6 +66,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             {
                 OnPropertyChanged(nameof(ShowBreadcrumbBar));
                 OnPropertyChanged(nameof(ShowCompactPath));
+                OnPropertyChanged(nameof(ShowPathRowActions));
             }
         };
         FavoriteItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFavorites));
@@ -172,6 +173,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     /// <summary>完整面包屑只在非 Compact 显示；窄屏折叠为当前目录胶囊。</summary>
     public bool ShowBreadcrumbBar => !IsCompact && !Browser.IsAddressEditing;
     public bool ShowCompactPath => IsCompact && !Browser.IsAddressEditing;
+    /// <summary>Compact 编辑地址时让路径输入独占整行，导航/搜索/溢出按钮暂时让位。</summary>
+    public bool ShowPathRowActions => !IsCompact || !Browser.IsAddressEditing;
 
     partial void OnPageChanged(ShellPage value)
     {
@@ -192,7 +195,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                  {
                      nameof(IsCompact), nameof(IsMedium), nameof(IsExpandedOrAbove), nameof(IsLargeOrAbove), nameof(IsCompactOrMedium),
                      nameof(ShowBottomNav), nameof(ShowRail), nameof(ShowDrawerPane), nameof(ShowBrowserTabs),
-                     nameof(ShowBreadcrumbBar), nameof(ShowCompactPath),
+                     nameof(ShowBreadcrumbBar), nameof(ShowCompactPath), nameof(ShowPathRowActions),
                      nameof(ShowPreviewPaneNow), nameof(ShowPreviewPageNow), nameof(ShowPreviewPaneEffective),
                  })
             OnPropertyChanged(name);

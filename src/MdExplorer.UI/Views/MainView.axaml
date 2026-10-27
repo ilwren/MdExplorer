@@ -225,7 +225,7 @@
                 </Flyout>
               </Button.Flyout>
             </md:MdFloatingActionButton>
-            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsHome}" Variant="Text" Height="64" Command="{Binding GoHomeCommand}">
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsHome}" Variant="Text" Height="64" ContainerHeight="56" Padding="0" Command="{Binding GoHomeCommand}">
               <StackPanel HorizontalAlignment="Center" Spacing="3">
                 <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
                   <md:MdIcon Glyph="{x:Static md:MdSymbols.Home}" Size="21" />
@@ -233,7 +233,7 @@
                 <TextBlock FontSize="11" Text="主页" HorizontalAlignment="Center" />
               </StackPanel>
             </md:MdButton>
-            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsFavoritesPage}" Variant="Text" Height="64" Command="{Binding GoFavoritesCommand}">
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsFavoritesPage}" Variant="Text" Height="64" ContainerHeight="56" Padding="0" Command="{Binding GoFavoritesCommand}">
               <StackPanel HorizontalAlignment="Center" Spacing="3">
                 <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
                   <md:MdIcon Glyph="{x:Static md:MdSymbols.Star}" Size="21" />
@@ -241,7 +241,7 @@
                 <TextBlock FontSize="11" Text="收藏" HorizontalAlignment="Center" />
               </StackPanel>
             </md:MdButton>
-            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsTrashPage}" Variant="Text" Height="64" Command="{Binding GoTrashCommand}"
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsTrashPage}" Variant="Text" Height="64" ContainerHeight="56" Padding="0" Command="{Binding GoTrashCommand}"
                          IsVisible="{Binding Capabilities.CanMoveToTrash}">
               <StackPanel HorizontalAlignment="Center" Spacing="3">
                 <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
@@ -250,7 +250,7 @@
                 <TextBlock FontSize="11" Text="回收站" HorizontalAlignment="Center" />
               </StackPanel>
             </md:MdButton>
-            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsSettingsPage}" Variant="Text" Height="64" Command="{Binding GoSettingsCommand}">
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsSettingsPage}" Variant="Text" Height="64" ContainerHeight="56" Padding="0" Command="{Binding GoSettingsCommand}">
               <StackPanel HorizontalAlignment="Center" Spacing="3">
                 <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
                   <md:MdIcon Glyph="{x:Static md:MdSymbols.Settings}" Size="21" />
@@ -347,14 +347,14 @@
             </Border>
 
             <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="5" Margin="10,8,10,2">
-              <StackPanel Orientation="Horizontal" Spacing="1" VerticalAlignment="Center">
-                <md:MdIconButton Icon="{x:Static md:MdSymbols.ArrowBack}" Command="{Binding Browser.GoBackCommand}"
+              <StackPanel Orientation="Horizontal" Spacing="1" VerticalAlignment="Center" IsVisible="{Binding ShowPathRowActions}">
+                <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.ArrowBack}" Command="{Binding Browser.GoBackCommand}"
                                  IsEnabled="{Binding Browser.CanGoBack}" AutomationProperties.Name="后退" />
-                <md:MdIconButton Icon="{x:Static md:MdSymbols.ArrowForward}" Command="{Binding Browser.GoForwardCommand}"
+                <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.ArrowForward}" Command="{Binding Browser.GoForwardCommand}"
                                  IsEnabled="{Binding Browser.CanGoForward}" AutomationProperties.Name="前进" />
-                <md:MdIconButton Icon="{x:Static md:MdSymbols.ArrowUpward}" Command="{Binding Browser.GoUpCommand}"
+                <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.ArrowUpward}" Command="{Binding Browser.GoUpCommand}"
                                  IsEnabled="{Binding Browser.CanGoUp}" AutomationProperties.Name="上一级" />
-                <md:MdIconButton Icon="{x:Static md:MdSymbols.Refresh}" Command="{Binding Browser.RefreshCommand}"
+                <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.Refresh}" Command="{Binding Browser.RefreshCommand}"
                                  AutomationProperties.Name="刷新" />
               </StackPanel>
               <Border x:Name="PathPill" Grid.Column="1" Classes="path-pill" MinHeight="38" ClipToBounds="True" Tapped="OnBreadcrumbBarTapped">
@@ -405,7 +405,7 @@
                </Grid>
               </Border>
               <md:MdButton Grid.Column="2" Classes="search-island" Variant="Tonal" Height="38" Width="44" MinWidth="44" Padding="0"
-                           Command="{Binding Browser.OpenSearchPanelCommand}" VerticalAlignment="Center"
+                           Command="{Binding Browser.OpenSearchPanelCommand}" VerticalAlignment="Center" IsVisible="{Binding ShowPathRowActions}"
                            ToolTip.Tip="{Binding Browser.SearchIslandText}" AutomationProperties.Name="{Binding Browser.SearchIslandText}">
                 <Grid Width="28" Height="24">
                   <md:MdIcon Glyph="{x:Static md:MdSymbols.Search}" Size="18"
@@ -420,8 +420,8 @@
                   </Border>
                 </Grid>
               </md:MdButton>
-              <md:MdIconButton x:Name="OverflowButton" Grid.Column="3" Icon="{x:Static md:MdSymbols.MoreVert}"
-                               AutomationProperties.Name="更多">
+              <md:MdIconButton x:Name="OverflowButton" Grid.Column="3" Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.MoreVert}"
+                               AutomationProperties.Name="更多" IsVisible="{Binding ShowPathRowActions}">
                 <Button.Flyout>
                   <Flyout Placement="BottomEdgeAlignedRight">
                     <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}" CornerRadius="18" Padding="8"
