@@ -4,19 +4,20 @@
 >
 > 本轮只完善概念图与设计说明，**不修改应用代码**。后续实现时，以本文的画面结构、[响应式布局](RESPONSIVE-LAYOUT.md) 的尺寸规则和 [开发文档](DEVELOPMENT.md) 的功能边界共同验收。
 
-![概念设计总览：16 张深浅主题与规划界面](assets/mockups/v2/contact-sheet.png)
+![AI 直接生成概念图：Large 浅色基线](assets/mockups/ai-v2/01-large-browser-light.png)
 
 ## 1. 这套图解决了什么
 
-旧概念图只有 Compact 与 Large 两张浅色 AI 方向稿，而且已与当前产品漂移：应用名仍是 “Files”、桌面图出现 Google Drive、手机图有账号头像与语音搜索、搜索仍是整行搜索框，也没有 v0.11 的搜索岛、预览双页签与悬浮窗。v2 因此重做为一套可编辑的矢量概念稿：
+旧概念图只有 Compact 与 Large 两张浅色 AI 方向稿，而且已与当前产品漂移：应用名仍是 “Files”、桌面图出现 Google Drive、手机图有账号头像与语音搜索、搜索仍是整行搜索框，也没有 v0.11 的搜索岛、预览双页签与悬浮窗。v2 因此先重做为可编辑的结构稿，再以其为布局参考直接生成高保真 AI mockups；对外评审以 `assets/mockups/ai-v2/` 的直接生成图为主：
 
 - 以 **Eidoria（万象屿）** 与折页图标为统一品牌入口；
 - 同一界面提供 **浅色 / 深色成对稿**，先验证颜色角色而非临时反色；
 - 当前基线覆盖 Large、Compact、Medium 三种形态；
 - 下一阶段界面按路线图分层：近期核心、Phase 2、远期，以及明确排最后的插件与本地 AI；
-- 每张图同时保存 **SVG 源稿 + PNG 评审图**，文件名同 stem，位于 `docs/assets/mockups/v2/`；
-- 旧路径 `mockup-compact-phone.png` / `mockup-large-desktop.png` 已同步为 v2 的 Compact/Large 浅色基线，旧英文 AI 图退出当前交付面（Git 历史仍可追溯）；
-- 生成脚本为 `scripts/generate-concept-mockups.py`，改图改脚本后重跑，不直接手改渲染结果。
+- **AI 直接生成图位于 `docs/assets/mockups/ai-v2/`**；`docs/assets/mockups/v2/` 的 SVG/PNG 只保留为布局与信息架构的结构参考，不再作为主视觉稿；
+- 旧路径 `mockup-compact-phone.png` / `mockup-large-desktop.png` 已同步为本轮 AI 直接生成的 Compact/Large 浅色基线；
+- 结构稿生成脚本为 `scripts/generate-concept-mockups.py`；AI 高保真图以对应结构稿为布局参考直接生成，不由 SVG 导出。
+- **本轮 AI 首批 10 张**：Large/Compact 深浅四张，搜索索引、双窗格、存储洞察、压缩包、编辑/PDF、扩展/Lua 六张。`00/05/10/12/14/15` 暂保留结构稿，后续批次再逐张替换为直接生成图。
 
 ## 2. 视觉语言定版
 
@@ -73,9 +74,9 @@
 
 ### 3.1 Large 浏览器 · 深浅成对
 
-![Large 浏览器浅色](assets/mockups/v2/01-large-browser-light.png)
+![Large 浏览器浅色](assets/mockups/ai-v2/01-large-browser-light.png)
 
-![Large 浏览器深色](assets/mockups/v2/02-large-browser-dark.png)
+![Large 浏览器深色](assets/mockups/ai-v2/02-large-browser-dark.png)
 
 定版要点：
 
@@ -86,9 +87,9 @@
 
 ### 3.2 Compact 浏览器 · 深浅成对
 
-![Compact 浅色悬浮预览](assets/mockups/v2/03-compact-browser-light.png)
+![Compact 浅色悬浮预览](assets/mockups/ai-v2/03-compact-browser-light.png)
 
-![Compact 深色悬浮预览](assets/mockups/v2/04-compact-browser-dark.png)
+![Compact 深色悬浮预览](assets/mockups/ai-v2/04-compact-browser-dark.png)
 
 定版要点：
 
@@ -109,7 +110,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 4.1 ① 搜索与索引中心（M3）
 
-![搜索与索引中心深色概念](assets/mockups/v2/06-search-index-center-dark.png)
+![搜索与索引中心深色概念](assets/mockups/ai-v2/06-search-index-center-dark.png)
 
 **样式结构：**
 
@@ -122,7 +123,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 4.2 ② 存储洞察（P2）
 
-![存储洞察、空间地图与重复文件深色概念](assets/mockups/v2/08-storage-insights-dark.png)
+![存储洞察、空间地图与重复文件深色概念](assets/mockups/ai-v2/08-storage-insights-dark.png)
 
 **样式结构：**
 
@@ -147,7 +148,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 4.4 ③ 压缩包工作台（近期增强）
 
-![压缩包虚拟目录、条目预览和解压任务浅色概念](assets/mockups/v2/09-archive-workbench-light.png)
+![压缩包虚拟目录、条目预览和解压任务浅色概念](assets/mockups/ai-v2/09-archive-workbench-light.png)
 
 **样式结构：**
 
@@ -177,7 +178,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 5.1 ExtraLarge 双窗格
 
-![ExtraLarge 双窗格与跨窗格拖放浅色概念](assets/mockups/v2/07-dual-pane-xlarge-light.png)
+![ExtraLarge 双窗格与跨窗格拖放浅色概念](assets/mockups/ai-v2/07-dual-pane-xlarge-light.png)
 
 定版方向：
 
@@ -188,7 +189,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 5.2 文本轻编辑与 PDF 阅读工作台
 
-![代码轻编辑、PDF 连续页和文档内搜索深色概念](assets/mockups/v2/11-editor-pdf-workbench-dark.png)
+![代码轻编辑、PDF 连续页和文档内搜索深色概念](assets/mockups/ai-v2/11-editor-pdf-workbench-dark.png)
 
 定版方向：
 
@@ -209,7 +210,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 6.2 插件中心与 Lua 脚本（最后）
 
-![扩展权限、Lua 编辑器与操作计划确认深色概念](assets/mockups/v2/13-extensions-lua-dark.png)
+![扩展权限、Lua 编辑器与操作计划确认深色概念](assets/mockups/ai-v2/13-extensions-lua-dark.png)
 
 界面顺序必须与安全模型一致：**已安装与权限 → 脚本/配置 → 操作计划确认**。脚本输出区要明确写“等待确认，尚未写入磁盘”；任何批量写操作都以旧名 → 新名逐项呈现。Android 商店版限制以错误卡常驻说明，不能用灰色开关含糊带过。
 
@@ -242,10 +243,10 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 - [ ] 空态、加载、失败、无权限和离线卷都有与本套图一致的卡片层级，而不是临时文字页。
 - [ ] 规划页在未实现前不进入正式导航，README 与商店截图不得把概念图冒充实拍。
 
-## 9. 重新生成
+## 9. 重新生成结构稿
 
 ```bash
-# 只需要 Python 3；有 resvg_py 时会同时导出 PNG 与 contact-sheet.png
+# 只需要 Python 3；有 resvg_py 时会同时导出结构 PNG 与 contact-sheet.png
 python3 scripts/generate-concept-mockups.py
 
 # 中文 PNG 渲染建议显式提供 Noto Sans CJK / Noto Sans SC
@@ -254,4 +255,4 @@ EIDORIA_FONT_BOLD=/path/to/NotoSansCJKsc-Bold.otf \
 python3 scripts/generate-concept-mockups.py
 ```
 
-SVG 是源稿：改配色先改生成器中的 `LIGHT` / `DARK`，改布局先改对应场景函数；不要只改 PNG。
+SVG 只作为结构源稿：改配色先改生成器中的 `LIGHT` / `DARK`，改布局先改对应场景函数。`ai-v2/` 高保真图须以结构稿为参考、用图像模型重新直接生成，不能用上面的 SVG 导出结果替代。

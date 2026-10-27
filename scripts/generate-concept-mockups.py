@@ -1455,14 +1455,28 @@ def contact_sheet() -> None:
 
 
 def update_canonical_mockups() -> None:
-    """Keep the two historical root mockup paths pointed at the v2 baselines."""
+    """Keep the two historical root mockup paths pointed at the AI baselines.
+
+    The vector set in OUT is only a structural reference.  When the directly
+    generated AI mockups exist in the sibling ai-v2 directory, they win so a
+    structure-draft rerun never replaces the public mockups with SVG exports.
+    """
     import shutil
 
     root = OUT.parent
-    large = OUT / "01-large-browser-light.png"
+    ai_root = root / "ai-v2"
+    large_ai = ai_root / "01-large-browser-light.png"
+    large = large_ai if large_ai.exists() else OUT / "01-large-browser-light.png"
     if large.exists():
         shutil.copyfile(large, root / "mockup-large-desktop.png")
         print(f"updated {root / 'mockup-large-desktop.png'}")
+
+    compact_ai = ai_root / "03-compact-browser-light.png"
+    if compact_ai.exists():
+        target = root / "mockup-compact-phone.png"
+        shutil.copyfile(compact_ai, target)
+        print(f"updated {target} (AI Compact)")
+        return
 
     compact_svg = OUT / "03-compact-browser-light.svg"
     compact_png = OUT / "03-compact-browser-light.png"

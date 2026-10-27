@@ -18,7 +18,7 @@
 
 概念设计 v2 已把当前基线做成深浅成对稿，并预演搜索索引、双窗格、存储洞察、压缩包工作台、编辑/PDF、媒体、插件/Lua 与本地 AI 的界面样式。完整图集、优先级与验收规则见 [docs/CONCEPT-DESIGN.md](docs/CONCEPT-DESIGN.md)；规划图不代表功能已经实现。
 
-<img src="docs/assets/mockups/v2/contact-sheet.png" alt="Eidoria 概念设计 v2 总览：深浅主题、当前基线与下一阶段规划界面" width="720" />
+<img src="docs/assets/mockups/ai-v2/01-large-browser-light.png" alt="Eidoria AI 直接生成概念图：Large 浅色浏览器" width="720" />
 
 ## 构建与运行
 
