@@ -7,6 +7,7 @@
 <title>Eidoria 万象屿 · 概念第一版</title>
 <link rel="icon" type="image/svg+xml" href="assets/eidoria-icon.svg">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="scenes.css">
 </head>
 <body>
 
@@ -74,6 +75,26 @@
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.6 5.8v5.6c0 4.4 3 7.6 7.4 9.6 4.4-2 7.4-5.2 7.4-9.6V5.8z"/><path d="m9 12 2.2 2.2L15.4 10"/></symbol>
   <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3.2a8.8 8.8 0 1 0 0 17.6h1.4a2 2 0 0 0 1.4-3.4 2 2 0 0 1 1.4-3.4h2A2.6 2.6 0 0 0 21 11.4 8.4 8.4 0 0 0 12 3.2z"/><circle cx="7.4" cy="11.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="9.6" cy="7.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.4" cy="7.4" r="1.1" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.8" y="6" width="18.4" height="12" rx="2"/><path d="M6.4 9.6h.01M10 9.6h.01M13.6 9.6h.01M17.2 9.6h.01M6.4 13h.01M10 13h.01M13.6 13h.01M17.2 13h.01M8 15.6h8"/></symbol>
+  <symbol id="i-win-min" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-win-max" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.6"/></symbol>
+  <symbol id="i-win-restore" viewBox="0 0 24 24"><path d="M8 3.6h11.4a1 1 0 0 1 1 1V16M16 8H4.6a1 1 0 0 0-1 1v10.4a1 1 0 0 0 1 1H16a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1z"/></symbol>
+  <symbol id="i-win-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M8.6 3.6H4.4a.8.8 0 0 0-.8.8v4.2M15.4 3.6h4.2a.8.8 0 0 1 .8.8v4.2M8.6 20.4H4.4a.8.8 0 0 1-.8-.8v-4.2M15.4 20.4h4.2a.8.8 0 0 0 .8-.8v-4.2"/></symbol>
+  <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M3.2 8.2V6.4a1.6 1.6 0 0 1 1.6-1.6h4l2 2h7.4a1.6 1.6 0 0 1 1.6 1.6v1.8M3.2 8.2h17.6l-2 10.2H5.2z"/></symbol>
+  <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5.6" rx="8.2" ry="3.2"/><path d="M3.8 5.6v12.8c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2V5.6M3.8 12c0 1.8 3.7 3.2 8.2 3.2s8.2-1.4 8.2-3.2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3.4 21 8l-9 4.6L3 8z"/><path d="m3 12 9 4.6 9-4.6M3 16l9 4.6 9-4.6"/></symbol>
+  <symbol id="i-compare" viewBox="0 0 24 24"><rect x="2.8" y="5" width="8" height="14" rx="1.8"/><rect x="13.2" y="5" width="8" height="14" rx="1.8"/><path d="M6.8 9.4v5.2M17.2 9.4v5.2"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6.4" cy="5.6" r="2.2"/><circle cx="6.4" cy="18.4" r="2.2"/><circle cx="17.6" cy="8.4" r="2.2"/><path d="M6.4 7.8v8.4M8.6 6.6c5.4.4 6.8 1.2 7.2 2.6"/></symbol>
+  <symbol id="i-subtitles" viewBox="0 0 24 24"><rect x="2.8" y="5" width="18.4" height="14" rx="2.2"/><path d="M6 10.6h5M13.4 10.6h4.6M6 14.4h8M16.4 14.4h1.6"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9.4h3.6l4.6-3.8v12.8l-4.6-3.8H4zM16 9a4 4 0 0 1 0 6M18.6 6.4a7.6 7.6 0 0 1 0 11.2"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6 5.4v13.2M18.4 5.6 9 12l9.4 6.4z"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M18 5.4v13.2M5.6 5.6 15 12l-9.4 6.4z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 3 1.9 5.7L19.6 10l-5.7 1.9L12 17.6l-1.9-5.7L4.4 10l5.7-1.3zM18.6 16.2l.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.4 11.4V4.8a1.4 1.4 0 0 1 1.4-1.4h6.6a1.4 1.4 0 0 1 1 .4l8 8a1.4 1.4 0 0 1 0 2l-6.6 6.6a1.4 1.4 0 0 1-2 0l-8-8a1.4 1.4 0 0 1-.4-1z"/><circle cx="7.8" cy="7.8" r="1.4"/></symbol>
+  <symbol id="i-script" viewBox="0 0 24 24"><path d="M6.4 3.2h11.2a1 1 0 0 1 1 1v15.6a1 1 0 0 1-1 1H6.4a1 1 0 0 1-1-1V4.2a1 1 0 0 1 1-1z"/><path d="m9 9 2.4 2.2L9 13.4M13 14.6h3"/></symbol>
+  <symbol id="i-block" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13.8a4.2 4.2 0 0 0 6 .4l2.6-2.6a4.2 4.2 0 0 0-6-6L11.4 6.8M14 10.2a4.2 4.2 0 0 0-6-.4L5.4 12.4a4.2 4.2 0 0 0 6 6l1.2-1.2"/></symbol>
+  <symbol id="i-refresh-dot" viewBox="0 0 24 24"><path d="M20.2 12a8.2 8.2 0 1 1-2.4-5.8"/><path d="M20.2 4.2v5.2H15"/></symbol>
 </svg>
 
 <!-- ───────────────── Studio bar (演示控制条，不属于应用) ───────────────── -->
@@ -102,6 +123,11 @@
     </div>
   </div>
 
+  <div class="studio__group" role="group" aria-label="场景">
+    <span class="studio__label">场景</span>
+    <select class="scene-select" id="sceneSelect" title="切换概念图场景"></select>
+  </div>
+
   <div class="studio__group studio__group--right" role="group" aria-label="选项">
     <label class="toggle" title="减少动态效果">
       <input type="checkbox" id="reduceMotion"><span class="toggle__track"><span class="toggle__thumb"></span></span>
@@ -126,16 +152,23 @@
         <span class="compact-title">Eidoria</span>
         <div class="tabstrip" id="tabstrip"></div>
         <button class="icon-btn compact-tabs" id="tabsBtn" title="标签页" aria-label="标签页"><svg class="ico"><use href="#i-tabs"/></svg><span class="badge" id="tabsBadge">3</span></button>
-        <div class="window-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="window-controls" id="windowControls">
+          <button class="win-btn" data-win="minimize" title="最小化" aria-label="最小化"><svg class="ico"><use href="#i-win-min"/></svg></button>
+          <button class="win-btn" data-win="maximize" title="最大化 / 恢复" aria-label="最大化或恢复"><svg class="ico"><use href="#i-win-max"/></svg></button>
+          <button class="win-btn win-btn--close" data-win="close" title="关闭" aria-label="关闭"><svg class="ico"><use href="#i-win-close"/></svg></button>
+        </div>
       </header>
 
-      <div class="shell">
+      <div class="shell" id="shell">
         <!-- 左导航 -->
         <aside class="drawer" id="drawer">
           <button class="new-btn" id="newBtn"><svg class="ico"><use href="#i-plus"/></svg><span>新建</span></button>
           <nav class="drawer__nav" id="drawerNav"></nav>
+          <div class="drawer__storage">
+            <div class="drawer__group-title" id="storageTitle">存储量</div>
+            <div class="drawer__volumes" id="volumes"></div>
+          </div>
           <div class="drawer__spacer"></div>
-          <div class="drawer__volumes" id="volumes"></div>
           <div class="drawer__footer" id="drawerFooter"></div>
         </aside>
 
@@ -161,6 +194,9 @@
         <!-- 右侧预览侧栏 -->
         <aside class="preview" id="previewPane"></aside>
       </div>
+
+      <!-- 规划场景覆盖层（概念图 06–15；概念设计评审稿，不代表功能已实现） -->
+      <div class="scene-layer" id="sceneLayer" hidden></div>
 
       <!-- Compact 底部导航 -->
       <nav class="bottom-nav" id="bottomNav"></nav>
@@ -196,10 +232,19 @@
       <!-- Snackbar -->
       <div class="snackbar" id="snackbar" hidden></div>
     </div>
+
+    <!-- 窗口状态占位：最小化 / 关闭 -->
+    <div class="win-state" id="winState" hidden>
+      <img src="assets/eidoria-icon.svg" alt="" class="win-state__logo">
+      <div class="win-state__title" id="winStateTitle">Eidoria</div>
+      <div class="win-state__desc" id="winStateDesc"></div>
+      <button class="filled-btn" data-win="restore" id="winStateRestore">恢复窗口</button>
+    </div>
   </div>
   <div class="stage-caption" id="stageCaption"></div>
 </main>
 
+<script src="scenes.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

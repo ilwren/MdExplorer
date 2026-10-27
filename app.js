@@ -170,10 +170,11 @@ const state = {
   sort:{ key:'name', dir:1 }, showHidden:false,
   filter:'', searchMode:'filter', searchOpen:false,
   previewTab:'preview', previewVisible:true,
-  floatingOpen:false, floatPos:{ x:null, y:null },
+  floatingOpen:false, floatPos:{ x:null, y:null }, floatExpanded:false,
   tasks:[], clipboard:null,
   popover:null, dialog:null, snack:null, modalDrawer:false,
   homeMode:false,
+  scene:'browser', winState:'normal', winStateBefore:'normal',
 };
 const tab = () => state.tabs[state.activeTab];
 const app = $('#app');
@@ -255,18 +256,94 @@ function renderNavButtons() {
     <button class="icon-btn" data-act="up"      title="上一级（Alt+↑）" ${!NODE_BY_PATH.get(t.cwd)?.parent ? 'disabled' : ''}>${icon('up')}</button>
     <button class="icon-btn" data-act="refresh" title="刷新（Ctrl+R）">${icon('refresh')}</button>`;
 }
+/* Windows 文件资源管理器式面包屑：
+   · 每段可点击切换目录；
+   · 段间 chevron 可点击，弹出该段的子文件夹下拉；
+   · 空白区域 / Ctrl+L 变为可编辑路径输入框，回车跳转，Esc 还原。 */
+const VIRTUAL_NAMES = ['主页', '收藏', '最近', '视频', '回收站'];
+function crumbPathText() {
+  const t = tab();
+  if (t.virtual) return t.virtual;
+  if (t.cwd === 'root') return '内部存储';
+  return pathChain(t.cwd).map(c => c.name).join(' / ');
+}
+/* 把用户输入解析成 {cwd, select} / {virtual} / null。
+   支持：file://、~、$HOME、%USERPROFILE%、内部存储/此电脑/盘符前缀、
+   / 与 \ 与 > 分隔符、目录名前缀匹配、文件路径（定位到父并选中）。 */
+function resolvePath(raw) {
+  let v = String(raw || '').trim().replace(/^file:\/\//i, '').replace(/^["']|["']$/g, '');
+  if (!v || v === '/' || /^(此电脑|计算机|This PC)$/i.test(v)) return { cwd: 'root', select: null };
+  if (VIRTUAL_NAMES.some(n => n.toLowerCase() === v.toLowerCase())) {
+    return { virtual: VIRTUAL_NAMES.find(n => n.toLowerCase() === v.toLowerCase()) };
+  }
+  v = v.replace(/^(%USERPROFILE%|\$HOME|~)/i, '内部存储');
+  const parts = v.split(/[\\/>]/).map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return { cwd: 'root', select: null };
+  const rootish = /^(内部存储|root|此电脑|计算机|This PC|C:|D:|SD\s*卡?)$/i.test(parts[0]);
+  const start = rootish ? 1 : 0;
+  let cwd = 'root';
+  for (let i = start; i < parts.length; i++) {
+    const seg = parts[i];
+    const joined = parts.slice(start, i + 1).join('/');
+    const kids = NODES.filter(n => n.parent === cwd && !n.hidden);
+    const hit = kids.find(n => n.name.toLowerCase() === seg.toLowerCase())
+             || kids.find(n => n.name.toLowerCase().startsWith(seg.toLowerCase()));
+    if (!hit) {
+      const direct = NODE_BY_PATH.get(joined);
+      if (direct && direct.kind === 'folder') { cwd = direct.path; continue; }
+      if (direct) return { cwd, select: direct.path };
+      return null;
+    }
+    if (hit.kind === 'folder') cwd = hit.path;
+    else return { cwd, select: hit.path };
+  }
+  return { cwd, select: null };
+}
+function closeCrumbMenu() {
+  $('#crumbMenu')?.remove();
+  state.crumbMenuFor = null;
+  $$('.crumbs__chevron.is-open').forEach(b => b.classList.remove('is-open'));
+}
+function openCrumbMenu(el, dirPath) {
+  closeCrumbMenu();
+  const virtual = dirPath.startsWith('virtual:');
+  const label = virtual ? dirPath.slice(8) : (dirPath === 'root' ? '内部存储' : (NODE_BY_PATH.get(dirPath)?.name || '内部存储'));
+  const kids = virtual ? [] : NODES.filter(n => n.parent === dirPath && n.kind === 'folder' && !n.hidden);
+  let x = 0, y = 0, cur = el;
+  while (cur && cur !== app) { x += cur.offsetLeft; y += cur.offsetTop; cur = cur.offsetParent; }
+  const menu = document.createElement('div');
+  menu.className = 'crumb-menu'; menu.id = 'crumbMenu';
+  menu.style.left = Math.min(Math.max(8, x - 40), Math.max(8, app.offsetWidth - 220)) + 'px';
+  menu.style.top = (y + el.offsetHeight + 5) + 'px';
+  menu.innerHTML = `<div class="crumb-menu__title">${esc(label)} · 子文件夹</div>` +
+    (kids.length ? kids.map(k => `<button class="menu-item" data-act="crumb-menu-go" data-id="${esc(k.path)}">${icon('folder')}<span>${esc(k.name)}</span></button>`).join('')
+                 : `<div class="crumb-menu__empty">没有子文件夹</div>`);
+  app.appendChild(menu);
+  state.crumbMenuFor = dirPath;
+  el.classList.add('is-open');
+}
 function renderCrumbs(edit = false) {
   const t = tab();
+  const crumbs = $('#crumbs');
+  closeCrumbMenu();
   if (edit) {
-    $('#crumbs').innerHTML = `<input class="crumbs__edit" id="crumbEdit" value="${esc(t.cwd === 'root' ? '内部存储' : t.cwd)}" autocomplete="off">
-      <span class="crumbs__blank"></span>`;
+    crumbs.classList.add('is-editing');
+    crumbs.innerHTML = `<input class="crumbs__edit" id="crumbEdit" value="${esc(crumbPathText())}" autocomplete="off" spellcheck="false" placeholder="输入路径，例如 内部存储 / Pictures / Camera">
+      <span class="crumbs__edit-hint">↵ 跳转 · Esc 取消</span>`;
     const inp = $('#crumbEdit'); inp.focus(); inp.select();
   } else {
-    const chain = t.virtual ? [{ path:'root', name:t.virtual }] : pathChain(t.cwd);
-    $('#crumbs').innerHTML = chain.map((c, i) =>
-      (i ? `<span class="crumb-sep">${icon('chevron-right')}</span>` : '') +
-      `<button class="crumb" data-act="crumb" data-id="${esc(c.path)}">${esc(c.name)}</button>`
-    ).join('') + `<span class="crumbs__blank" data-act="crumb-edit" title="输入路径（Ctrl+L）"></span>`;
+    crumbs.classList.remove('is-editing');
+    const chain = t.virtual ? [{ path: 'virtual:' + t.virtual, name: t.virtual }] : pathChain(t.cwd);
+    crumbs.innerHTML = chain.map((c, i) => {
+      const sep = i
+        ? `<button class="crumbs__chevron" data-act="crumb-menu" data-id="${esc(chain[i-1].path)}" title="展开「${esc(chain[i-1].name)}」的子文件夹">${icon('chevron-right')}</button>`
+        : '';
+      const cur = i === chain.length - 1 ? ' is-current' : '';
+      const segCur = i === chain.length - 1 ? ' is-current-seg' : '';
+      return `<span class="crumbs__seg${segCur}">${sep}<button class="crumb${cur}" data-act="crumb" data-id="${esc(c.path)}" title="${esc(c.name)}">${esc(c.name)}</button></span>`;
+    }).join('') +
+    `<button class="crumbs__chevron" data-act="crumb-menu" data-id="${esc(chain[chain.length-1].path)}" title="展开子文件夹">${icon('chevron-down')}</button>` +
+    `<span class="crumbs__blank" title="点击输入路径（Ctrl+L）"></span>`;
   }
 }
 function renderToolbar() {
@@ -443,7 +520,7 @@ function figureHTML(n) {
         <div class="type-well" data-t="${n.type}" style="width:72px;height:72px">${icon(TYPE_META[n.type].ico)}</div></div>`;
   }
 }
-function factsHTML(n) {
+function factsChips(n) {
   const facts = [];
   if (n.w) facts.push(['expand', `${n.w}×${n.h}`]);
   if (n.kind === 'folder') facts.push(['folder', `${n.items} 个项目`]);
@@ -451,9 +528,9 @@ function factsHTML(n) {
   if (n.pages) facts.push(['doc', `${n.pages} 页`]);
   if (n.duration) facts.push(['play', n.duration]);
   facts.push(['calendar', String(n.mtime || '').split(' ')[0]]);
-  return `<div class="preview__facts">` + facts.map(([ic, v]) =>
-    `<span class="fact">${icon(ic)}${esc(v)}</span>`).join('') + `</div>`;
+  return facts.map(([ic, v]) => `<span class="fact">${icon(ic)}${esc(v)}</span>`).join('');
 }
+function factsHTML(n) { return `<div class="preview__facts">${factsChips(n)}</div>`; }
 function propertiesHTML(n) {
   const rows = [
     ['名称', n.name, true],
@@ -483,16 +560,47 @@ function previewInner(n, compact) {
     <button class="ptab ${state.previewTab === 'preview' ? 'is-active' : ''}" data-act="ptab" data-id="preview">预览</button>
     <button class="ptab ${state.previewTab === 'properties' ? 'is-active' : ''}" data-act="ptab" data-id="properties">属性</button>
   </div>`;
-  const body = state.previewTab === 'preview'
+  const isPreviewTab = state.previewTab === 'preview';
+  const body = isPreviewTab
     ? (n.kind === 'folder' ? propertiesHTML(n) : figureHTML(n) + factsHTML(n))
     : propertiesHTML(n);
-  const footer = `<div class="${compact ? 'floating__footer' : 'preview__footer'}">
+
+  /* Compact / Medium 浮窗：概念图 04/05 的大圆角浮窗 */
+  if (compact) {
+    const figCls = n.type === 'pdf' || n.kind === 'folder' ? 'floating__figure floating__figure--doc' : 'floating__figure';
+    const figInner = n.kind === 'folder'
+      ? `<div class="type-well" data-t="folder">${icon('folder')}</div>`
+      : (n.type === 'pdf'
+          ? `<div class="preview__docpage"><h4>${esc(n.name.replace(/\.pdf$/i, ''))}</h4>
+             <div class="lines"><i style="width:96%"></i><i style="width:88%"></i><i style="width:92%"></i><i style="width:70%"></i></div></div>`
+          : `<img src="${photo(n.thumb == null ? 1 : n.thumb, 800, 600)}" alt="">`);
+    const floatFigure = isPreviewTab
+      ? (n.type === 'code' || n.type === 'text' || n.type === 'md' || n.type === 'zip'
+          ? `<div class="floating__figure"><div class="type-well" data-t="${n.type}">${icon(TYPE_META[n.type]?.ico || 'doc')}</div></div>`
+          : `<div class="${figCls}">${figInner}</div>`)
+      : '';
+    const facts = isPreviewTab ? `<div class="floating__facts">${factsChips(n)}</div>` : '';
+    const bodyInner = isPreviewTab ? floatFigure + facts : `<div class="prop-scroll">${propertiesHTML(n)}</div>`;
+    const footer = `<div class="floating__footer">
+        <button class="floating__open" data-act="open">${icon('play')} 打开</button>
+        <button class="floating__share" data-act="share" title="共享">${icon('share')}</button>
+      </div>`;
+    return `<div class="floating__topbar" id="floatHandle">
+        <button class="icon-btn" data-act="float-close" title="关闭">${icon('close')}</button>
+        <span class="floating__grip"><i></i></span>
+        <button class="icon-btn floating__expand" data-act="float-expand" title="${state.floatExpanded ? '还原' : '全屏预览'}">${icon('fullscreen')}</button>
+      </div>
+      <div class="floating__headline" title="${esc(n.name)}">${esc(n.name)}</div>` +
+      tabsHTML + `<div class="floating__body">${bodyInner}</div>` + footer;
+  }
+
+  const footer = `<div class="preview__footer">
       <button class="filled-btn" data-act="open">${icon('open')} 打开</button>
       <button class="icon-btn" data-act="share" title="共享">${icon('share')}</button>
       <button class="icon-btn" data-act="item-menu" title="更多">${icon('more')}</button>
     </div>`;
-  return (compact ? '' : `<div class="preview__title" title="${esc(n.name)}">${esc(n.name)}</div>`) + tabsHTML +
-    `<div class="${compact ? 'floating__body' : 'preview__body'}">${body}</div>` + footer;
+  return `<div class="preview__title" title="${esc(n.name)}">${esc(n.name)}</div>` + tabsHTML +
+    `<div class="preview__body">${body}</div>` + footer;
 }
 function renderPreview() {
   const n = activeNode();
@@ -504,10 +612,8 @@ function renderPreview() {
   const fl = $('#floating');
   if (state.floatingOpen && n && useFloat) {
     fl.hidden = false;
-    fl.innerHTML = `<div class="floating__handle" id="floatHandle"><i></i></div>
-      <div class="floating__head"><span class="floating__title" title="${esc(n.name)}">${esc(n.name)}</span>
-        <button class="icon-btn" data-act="float-close" title="关闭">${icon('close')}</button></div>` +
-      previewInner(n, true);
+    fl.classList.toggle('is-expanded', state.floatExpanded);
+    fl.innerHTML = previewInner(n, true);
     positionFloating();
   } else { fl.hidden = true; fl.innerHTML = ''; }
 }
@@ -876,22 +982,116 @@ function renderAll(direction) {
   renderPreview(); renderStatusBar();
   if (state.searchOpen) renderSearchResults();
   renderTasks();
+  renderScene();
+}
+
+/* --------------------------------------------------------------------------
+   10b. 规划场景（概念图 06–15）+ 窗口控制
+   -------------------------------------------------------------------------- */
+const EidoriaScenes = window.EidoriaScenes;
+function sceneCtx() {
+  return {
+    icon, esc, photo, fmtSize,
+    showSnack,
+    dialog: (o) => {
+      showDialog(`<h3>${esc(o.title)}</h3>` +
+        (o.danger
+          ? `<div class="dialog__warning">${icon('warning')}<span>${esc(o.body)}</span></div>`
+          : `<p>${esc(o.body)}</p>`) +
+        dialogActions(o.ok || '确定', 'scene-dialog-ok', o.danger));
+      state.sceneDialogOk = () => { closeDialog(); if (o.onOk) o.onOk(); renderScene(); };
+    }
+  };
+}
+function renderScene() {
+  const layer = $('#sceneLayer');
+  if (state.scene === 'browser' || !EidoriaScenes) {
+    layer.hidden = true; layer.innerHTML = ''; app.dataset.scene = 'browser'; return;
+  }
+  layer.hidden = false;
+  app.dataset.scene = state.scene;
+  layer.innerHTML = `<div class="scene-banner">
+      <span class="scene-banner__tag">概念预演</span>
+      <span class="scene-banner__name">${esc(EidoriaScenes.list.find(s => s.id === state.scene)?.label || '')}</span>
+      <span class="scene-banner__desc">规划场景 · 交互为示意，非已落地功能</span>
+      <button class="scene-banner__back" data-act="scene-back">返回浏览器基线</button>
+    </div><div class="scene-body">${EidoriaScenes.render(state.scene, sceneCtx())}</div>`;
+}
+function buildSceneSelect() {
+  const sel = $('#sceneSelect');
+  const groups = {};
+  EidoriaScenes.list.forEach(s => { (groups[s.group] || (groups[s.group] = [])).push(s); });
+  sel.innerHTML = Object.entries(groups).map(([g, arr]) =>
+    `<optgroup label="${esc(g)}">` + arr.map(s =>
+      `<option value="${s.id}" ${s.id === state.scene ? 'selected' : ''}>${esc(s.label)}</option>`).join('') + `</optgroup>`
+  ).join('');
+}
+function setScene(id) {
+  const def = EidoriaScenes.list.find(s => s.id === id);
+  if (!def) return;
+  state.scene = id;
+  /* 场景自带推荐断点/主题；切回浏览器基线保持当前设置 */
+  if (id !== 'browser') {
+    state.bp = def.bp; state.theme = def.theme;
+    $$('#bpSwitch button').forEach(b => b.classList.toggle('is-active', b.dataset.bp === state.bp));
+    $$('#themeSwitch button').forEach(b => b.classList.toggle('is-active', b.dataset.theme === state.theme));
+  }
+  closePopover(); closeSearch(); closeCrumbMenu();
+  state.floatingOpen = false; $('#floating').hidden = true;
+  $('#taskCenter').hidden = true;
+  buildSceneSelect();
+  layout(); renderAll();
+  showSnack(id === 'browser' ? '已返回浏览器基线' : `${def.label} · 规划场景预演`);
+}
+/* 窗口控制 */
+function setWinState(s) {
+  state.winState = s;
+  const stage = $('#stage'), ws = $('#winState');
+  stage.classList.toggle('is-minimized', s === 'minimized');
+  app.dataset.win = s === 'maximized' ? 'maximized' : 'normal';
+  /* 最大化/恢复按钮图标 */
+  const use = $('#windowControls [data-win="maximize"] use');
+  if (use) use.setAttribute('href', s === 'maximized' ? '#i-win-restore' : '#i-win-max');
+  if (s === 'normal' || s === 'maximized') {
+    ws.hidden = true; app.style.display = '';
+    layout();
+  } else {
+    app.style.display = 'none'; ws.hidden = false;
+    ws.classList.toggle('win-state--min', s === 'minimized');
+    $('#winStateTitle').textContent = s === 'minimized' ? 'Eidoria · 已最小化' : 'Eidoria';
+    $('#winStateDesc').textContent = s === 'minimized'
+      ? '窗口已最小化到任务栏，点击恢复。'
+      : '应用已关闭。这是概念原型的窗口控制演示，点击重新打开。';
+    $('#winStateRestore').textContent = s === 'minimized' ? '恢复窗口' : '重新打开';
+    if (s === 'minimized') {
+      const wrap = $('#stageWrap');
+      stage.style.width = '260px'; stage.style.height = '150px';
+      stage.style.margin = 'auto';
+    }
+  }
 }
 function layout() {
   const d = BP[state.bp];
   app.dataset.bp = state.bp; app.dataset.theme = state.theme;
   app.dataset.view = state.view;
-  app.style.setProperty('--app-w', d.w + 'px');
-  app.style.setProperty('--app-h', d.h + 'px');
   const wrap = $('#stageWrap');
   const availW = Math.max(200, wrap.clientWidth - 44);
   const availH = Math.max(200, wrap.clientHeight - 58);
-  const z = Math.min(1, availW / d.w, availH / d.h);
+  const maximized = state.winState === 'maximized';
+  const W = maximized ? Math.round(availW) : d.w;
+  const H = maximized ? Math.round(availH) : d.h;
+  const z = maximized ? 1 : Math.min(1, availW / d.w, availH / d.h);
   state.zoom = z;
+  app.style.setProperty('--app-w', W + 'px');
+  app.style.setProperty('--app-h', H + 'px');
   app.style.setProperty('--zoom', z);
-  stage.style.width = Math.round(d.w * z) + 'px';
-  stage.style.height = Math.round(d.h * z) + 'px';
-  $('#stageCaption').innerHTML = `<b>${d.label}</b> · ${state.theme === 'dark' ? '深色' : '浅色'}主题 · 缩放 ${Math.round(z * 100)}% · 种子色 #006A6A`;
+  stage.classList.toggle('is-maximized', maximized);
+  stage.style.width = Math.round(W * z) + 'px';
+  stage.style.height = Math.round(H * z) + 'px';
+  stage.style.margin = '';
+  if (state.winState === 'minimized') { stage.style.width = '260px'; stage.style.height = '150px'; stage.style.margin = 'auto'; }
+  const winTxt = maximized ? ' · 已最大化' : state.winState === 'minimized' ? ' · 已最小化' : '';
+  $('#stageCaption').innerHTML = `<b>${d.label}</b> · ${state.theme === 'dark' ? '深色' : '浅色'}主题 · 缩放 ${Math.round(z * 100)}%${winTxt} · 种子色 #006A6A`;
   if (state.bp === 'compact' || state.bp === 'medium') positionFloating();
 }
 function setBp(bp) {
@@ -914,6 +1114,24 @@ function setReduceMotion(on) {
    11. 事件（委托）
    -------------------------------------------------------------------------- */
 app.addEventListener('click', e => {
+  /* 面包屑 chevron 下拉：点击外部收起；点击其他 chevron 重新打开 */
+  const prevOpen = state.crumbMenuFor;
+  if (!e.target.closest('#crumbMenu') && !e.target.closest('.crumbs__chevron')) closeCrumbMenu();
+
+  /* Windows 面包屑：空白区域点击进入路径编辑 */
+  const blank = e.target.closest('.crumbs__blank');
+  if (blank && !$('#crumbEdit') && state.scene === 'browser') { renderCrumbs(true); return; }
+
+  /* 场景内交互交由 scenes.js 处理（输入/复选类交给 input/change 事件，避免打断输入或双重切换） */
+  const scEl = e.target.closest('[data-sc]');
+  const isCheckboxHost = scEl && scEl.querySelector('input[type="checkbox"]');
+  if (scEl && !isCheckboxHost && !scEl.matches('input, textarea, [contenteditable]') && !e.target.closest('[contenteditable]')) {
+    if (EidoriaScenes.handle(scEl.dataset.sc, scEl.dataset.id, scEl, sceneCtx())) {
+      renderScene();
+      return;
+    }
+  }
+
   const el = e.target.closest('[data-act]');
   if (!el) { if (!e.target.closest('.popover')) closePopover(); return; }
   const act = el.dataset.act, id = el.dataset.id;
@@ -933,12 +1151,23 @@ app.addEventListener('click', e => {
       break;
     }
     case 'settings': settingsDialog(); closeDrawer(); break;
+    case 'scene-back': setScene('browser'); break;
     case 'crumb': {
+      if (id.startsWith && id.startsWith('virtual:')) { renderCrumbs(true); break; }
       if (id !== 'root' && !NODE_BY_PATH.has(id)) break;
       tab().title = id === 'root' ? '内部存储' : NODE_BY_PATH.get(id).name;
       navigate(id, null, 'prev'); break;
     }
     case 'crumb-edit': renderCrumbs(true); break;
+    case 'crumb-menu': {
+      if (prevOpen === id) { closeCrumbMenu(); break; }   // 再次点击同一 chevron = 收起
+      openCrumbMenu(el, id); return;
+    }
+    case 'crumb-menu-go': {
+      if (!NODE_BY_PATH.has(id)) break;
+      tab().title = NODE_BY_PATH.get(id).name;
+      navigate(id, null, 'next'); break;
+    }
     case 'back': goHistory(-1); break;
     case 'forward': goHistory(1); break;
     case 'up': goUp(); break;
@@ -980,7 +1209,8 @@ app.addEventListener('click', e => {
     case 'preview-toggle': state.previewVisible = !state.previewVisible;
       if (state.previewVisible) state.floatingOpen = false;
       renderAll(); break;
-    case 'float-close': state.floatingOpen = false; renderPreview(); break;
+    case 'float-close': state.floatingOpen = false; state.floatExpanded = false; renderPreview(); break;
+    case 'float-expand': state.floatExpanded = !state.floatExpanded; state.floatPos = { x:null, y:null }; renderPreview(); break;
     case 'open': { const cur = activeNode(); if (cur) openItem(cur); break; }
     case 'share': showSnack('共享：已通过系统共享表单发送（演示）'); break;
     case 'item-menu': openItemMenu(el); return;
@@ -1030,6 +1260,7 @@ app.addEventListener('click', e => {
 
     /* 对话框 */
     case 'dialog-cancel': closeDialog(); break;
+    case 'scene-dialog-ok': { if (state.sceneDialogOk) { const f = state.sceneDialogOk; state.sceneDialogOk = null; f(); } break; }
     case 'dialog-new-ok': createItem($('#dialog').dataset.kind || 'folder'); break;
     case 'dialog-rename-ok': doRename(); break;
     case 'dialog-delete-ok': doDelete(); break;
@@ -1082,17 +1313,22 @@ $$('#searchPanel .chip').forEach(c => c.addEventListener('click', () => {
   renderSearchResults(); renderBrowserContent();
 }));
 
-/* 地址栏编辑 */
+/* 地址栏编辑：回车解析路径，Esc 还原；点击 crumbs 空白区进入编辑（由 app 委托处理） */
 $('#crumbs').addEventListener('keydown', e => {
   if (e.target.id !== 'crumbEdit') return;
   if (e.key === 'Enter') {
-    const v = e.target.value.trim().replace(/^file:\/\//, '').replace(/^~/, '内部存储');
-    let target = null;
-    if (v === '内部存储' || v === '' || v === '/') target = 'root';
-    else if (NODE_BY_PATH.has(v)) target = v;
-    else { const hit = NODES.find(n => n.name === v); if (hit) target = hit.path; }
-    if (target) { tab().title = target === 'root' ? '内部存储' : NODE_BY_PATH.get(target).name; navigate(target, null, 'next'); }
-    else { showSnack('路径不存在，已保留输入'); renderCrumbs(true); }
+    const r = resolvePath(e.target.value);
+    if (!r) { showSnack('路径不存在，已保留输入'); e.target.select(); return; }
+    if (r.virtual) { tab().title = r.virtual; navigate('root', r.virtual, 'next'); return; }
+    tab().title = r.cwd === 'root' ? '内部存储' : (NODE_BY_PATH.get(r.cwd)?.name || r.cwd);
+    navigate(r.cwd, null, 'next');
+    if (r.select) {
+      state.selected.add(r.select); state.activePath = r.select;
+      state.previewTab = 'preview';
+      if (state.bp === 'compact' || state.bp === 'medium' || !state.previewVisible) state.floatingOpen = true;
+      renderAll();
+    }
+    showSnack(`已跳转到 ${tab().title}`);
   }
   if (e.key === 'Escape') { e.stopPropagation(); renderCrumbs(); }
 });
@@ -1133,8 +1369,9 @@ $('#hamburger').addEventListener('click', openDrawer);
 /* 悬浮窗拖动 */
 let drag = null;
 $('#floating').addEventListener('pointerdown', e => {
-  const h = e.target.closest('#floatHandle'); if (!h) return;
+  const h = e.target.closest('#floatHandle'); if (!h || e.target.closest('button')) return;
   const fl = $('#floating');
+  if (fl.classList.contains('is-expanded')) return;
   drag = { sx:e.clientX, sy:e.clientY, x:parseFloat(fl.style.left) || 0, y:parseFloat(fl.style.top) || 0 };
   h.setPointerCapture(e.pointerId);
 });
@@ -1153,10 +1390,86 @@ $('#tabsBtn').addEventListener('click', e => { e.stopPropagation(); openTabsFlyo
 $('#hamburger').addEventListener('keydown', e => { if (e.key === 'Enter') openDrawer(); });
 
 /* Studio bar */
-$('#bpSwitch').addEventListener('click', e => { const b = e.target.closest('[data-bp]'); if (b) setBp(b.dataset.bp); });
+$('#bpSwitch').addEventListener('click', e => {
+  const b = e.target.closest('[data-bp]'); if (b) setBp(b.dataset.bp);
+});
 $('#themeSwitch').addEventListener('click', e => { const b = e.target.closest('[data-theme]'); if (b) setTheme(b.dataset.theme); });
 $('#reduceMotion').addEventListener('change', e => setReduceMotion(e.target.checked));
 $('#helpBtn').addEventListener('click', helpDialog);
+
+/* 场景选择（概念图 06–15） */
+$('#sceneSelect').addEventListener('change', e => setScene(e.target.value));
+
+/* 场景内输入 / 复选：局部同步，避免整层重渲染打断输入 */
+const layer = $('#sceneLayer');
+layer.addEventListener('input', e => {
+  const el = e.target, sc = el.dataset.sc;
+  if (sc === 'sc-ai-query') { EidoriaScenes.state.ai.q = el.value; return; }
+  if (sc === 'sc-pdf-query') {
+    EidoriaScenes.state.editor.query = el.value;
+    const hit = layer.querySelector('.sc-line--hit');
+    if (hit) hit.textContent = (el.value || '命中') + ' · 语义与响应式的统一';
+    return;
+  }
+  if (sc === 'sc-code-edit') {
+    EidoriaScenes.state.editor.dirty = true; EidoriaScenes.state.editor.saved = false;
+    const status = layer.querySelector('.sc-editor__status');
+    if (status) status.textContent = '● 已修改 · 保存前显示差异 · UTF-8 · LF';
+    const bar = layer.querySelector('.sc-editor__file');
+    if (bar && !bar.querySelector('.sc-dirty')) bar.insertAdjacentHTML('beforeend', '<i class="sc-dirty" title="已修改"></i>');
+    return;
+  }
+  const cq = el.closest('#scQuery');
+  if (cq) { EidoriaScenes.state.search.q = el.value; return; }
+});
+layer.addEventListener('change', e => {
+  const el = e.target;
+  const opt = el.closest('[data-sc="sc-opt"]');
+  if (opt) { EidoriaScenes.handle('sc-opt', opt.dataset.id, opt, sceneCtx()); return; }
+  const rest = el.closest('[data-sc="sc-apply-rest"]');
+  if (rest) { EidoriaScenes.handle('sc-apply-rest', null, rest, sceneCtx()); return; }
+});
+
+/* 窗口控制：最小化 / 最大化·恢复 / 关闭 */
+$('#windowControls').addEventListener('click', e => {
+  const b = e.target.closest('[data-win]'); if (!b) return;
+  const w = b.dataset.win;
+  if (w === 'minimize') setWinState('minimized');
+  else if (w === 'maximize') setWinState(state.winState === 'maximized' ? 'normal' : 'maximized');
+  else if (w === 'close') setWinState('closed');
+});
+$('#winStateRestore').addEventListener('click', () => setWinState('normal'));
+
+/* 场景进度动画（索引 / 解压 / 播放） */
+setInterval(() => {
+  if (state.scene === 'browser' || !layer.hidden && (state.scene === 'search' || state.scene === 'archive' || state.scene === 'media')) {
+    const before = JSON.stringify([EidoriaScenes.state.search.progress, EidoriaScenes.state.archive.progress, EidoriaScenes.state.media.pos]);
+    EidoriaScenes.tick();
+    const after = JSON.stringify([EidoriaScenes.state.search.progress, EidoriaScenes.state.archive.progress, EidoriaScenes.state.media.pos]);
+    if (before !== after) {
+      /* 只更新数值文本，不整层重渲染（避免打断输入） */
+      const s = EidoriaScenes.state;
+      if (state.scene === 'search') {
+        const b = layer.querySelector('.sc-side--index .sc-ring__label b');
+        if (b) b.textContent = s.search.progress + '%';
+        const f = layer.querySelector('.sc-side--index .sc-ring__fill');
+        if (f) f.setAttribute('stroke-dashoffset', (2 * Math.PI * 54 * (1 - s.search.progress / 100)).toFixed(1));
+      } else if (state.scene === 'archive') {
+        const b = layer.querySelector('.sc-extract-progress .sc-ring__label b');
+        if (b) b.textContent = s.archive.progress + '%';
+        const f = layer.querySelector('.sc-extract-progress .sc-ring__fill');
+        if (f) f.setAttribute('stroke-dashoffset', (2 * Math.PI * 54 * (1 - s.archive.progress / 100)).toFixed(1));
+        const sm = layer.querySelector('.sc-extract-progress small');
+        if (sm) sm.textContent = s.archive.progress + '% · ' + (s.archive.running ? '可取消' : '等待中');
+      } else if (state.scene === 'media') {
+        const i = layer.querySelector('.sc-stage__track i');
+        const knob = layer.querySelector('.sc-stage__track b');
+        if (i) i.style.width = s.media.pos + '%';
+        if (knob) knob.style.left = s.media.pos + '%';
+      }
+    }
+  }
+}, 1400);
 
 /* 全局键盘 */
 document.addEventListener('keydown', e => {
@@ -1202,8 +1515,9 @@ window.addEventListener('resize', () => { clearTimeout(layout._t); layout._t = s
    -------------------------------------------------------------------------- */
 state.previewTab = 'preview';
 state.selected.add(state.activePath);
+buildSceneSelect();
 renderAll();
 layout();
-setTimeout(() => showSnack('概念第一版已就绪 · 点击文件预览，双击文件夹进入', '快捷键', helpDialog), 600);
+setTimeout(() => showSnack('概念第二版已就绪 · 顶部「场景」可预览规划图 06–15', '快捷键', helpDialog), 600);
 
 })();

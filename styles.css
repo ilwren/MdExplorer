@@ -251,8 +251,6 @@ button { cursor: pointer; border: 0; background: none; color: inherit; }
 .tab-add { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; color: var(--on-surface-variant); margin-bottom: 4px; }
 .tab-add:hover { background: var(--surface-container); }
 .window-controls { display: flex; align-items: center; gap: 16px; margin-left: auto; padding: 0 8px 0 16px; align-self: flex-start; height: 52px; }
-.window-controls span { width: 11px; height: 11px; border: 1.5px solid var(--on-surface-variant); border-radius: 50%; opacity: .55; margin-top: 20px; }
-.window-controls span:first-child { border: 0; border-bottom: 1.5px solid var(--on-surface-variant); border-radius: 0; height: 6px; }
 
 /* ==========================================================================
    5. Shell / 抽屉 / 浏览器主工作卡 / 预览侧栏
