@@ -17,7 +17,7 @@
 - **AI 直接生成图位于 `docs/assets/mockups/ai-v3/`**；`ai-v2/` 保留为上一轮对照，`v2/` 的 SVG/PNG 只保留为结构参考，不再作为主视觉稿；
 - 旧路径 `mockup-compact-phone.png` / `mockup-large-desktop.png` 已同步为本轮 AI 直接生成的 Compact/Large 浅色基线；
 - 结构稿生成脚本为 `scripts/generate-concept-mockups.py`；AI 高保真图以对应结构稿为布局参考直接生成，不由 SVG 导出。
-- **v3 已重做现有 10 张**：Large/Compact 深浅四张，搜索索引、双窗格、存储洞察、压缩包、编辑/PDF、扩展/Lua 六张。`00/05/10/12/14/15` 暂保留结构稿，后续按 v3 的文字预算与标签页规则再生成。
+- **v3 已覆盖 15 个界面场景**：Large/Compact/Medium 基线，以及搜索索引、双窗格、存储洞察、压缩包、冲突/任务、编辑/PDF、媒体、扩展/Lua、本地 AI 与 Android 存储规划。`00` 是需要精确 Token 与组件状态的规范板，不属于界面 mockup，继续保留可编辑结构稿。
 
 ## 2. 视觉语言定版
 
@@ -50,7 +50,7 @@
 | `outlineVariant` | `#C4D3CC` | `#35453E` | 卡片与输入描边 |
 | `error` | `#B3261E` | `#FFB4AB` | 危险与失败 |
 
-![主题系统：同一组件在深浅主题中的成对状态](assets/mockups/v2/00-theme-system-light-dark.png)
+![主题系统规范板（非界面 mockup）：同一组件在深浅主题中的成对状态](assets/mockups/v2/00-theme-system-light-dark.png)
 
 深色稿的三条硬规则：
 
@@ -125,7 +125,7 @@ v3 的生成约束来自 [hamen/material-3-skill](https://github.com/hamen/mater
 
 ### 3.3 Medium · 属性页悬浮窗
 
-![Medium 导轨、网格与属性悬浮预览](assets/mockups/v2/05-medium-floating-preview-light.png)
+![Medium 导轨、网格与属性悬浮预览](assets/mockups/ai-v3/05-medium-floating-preview-light.png)
 
 Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可移动浮窗覆盖右侧，利用平板空间但不永久吃掉一列。此图特意停在“属性”页，证明双页签不是只为图片预览服务；校验和被做成一张可复制的事实卡，而不是埋在长菜单末尾。
 
@@ -161,7 +161,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 4.3 ② Android 存储授权与应用内回收站（P2）
 
-![Android 存储授权和应用内回收站深色概念](assets/mockups/v2/15-android-access-trash-dark.png)
+![Android 存储授权和应用内回收站深色概念](assets/mockups/ai-v3/15-android-access-trash-dark.png)
 
 **样式结构：**
 
@@ -186,7 +186,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 4.5 ③ 冲突解决与任务详情（近期增强）
 
-![文件冲突比对与任务中心浅色概念](assets/mockups/v2/10-conflict-task-center-light.png)
+![文件冲突比对与任务中心浅色概念](assets/mockups/ai-v3/10-conflict-task-center-light.png)
 
 **样式结构：**
 
@@ -229,7 +229,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 6.1 内置媒体播放（D-03 之后再议）
 
-![视频播放、章节、字幕与队列深色概念](assets/mockups/v2/12-media-player-dark.png)
+![视频播放、章节、字幕与队列深色概念](assets/mockups/ai-v3/12-media-player-dark.png)
 
 这张图只锁定未来样式，不改变“当前版本音视频仍为元数据卡 + 系统打开”的范围。若将来引入播放器：左侧是队列，中央是舞台与章节时间线，下方字幕区可直接跳转；音频复用同一队列，不另造一个音乐应用壳。是否落地仍取决于 LGPL 动态链接、体积和三平台后端结论。
 
@@ -241,7 +241,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 6.3 本地 AI 语义搜索（最后）
 
-![本地 AI 语义搜图、模型状态和识别标签浅色概念](assets/mockups/v2/14-local-ai-search-light.png)
+![本地 AI 语义搜图、模型状态和识别标签浅色概念](assets/mockups/ai-v3/14-local-ai-search-light.png)
 
 本地 AI 入口不做聊天机器人首页：第一屏仍是搜索框、结果网格和文件预览。模型卡必须同时显示模型体积、下载状态、索引根和可删除入口；结果徽标只表达相对相关度，不把百分比伪装成事实置信度。标签默认只进入本地索引，不修改 EXIF 或原文件。
 
