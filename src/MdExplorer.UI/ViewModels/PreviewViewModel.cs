@@ -45,6 +45,14 @@ public sealed partial class PreviewViewModel(
     public bool HasArchive => ArchiveEntries.Count > 0;
     public bool HasFailure => FailureText is not null;
     public bool HasPdf => PdfPageCount > 0;
+    /// <summary>内容页下方的图标事实条只承载数值；带字段名的完整事实仍在属性页。</summary>
+    public bool HasQuickFacts => CurrentItem is { IsFolder: false };
+    public string QuickSizeText => CurrentItem is { IsFolder: false } item ? Formatting.Bytes(item.Length) : string.Empty;
+    public string QuickModifiedText => CurrentItem is { } item
+        ? Formatting.DateTime(item.LastWriteTime, DateTimeOffset.Now)
+        : string.Empty;
+    public bool HasImageDimensions => HasImage && !HasPdf && Image is { PixelSize.Width: > 0, PixelSize.Height: > 0 };
+    public string ImageDimensionsText => HasImageDimensions ? $"{Image!.PixelSize.Width}×{Image.PixelSize.Height}" : string.Empty;
     public string PdfPageText => HasPdf ? $"第 {PdfPageIndex + 1} / {PdfPageCount} 页" : string.Empty;
     public bool CanPreviousPdfPage => HasPdf && PdfPageIndex > 0;
     public bool CanNextPdfPage => HasPdf && PdfPageIndex < PdfPageCount - 1;
@@ -54,7 +62,21 @@ public sealed partial class PreviewViewModel(
 
     public FileItem? CurrentItem { get; private set; }
 
-    partial void OnImageChanged(Bitmap? value) => OnPropertyChanged(nameof(HasImage));
+    partial void OnImageChanged(Bitmap? value)
+    {
+        OnPropertyChanged(nameof(HasImage));
+        OnPropertyChanged(nameof(HasImageDimensions));
+        OnPropertyChanged(nameof(ImageDimensionsText));
+    }
+
+    private void RaiseQuickFacts()
+    {
+        OnPropertyChanged(nameof(HasQuickFacts));
+        OnPropertyChanged(nameof(QuickSizeText));
+        OnPropertyChanged(nameof(QuickModifiedText));
+        OnPropertyChanged(nameof(HasImageDimensions));
+        OnPropertyChanged(nameof(ImageDimensionsText));
+    }
     partial void OnTextContentChanged(string? value)
     {
         OnPropertyChanged(nameof(HasText));
@@ -80,6 +102,8 @@ public sealed partial class PreviewViewModel(
         OnPropertyChanged(nameof(PdfPageText));
         OnPropertyChanged(nameof(CanPreviousPdfPage));
         OnPropertyChanged(nameof(CanNextPdfPage));
+        OnPropertyChanged(nameof(HasImageDimensions));
+        OnPropertyChanged(nameof(ImageDimensionsText));
     }
 
 
@@ -87,6 +111,7 @@ public sealed partial class PreviewViewModel(
     {
         var generation = ++_generation;
         CurrentItem = item;
+        RaiseQuickFacts();
         Image = null;
         TextContent = null;
         MarkdownText = null;

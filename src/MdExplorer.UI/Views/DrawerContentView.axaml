@@ -11,13 +11,11 @@
         <Border Width="46" Height="46" CornerRadius="14" ClipToBounds="True" BoxShadow="0 5 14 #22000000">
           <Image Source="avares://MdExplorer.UI/Assets/eidoria.png" Width="46" Height="46" />
         </Border>
-        <StackPanel Spacing="0" VerticalAlignment="Center">
-          <TextBlock Classes="h2" Text="Eidoria" />
-          <TextBlock Classes="caption" Text="万象屿 · 本地文件" />
-        </StackPanel>
+        <TextBlock Classes="h2" Text="Eidoria" VerticalAlignment="Center" />
       </StackPanel>
 
-      <md:MdButton Variant="Outlined" Height="42" Margin="2,0,2,12" HorizontalAlignment="Left"
+      <md:MdButton Classes="primary-action" Variant="Filled" Height="44" Margin="2,0,2,12"
+                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                    IsVisible="{Binding IsBrowser}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <md:MdIcon Glyph="{x:Static md:MdSymbols.Add}" Size="19" />
@@ -49,7 +47,7 @@
         </StackPanel>
       </md:MdButton>
 
-      <TextBlock Classes="caption" Text="位置" Margin="8,14,0,4" FontWeight="SemiBold" />
+      <Border Height="10" />
       <ItemsControl ItemsSource="{Binding Places}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:NavEntry">
@@ -63,8 +61,7 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-      <TextBlock Classes="caption" Text="已授权文件夹" Margin="8,14,0,4" FontWeight="SemiBold"
-                 IsVisible="{Binding Capabilities.IsAndroid}" />
+      <Border Height="10" IsVisible="{Binding Capabilities.IsAndroid}" />
       <ItemsControl ItemsSource="{Binding AuthorizedRoots}" IsVisible="{Binding Capabilities.IsAndroid}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:AuthorizedRootModel">
@@ -85,16 +82,16 @@
         </StackPanel>
       </md:MdButton>
 
-      <TextBlock Classes="caption" Text="存储设备" Margin="8,14,0,4" FontWeight="SemiBold" />
+      <Border Height="1" Margin="8,12,8,8" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
       <ItemsControl ItemsSource="{Binding Volumes}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:VolumeItemModel">
-            <md:MdButton Classes="nav-entry" Variant="Text" Height="58" Click="OnVolumeClick"
+            <md:MdButton Classes="nav-entry" Variant="Text" Height="54" Click="OnVolumeClick"
                          HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding UsageText}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" MinWidth="168">
                 <Border Width="34" Height="34" CornerRadius="10" VerticalAlignment="Center"
-                        Background="{DynamicResource Md.Sys.Color.Surface.Brush}">
-                  <md:MdIcon Glyph="{Binding Glyph}" Size="19" />
+                        Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
+                  <md:MdIcon Glyph="{Binding Glyph}" Size="19" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
                 </Border>
                 <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
                   <Grid ColumnDefinitions="*,Auto">
@@ -109,8 +106,7 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-      <TextBlock Classes="caption" Text="已收藏文件夹" Margin="8,14,0,4" FontWeight="SemiBold"
-                 IsVisible="{Binding HasFavorites}" />
+      <Border Height="8" IsVisible="{Binding HasFavorites}" />
       <ItemsControl ItemsSource="{Binding FavoriteItems}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:FileItemViewModel">

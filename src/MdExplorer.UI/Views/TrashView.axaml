@@ -25,15 +25,21 @@
                Background="Transparent" BorderThickness="0">
         <md:MdList.ItemTemplate>
           <DataTemplate x:DataType="vm:TrashItemModel">
-            <Grid ColumnDefinitions="*,Auto,Auto" Margin="4,6">
-              <StackPanel Spacing="1" VerticalAlignment="Center">
-                <TextBlock Text="{Binding Name}" />
-                <TextBlock Classes="caption">
-                  <Run Text="{Binding OriginalPath}" /><Run Text="  ·  " /><Run Text="{Binding DeletedText}" />
-                </TextBlock>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10" Margin="4,6" ToolTip.Tip="{Binding OriginalPath}">
+              <Border Width="38" Height="38" CornerRadius="11" VerticalAlignment="Center"
+                      Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
+                <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="19"
+                           Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+              </Border>
+              <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="caption" Text="{Binding DeletedText}" />
               </StackPanel>
-              <md:MdButton Grid.Column="1" Variant="Text" Content="还原" Click="OnRestoreClick" Margin="4,0" />
-              <md:MdButton Grid.Column="2" Variant="Text" Content="永久删除" Click="OnDeleteClick" />
+              <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.Refresh}" Click="OnRestoreClick"
+                               ToolTip.Tip="还原" AutomationProperties.Name="还原" />
+              <md:MdIconButton Grid.Column="3" Icon="{x:Static md:MdSymbols.Delete}" Click="OnDeleteClick"
+                               Foreground="{DynamicResource Md.Sys.Color.Error.Brush}"
+                               ToolTip.Tip="永久删除" AutomationProperties.Name="永久删除" />
             </Grid>
           </DataTemplate>
         </md:MdList.ItemTemplate>

@@ -8,6 +8,7 @@
     <StackPanel Margin="20,12,20,28" Spacing="24" MaxWidth="720" HorizontalAlignment="Stretch">
       <TextBlock Classes="h1" Text="设置" />
 
+      <Border Classes="card">
       <StackPanel Spacing="10">
         <TextBlock Classes="h3" Text="外观" />
         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -18,7 +19,7 @@
         <TextBlock Classes="caption">
           <Run Text="当前主题：" /><Run Text="{Binding ThemeModeText}" />
         </TextBlock>
-        <TextBlock Classes="body" Text="主题色（HCT 种子色，即时生效）" Margin="0,6,0,0" />
+        <TextBlock Classes="body" Text="主题色" Margin="0,6,0,0" />
         <WrapPanel x:Name="SeedPanel" Orientation="Horizontal" />
         <TextBlock Classes="caption">
           <Run Text="当前种子色：" /><Run Text="{Binding SeedColor}" />
@@ -31,9 +32,9 @@
           <md:MdSwitch Grid.Column="1" IsChecked="{Binding ReduceMotion}" VerticalAlignment="Center" />
         </Grid>
       </StackPanel>
+      </Border>
 
-      <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
-
+      <Border Classes="card">
       <StackPanel Spacing="14">
         <TextBlock Classes="h3" Text="浏览" />
         <Grid ColumnDefinitions="*,Auto">
@@ -74,9 +75,9 @@
           <md:MdSwitch Grid.Column="1" IsChecked="{Binding WatchFolderChanges}" VerticalAlignment="Center" />
         </Grid>
       </StackPanel>
+      </Border>
 
-      <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
-
+      <Border Classes="card">
       <StackPanel Spacing="8">
         <TextBlock Classes="h3" Text="关于" />
         <TextBlock Classes="body">
@@ -88,6 +89,7 @@
         </TextBlock>
         <md:MdButton Variant="Outlined" Content="开源许可证" HorizontalAlignment="Left" Click="OnLicensesClick" />
       </StackPanel>
+      </Border>
     </StackPanel>
   </md:MdScrollViewer>
 </UserControl>

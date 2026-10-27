@@ -147,12 +147,12 @@ public partial class MainView : UserControl
         var maxWidth = Math.Max(300, size.Width - 20);
         var maxHeight = Math.Max(360, size.Height - 96);
         var width = double.IsNaN(FloatingPreview.Width) || FloatingPreview.Width <= 0
-            ? Math.Min(400, maxWidth)
+            ? Math.Min(340, maxWidth)
             : FloatingPreview.Width;
         FloatingPreview.Width = Math.Clamp(width, 300, maxWidth);
         FloatingPreview.MaxHeight = maxHeight;
         if (double.IsNaN(FloatingPreview.Height) || FloatingPreview.Height <= 0)
-            FloatingPreview.Height = Math.Min(620, maxHeight);
+            FloatingPreview.Height = Math.Min(540, maxHeight);
         else
             FloatingPreview.Height = Math.Min(FloatingPreview.Height, maxHeight);
 
@@ -731,6 +731,18 @@ public partial class MainView : UserControl
             return; // 关闭按钮自己处理
         if (sender is Control { DataContext: BrowserTabViewModel tab })
             Browser?.ActivateTabCommand.Execute(tab);
+    }
+
+    private void OnCompactTabTapped(object? sender, TappedEventArgs e)
+    {
+        OnTabTapped(sender, e);
+        CompactTabsButton.Flyout?.Hide();
+    }
+
+    private void OnCompactNewTabClick(object? sender, RoutedEventArgs e)
+    {
+        Browser?.NewTabCommand.Execute(null);
+        CompactTabsButton.Flyout?.Hide();
     }
 
     private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)

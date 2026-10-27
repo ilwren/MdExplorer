@@ -221,13 +221,17 @@ public sealed class OperationTaskCenterTests : IDisposable
         Assert.True(success.Success);
         var completed = Assert.Single(shell.OperationTasks);
         Assert.Equal(OperationTaskStatus.Completed, completed.Status);
+        Assert.True(completed.IsCompleted);
         Assert.Equal(100, completed.ProgressPercent);
+        Assert.Equal("100%", completed.ProgressPercentText);
+        Assert.Equal("0", shell.ActiveOperationTaskCountText);
         Assert.False(shell.IsDialogOpen);
 
         var failed = await shell.RunOperationAsync("删除演示", (_, _) =>
             Task.FromResult(new OperationOutcome(1, [new OperationError("b.txt", "拒绝访问")], [])));
         Assert.False(failed.Success);
         Assert.Equal(OperationTaskStatus.Failed, shell.OperationTasks[0].Status);
+        Assert.True(shell.OperationTasks[0].IsFailed);
         Assert.Contains("b.txt", shell.OperationTasks[0].ErrorText);
         Assert.True(shell.IsTaskCenterOpen);
     }

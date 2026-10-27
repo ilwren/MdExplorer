@@ -6,10 +6,8 @@
              x:DataType="vm:ShellViewModel">
   <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" AllowMouseDrag="True">
     <StackPanel Margin="22,18,22,30" Spacing="26" MaxWidth="1120" HorizontalAlignment="Stretch">
-      <StackPanel Spacing="4">
-        <md:MdSearchBar x:Name="HomeSearch" PlaceholderText="搜索文件（在主目录中递归）" ShowClearButton="True" />
-        <TextBlock Classes="caption" Text="回车开始搜索；进入文件夹后可按名称快速过滤。" />
-      </StackPanel>
+      <md:MdSearchBar x:Name="HomeSearch" PlaceholderText="搜索" ShowClearButton="True"
+                      ToolTip.Tip="在主目录中递归搜索" AutomationProperties.Name="在主目录中递归搜索" />
 
       <StackPanel Spacing="10">
         <TextBlock Classes="h3" Text="存储" />
@@ -19,7 +17,7 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:VolumeItemModel">
-              <Border Classes="card" Width="292" Margin="0,0,12,12" Tapped="OnVolumeTapped" Cursor="Hand">
+              <Border Classes="card" Width="292" Margin="0,0,12,12" Tapped="OnVolumeTapped" Cursor="Hand" ToolTip.Tip="{Binding UsageText}">
                 <StackPanel Spacing="10">
                   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                     <Border Width="38" Height="38" CornerRadius="12"
@@ -31,8 +29,7 @@
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Grid.Column="2" Classes="h3" Text="{Binding UsedPercentText}" VerticalAlignment="Center" />
                   </Grid>
-                  <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="7" />
-                  <TextBlock Classes="caption" Text="{Binding UsageText}" />
+                  <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="6" />
                 </StackPanel>
               </Border>
             </DataTemplate>
@@ -43,35 +40,20 @@
       <StackPanel Spacing="10">
         <TextBlock Classes="h3" Text="类别" />
         <WrapPanel Orientation="Horizontal">
-          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Image" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Spacing="8">
-              <md:MdIcon Glyph="{x:Static md:MdSymbols.Image}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-              <TextBlock Text="图片" FontWeight="SemiBold" />
-            </StackPanel>
+          <Border Classes="category-card" Width="76" Height="60" Margin="0,0,8,8" Tag="Image" Tapped="OnCategoryTapped" Cursor="Hand" ToolTip.Tip="图片" AutomationProperties.Name="图片">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Image}" Size="27" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
           </Border>
-          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Video" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Spacing="8">
-              <md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-              <TextBlock Text="视频" FontWeight="SemiBold" />
-            </StackPanel>
+          <Border Classes="category-card" Width="76" Height="60" Margin="0,0,8,8" Tag="Video" Tapped="OnCategoryTapped" Cursor="Hand" ToolTip.Tip="视频" AutomationProperties.Name="视频">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="27" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
           </Border>
-          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Audio" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Spacing="8">
-              <md:MdIcon Glyph="{x:Static md:MdSymbols.MusicNote}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-              <TextBlock Text="音频" FontWeight="SemiBold" />
-            </StackPanel>
+          <Border Classes="category-card" Width="76" Height="60" Margin="0,0,8,8" Tag="Audio" Tapped="OnCategoryTapped" Cursor="Hand" ToolTip.Tip="音频" AutomationProperties.Name="音频">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.MusicNote}" Size="27" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
           </Border>
-          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Document" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Spacing="8">
-              <md:MdIcon Glyph="{x:Static md:MdSymbols.Description}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-              <TextBlock Text="文档" FontWeight="SemiBold" />
-            </StackPanel>
+          <Border Classes="category-card" Width="76" Height="60" Margin="0,0,8,8" Tag="Document" Tapped="OnCategoryTapped" Cursor="Hand" ToolTip.Tip="文档" AutomationProperties.Name="文档">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Description}" Size="27" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
           </Border>
-          <Border Classes="category-card" Width="112" Height="82" Margin="0,0,10,10" Tag="Archive" Tapped="OnCategoryTapped" Cursor="Hand">
-            <StackPanel Spacing="8">
-              <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderZip}" Size="25" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-              <TextBlock Text="压缩包" FontWeight="SemiBold" />
-            </StackPanel>
+          <Border Classes="category-card" Width="76" Height="60" Margin="0,0,8,8" Tag="Archive" Tapped="OnCategoryTapped" Cursor="Hand" ToolTip.Tip="压缩包" AutomationProperties.Name="压缩包">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderZip}" Size="27" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
           </Border>
         </WrapPanel>
       </StackPanel>
@@ -118,12 +100,12 @@
         <ItemsControl ItemsSource="{Binding RecentFiles}" IsVisible="{Binding HasRecentFiles}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:FileItemViewModel">
-              <Border Classes="tap-chip" Margin="0,0,0,8" Tapped="OnRecentFileTapped" Cursor="Hand">
+              <Border Classes="tap-chip" Margin="0,0,0,8" Tapped="OnRecentFileTapped" Cursor="Hand" ToolTip.Tip="{Binding FullPath}">
                 <StackPanel Orientation="Horizontal" Spacing="10">
                   <md:MdIcon Glyph="{Binding Glyph}" Size="22" Foreground="{Binding GlyphBrush}" />
                   <StackPanel>
                     <TextBlock Text="{Binding Name}" />
-                    <TextBlock Classes="caption" Text="{Binding ParentText}" />
+                    <TextBlock Classes="caption" Text="{Binding ParentNameText}" />
                   </StackPanel>
                 </StackPanel>
               </Border>
@@ -143,7 +125,7 @@
           </md:MdButton>
         </StackPanel>
         <TextBlock Classes="caption" TextWrapping="Wrap"
-                   Text="通过系统选择器授权后，可在此浏览手机存储中的任意文件夹（含 SD 卡/U 盘）。授权夹内删除为永久删除（无回收站）；重命名经复制完成，大文件夹较慢。" />
+                   Text="⚠ 授权夹内删除不可恢复" ToolTip.Tip="通过系统选择器授权后可浏览所选文件夹；删除为永久删除，重命名经复制完成，大文件夹较慢。" />
         <ItemsControl ItemsSource="{Binding AuthorizedRoots}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -168,12 +150,12 @@
         <ItemsControl ItemsSource="{Binding FavoriteItems}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:FileItemViewModel">
-              <Border Classes="tap-chip" Margin="0,0,0,8" Tapped="OnFavoriteTapped" Cursor="Hand">
+              <Border Classes="tap-chip" Margin="0,0,0,8" Tapped="OnFavoriteTapped" Cursor="Hand" ToolTip.Tip="{Binding FullPath}">
                 <StackPanel Orientation="Horizontal" Spacing="10">
                   <md:MdIcon Glyph="{Binding Glyph}" Size="22" Foreground="{Binding GlyphBrush}" />
                   <StackPanel>
                     <TextBlock Text="{Binding Name}" />
-                    <TextBlock Classes="caption" Text="{Binding ParentText}" />
+                    <TextBlock Classes="caption" Text="{Binding ParentNameText}" />
                   </StackPanel>
                 </StackPanel>
               </Border>

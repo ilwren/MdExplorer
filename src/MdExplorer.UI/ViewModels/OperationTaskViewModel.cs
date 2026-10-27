@@ -28,9 +28,15 @@ public sealed partial class OperationTaskViewModel : ObservableObject, IDisposab
     [NotifyPropertyChangedFor(nameof(IsActive))]
     [NotifyPropertyChangedFor(nameof(IsFinished))]
     [NotifyPropertyChangedFor(nameof(CanCancel))]
+    [NotifyPropertyChangedFor(nameof(IsQueued))]
+    [NotifyPropertyChangedFor(nameof(IsRunning))]
+    [NotifyPropertyChangedFor(nameof(IsCompleted))]
+    [NotifyPropertyChangedFor(nameof(IsFailed))]
+    [NotifyPropertyChangedFor(nameof(IsCancelled))]
     private OperationTaskStatus _status = OperationTaskStatus.Queued;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressPercentText))]
     private double _progressPercent;
 
     [ObservableProperty]
@@ -60,6 +66,12 @@ public sealed partial class OperationTaskViewModel : ObservableObject, IDisposab
     public bool IsFinished => !IsActive;
     public bool CanCancel => IsActive;
     public bool HasErrors => ErrorText is not null;
+    public bool IsQueued => Status == OperationTaskStatus.Queued;
+    public bool IsRunning => Status == OperationTaskStatus.Running;
+    public bool IsCompleted => Status == OperationTaskStatus.Completed;
+    public bool IsFailed => Status == OperationTaskStatus.Failed;
+    public bool IsCancelled => Status == OperationTaskStatus.Cancelled;
+    public string ProgressPercentText => $"{ProgressPercent:0}%";
 
     internal CancellationToken CancellationToken => _cancellation.Token;
 

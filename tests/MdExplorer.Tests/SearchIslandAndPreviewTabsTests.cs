@@ -49,11 +49,13 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         Assert.True(browser.IsSearchPanelOpen);
         Assert.False(browser.HasActiveSearch);
         Assert.Equal("搜索", browser.SearchIslandText);
+        Assert.Equal(string.Empty, browser.SearchResultBadgeText);
         Assert.Contains("当前列表筛选", browser.SearchPanelScopeText, StringComparison.Ordinal);
 
         browser.FilterText = "needle";
         Assert.True(browser.HasActiveSearch);
         Assert.Equal("needle", browser.SearchIslandText);
+        Assert.Equal("0", browser.SearchResultBadgeText);
         Assert.Equal("当前列表匹配 0 项", browser.SearchPanelStatusText);
         Assert.Empty(browser.Items); // needle 只在子文件夹里，列表筛选看不到
 
@@ -61,6 +63,7 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         Assert.False(browser.IsSearchPanelOpen);
         Assert.True(browser.IsSearchMode);
         Assert.Equal("搜索到 1 项", browser.SearchIslandText);
+        Assert.Equal("1", browser.SearchResultBadgeText);
         Assert.Equal("搜索到 1 项", browser.SearchPanelStatusText);
         Assert.Contains("递归搜索", browser.SearchPanelScopeText, StringComparison.Ordinal);
         Assert.Equal(_needlePath, Assert.Single(browser.Items).FullPath);
@@ -100,11 +103,16 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         await shell.Preview.LoadAsync(folder.Model);
         Assert.Equal(1, shell.Preview.SelectedTabIndex);
         Assert.False(shell.Preview.CanOpen);
+        Assert.False(shell.Preview.HasQuickFacts);
         Assert.NotEmpty(shell.Preview.MetadataRows);
 
         await shell.Preview.LoadAsync(file.Model);
         Assert.Equal(0, shell.Preview.SelectedTabIndex);
         Assert.True(shell.Preview.CanOpen);
+        Assert.True(shell.Preview.HasQuickFacts);
+        Assert.False(string.IsNullOrWhiteSpace(shell.Preview.QuickSizeText));
+        Assert.False(string.IsNullOrWhiteSpace(shell.Preview.QuickModifiedText));
+        Assert.False(shell.Preview.HasImageDimensions);
         Assert.Equal("plain", shell.Preview.TextContent);
     }
 

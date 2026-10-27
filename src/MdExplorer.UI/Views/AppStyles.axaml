@@ -96,17 +96,17 @@
   </Styles.Resources>
 
   <Style Selector="TextBlock.h1">
-    <Setter Property="FontSize" Value="30" />
+    <Setter Property="FontSize" Value="26" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurface.Brush}" />
   </Style>
   <Style Selector="TextBlock.h2">
-    <Setter Property="FontSize" Value="19" />
+    <Setter Property="FontSize" Value="18" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurface.Brush}" />
   </Style>
   <Style Selector="TextBlock.h3">
-    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontSize" Value="15" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurface.Brush}" />
   </Style>
@@ -139,25 +139,25 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="24" />
-    <Setter Property="BoxShadow" Value="0 12 32 #17000000" />
+    <Setter Property="BoxShadow" Value="0 5 18 #10000000" />
   </Style>
 
   <Style Selector="Border.card">
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.Surface.Brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="20" />
-    <Setter Property="Padding" Value="18" />
-    <Setter Property="BoxShadow" Value="0 5 18 #12000000" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="Padding" Value="16" />
+    <Setter Property="BoxShadow" Value="0 0 0 #00000000" />
   </Style>
 
   <Style Selector="Border.tap-chip">
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.Surface.Brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="16" />
-    <Setter Property="Padding" Value="13,10" />
-    <Setter Property="BoxShadow" Value="0 3 12 #0D000000" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="12,9" />
+    <Setter Property="BoxShadow" Value="0 0 0 #00000000" />
   </Style>
   <Style Selector="Border.tap-chip:pointerover">
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
@@ -165,9 +165,9 @@
 
   <Style Selector="Border.category-card">
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
-    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="CornerRadius" Value="16" />
     <Setter Property="Padding" Value="14,12" />
-    <Setter Property="BoxShadow" Value="0 4 14 #0D000000" />
+    <Setter Property="BoxShadow" Value="0 0 0 #00000000" />
   </Style>
   <Style Selector="Border.category-card:pointerover">
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}" />
@@ -203,32 +203,32 @@
 
   <!-- 文件列表/网格容器：静止时轻、悬停时浮起、选中时同时给底色与描边。 -->
   <Style Selector="md|MdList.file-list ListBoxItem">
-    <Setter Property="CornerRadius" Value="15" />
+    <Setter Property="CornerRadius" Value="12" />
     <Setter Property="Margin" Value="2,1" />
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
   <Style Selector="md|MdList.file-grid ListBoxItem">
-    <Setter Property="CornerRadius" Value="19" />
+    <Setter Property="CornerRadius" Value="16" />
     <Setter Property="Margin" Value="3" />
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
   <!-- MdList 生成容器的选中底色画在模板根 Border 上；直接给该部件圆角，避免选中态露出直角。 -->
   <Style Selector="md|MdList.file-list ListBoxItem /template/ Border#PART_Container">
-    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="CornerRadius" Value="12" />
     <Setter Property="Margin" Value="2,0" />
   </Style>
   <Style Selector="md|MdList.file-grid ListBoxItem /template/ Border#PART_Container">
-    <Setter Property="CornerRadius" Value="20" />
+    <Setter Property="CornerRadius" Value="16" />
     <Setter Property="Margin" Value="2" />
   </Style>
   <Style Selector="md|MdList.file-list ListBoxItem:selected /template/ Border.file-row">
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.Primary.Brush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="CornerRadius" Value="12" />
   </Style>
   <Style Selector="md|MdList.file-grid ListBoxItem:selected /template/ Border.file-card">
-    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.Surface.Brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.Primary.Brush}" />
     <Setter Property="BorderThickness" Value="1.5" />
   </Style>
@@ -244,8 +244,8 @@
     <Setter Property="Padding" Value="6" />
   </Style>
   <Style Selector="md|MdList.file-list ListBoxItem Border.file-row">
-    <Setter Property="CornerRadius" Value="16" />
-    <Setter Property="Padding" Value="11,7" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="10,6" />
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
@@ -260,15 +260,15 @@
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.Surface.Brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="19" />
-    <Setter Property="BoxShadow" Value="0 4 15 #0D000000" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="BoxShadow" Value="0 0 0 #00000000" />
   </Style>
   <Style Selector="md|MdList.file-grid ListBoxItem:pointerover Border.file-card">
     <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-    <Setter Property="BoxShadow" Value="0 8 22 #17000000" />
+    <Setter Property="BoxShadow" Value="0 4 14 #10000000" />
   </Style>
   <Style Selector="md|MdList.file-grid ListBoxItem:selected Border.file-card">
-    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.Surface.Brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.Primary.Brush}" />
     <Setter Property="BorderThickness" Value="1.5" />
   </Style>
@@ -348,10 +348,10 @@
   </Style>
   <Style Selector="md|MdButton.nav-entry.active">
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
-    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurface.Brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
   </Style>
   <Style Selector="md|MdButton.nav-entry.active md|MdIcon">
-    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
   </Style>
 
   <!-- 应用内低动效：根视图挂 reduce-motion 后，取消 Eidoria 自有微交互的位移与过渡。 -->
@@ -372,4 +372,48 @@
   <Style Selector="UserControl.reduce-motion Border.file-card:pointerover">
     <Setter Property="RenderTransform" Value="none" />
   </Style>
+  <!-- v0.12 对标 ai-v3：选中态只落在行/卡本身，不再让 MdList 容器在外圈再画一层薄荷光晕。 -->
+  <Style Selector="md|MdList.file-list ListBoxItem:selected, md|MdList.file-grid ListBoxItem:selected">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="md|MdList.file-list ListBoxItem:selected /template/ Border#PART_Container, md|MdList.file-grid ListBoxItem:selected /template/ Border#PART_Container">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Border.selection-check">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+  </Style>
+  <Style Selector="md|MdList.file-grid ListBoxItem:selected Border.selection-check">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- 图标事实条与紧凑菜单：只给数值/动作留位置，完整名称走 ToolTip 与无障碍名。 -->
+  <Style Selector="Border.fact-chip">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="8,5" />
+  </Style>
+  <Style Selector="md|MdButton.menu-action">
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="10,2" />
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurface.Brush}" />
+  </Style>
+  <Style Selector="md|MdButton.primary-action md|MdIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnPrimary.Brush}" />
+  </Style>
+
+  <!-- Medium 导轨：活动目的地使用 MD3 的横向胶囊指示器，而不是整块按钮染色。 -->
+  <Style Selector="Border.rail-indicator">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="16" />
+  </Style>
+  <Style Selector="md|MdButton.rail-entry.active Border.rail-indicator">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
+  </Style>
+  <Style Selector="md|MdButton.rail-entry.active md|MdIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+  </Style>
+
 </Styles>

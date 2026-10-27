@@ -20,13 +20,34 @@ public sealed partial class FileItemViewModel(FileItem model) : ObservableObject
         ? Formatting.DateTime(Model.LastWriteTime, DateTimeOffset.Now)
         : $"{Formatting.Bytes(Model.Length)} · {Formatting.DateTime(Model.LastWriteTime, DateTimeOffset.Now)}";
 
+    /// <summary>列表/网格的单值注脚：文件只报大小，文件夹只报时间；完整事实留到详细信息与属性页。</summary>
+    public string CompactMetaText => Model.IsFolder
+        ? Formatting.DateTime(Model.LastWriteTime, DateTimeOffset.Now)
+        : Formatting.Bytes(Model.Length);
+
     /// <summary>搜索结果中展示父目录（普通浏览时由 Browser 关闭）。</summary>
     // 详细信息视图列（纯显示字符串；排序由 Browser 的 FileItemOrdering 管线负责）
     public string SizeText => Model.IsFolder ? "—" : Formatting.Bytes(Model.Length);
     public string KindText => FileKindClassifier.Describe(Model);
+    /// <summary>详细信息列的短类型：扩展名优先，避免每行重复“JPG 文件 · 图像”。</summary>
+    public string ShortKindText => Model.IsFolder
+        ? "文件夹"
+        : string.IsNullOrWhiteSpace(Model.Extension)
+            ? KindText
+            : Model.Extension.TrimStart('.').ToUpperInvariant();
     public string ModifiedText => Formatting.FullDateTime(Model.LastWriteTime);
 
     public string ParentText => Path.GetDirectoryName(Model.FullPath) ?? string.Empty;
+    /// <summary>最近访问/收藏行只显示父文件夹名，完整路径保留在 ToolTip 与属性页。</summary>
+    public string ParentNameText
+    {
+        get
+        {
+            var parent = ParentText.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var name = Path.GetFileName(parent);
+            return string.IsNullOrWhiteSpace(name) ? parent : name;
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasThumbnail))]

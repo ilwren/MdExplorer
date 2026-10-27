@@ -45,7 +45,7 @@
     <DataTemplate x:Key="FileRowTemplate" x:DataType="vm:FileItemViewModel">
       <Border Classes="file-row">
         <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12">
-          <Border Width="44" Height="44" CornerRadius="13" ClipToBounds="True"
+          <Border Width="44" Height="44" CornerRadius="11" ClipToBounds="True"
                   Background="{Binding GlyphBackgroundBrush}">
             <Grid>
               <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasThumbnail}" />
@@ -56,8 +56,8 @@
             </Grid>
           </Border>
           <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-            <TextBlock Text="{Binding Name}" FontSize="14.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-            <TextBlock Classes="caption" Text="{Binding MetaText}" />
+            <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="caption" Text="{Binding CompactMetaText}" />
           </StackPanel>
           <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="2">
             <md:MdIcon Glyph="{x:Static md:MdSymbols.Star}" Size="16" IsVisible="{Binding IsFavorite}"
@@ -70,12 +70,11 @@
     </DataTemplate>
 
     <DataTemplate x:Key="FileCardTemplate" x:DataType="vm:FileItemViewModel">
-      <Border Classes="file-card" Width="164" ClipToBounds="True" CornerRadius="19"
+      <Border Classes="file-card" Width="164" ClipToBounds="True" CornerRadius="16"
               Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
-              BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
-              BoxShadow="0 4 15 #0D000000">
+              BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
         <Grid RowDefinitions="98,Auto">
-          <Border Grid.Row="0" ClipToBounds="True" CornerRadius="18,18,0,0" Background="{Binding GlyphBackgroundBrush}">
+          <Border Grid.Row="0" ClipToBounds="True" CornerRadius="15,15,0,0" Background="{Binding GlyphBackgroundBrush}">
             <Grid>
               <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasThumbnail}" />
               <md:MdIcon Glyph="{Binding Glyph}" Size="42" Foreground="{Binding GlyphBrush}" IsVisible="{Binding ShowGlyph}" />
@@ -87,12 +86,18 @@
               <md:MdIcon Glyph="{x:Static md:MdSymbols.CheckCircle}" Size="21" Margin="6"
                          HorizontalAlignment="Right" VerticalAlignment="Bottom"
                          Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" IsVisible="{Binding IsChecked}" />
+              <Border Classes="selection-check" Width="23" Height="23" CornerRadius="12" Margin="7"
+                      HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                      Background="{DynamicResource Md.Sys.Color.Primary.Brush}">
+                <md:MdIcon Glyph="{x:Static md:MdSymbols.Check}" Size="14"
+                           Foreground="{DynamicResource Md.Sys.Color.OnPrimary.Brush}" />
+              </Border>
             </Grid>
           </Border>
           <StackPanel Grid.Row="1" Spacing="2" Margin="11,8,11,10">
-            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Medium"
                        TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
-            <TextBlock Classes="caption" Text="{Binding MetaText}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="caption" Text="{Binding CompactMetaText}" TextTrimming="CharacterEllipsis" />
           </StackPanel>
         </Grid>
       </Border>
@@ -112,6 +117,60 @@
           </md:MdTopAppBar.LeadingContent>
           <md:MdTopAppBar.TrailingContent>
             <StackPanel Orientation="Horizontal">
+              <md:MdButton x:Name="CompactTabsButton" Variant="Text" Width="42" Height="42" MinWidth="42" Padding="0"
+                           IsVisible="{Binding IsBrowser}" ToolTip.Tip="标签页" AutomationProperties.Name="标签页">
+                <Grid Width="28" Height="28">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.ContentCopy}" Size="21"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  <Border MinWidth="16" Height="16" CornerRadius="8" Padding="3,0"
+                          HorizontalAlignment="Right" VerticalAlignment="Top"
+                          Background="{DynamicResource Md.Sys.Color.Primary.Brush}"
+                          IsVisible="{Binding Browser.HasMultipleTabs}">
+                    <TextBlock Text="{Binding Browser.TabCountText}" FontSize="9" FontWeight="Bold"
+                               Foreground="{DynamicResource Md.Sys.Color.OnPrimary.Brush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                </Grid>
+                <Button.Flyout>
+                  <Flyout Placement="BottomEdgeAlignedRight">
+                    <Border Width="252" Padding="6" CornerRadius="16"
+                            Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
+                            BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
+                      <StackPanel Spacing="3">
+                        <ItemsControl ItemsSource="{Binding Browser.Tabs}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BrowserTabViewModel">
+                              <Border Height="42" CornerRadius="11" Tapped="OnCompactTabTapped" Cursor="Hand"
+                                      ToolTip.Tip="{Binding Path}">
+                                <Grid>
+                                  <Border CornerRadius="11" Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}"
+                                          IsVisible="{Binding IsActive}" />
+                                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="10,0,4,0">
+                                    <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="17" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <md:MdIconButton Grid.Column="2" Width="28" Height="28" MinWidth="28" MinHeight="28"
+                                                     Icon="{x:Static md:MdSymbols.Close}" Click="OnTabCloseClick"
+                                                     IsVisible="{Binding CanClose}" AutomationProperties.Name="关闭标签页" />
+                                  </Grid>
+                                </Grid>
+                              </Border>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <md:MdButton Variant="Text" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                     Click="OnCompactNewTabClick">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <md:MdIcon Glyph="{x:Static md:MdSymbols.Add}" Size="17" />
+                            <TextBlock Text="新建标签页" VerticalAlignment="Center" />
+                          </StackPanel>
+                        </md:MdButton>
+                      </StackPanel>
+                    </Border>
+                  </Flyout>
+                </Button.Flyout>
+              </md:MdButton>
               <md:MdIconButton Icon="{x:Static md:MdSymbols.PendingActions}" Command="{Binding ToggleTaskCenterCommand}"
                                AutomationProperties.Name="任务中心" />
               <md:MdIconButton Icon="{x:Static md:MdSymbols.Settings}" Command="{Binding GoSettingsCommand}"
@@ -166,28 +225,36 @@
                 </Flyout>
               </Button.Flyout>
             </md:MdFloatingActionButton>
-            <md:MdButton Variant="Text" Height="62" Command="{Binding GoHomeCommand}">
-              <StackPanel HorizontalAlignment="Center" Spacing="2">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.Home}" Size="22" />
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsHome}" Variant="Text" Height="64" Command="{Binding GoHomeCommand}">
+              <StackPanel HorizontalAlignment="Center" Spacing="3">
+                <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Home}" Size="21" />
+                </Border>
                 <TextBlock FontSize="11" Text="主页" HorizontalAlignment="Center" />
               </StackPanel>
             </md:MdButton>
-            <md:MdButton Variant="Text" Height="62" Command="{Binding GoFavoritesCommand}">
-              <StackPanel HorizontalAlignment="Center" Spacing="2">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.Star}" Size="22" />
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsFavoritesPage}" Variant="Text" Height="64" Command="{Binding GoFavoritesCommand}">
+              <StackPanel HorizontalAlignment="Center" Spacing="3">
+                <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Star}" Size="21" />
+                </Border>
                 <TextBlock FontSize="11" Text="收藏" HorizontalAlignment="Center" />
               </StackPanel>
             </md:MdButton>
-            <md:MdButton Variant="Text" Height="62" Command="{Binding GoTrashCommand}"
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsTrashPage}" Variant="Text" Height="64" Command="{Binding GoTrashCommand}"
                          IsVisible="{Binding Capabilities.CanMoveToTrash}">
-              <StackPanel HorizontalAlignment="Center" Spacing="2">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="22" />
+              <StackPanel HorizontalAlignment="Center" Spacing="3">
+                <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="21" />
+                </Border>
                 <TextBlock FontSize="11" Text="回收站" HorizontalAlignment="Center" />
               </StackPanel>
             </md:MdButton>
-            <md:MdButton Variant="Text" Height="62" Command="{Binding GoSettingsCommand}">
-              <StackPanel HorizontalAlignment="Center" Spacing="2">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.Settings}" Size="22" />
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsSettingsPage}" Variant="Text" Height="64" Command="{Binding GoSettingsCommand}">
+              <StackPanel HorizontalAlignment="Center" Spacing="3">
+                <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Settings}" Size="21" />
+                </Border>
                 <TextBlock FontSize="11" Text="设置" HorizontalAlignment="Center" />
               </StackPanel>
             </md:MdButton>
@@ -219,7 +286,7 @@
             <!-- 浏览器标签页：与下方白色工作区同面连接；活动页以图标井 + 底部指示线定向，不再排成一列灰卡片 -->
             <Border Grid.Row="0" Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
                     BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1"
-                    CornerRadius="23,23,0,0" Padding="9,7,9,0" MinHeight="49" IsVisible="{Binding ShowBrowserTabs}">
+                    CornerRadius="23,23,0,0" Padding="10,8,10,0" MinHeight="50" IsVisible="{Binding ShowBrowserTabs}">
               <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True">
                 <StackPanel Orientation="Horizontal" Spacing="5">
                   <ItemsControl x:Name="TabStrip" ItemsSource="{Binding Browser.Tabs}">
@@ -228,7 +295,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:BrowserTabViewModel">
-                        <Border Height="41" MinWidth="126" MaxWidth="224" VerticalAlignment="Bottom"
+                        <Border Height="42" MinWidth="126" MaxWidth="224" VerticalAlignment="Bottom"
                                 Tapped="OnTabTapped" PointerPressed="OnTabPointerPressed" Cursor="Hand"
                                 ToolTip.Tip="{Binding Path}">
                           <Border.ContextMenu>
@@ -241,19 +308,14 @@
                           <Grid RowDefinitions="*,3">
                             <Border Grid.RowSpan="2" CornerRadius="13,13,0,0"
                                     Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
-                                    BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}"
-                                    BorderThickness="1,1,1,0" BoxShadow="0 -2 10 #10000000"
                                     IsVisible="{Binding IsActive}" />
                             <Border Grid.RowSpan="2" CornerRadius="13,13,0,0"
-                                    Background="#00FFFFFF" Opacity="0.82"
+                                    Background="Transparent"
                                     IsVisible="{Binding IsInactive}" />
                             <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7" Margin="10,4,5,1">
-                              <Border Width="24" Height="24" CornerRadius="7" VerticalAlignment="Center"
-                                      Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}"
-                                      IsVisible="{Binding IsActive}">
-                                <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="15"
-                                           Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-                              </Border>
+                              <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="17" VerticalAlignment="Center"
+                                         Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}"
+                                         IsVisible="{Binding IsActive}" />
                               <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="16" VerticalAlignment="Center"
                                          Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}"
                                          IsVisible="{Binding IsInactive}" />
@@ -269,7 +331,7 @@
                                                Icon="{x:Static md:MdSymbols.Close}" Click="OnTabCloseClick"
                                                IsVisible="{Binding CanClose}" AutomationProperties.Name="关闭标签页" />
                             </Grid>
-                            <Border Grid.Row="1" Height="3" Margin="10,0" CornerRadius="2,2,0,0"
+                            <Border Grid.Row="1" Height="3" Margin="12,0" CornerRadius="2,2,0,0"
                                     Background="{DynamicResource Md.Sys.Color.Primary.Brush}"
                                     IsVisible="{Binding IsActive}" />
                           </Grid>
@@ -277,14 +339,9 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                  <Border Width="30" Height="30" CornerRadius="10" VerticalAlignment="Center"
-                          Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
-                          BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
-                          BoxShadow="0 3 10 #0D000000">
-                    <md:MdIconButton Width="28" Height="28" MinWidth="28" MinHeight="28"
-                                     Icon="{x:Static md:MdSymbols.Add}" Command="{Binding Browser.NewTabCommand}"
-                                     AutomationProperties.Name="新建标签页" />
-                  </Border>
+                  <md:MdIconButton Width="32" Height="32" MinWidth="32" MinHeight="32" VerticalAlignment="Center"
+                                   Icon="{x:Static md:MdSymbols.Add}" Command="{Binding Browser.NewTabCommand}"
+                                   AutomationProperties.Name="新建标签页" />
                 </StackPanel>
               </md:MdScrollViewer>
             </Border>
@@ -347,14 +404,21 @@
                 </Grid>
                </Grid>
               </Border>
-              <md:MdButton Grid.Column="2" Classes="search-island" Variant="Tonal" Height="38" MinWidth="44" MaxWidth="154" Padding="10,0"
+              <md:MdButton Grid.Column="2" Classes="search-island" Variant="Tonal" Height="38" Width="44" MinWidth="44" Padding="0"
                            Command="{Binding Browser.OpenSearchPanelCommand}" VerticalAlignment="Center"
-                           ToolTip.Tip="展开悬浮搜索面板（Ctrl+F）" AutomationProperties.Name="搜索">
-                <StackPanel Orientation="Horizontal" Spacing="5">
-                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Search}" Size="17" VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding Browser.SearchIslandText}" VerticalAlignment="Center" MaxWidth="104"
-                             TextTrimming="CharacterEllipsis" IsVisible="{Binding IsLargeOrAbove}" />
-                </StackPanel>
+                           ToolTip.Tip="{Binding Browser.SearchIslandText}" AutomationProperties.Name="{Binding Browser.SearchIslandText}">
+                <Grid Width="28" Height="24">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Search}" Size="18"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  <Border MinWidth="15" Height="15" CornerRadius="8" Padding="3,0"
+                          HorizontalAlignment="Right" VerticalAlignment="Top"
+                          Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}"
+                          IsVisible="{Binding Browser.HasActiveSearch}">
+                    <TextBlock Text="{Binding Browser.SearchResultBadgeText}" FontSize="8.5" FontWeight="Bold"
+                               Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                </Grid>
               </md:MdButton>
               <md:MdIconButton x:Name="OverflowButton" Grid.Column="3" Icon="{x:Static md:MdSymbols.MoreVert}"
                                AutomationProperties.Name="更多">
@@ -362,15 +426,14 @@
                   <Flyout Placement="BottomEdgeAlignedRight">
                     <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}" CornerRadius="18" Padding="8"
                             BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
-                            BoxShadow="0 16 38 #26000000" MaxWidth="640">
+                            BoxShadow="0 16 38 #26000000" MaxWidth="500">
                       <md:MdScrollViewer MaxHeight="440" HorizontalScrollBarVisibility="Disabled"
                                          VerticalScrollBarVisibility="Auto" AllowMouseDrag="True">
                         <Grid>
                           <!-- 桌面：三列分组，避免单个菜单纵向拉满窗口。 -->
-                          <Grid IsVisible="{Binding IsExpandedOrAbove}" ColumnDefinitions="204,176,188" ColumnSpacing="10">
+                          <Grid IsVisible="{Binding IsExpandedOrAbove}" ColumnDefinitions="170,138,150" ColumnSpacing="10">
                             <StackPanel Spacing="2">
-                              <TextBlock Classes="caption" Text="操作" Margin="10,4,0,5" FontWeight="SemiBold" />
-                              <md:MdButton Classes="menu-action" Variant="Text" Content="编辑路径（Ctrl+L）" Command="{Binding Browser.BeginEditAddressCommand}" />
+                                                            <md:MdButton Classes="menu-action" Variant="Text" Content="编辑路径" Command="{Binding Browser.BeginEditAddressCommand}" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="复制当前路径" Command="{Binding Browser.CopyCurrentPathCommand}" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="任务中心" Command="{Binding ToggleTaskCenterCommand}" />
                               <Border Height="1" Margin="6,5" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
@@ -382,8 +445,7 @@
                               <md:MdButton Classes="menu-action" Variant="Text" Content="粘贴" Command="{Binding Browser.PasteCommand}" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="2">
-                              <TextBlock Classes="caption" Text="排序" Margin="10,4,0,5" FontWeight="SemiBold" />
-                              <md:MdButton Classes="menu-action" Variant="Text" Content="名称" Click="OnSortByName" />
+                                                            <md:MdButton Classes="menu-action" Variant="Text" Content="名称" Click="OnSortByName" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="日期" Click="OnSortByDate" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="大小" Click="OnSortBySize" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="类型" Click="OnSortByKind" />
@@ -391,18 +453,17 @@
                               <md:MdButton Classes="menu-action" Variant="Text" Content="切换升/降序" Click="OnToggleSortDirection" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="2">
-                              <TextBlock Classes="caption" Text="视图" Margin="10,4,0,5" FontWeight="SemiBold" />
-                              <md:MdButton Classes="menu-action" Variant="Text" Content="列表" Command="{Binding Browser.SetViewModeCommand}" CommandParameter="List" />
+                                                            <md:MdButton Classes="menu-action" Variant="Text" Content="列表" Command="{Binding Browser.SetViewModeCommand}" CommandParameter="List" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="网格" Command="{Binding Browser.SetViewModeCommand}" CommandParameter="Grid" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="详细信息" Command="{Binding Browser.SetViewModeCommand}" CommandParameter="Details" />
                               <Border Height="1" Margin="6,5" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="进入选择模式" Command="{Binding Browser.EnterSelectionModeCommand}" />
-                              <md:MdButton Classes="menu-action" Variant="Text" Content="键盘快捷键（F1）" Command="{Binding ShowKeyboardShortcutsCommand}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="键盘快捷键" Command="{Binding ShowKeyboardShortcutsCommand}" />
                             </StackPanel>
                           </Grid>
 
                           <!-- Compact/Medium：一列分组 + MdScrollViewer，超出高度可拖。 -->
-                          <StackPanel IsVisible="{Binding IsCompactOrMedium}" Spacing="2" Width="232">
+                          <StackPanel IsVisible="{Binding IsCompactOrMedium}" Spacing="2" Width="216">
                             <TextBlock Classes="caption" Text="操作" Margin="10,4,0,5" FontWeight="SemiBold" />
                             <md:MdButton Classes="menu-action" Variant="Text" Content="编辑路径" Command="{Binding Browser.BeginEditAddressCommand}" />
                             <md:MdButton Classes="menu-action" Variant="Text" Content="复制当前路径" Command="{Binding Browser.CopyCurrentPathCommand}" />
@@ -438,49 +499,24 @@
                     IsVisible="{Binding IsExpandedOrAbove}">
               <Grid ColumnDefinitions="*,Auto">
                 <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True">
-                <StackPanel Orientation="Horizontal" Spacing="2">
-                  <md:MdButton Variant="Tonal" Command="{Binding Browser.NewFolderCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <md:MdIcon Glyph="{x:Static md:MdSymbols.CreateNewFolder}" Size="18" />
-                      <TextBlock Text="新建文件夹" VerticalAlignment="Center" />
-                    </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="0">
+                  <md:MdButton Variant="Tonal" Width="38" MinWidth="38" Height="38" Padding="0"
+                               Command="{Binding Browser.NewFolderCommand}" ToolTip.Tip="新建文件夹"
+                               AutomationProperties.Name="新建文件夹">
+                    <md:MdIcon Glyph="{x:Static md:MdSymbols.CreateNewFolder}" Size="18" />
                   </md:MdButton>
-                  <md:MdButton Classes="toolbar-action" Variant="Text" Command="{Binding Browser.NewFileCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                      <md:MdIcon Glyph="{x:Static md:MdSymbols.Description}" Size="17" />
-                      <TextBlock Text="新建文件" VerticalAlignment="Center" />
-                    </StackPanel>
-                  </md:MdButton>
-                  <md:MdButton Classes="toolbar-action" Variant="Text" Command="{Binding Browser.CutSelectionCommand}" IsEnabled="{Binding Browser.HasSelection}">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                      <md:MdIcon Glyph="{x:Static md:MdSymbols.ContentCut}" Size="17" />
-                      <TextBlock Text="剪切" VerticalAlignment="Center" />
-                    </StackPanel>
-                  </md:MdButton>
-                  <md:MdButton Classes="toolbar-action" Variant="Text" Command="{Binding Browser.CopySelectionCommand}" IsEnabled="{Binding Browser.HasSelection}">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                      <md:MdIcon Glyph="{x:Static md:MdSymbols.ContentCopy}" Size="17" />
-                      <TextBlock Text="复制" VerticalAlignment="Center" />
-                    </StackPanel>
-                  </md:MdButton>
-                  <md:MdButton Classes="toolbar-action" Variant="Text" Command="{Binding Browser.PasteCommand}" IsEnabled="{Binding Browser.HasClipboard}">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                      <md:MdIcon Glyph="{x:Static md:MdSymbols.ContentPaste}" Size="17" />
-                      <TextBlock Text="粘贴" VerticalAlignment="Center" />
-                    </StackPanel>
-                  </md:MdButton>
-                  <md:MdButton Classes="toolbar-action" Variant="Text" Click="OnToolbarRename" IsEnabled="{Binding Browser.HasSelection}">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                      <md:MdIcon Glyph="{x:Static md:MdSymbols.Edit}" Size="17" />
-                      <TextBlock Text="重命名" VerticalAlignment="Center" />
-                    </StackPanel>
-                  </md:MdButton>
-                  <md:MdButton Classes="toolbar-action" Variant="Text" Command="{Binding Browser.DeleteSelectionCommand}" IsEnabled="{Binding Browser.HasSelection}">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                      <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="17" />
-                      <TextBlock Text="删除" VerticalAlignment="Center" />
-                    </StackPanel>
-                  </md:MdButton>
+                  <md:MdIconButton Icon="{x:Static md:MdSymbols.Description}" Command="{Binding Browser.NewFileCommand}"
+                                   ToolTip.Tip="新建文件" AutomationProperties.Name="新建文件" />
+                  <md:MdIconButton Icon="{x:Static md:MdSymbols.ContentCut}" Command="{Binding Browser.CutSelectionCommand}"
+                                   IsEnabled="{Binding Browser.HasSelection}" ToolTip.Tip="剪切" AutomationProperties.Name="剪切" />
+                  <md:MdIconButton Icon="{x:Static md:MdSymbols.ContentCopy}" Command="{Binding Browser.CopySelectionCommand}"
+                                   IsEnabled="{Binding Browser.HasSelection}" ToolTip.Tip="复制" AutomationProperties.Name="复制" />
+                  <md:MdIconButton Icon="{x:Static md:MdSymbols.ContentPaste}" Command="{Binding Browser.PasteCommand}"
+                                   IsEnabled="{Binding Browser.HasClipboard}" ToolTip.Tip="粘贴" AutomationProperties.Name="粘贴" />
+                  <md:MdIconButton Icon="{x:Static md:MdSymbols.Edit}" Click="OnToolbarRename"
+                                   IsEnabled="{Binding Browser.HasSelection}" ToolTip.Tip="重命名" AutomationProperties.Name="重命名" />
+                  <md:MdIconButton Icon="{x:Static md:MdSymbols.Delete}" Command="{Binding Browser.DeleteSelectionCommand}"
+                                   IsEnabled="{Binding Browser.HasSelection}" ToolTip.Tip="删除" AutomationProperties.Name="删除" />
                 </StackPanel>
                 </md:MdScrollViewer>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="1">
@@ -583,7 +619,7 @@
                       </DataGridTemplateColumn.Header>
                       <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="vm:FileItemViewModel">
-                          <TextBlock Text="{Binding KindText}" Margin="6,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding ShortKindText}" Margin="6,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding KindText}" />
                         </DataTemplate>
                       </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -660,11 +696,21 @@
               <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center" Margin="0,0,8,0">
                 <Run Text="排序：" /><Run Text="{Binding Browser.SortFieldLabel}" />
               </TextBlock>
-              <md:MdButton Grid.Column="2" Variant="Text" Command="{Binding ToggleTaskCenterCommand}">
-                <StackPanel Orientation="Horizontal" Spacing="5">
-                  <md:MdIcon Glyph="{x:Static md:MdSymbols.PendingActions}" Size="17" VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding TaskCenterText}" VerticalAlignment="Center" />
-                </StackPanel>
+              <md:MdButton Grid.Column="2" Variant="Text" MinWidth="38" Padding="4,0"
+                           Command="{Binding ToggleTaskCenterCommand}" ToolTip.Tip="{Binding TaskCenterText}"
+                           AutomationProperties.Name="{Binding TaskCenterText}">
+                <Grid Width="29" Height="24">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.PendingActions}" Size="18"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  <Border MinWidth="15" Height="15" CornerRadius="8" Padding="3,0"
+                          HorizontalAlignment="Right" VerticalAlignment="Top"
+                          Background="{DynamicResource Md.Sys.Color.Primary.Brush}"
+                          IsVisible="{Binding HasActiveOperationTasks}">
+                    <TextBlock Text="{Binding ActiveOperationTaskCountText}" FontSize="8.5" FontWeight="Bold"
+                               Foreground="{DynamicResource Md.Sys.Color.OnPrimary.Brush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                </Grid>
               </md:MdButton>
             </Grid>
           </Grid>
@@ -672,10 +718,7 @@
 
           <!-- 收藏页 -->
           <Grid IsVisible="{Binding IsFavoritesPage}" RowDefinitions="Auto,*" Margin="20,12,20,8">
-            <StackPanel Spacing="2">
-              <TextBlock Classes="h1" Text="收藏" />
-              <TextBlock Classes="caption" Text="点按打开文件夹；在文件上右键或⋮可取消收藏。" />
-            </StackPanel>
+            <TextBlock Classes="h1" Text="收藏" />
             <md:MdList Grid.Row="1" Classes="file-list" Margin="0,10,0,0" Variant="Segmented" ItemSpacing="2"
                      ItemsSource="{Binding FavoriteItems}"
                      ItemTemplate="{StaticResource FileRowTemplate}"
@@ -684,7 +727,7 @@
                         VerticalAlignment="Center" Spacing="10">
               <md:MdIcon Glyph="{x:Static md:MdSymbols.Star}" Size="52" HorizontalAlignment="Center"
                          Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
-              <TextBlock Classes="body" Text="还没有收藏。在文件上打开⋮菜单 → 加入/取消收藏。" />
+              <TextBlock Classes="body" Text="暂无收藏" />
             </StackPanel>
           </Grid>
 
@@ -708,8 +751,7 @@
             </Transitions>
           </Border.Transitions>
           <Grid RowDefinitions="Auto,*">
-            <Grid ColumnDefinitions="*,Auto" Margin="17,12,8,0">
-              <TextBlock Classes="h3" Text="预览" VerticalAlignment="Center" />
+            <Grid ColumnDefinitions="*,Auto" Margin="17,6,8,0">
               <md:MdIconButton Grid.Column="1" Icon="{x:Static md:MdSymbols.Close}" Click="OnClosePreviewPane"
                                AutomationProperties.Name="关闭预览" />
             </Grid>
@@ -753,10 +795,10 @@
 
     <!-- 浮层：Compact/Medium（Android 手机/平板）预览使用 Md3.Extra MdFloatingWindow，可拖、可缩放、可最小化。 -->
     <eco:MdFloatingWindow x:Name="FloatingPreview"
-                          Title="{Binding Preview.Title}"
+                          Title=""
                           HeaderIcon="{x:Static md:MdSymbols.FindInPage}"
                           IsOpen="{Binding IsPreviewPageOpen, Mode=TwoWay}"
-                          X="12" Y="64" Width="366" Height="620" MaxWidth="720"
+                          X="16" Y="72" Width="340" Height="540" MaxWidth="720"
                           CanDrag="True" CanResize="True" CanMinimize="True" CanClose="True"
                           Closed="OnFloatingPreviewClosed">
       <views:PreviewView DataContext="{Binding Preview}" />
@@ -766,7 +808,7 @@
     <Grid IsVisible="{Binding Browser.IsSearchPanelOpen}">
       <Border Background="#26000000" Tapped="OnSearchScrimTapped" />
       <Border x:Name="SearchIslandPanel" HorizontalAlignment="Center" VerticalAlignment="Top"
-              Margin="14,62,14,0" MaxWidth="760" Padding="18" CornerRadius="28"
+              Margin="14,62,14,0" MaxWidth="680" Padding="16" CornerRadius="28"
               Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
               BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
               BoxShadow="0 22 48 #33000000">
@@ -779,21 +821,14 @@
         <md:MdScrollViewer MaxHeight="560" HorizontalScrollBarVisibility="Disabled"
                            VerticalScrollBarVisibility="Auto" AllowMouseDrag="True">
         <StackPanel Spacing="13">
-          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="11">
-            <Border Width="42" Height="42" CornerRadius="21"
-                    Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
-              <md:MdIcon Glyph="{x:Static md:MdSymbols.ManageSearch}" Size="23"
-                         Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-            </Border>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-              <TextBlock Classes="h3" Text="搜索面板" />
-              <TextBlock Classes="caption" Text="{Binding Browser.SearchPanelScopeText}" />
-            </StackPanel>
-            <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.Close}"
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBlock Classes="caption" Text="{Binding Browser.SearchPanelScopeText}" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+            <md:MdIconButton Grid.Column="1" Icon="{x:Static md:MdSymbols.Close}"
                              Command="{Binding Browser.CloseSearchPanelCommand}" AutomationProperties.Name="关闭搜索面板" />
           </Grid>
 
-          <md:MdSearchBar x:Name="BrowserSearch" PlaceholderText="搜索当前文件夹；回车递归搜索"
+          <md:MdSearchBar x:Name="BrowserSearch" PlaceholderText="搜索" ToolTip.Tip="输入筛选当前列表；回车递归搜索"
                           Text="{Binding Browser.FilterText}" ShowClearButton="True"
                           KeyDown="OnSearchKeyDown" />
 
@@ -805,19 +840,17 @@
           </Grid>
 
           <WrapPanel Orientation="Horizontal">
-            <md:MdButton Variant="Filled" Content="递归搜索" Margin="0,0,8,8"
+            <md:MdButton Variant="Filled" Content="递归" Margin="0,0,8,8"
                          Command="{Binding Browser.SearchRecursiveFromPanelCommand}" />
-            <md:MdButton Variant="Tonal" Content="只筛选当前列表" Margin="0,0,8,8" Click="OnApplySearchFilterClick" />
-            <md:MdButton Variant="Outlined" Content="取消搜索" Margin="0,0,8,8"
+            <md:MdButton Variant="Tonal" Content="当前列表" Margin="0,0,8,8" Click="OnApplySearchFilterClick" />
+            <md:MdButton Variant="Outlined" Content="取消" Margin="0,0,8,8"
                          Command="{Binding Browser.CancelCurrentSearchCommand}" IsVisible="{Binding Browser.IsLoading}" />
-            <md:MdButton Variant="Text" Content="清除筛选" Margin="0,0,8,8"
+            <md:MdButton Variant="Text" Content="清除" Margin="0,0,8,8"
                          Command="{Binding Browser.ClearFilterCommand}" IsVisible="{Binding !Browser.IsSearchMode}" />
-            <md:MdButton Variant="Text" Content="退出搜索" Margin="0,0,8,8"
+            <md:MdButton Variant="Text" Content="退出" Margin="0,0,8,8"
                          Command="{Binding Browser.ExitSearchCommand}" IsVisible="{Binding Browser.IsSearchMode}" />
           </WrapPanel>
 
-          <TextBlock Classes="caption" TextWrapping="Wrap"
-                     Text="输入会立即筛选已加载列表；回车或点“递归搜索”会遍历子文件夹。关闭面板不会清除当前搜索词，迷你搜索岛会继续显示进度/结果。" />
         </StackPanel>
         </md:MdScrollViewer>
       </Border>
@@ -854,22 +887,35 @@
             <ItemsControl ItemsSource="{Binding OperationTasks}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:OperationTaskViewModel">
-                  <Border Classes="card" Margin="0,0,0,8" Padding="12">
+                  <Border Classes="card" Margin="0,0,0,8" Padding="12" ToolTip.Tip="{Binding TimeText}">
                     <StackPanel Spacing="6">
                       <Grid ColumnDefinitions="*,Auto,Auto">
                         <TextBlock Classes="body" Text="{Binding Title}" TextWrapping="Wrap" />
-                        <TextBlock Grid.Column="1" Classes="caption" Text="{Binding StatusText}" Margin="8,2" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="8,0"
+                                    VerticalAlignment="Center" ToolTip.Tip="{Binding StatusText}">
+                          <md:MdIcon Glyph="{x:Static md:MdSymbols.PendingActions}" Size="18" IsVisible="{Binding IsQueued}"
+                                     Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                          <md:MdCircularProgressIndicator IsVisible="{Binding IsRunning}" IsIndeterminate="True"
+                                                          Width="18" Height="18" />
+                          <md:MdIcon Glyph="{x:Static md:MdSymbols.CheckCircle}" Size="19" IsVisible="{Binding IsCompleted}"
+                                     Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                          <md:MdIcon Glyph="{x:Static md:MdSymbols.Warning}" Size="19" IsVisible="{Binding IsFailed}"
+                                     Foreground="{DynamicResource Md.Sys.Color.Error.Brush}" />
+                          <md:MdIcon Glyph="{x:Static md:MdSymbols.Cancel}" Size="18" IsVisible="{Binding IsCancelled}"
+                                     Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                          <TextBlock Classes="caption" Text="{Binding ProgressPercentText}" IsVisible="{Binding IsActive}"
+                                     VerticalAlignment="Center" />
+                        </StackPanel>
                         <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.Cancel}"
                                          Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"
                                          AutomationProperties.Name="取消任务" />
                       </Grid>
                       <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding ProgressPercent}"
                                                     Height="5" IsVisible="{Binding IsActive}" />
-                      <TextBlock Classes="caption" Text="{Binding Detail}" TextWrapping="Wrap" />
+                      <TextBlock Classes="caption" Text="{Binding Detail}" TextWrapping="Wrap" IsVisible="{Binding IsActive}" />
                       <TextBlock FontSize="11.5" Text="{Binding ErrorText}" TextWrapping="Wrap"
                                  IsVisible="{Binding HasErrors}"
                                  Foreground="{DynamicResource Md.Sys.Color.Error.Brush}" />
-                      <TextBlock Classes="caption" Text="{Binding TimeText}" />
                     </StackPanel>
                   </Border>
                 </DataTemplate>
@@ -940,12 +986,27 @@
           </StackPanel>
 
           <StackPanel Spacing="6" IsVisible="{Binding IsConflictDialog}">
-            <md:MdButton Variant="Tonal" Content="保留两者（自动改名）"
-                         Command="{Binding ConflictChoiceCommand}" CommandParameter="KeepBoth" />
-            <md:MdButton Variant="Tonal" Content="覆盖目标"
-                         Command="{Binding ConflictChoiceCommand}" CommandParameter="Overwrite" />
-            <md:MdButton Variant="Tonal" Content="跳过冲突项"
-                         Command="{Binding ConflictChoiceCommand}" CommandParameter="Skip" />
+            <md:MdButton Variant="Tonal" HorizontalContentAlignment="Left"
+                         Command="{Binding ConflictChoiceCommand}" CommandParameter="KeepBoth">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <md:MdIcon Glyph="{x:Static md:MdSymbols.ContentCopy}" Size="18" />
+                <TextBlock Text="保留两者" VerticalAlignment="Center" />
+              </StackPanel>
+            </md:MdButton>
+            <md:MdButton Variant="Tonal" HorizontalContentAlignment="Left"
+                         Command="{Binding ConflictChoiceCommand}" CommandParameter="Overwrite">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <md:MdIcon Glyph="{x:Static md:MdSymbols.Refresh}" Size="18" />
+                <TextBlock Text="覆盖" VerticalAlignment="Center" />
+              </StackPanel>
+            </md:MdButton>
+            <md:MdButton Variant="Tonal" HorizontalContentAlignment="Left"
+                         Command="{Binding ConflictChoiceCommand}" CommandParameter="Skip">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <md:MdIcon Glyph="{x:Static md:MdSymbols.ArrowForward}" Size="18" />
+                <TextBlock Text="跳过" VerticalAlignment="Center" />
+              </StackPanel>
+            </md:MdButton>
           </StackPanel>
 
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">

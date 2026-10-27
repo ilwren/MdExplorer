@@ -54,6 +54,7 @@ public sealed class BrowserTabsTests : IDisposable
         await browser.OpenInNewTabAsync(_betaDir);
 
         Assert.Equal(2, browser.Tabs.Count);
+        Assert.Equal("2", browser.TabCountText);
         Assert.Equal(_betaDir, browser.CurrentPath);
         Assert.False(browser.CanGoBack); // 新标签有自己的空历史栈
 
@@ -100,6 +101,7 @@ public sealed class BrowserTabsTests : IDisposable
 
         await browser.CloseActiveTabCommand.ExecuteAsync(null);
         Assert.Single(browser.Tabs);
+        Assert.Equal("1", browser.TabCountText);
         Assert.Equal(_betaDir, browser.CurrentPath);
     }
 

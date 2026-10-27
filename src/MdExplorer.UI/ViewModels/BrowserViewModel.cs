@@ -99,6 +99,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         UpdateTabMetadata();
 
         SelectedItems.CollectionChanged += (_, _) => OnSelectionChanged();
+        Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(SearchResultBadgeText));
     }
 
     // ---------- 基本状态 ----------
@@ -137,6 +138,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     [ObservableProperty] private BrowserTabViewModel? _activeTab;
     public ObservableCollection<BrowserTabViewModel> Tabs { get; } = [];
     public bool HasMultipleTabs => Tabs.Count > 1;
+    public string TabCountText => Tabs.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
     public bool HasClosedTabs => _closedTabs.Count > 0;
 
     /// <summary>最近访问文件夹/文件变化时通知 Shell 刷新主页入口。</summary>
@@ -163,6 +165,11 @@ public sealed partial class BrowserViewModel : ObservableObject
             return query.Length == 0 ? "搜索" : query;
         }
     }
+
+    /// <summary>图标型搜索岛的角标：活动搜索只回显结果数，完整语义保留在 SearchIslandText（ToolTip/无障碍名）。</summary>
+    public string SearchResultBadgeText => !HasActiveSearch
+        ? string.Empty
+        : Items.Count > 99 ? "99+" : Items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     public string SearchPanelScopeText => IsSearchMode
         ? $"递归搜索 · {CurrentFolderName}"
@@ -226,6 +233,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasActiveSearch));
         OnPropertyChanged(nameof(SearchIslandText));
+        OnPropertyChanged(nameof(SearchResultBadgeText));
         if (!IsSearchMode && !_suppressTabFilterRefilter)
             RefilterAndSort();
         OnPropertyChanged(nameof(SearchPanelStatusText));
@@ -235,6 +243,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasActiveSearch));
         OnPropertyChanged(nameof(SearchIslandText));
+        OnPropertyChanged(nameof(SearchResultBadgeText));
         OnPropertyChanged(nameof(SearchPanelScopeText));
         OnPropertyChanged(nameof(SearchPanelStatusText));
     }
@@ -1062,6 +1071,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         foreach (var tab in Tabs)
             tab.CanClose = Tabs.Count > 1;
         OnPropertyChanged(nameof(HasMultipleTabs));
+        OnPropertyChanged(nameof(TabCountText));
         OnPropertyChanged(nameof(HasClosedTabs));
     }
 

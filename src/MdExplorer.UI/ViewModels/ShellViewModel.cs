@@ -240,6 +240,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool HasOperationTasks => OperationTasks.Count > 0;
     public int ActiveOperationTaskCount => OperationTasks.Count(task => task.IsActive);
     public bool HasActiveOperationTasks => ActiveOperationTaskCount > 0;
+    public string ActiveOperationTaskCountText => ActiveOperationTaskCount > 99
+        ? "99+"
+        : ActiveOperationTaskCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
     public string TaskCenterText => ActiveOperationTaskCount switch
     {
         0 => "任务",
@@ -564,6 +567,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(HasOperationTasks));
         OnPropertyChanged(nameof(ActiveOperationTaskCount));
         OnPropertyChanged(nameof(HasActiveOperationTasks));
+        OnPropertyChanged(nameof(ActiveOperationTaskCountText));
         OnPropertyChanged(nameof(TaskCenterText));
     }
 
