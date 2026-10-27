@@ -1,23 +1,23 @@
-# Eidoria 概念设计 v2
+# Eidoria 概念设计 v3
 
 > **性质：设计评审稿，不是应用实拍。** `00–05` 是把 v0.11 已落地界面重新抛光后的“当前基线”；`06–15` 是下一阶段界面的样式预演。凡标为“规划 / Phase 2 / 远期 / 最后”的画面，都不表示功能已经实现。
 >
 > 本轮只完善概念图与设计说明，**不修改应用代码**。后续实现时，以本文的画面结构、[响应式布局](RESPONSIVE-LAYOUT.md) 的尺寸规则和 [开发文档](DEVELOPMENT.md) 的功能边界共同验收。
 
-![AI 直接生成概念图：Large 浅色基线](assets/mockups/ai-v2/01-large-browser-light.png)
+![AI 直接生成概念图：Large 浅色基线](assets/mockups/ai-v3/01-large-browser-light.png)
 
 ## 1. 这套图解决了什么
 
-旧概念图只有 Compact 与 Large 两张浅色 AI 方向稿，而且已与当前产品漂移：应用名仍是 “Files”、桌面图出现 Google Drive、手机图有账号头像与语音搜索、搜索仍是整行搜索框，也没有 v0.11 的搜索岛、预览双页签与悬浮窗。v2 因此先重做为可编辑的结构稿，再以其为布局参考直接生成高保真 AI mockups；对外评审以 `assets/mockups/ai-v2/` 的直接生成图为主：
+旧概念图只有 Compact 与 Large 两张浅色 AI 方向稿，而且已与当前产品漂移：应用名仍是 “Files”、桌面图出现 Google Drive、手机图有账号头像与语音搜索、搜索仍是整行搜索框，也没有 v0.11 的搜索岛、预览双页签与悬浮窗。v2 因此先重做为可编辑的结构稿，再以其为布局参考直接生成高保真 AI mockups；第二轮直接生成图仍有说明文字过密、文件标签页被画成内嵌胶囊的问题；v3 以 `material-3-skill` 做 MD3 审计后重新生成，对外评审以 `assets/mockups/ai-v3/` 为主：
 
 - 以 **Eidoria（万象屿）** 与折页图标为统一品牌入口；
 - 同一界面提供 **浅色 / 深色成对稿**，先验证颜色角色而非临时反色；
 - 当前基线覆盖 Large、Compact、Medium 三种形态；
 - 下一阶段界面按路线图分层：近期核心、Phase 2、远期，以及明确排最后的插件与本地 AI；
-- **AI 直接生成图位于 `docs/assets/mockups/ai-v2/`**；`docs/assets/mockups/v2/` 的 SVG/PNG 只保留为布局与信息架构的结构参考，不再作为主视觉稿；
+- **AI 直接生成图位于 `docs/assets/mockups/ai-v3/`**；`ai-v2/` 保留为上一轮对照，`v2/` 的 SVG/PNG 只保留为结构参考，不再作为主视觉稿；
 - 旧路径 `mockup-compact-phone.png` / `mockup-large-desktop.png` 已同步为本轮 AI 直接生成的 Compact/Large 浅色基线；
 - 结构稿生成脚本为 `scripts/generate-concept-mockups.py`；AI 高保真图以对应结构稿为布局参考直接生成，不由 SVG 导出。
-- **本轮 AI 首批 10 张**：Large/Compact 深浅四张，搜索索引、双窗格、存储洞察、压缩包、编辑/PDF、扩展/Lua 六张。`00/05/10/12/14/15` 暂保留结构稿，后续批次再逐张替换为直接生成图。
+- **v3 已重做现有 10 张**：Large/Compact 深浅四张，搜索索引、双窗格、存储洞察、压缩包、编辑/PDF、扩展/Lua 六张。`00/05/10/12/14/15` 暂保留结构稿，后续按 v3 的文字预算与标签页规则再生成。
 
 ## 2. 视觉语言定版
 
@@ -25,7 +25,7 @@
 
 1. **本地文件优先**：导航与空态只出现本地卷、已知文件夹和 Android 已授权目录；禁止云盘、账号头像和网络位置暗示。
 2. **工作面分层**：应用底板用低层表面，浏览器是主工作卡，预览是独立卡；浮层只用于搜索面板、悬浮预览、任务与确认，不把整页做成漂浮卡片堆。
-3. **搜索岛是全局手势**：文件夹页只常驻一个迷你入口；Large+ 可带状态文字，Expanded 及以下只留图标。展开后的悬浮面板在所有断点保持同一种结构。
+3. **搜索岛是全局手势**：文件夹页只常驻一个迷你入口；所有断点默认只留搜索图标，索引状态用小徽标或环形进度表达，不常驻状态句。展开后的悬浮面板在所有断点保持同一种结构。
 4. **预览永远双页签**：文件头与“打开”常驻，内容进“预览”，路径、时间、大小、校验和等进“属性”；窄屏用悬浮窗，宽屏用侧栏，但不换信息架构。
 5. **选中态靠容器色**：选中项用 `secondaryContainer`，主色只做细描边、指示线和关键动作，避免整屏高饱和青色。
 6. **先给安全感，再给效率**：删除、覆盖、清空、解压覆盖等动作必须显示影响范围、恢复路径和当前进度；危险动作默认不抢焦点。
@@ -68,15 +68,40 @@
 | 双窗格 | 1600 × 1000 | ExtraLarge 双会话 + 活动窗格预览 |
 | 其余桌面规划页 | 1440 × 900 | 沿用同一抽屉和主工作卡，不另 invent 一套壳 |
 
+
+### 2.4 Material 3 Skill 审计：文字预算与标签页
+
+v3 的生成约束来自 [hamen/material-3-skill](https://github.com/hamen/material-3-skill) 的 `SKILL.md` 及 Tabs/导航、排版与形状、响应式布局参考；它是设计审计依据，不是运行时依赖。落到 Avalonia 时仍使用 Md3.Avalonia 的语义 Token，不在业务 XAML 散写 HEX。
+
+**文件标签页回到初版概念图的连接形态：**
+
+- 桌面标签条位于主工作面的**顶缘**，与窗口标题区同排；活动页签与下方工作面使用同一 `surface`，顶部圆角、底边无缝相连，未激活页签平放在 `surfaceContainerLow` 层架上，只带小图标、短标题、关闭 ×，末尾是新建 +。
+- 文件页签不是分段按钮：禁止把整组页签画成漂浮胶囊、卡片内第二层页签或每个窗格各一份胶囊标签。活动指示只保留细线或同面连接，不再叠加整圈描边。
+- “预览 / 属性”是 MD3 **Secondary Tabs**：只有两个短标签，活动项用 `primary` 文本和顶部圆角的 3dp 指示线，基线使用 `outlineVariant`；不要在它上方再重复一遍“预览 / 属性”标题。
+- Compact 不硬塞桌面标签条：顶栏用叠层页签图标 + 数量徽标表示已折叠的会话；底部 Navigation Bar 仍按 MD3 保留图标与短标签，不能与文件页签混为一谈。
+
+**文字预算（概念图和后续实现共同执行）：**
+
+| 类型 | 处理 |
+|---|---|
+| 应用名、导航目的地、面包屑、文件名、查询词 | 保留短文本 |
+| 每张文件卡的元数据 | 只留一个数值：大小、项目数或页码，不并列类型/日期/路径说明 |
+| 新建、剪切、复制、粘贴、重命名、删除、排序、视图、筛选 | 图标按钮；实现时必须补 Tooltip 与无障碍名称 |
+| 存储类别、索引状态、权限、文件类型 | 图标 + 进度/开关/数字，不写解释句 |
+| 分区标题、功能介绍、快捷键提示、状态长句、页脚说明 | 删除 |
+| 删除/覆盖等破坏性确认 | 例外：只保留一行影响范围和恢复动作，不用纯图标替代安全信息 |
+
+**统一的 MD3 几何与层级：** 8dp 间距体系（Compact 边距 16dp、栏距 8dp，桌面栏距可放大到 24dp）；卡片 `medium` 12dp、浮窗/抽屉优先 28dp 大圆角、芯片 8dp、按钮与搜索 `full`；深度首选色调表面而非阴影；选中态使用配对的 `secondaryContainer / onSecondaryContainer`；分隔线用 `outlineVariant`，`outline` 只留给输入框等重要边界。标题、文件名和按钮分别落到 Title、Body、Label 字阶，不用正文段落填补界面层级。
+
 ---
 
 ## 3. 当前基线（对齐 v0.11，只做视觉抛光）
 
 ### 3.1 Large 浏览器 · 深浅成对
 
-![Large 浏览器浅色](assets/mockups/ai-v2/01-large-browser-light.png)
+![Large 浏览器浅色](assets/mockups/ai-v3/01-large-browser-light.png)
 
-![Large 浏览器深色](assets/mockups/ai-v2/02-large-browser-dark.png)
+![Large 浏览器深色](assets/mockups/ai-v3/02-large-browser-dark.png)
 
 定版要点：
 
@@ -87,9 +112,9 @@
 
 ### 3.2 Compact 浏览器 · 深浅成对
 
-![Compact 浅色悬浮预览](assets/mockups/ai-v2/03-compact-browser-light.png)
+![Compact 浅色悬浮预览](assets/mockups/ai-v3/03-compact-browser-light.png)
 
-![Compact 深色悬浮预览](assets/mockups/ai-v2/04-compact-browser-dark.png)
+![Compact 深色悬浮预览](assets/mockups/ai-v3/04-compact-browser-dark.png)
 
 定版要点：
 
@@ -110,7 +135,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 4.1 ① 搜索与索引中心（M3）
 
-![搜索与索引中心深色概念](assets/mockups/ai-v2/06-search-index-center-dark.png)
+![搜索与索引中心深色概念](assets/mockups/ai-v3/06-search-index-center-dark.png)
 
 **样式结构：**
 
@@ -123,7 +148,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 4.2 ② 存储洞察（P2）
 
-![存储洞察、空间地图与重复文件深色概念](assets/mockups/ai-v2/08-storage-insights-dark.png)
+![存储洞察、空间地图与重复文件深色概念](assets/mockups/ai-v3/08-storage-insights-dark.png)
 
 **样式结构：**
 
@@ -148,7 +173,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 4.4 ③ 压缩包工作台（近期增强）
 
-![压缩包虚拟目录、条目预览和解压任务浅色概念](assets/mockups/ai-v2/09-archive-workbench-light.png)
+![压缩包虚拟目录、条目预览和解压任务浅色概念](assets/mockups/ai-v3/09-archive-workbench-light.png)
 
 **样式结构：**
 
@@ -178,7 +203,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 5.1 ExtraLarge 双窗格
 
-![ExtraLarge 双窗格与跨窗格拖放浅色概念](assets/mockups/ai-v2/07-dual-pane-xlarge-light.png)
+![ExtraLarge 双窗格与跨窗格拖放浅色概念](assets/mockups/ai-v3/07-dual-pane-xlarge-light.png)
 
 定版方向：
 
@@ -189,7 +214,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 5.2 文本轻编辑与 PDF 阅读工作台
 
-![代码轻编辑、PDF 连续页和文档内搜索深色概念](assets/mockups/ai-v2/11-editor-pdf-workbench-dark.png)
+![代码轻编辑、PDF 连续页和文档内搜索深色概念](assets/mockups/ai-v3/11-editor-pdf-workbench-dark.png)
 
 定版方向：
 
@@ -210,7 +235,7 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 
 ### 6.2 插件中心与 Lua 脚本（最后）
 
-![扩展权限、Lua 编辑器与操作计划确认深色概念](assets/mockups/ai-v2/13-extensions-lua-dark.png)
+![扩展权限、Lua 编辑器与操作计划确认深色概念](assets/mockups/ai-v3/13-extensions-lua-dark.png)
 
 界面顺序必须与安全模型一致：**已安装与权限 → 脚本/配置 → 操作计划确认**。脚本输出区要明确写“等待确认，尚未写入磁盘”；任何批量写操作都以旧名 → 新名逐项呈现。Android 商店版限制以错误卡常驻说明，不能用灰色开关含糊带过。
 
@@ -242,6 +267,8 @@ Medium 不提前长成桌面三栏：导轨与网格仍是主角，预览以可�
 - [ ] 破坏性动作先显示影响范围与恢复方式；默认焦点不在删除、替换或清空上。
 - [ ] 空态、加载、失败、无权限和离线卷都有与本套图一致的卡片层级，而不是临时文字页。
 - [ ] 规划页在未实现前不进入正式导航，README 与商店截图不得把概念图冒充实拍。
+- [ ] 每张文件卡最多一行元数据；工具栏默认图标化，但 Tooltip/无障碍名称齐全，破坏性确认仍保留一行影响说明。
+- [ ] 桌面文件页签位于工作面顶缘且活动页签同面相连；预览使用 MD3 Secondary Tabs，Compact 使用带徽标的页签图标折叠会话。
 
 ## 9. 重新生成结构稿
 
@@ -255,4 +282,4 @@ EIDORIA_FONT_BOLD=/path/to/NotoSansCJKsc-Bold.otf \
 python3 scripts/generate-concept-mockups.py
 ```
 
-SVG 只作为结构源稿：改配色先改生成器中的 `LIGHT` / `DARK`，改布局先改对应场景函数。`ai-v2/` 高保真图须以结构稿为参考、用图像模型重新直接生成，不能用上面的 SVG 导出结果替代。
+SVG 只作为结构源稿：改配色先改生成器中的 `LIGHT` / `DARK`，改布局先改对应场景函数。`ai-v3/` 高保真图须以结构稿为参考、用图像模型重新直接生成，不能用上面的 SVG 导出结果替代。

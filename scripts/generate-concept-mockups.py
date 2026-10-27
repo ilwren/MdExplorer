@@ -1458,13 +1458,13 @@ def update_canonical_mockups() -> None:
     """Keep the two historical root mockup paths pointed at the AI baselines.
 
     The vector set in OUT is only a structural reference.  When the directly
-    generated AI mockups exist in the sibling ai-v2 directory, they win so a
+    generated AI mockups exist in the sibling ai-v3 directory, they win so a
     structure-draft rerun never replaces the public mockups with SVG exports.
     """
     import shutil
 
     root = OUT.parent
-    ai_root = root / "ai-v2"
+    ai_root = root / "ai-v3"
     large_ai = ai_root / "01-large-browser-light.png"
     large = large_ai if large_ai.exists() else OUT / "01-large-browser-light.png"
     if large.exists():

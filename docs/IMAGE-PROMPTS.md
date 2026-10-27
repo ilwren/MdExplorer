@@ -10,7 +10,17 @@
 4. **文字预期**：文生图的长英文/中文小字必有错字——提示词已尽量让标题短、字号大；验收只核对结构与关键标题，**交设计同事后以 SVG 线框为准重排文字**，不要因单个小字错误反复重抽烧额度。
 5. **深色与多状态变体**：锚图定了浅色后，深色版用「同一界面切换为 Material 3 深色主题」的接续话术（见 P-09），勿重掷。
 
-> **v2 覆盖说明（优先于下文旧提示词）：** 当前视觉基准以 [概念设计 v2](CONCEPT-DESIGN.md) 的矢量稿为准。产品名为 **Eidoria（万象屿）**；文件夹页使用导航行迷你搜索岛 + 悬浮搜索面板，预览使用“预览 / 属性”双页签，Compact/Medium 预览使用应用内悬浮窗。下文 P-01–P-10 保留作 AI 探索的历史提示词；出现全屏 SearchView、整行搜索框、账号头像或云盘时一律按本说明纠正。规划界面的增补提示词见文末 P-11–P-18。
+> **v3 覆盖说明（优先于下文旧提示词）：** 当前视觉基准以 [概念设计 v3](CONCEPT-DESIGN.md) 的 `assets/mockups/ai-v3/` 直接生成图为准，审计依据为 [hamen/material-3-skill](https://github.com/hamen/material-3-skill)。产品名为 **Eidoria（万象屿）**；文件夹页使用迷你搜索岛 + 悬浮搜索面板，预览使用 MD3 Secondary Tabs“预览 / 属性”，Compact/Medium 预览使用应用内悬浮窗。下文旧提示词只保留作历史探索；出现整行搜索框、账号头像、云盘、说明文字墙或内嵌胶囊文件页签时一律按 v3 纠正。
+
+**v3 每条提示词必须追加的固定约束：**
+
+```text
+Apply a strict Material 3 audit: teal seed #006A6A, tonal surface containers instead of decorative shadows, secondaryContainer selection, outlineVariant dividers, 8dp spacing, 12dp cards, 28dp floating windows, 8dp chips, full-round buttons/search, and Title/Body/Label type hierarchy.
+
+Desktop file tabs must match the original connected-tab concept: exactly one tab strip at the very top edge of the work surface; the active tab uses the same surface as the content and merges into it seamlessly; inactive tabs lie flat on a surfaceContainerLow shelf with a tiny icon, short title and close ×; a + follows. Never draw floating pill tabs, a segmented control, or a second tab strip inside a card/pane. Preview/Properties are MD3 secondary tabs with a slim indicator. On Compact, collapse file tabs into a stacked-tabs icon with a count badge.
+
+Use an extreme text budget. Keep only the app name, short navigation labels, breadcrumb, filenames, search query, one numeric metadata value per file, and one short primary verb. Make toolbars, file types, storage categories, index state and permissions icon-only. Remove headings, feature descriptions, shortcut hints, status sentences, explanatory footers, type/date pairs and every word beside toolbar icons. Local files only; no cloud, account avatar, microphone, watermark or design annotations.
+```
 
 ---
 
