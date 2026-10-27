@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#006A6A">
+<title>Eidoria 万象屿 · 概念第一版</title>
+<link rel="icon" type="image/svg+xml" href="assets/eidoria-icon.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ───────────────── Material Symbols (line) sprite ───────────────── -->
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="M16 16l4.4 4.4"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 10.4 12 3.5l8.5 6.9V20a1 1 0 0 1-1 1h-4.8v-6.2H9.3V21H4.5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.4 2.8 5.7 6.3.9-4.6 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L2.9 10l6.3-.9z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 7v5.4l3.5 2.1"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.2" y="4.6" width="17.6" height="14.8" rx="2.4"/><circle cx="8.6" cy="9.6" r="1.6"/><path d="m20.4 15.6-4.7-4.8-8.9 8.6"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5.4" width="12.4" height="13.2" rx="2.4"/><path d="m15.4 10.4 5.2-3v9.2l-5.2-3z"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6.5 3.2h7.2l4.8 4.8v12.3a1 1 0 0 1-1 1H6.5a1 1 0 0 1-1-1V4.2a1 1 0 0 1 1-1z"/><path d="M13.7 3.2V8h4.8M8.7 12.4h6.6M8.7 16.2h4.6"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.3 7h15.4M9.2 7V4.2h5.6V7M6.4 7l.9 13.1h9.4L17.6 7M10.2 10.7v6M13.8 10.7v6"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h8.4M17.6 7H20M4 17h2.4M11.6 17H20"/><circle cx="15" cy="7" r="2.6"/><circle cx="9" cy="17" r="2.6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5.4M11.4 18l-6-6 6-6"/></symbol>
+  <symbol id="i-forward" viewBox="0 0 24 24"><path d="M5 12h13.6M12.6 6l6 6-6 6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5.4M6 11.4l6-6 6 6"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20.2 12a8.2 8.2 0 1 1-2.4-5.8"/><path d="M20.2 4.2v5.2H15"/></symbol>
+  <symbol id="i-newfolder" viewBox="0 0 24 24"><path d="M3.2 7.4a2 2 0 0 1 2-2h3.6l2 2h8a2 2 0 0 1 2 2v8.4a2 2 0 0 1-2 2H5.2a2 2 0 0 1-2-2z"/><path d="M12 11.2v5.2M9.4 13.8h5.2"/></symbol>
+  <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="m8.2 7.6 11.4 11.2M19.6 4.8 8.2 16"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.2" y="8.2" width="11.6" height="11.6" rx="2"/><path d="M15.8 8.2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.8a2 2 0 0 0 2 2h2.2"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 5V3.2h6V5M9 11h6M9 15h4"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4.2 19.8h4L20 8 16 4 4.2 15.8z"/><path d="m14.2 5.8 4 4"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 4.4v15.2M3.8 7.6 7 4.4l3.2 3.2M17 19.6V4.4M13.8 16.4 17 19.6l3.2-3.2"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="7" height="7" rx="1.6"/><rect x="13.4" y="3.6" width="7" height="7" rx="1.6"/><rect x="3.6" y="13.4" width="7" height="7" rx="1.6"/><rect x="13.4" y="13.4" width="7" height="7" rx="1.6"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8.6 6.4h11.8M8.6 12h11.8M8.6 17.6h11.8"/><circle cx="4.4" cy="6.4" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.4" cy="17.6" r="1.2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-details" viewBox="0 0 24 24"><rect x="3.4" y="4.4" width="17.2" height="15.2" rx="2"/><path d="M3.4 9.2h17.2M9.6 9.2v10.4M3.4 14.6h17.2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.6 12S6 5.8 12 5.8 21.4 12 21.4 12 18 18.2 12 18.2 2.6 12 2.6 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M4 4l16 16M9.6 5.9A9.6 9.6 0 0 1 12 5.8c6 0 9.4 6.2 9.4 6.2a15 15 0 0 1-3 3.6M6.6 7.4A15.6 15.6 0 0 0 2.6 12s3.4 6.2 9.4 6.2a9 9 0 0 0 3.2-.6"/><path d="M10 10a2.8 2.8 0 0 0 4 4"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5.6" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="18.4" r="2.6"/><path d="m8.4 10.8 7.2-4M8.4 13.2l7.2 4"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M14 4.4h5.6V10M19.6 4.4 10.8 13.2"/><path d="M18.4 13.4v5.4a1 1 0 0 1-1 1H5.4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5.4"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9.4 5.4 6.6 6.6-6.6 6.6"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m5.4 9.4 6.6 6.6 6.6-6.6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.6 12.4 5 5L19.4 6.6"/></symbol>
+  <symbol id="i-tabs" viewBox="0 0 24 24"><path d="m12 3.2 8.6 4.2-8.6 4.2L3.4 7.4z"/><path d="m3.4 12 8.6 4.2 8.6-4.2M3.4 16.8l8.6 4.2 8.6-4.2"/></symbol>
+  <symbol id="i-drive" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2.4"/><path d="M3 13.4h18"/><circle cx="7" cy="15.8" r="1" fill="currentColor" stroke="none"/><circle cx="10.4" cy="15.8" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-sd" viewBox="0 0 24 24"><path d="M6.4 3.2h8l5 5v12.2a.8.8 0 0 1-.8.8H6.4a.8.8 0 0 1-.8-.8V4a.8.8 0 0 1 .8-.8z"/><path d="M14.4 3.2v5h5M9 12v4M12 12v4M15 12v4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M4.3 4.3l1.6 1.6M18.1 18.1l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.3 19.7l1.6-1.6M18.1 5.9l1.6-1.6"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.4 14.6A8.6 8.6 0 0 1 9.4 3.6a8.6 8.6 0 1 0 11 11z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5.6v12.8M15 5.6v12.8"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5.2 11 6.8-11 6.8z"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9.4 17.6V5.6l10-2v12"/><ellipse cx="6.6" cy="17.8" rx="2.8" ry="2.2"/><ellipse cx="16.6" cy="15.8" rx="2.8" ry="2.2"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m8.6 7-5 5 5 5M15.4 7l5 5-5 5M13.6 4.4l-3.2 15.2"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><path d="M6.4 3.2h11.2a1 1 0 0 1 1 1v15.6a1 1 0 0 1-1 1H6.4a1 1 0 0 1-1-1V4.2a1 1 0 0 1 1-1z"/><path d="M10.6 6.4h2.8M10.6 9.6h2.8M10.6 12.8h2.8M12 15.4v3.4"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M5.4 5.4h13.2M5.4 9.8h13.2M5.4 14.2h9.4M5.4 18.6h6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="M12 10.8v5.4"/><circle cx="12" cy="7.8" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3.6 5.6h16.8l-6.6 7.6v5.6l-3.6 2v-7.6z"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M9 4.4H4.4V9M15 4.4h4.6V9M9 19.6H4.4V15M15 19.6h4.6V15"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.8v11.4M7.6 11l4.4 4.2 4.4-4.2M4.4 19.6h15.2"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M4.4 9.4h9.2a5.8 5.8 0 0 1 0 11.6H9M4.4 9.4l4.4-4.4M4.4 9.4l4.4 4.4"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><path d="M4.4 5.4h15.2M4.4 12h15.2M4.4 18.6h15.2"/><circle cx="7.4" cy="5.4" r="1.6" fill="currentColor" stroke="none"/><circle cx="16.6" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="10.4" cy="18.6" r="1.6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3.6 21.2 20H2.8z"/><path d="M12 9.4v5"/><circle cx="12" cy="17.4" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-checkcircle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="m8.2 12.2 2.6 2.6 5-5.4"/></symbol>
+  <symbol id="i-error" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="M12 7.6v5.4"/><circle cx="12" cy="16.4" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-drag" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.3" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="m13.4 2.6-8 10.6h5.6l-1 8.2 8-10.6h-5.6z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.2 7.4a2 2 0 0 1 2-2h3.6l2 2h8a2 2 0 0 1 2 2v8.4a2 2 0 0 1-2 2H5.2a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6.4 3.2h7.2l4.8 4.8v12.3a1 1 0 0 1-1 1H6.4a1 1 0 0 1-1-1V4.2a1 1 0 0 1 1-1z"/><path d="M13.6 3.2V8h4.8"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.6" y="5.4" width="16.8" height="15" rx="2"/><path d="M3.6 10h16.8M8 3.4v3.6M16 3.4v3.6"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 24 24"><rect x="2.8" y="8" width="18.4" height="8" rx="1.6"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.6 5.8v5.6c0 4.4 3 7.6 7.4 9.6 4.4-2 7.4-5.2 7.4-9.6V5.8z"/><path d="m9 12 2.2 2.2L15.4 10"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3.2a8.8 8.8 0 1 0 0 17.6h1.4a2 2 0 0 0 1.4-3.4 2 2 0 0 1 1.4-3.4h2A2.6 2.6 0 0 0 21 11.4 8.4 8.4 0 0 0 12 3.2z"/><circle cx="7.4" cy="11.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="9.6" cy="7.6" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.4" cy="7.4" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.8" y="6" width="18.4" height="12" rx="2"/><path d="M6.4 9.6h.01M10 9.6h.01M13.6 9.6h.01M17.2 9.6h.01M6.4 13h.01M10 13h.01M13.6 13h.01M17.2 13h.01M8 15.6h8"/></symbol>
+</svg>
+
+<!-- ───────────────── Studio bar (演示控制条，不属于应用) ───────────────── -->
+<header class="studio">
+  <div class="studio__brand">
+    <img src="assets/eidoria-icon.svg" alt="" class="studio__logo">
+    <div class="studio__brandtext"><strong>Eidoria</strong><span>万象屿 · 概念第一版</span></div>
+  </div>
+
+  <div class="studio__group" role="group" aria-label="断点">
+    <span class="studio__label">断点</span>
+    <div class="segmented" id="bpSwitch">
+      <button data-bp="compact"      title="Compact 390×844">Compact</button>
+      <button data-bp="medium"       title="Medium 768×1024">Medium</button>
+      <button data-bp="expanded"     title="Expanded 1100×760">Expanded</button>
+      <button data-bp="large"        title="Large 1440×900" class="is-active">Large</button>
+      <button data-bp="xlarge"       title="ExtraLarge 1920×1080">XLarge</button>
+    </div>
+  </div>
+
+  <div class="studio__group" role="group" aria-label="主题">
+    <span class="studio__label">主题</span>
+    <div class="segmented segmented--icon" id="themeSwitch">
+      <button data-theme="light" title="浅色主题" class="is-active"><svg class="ico"><use href="#i-sun"/></svg></button>
+      <button data-theme="dark" title="深色主题"><svg class="ico"><use href="#i-moon"/></svg></button>
+    </div>
+  </div>
+
+  <div class="studio__group studio__group--right" role="group" aria-label="选项">
+    <label class="toggle" title="减少动态效果">
+      <input type="checkbox" id="reduceMotion"><span class="toggle__track"><span class="toggle__thumb"></span></span>
+      <svg class="ico"><use href="#i-bolt"/></svg><span class="toggle__text">减少动效</span>
+    </label>
+    <button class="studio__btn" id="helpBtn" title="快捷键与说明"><svg class="ico"><use href="#i-keyboard"/></svg></button>
+  </div>
+</header>
+
+<!-- ───────────────── Stage ───────────────── -->
+<main class="stage-wrap" id="stageWrap">
+  <div class="stage" id="stage">
+    <div class="app" id="app" data-bp="large" data-theme="light" data-view="grid" data-nav="图片">
+
+      <!-- 窗口顶栏 / 标签条 -->
+      <header class="titlebar">
+        <div class="titlebar__brand">
+          <img src="assets/eidoria-icon.svg" alt="" class="brand-mark">
+          <span class="brand-name">Eidoria</span>
+        </div>
+        <button class="icon-btn compact-menu" id="hamburger" title="导航" aria-label="打开导航抽屉"><svg class="ico"><use href="#i-menu"/></svg></button>
+        <span class="compact-title">Eidoria</span>
+        <div class="tabstrip" id="tabstrip"></div>
+        <button class="icon-btn compact-tabs" id="tabsBtn" title="标签页" aria-label="标签页"><svg class="ico"><use href="#i-tabs"/></svg><span class="badge" id="tabsBadge">3</span></button>
+        <div class="window-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+      </header>
+
+      <div class="shell">
+        <!-- 左导航 -->
+        <aside class="drawer" id="drawer">
+          <button class="new-btn" id="newBtn"><svg class="ico"><use href="#i-plus"/></svg><span>新建</span></button>
+          <nav class="drawer__nav" id="drawerNav"></nav>
+          <div class="drawer__spacer"></div>
+          <div class="drawer__volumes" id="volumes"></div>
+          <div class="drawer__footer" id="drawerFooter"></div>
+        </aside>
+
+        <!-- 主工作卡 -->
+        <section class="browser" id="browser">
+          <div class="browser__nav">
+            <div class="navbuttons" id="navButtons"></div>
+            <div class="crumbs" id="crumbs"></div>
+            <div class="search-island" id="searchIsland" role="button" tabindex="0" title="搜索（Ctrl+F / Ctrl+K）">
+              <svg class="ico"><use href="#i-search"/></svg><span class="search-island__text" id="islandText"></span>
+            </div>
+            <button class="icon-btn" id="overflowBtn" title="更多" aria-label="更多"><svg class="ico"><use href="#i-more"/></svg></button>
+          </div>
+          <div class="browser__toolbar" id="toolbar"></div>
+          <div class="browser__content">
+            <div class="view-head" id="viewHead"></div>
+            <div class="file-view" id="fileView"></div>
+            <div class="empty-state" id="emptyState" hidden></div>
+          </div>
+          <div class="browser__status" id="statusBar"></div>
+        </section>
+
+        <!-- 右侧预览侧栏 -->
+        <aside class="preview" id="previewPane"></aside>
+      </div>
+
+      <!-- Compact 底部导航 -->
+      <nav class="bottom-nav" id="bottomNav"></nav>
+
+      <!-- 悬浮搜索面板 -->
+      <div class="search-panel" id="searchPanel" hidden>
+        <div class="search-panel__bar">
+          <svg class="ico"><use href="#i-search"/></svg>
+          <input id="searchInput" type="text" placeholder="搜索当前文件夹" autocomplete="off" spellcheck="false">
+          <span class="search-panel__count" id="searchCount"></span>
+          <button class="icon-btn" id="searchClose" title="关闭（Esc）"><svg class="ico"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="search-panel__modes">
+          <button class="chip is-active" data-mode="filter">当前文件夹</button>
+          <button class="chip" data-mode="recursive">递归搜索</button>
+          <span class="search-panel__hint">回车递归 · Esc 收起</span>
+        </div>
+        <div class="search-panel__results" id="searchResults"></div>
+      </div>
+
+      <!-- 悬浮预览窗（Compact / Medium） -->
+      <div class="floating" id="floating" hidden></div>
+
+      <!-- 任务中心 -->
+      <div class="task-center" id="taskCenter" hidden></div>
+
+      <!-- 通用菜单浮层 -->
+      <div class="popover" id="popover" hidden></div>
+
+      <!-- 对话框 -->
+      <div class="dialog-backdrop" id="dialogBackdrop" hidden><div class="dialog" id="dialog" role="dialog" aria-modal="true"></div></div>
+
+      <!-- Snackbar -->
+      <div class="snackbar" id="snackbar" hidden></div>
+    </div>
+  </div>
+  <div class="stage-caption" id="stageCaption"></div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
