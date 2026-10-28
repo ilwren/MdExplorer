@@ -519,13 +519,13 @@ public partial class MainView : UserControl
         }
         if (!e.Properties.IsRightButtonPressed)
             return;
-        if (ItemFromEvent(e) is { } item && BrowserForEvent(e, item) is { } browser)
+        if (ItemFromEvent(e) is { } item && BrowserForEvent(e, item) is { } ownerBrowser)
         {
-            _menuBrowser = browser;
-            if (!browser.SelectedItems.Contains(item))
+            _menuBrowser = ownerBrowser;
+            if (!ownerBrowser.SelectedItems.Contains(item))
             {
-                browser.SelectedItems.Clear();
-                browser.SelectedItems.Add(item);
+                ownerBrowser.SelectedItems.Clear();
+                ownerBrowser.SelectedItems.Add(item);
             }
         }
     }
