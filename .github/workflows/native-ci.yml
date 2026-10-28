@@ -110,6 +110,24 @@ jobs:
           grep -cE "warning IL[0-9]+" publish.log > ilwarn.txt || echo 0 > ilwarn.txt
           echo "::notice::AOT/裁剪告警数：$(cat ilwarn.txt)"
 
+      - name: Summarize AOT warnings — by code
+        if: always()
+        run: |
+          grep -oE "(warning|错误) IL[0-9]+" publish.log | sort | uniq -c | sort -rn | head -10 \
+            | while IFS= read -r line; do echo "::notice::$line"; done || true
+
+      - name: Summarize AOT warnings — own source files
+        if: always()
+        run: |
+          grep -E "warning IL[0-9]+" publish.log | grep -oE "/src/[^:]+" | sed -E 's#^.*/native/src/##' | sort | uniq -c | sort -rn | head -10 \
+            | while IFS= read -r line; do echo "::notice::自有源码|$line"; done || true
+
+      - name: Summarize AOT warnings — external samples
+        if: always()
+        run: |
+          grep -E "warning IL[0-9]+" publish.log | grep -vE "/src/" | sed -E 's#^.*/(packages|nuget)[^/]*/##' | cut -c1-150 | sort -u | head -10 \
+            | while IFS= read -r line; do echo "::notice::外部包|$line"; done || true
+
       - name: Verify output really is Native AOT
         run: |
           set -eo pipefail
