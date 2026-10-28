@@ -11,6 +11,7 @@ using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.Preview;
 using PDFtoImage;
 using PDFtoImage.Exceptions;
+using Formatting = MdExplorer.Domain.Formatting;
 
 namespace MdExplorer.UI.ViewModels;
 

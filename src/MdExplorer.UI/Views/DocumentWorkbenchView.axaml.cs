@@ -149,7 +149,7 @@ public partial class DocumentWorkbenchView : UserControl
 
     private void OnPdfPageContainerPrepared(object? sender, ContainerPreparedEventArgs e)
     {
-        if (_vm is not null && e.Item is PdfPageViewModel page)
+        if (_vm is not null && e.Container.DataContext is PdfPageViewModel page)
             _ = _vm.EnsureThumbnailAsync(page);
     }
 
