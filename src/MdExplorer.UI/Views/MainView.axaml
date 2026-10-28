@@ -367,9 +367,7 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:BrowserTabViewModel">
                         <Border Height="42" MinWidth="126" MaxWidth="224" VerticalAlignment="Bottom"
-                                Tapped="OnTabTapped" PointerPressed="OnTabPointerPressed"
-                                PointerMoved="OnTabPointerMoved" PointerReleased="OnTabPointerReleased"
-                                PointerCaptureLost="OnTabPointerCaptureLost" Cursor="Hand"
+                                Tapped="OnTabTapped" PointerPressed="OnTabPointerPressed" Cursor="Hand"
                                 ToolTip.Tip="{Binding Path}">
                           <Border.ContextMenu>
                             <ContextMenu>

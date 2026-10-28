@@ -91,6 +91,8 @@ public partial class MainView : UserControl
             control.AddHandler(PointerCaptureLostEvent, OnDragPointerCaptureLost, RoutingStrategies.Tunnel, handledEventsToo: true);
         }
 
+        RegisterTabStripDrag(TabStrip);
+
         // 投放目标：两个窗格的文件区（含条目与空白）与各自面包屑。
         foreach (var target in new Control[] { FileDropArea, BreadcrumbBar, SecondaryDropArea, SecondaryBreadcrumbBar })
         {
@@ -955,18 +957,21 @@ public partial class MainView : UserControl
         CompactTabsButton.Flyout?.Hide();
     }
 
-    private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
+    private void RegisterTabStripDrag(ItemsControl strip)
     {
-        if (sender is not Control control || Browser is not { } browser ||
-            control.DataContext is not BrowserTabViewModel tab)
-            return;
+        // 与文件拖拽一样在 Tunnel 阶段接管：标签模板子控件/滚动容器可能先消费 Bubble 指针，
+        // 只在标签 Border 上挂 Bubble Move/Release 不可靠。
+        strip.AddHandler(PointerPressedEvent, OnTabStripPointerPressed, RoutingStrategies.Tunnel);
+        strip.AddHandler(PointerMovedEvent, OnTabPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+        strip.AddHandler(PointerReleasedEvent, OnTabPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+        strip.AddHandler(PointerCaptureLostEvent, OnTabPointerCaptureLost, RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
 
-        if (e.GetCurrentPoint(this).Properties.IsMiddleButtonPressed)
-        {
-            Browser.CloseTabCommand.Execute(tab);
-            e.Handled = true;
+    private void OnTabStripPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not ItemsControl strip || Browser is not { } browser ||
+            TabFromEvent(e) is not { } tab)
             return;
-        }
 
         var point = e.GetCurrentPoint(this);
         if (!point.Properties.IsLeftButtonPressed || point.Properties.IsRightButtonPressed ||
@@ -974,8 +979,7 @@ public partial class MainView : UserControl
             e.Source is Control source && source.FindAncestorOfType<Button>() is not null)
             return;
 
-        var strip = control.FindAncestorOfType<ItemsControl>();
-        if (strip?.ItemsPanelRoot is not { } panel)
+        if (strip.ItemsPanelRoot is not { } panel)
             return;
         var startIndex = browser.Tabs.IndexOf(tab);
         if (startIndex < 0)
@@ -997,6 +1001,29 @@ public partial class MainView : UserControl
             containers.Select(container => container.Bounds).ToArray(),
             e.GetPosition(panel),
             startIndex);
+    }
+
+    private static BrowserTabViewModel? TabFromEvent(RoutedEventArgs e)
+    {
+        if (e.Source is not Visual source)
+            return null;
+        foreach (var visual in source.GetSelfAndVisualAncestors())
+        {
+            if (visual is Control { DataContext: BrowserTabViewModel tab })
+                return tab;
+        }
+        return null;
+    }
+
+    private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsMiddleButtonPressed)
+            return;
+        if (sender is Control { DataContext: BrowserTabViewModel tab })
+        {
+            Browser?.CloseTabCommand.Execute(tab);
+            e.Handled = true;
+        }
     }
 
     private void OnTabPointerMoved(object? sender, PointerEventArgs e)
