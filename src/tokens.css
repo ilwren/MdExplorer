@@ -1,0 +1,158 @@
+/* ============================================================
+   Eidoria design tokens — Material 3 role tokens per concept
+   design v3 (docs/CONCEPT-DESIGN.md §2.2), seed #006A6A.
+   ============================================================ */
+
+:root {
+  /* type wells stay solid in both themes (small-area type color) */
+  --well-folder-bg: #DCE8E2;
+  --well-folder-fg: #4E837A;
+
+  --radius-card: 12px;
+  --radius-well: 14px;
+  --radius-float: 28px;
+  --radius-chip: 8px;
+  --radius-full: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --font: 'HarmonyOS Sans SC', 'MiSans', 'PingFang SC', 'Segoe UI', Roboto,
+    'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+
+  --duration-1: 120ms;
+  --duration-2: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme='light'] {
+  --surface: #FAFCFA;
+  --surface-container-low: #F0F5F1;
+  --surface-container: #E4EEE8;
+  --surface-container-high: #D5E5DB;
+  --primary: #006B67;
+  --on-primary: #FFFFFF;
+  --primary-container: #9CE9DC;
+  --on-primary-container: #00201D;
+  --secondary-container: #CDE8E1;
+  --on-secondary-container: #15201D;
+  --on-surface: #15201D;
+  --on-surface-variant: #61706A;
+  --outline: #61706A;
+  --outline-variant: #C4D3CC;
+  --error: #B3261E;
+  --on-error: #FFFFFF;
+  --error-container: #F9DEDC;
+  --inverse-surface: #2B3833;
+  --inverse-on-surface: #ECF2EE;
+
+  --backdrop-1: #EDFBF4;
+  --backdrop-2: #CDE9EC;
+  --window-surface: var(--surface);
+  --card-surface: var(--surface);
+  --card-border: var(--outline-variant);
+  --shadow-window: 0 24px 60px rgba(21, 32, 29, 0.16), 0 4px 16px rgba(21, 32, 29, 0.08);
+  --shadow-float: 0 18px 48px rgba(21, 32, 29, 0.22), 0 4px 12px rgba(21, 32, 29, 0.12);
+  --shadow-menu: 0 8px 28px rgba(21, 32, 29, 0.18);
+  --thumb-border: rgba(21, 32, 29, 0.06);
+  --cat-well: #E4EEE8;
+  --scrim: rgba(21, 32, 29, 0.32);
+  --code-bg: #F4F8F5;
+  --hover: rgba(21, 32, 29, 0.05);
+}
+
+:root[data-theme='dark'] {
+  --surface: #0E1714;
+  --surface-container-low: #131E1A;
+  --surface-container: #182420;
+  --surface-container-high: #1F2E28;
+  --primary: #8ADBC9;
+  --on-primary: #003733;
+  --primary-container: #00534D;
+  --on-primary-container: #9CE9DC;
+  --secondary-container: #2B4A44;
+  --on-secondary-container: #E7F1EC;
+  --on-surface: #E7F1EC;
+  --on-surface-variant: #ACBBB4;
+  --outline: #8A9993;
+  --outline-variant: #35453E;
+  --error: #FFB4AB;
+  --on-error: #690005;
+  --error-container: #93000A;
+  --inverse-surface: #DCE8E2;
+  --inverse-on-surface: #2B3833;
+
+  --backdrop-1: #0A1210;
+  --backdrop-2: #10201C;
+  --window-surface: var(--surface);
+  --card-surface: var(--surface-container);
+  --card-border: var(--outline-variant);
+  --shadow-window: 0 24px 64px rgba(0, 0, 0, 0.55);
+  --shadow-float: 0 18px 48px rgba(0, 0, 0, 0.6);
+  --shadow-menu: 0 8px 28px rgba(0, 0, 0, 0.5);
+  --thumb-border: rgba(231, 241, 236, 0.08);
+  --cat-well: #1F2E28;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --code-bg: #131E1A;
+  --hover: rgba(231, 241, 236, 0.06);
+
+  --well-folder-bg: #3A3A2C;
+  --well-folder-fg: #C7A45B;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--on-surface);
+  background: var(--backdrop-1);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+input {
+  font-family: inherit;
+  color: inherit;
+}
+
+::selection { background: var(--secondary-container); color: var(--on-secondary-container); }
+
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+[data-reduce-motion='1'] * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--outline-variant);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-track { background: transparent; }

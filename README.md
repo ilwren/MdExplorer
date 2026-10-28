@@ -1,1 +1,66 @@
-# MdExplorer
+# Eidoria（万象屿）Web 第一版
+
+<img src="public/eidoria-icon.png" alt="Eidoria 图标：蓝色竖向页片左上角翻起，露出绿色背页与橙黄色折面" width="80" />
+
+基于 **React + TypeScript + Node** 的纯本地文件资源管理器 Web 实现，**按 `arena/c665818d-mdexplorer` 分支的文档与概念图（概念设计 v3 / ai-v3）实现第一版**：Material Design 3 青色种子 `#006A6A`、深浅双主题、五档断点自适应、搜索岛、预览 / 属性双页签、浏览器式标签页。
+
+> 说明：本环境无 .NET SDK 且 NuGet 不可达，无法构建分支文档规划的 Avalonia/.NET 10 应用；因此第一版以可运行的 Web 形态忠实还原概念图设计（布局结构、Token 规格、交互形态均按 `docs/CONCEPT-DESIGN.md`、`docs/RESPONSIVE-LAYOUT.md`、`docs/BRAND.md` 执行），Avalonia 版可按同一设计规格另行移植。
+
+## 运行
+
+```bash
+npm install
+npm run seed        # 生成 ~/EidoriaDemo 演示数据（可选；缺图时用渐变占位）
+npm run dev         # http://localhost:5173（开发模式，HMR）
+```
+
+- 浏览根目录默认 `/home/user`，可用 `EIDORIA_ROOTS=/path1:/path2` 覆盖。
+- 生产构建：`npm run build && EIDORIA_SERVE_STATIC=1 node server/index.mjs`。
+- 测试（jsdom 渲染冒烟 + 真实后端联测）：先启动 dev 服务器，再 `npx vitest run`。
+
+## 按概念图实现的要点
+
+| 设计规格（来源） | 实现 |
+|---|---|
+| MD3 角色 Token（CONCEPT-DESIGN §2.2） | `src/tokens.css`：浅/深两套变量，青色种子 `#006A6A`，选中态 `secondaryContainer` |
+| 工作面分层（§2.1） | 薄荷底板 → 圆角窗口 → 白色工作区 + 独立预览卡；浮层只用于搜索面板/悬浮预览/对话框 |
+| 浏览器式连接页签（§2.4） | 活动页签与工作区同面相连（顶部圆角），未激活平放在低层架 |
+| 文字预算（§2.4） | 工具栏图标化（含 Tooltip）、文件卡只留一行元数据、状态用图标+数值 |
+| 搜索岛（§2.1） | 迷你搜索图标（`Ctrl+K`）→ 悬浮搜索面板：即时筛选/回车递归、类型筛选、结果带父路径 |
+| 预览永远双页签（§2.1） | 「预览 / 属性」Secondary Tabs；Expanded+ 侧栏（312px）、Compact/Medium 可拖悬浮窗（28dp 圆角） |
+| 五档断点（RESPONSIVE-LAYOUT） | Compact<600 底栏+顶栏 / Medium 600–839 导轨 / Expanded 840–1199 抽屉+预览侧栏 / Large 1200–1599 标签页+工具栏+状态栏 / XLarge≥1600 加宽 |
+| 文件类型色（§2.2 深色硬规则） | 只用于小面积图标井（实心色块+白字形）：pdf 红、zip 金、md/视频 紫、代码 绿、svg/图片 蓝、音频 青 |
+| 品牌（BRAND.md） | Eidoria 折页图标（蓝页+绿背+橙折角）、抽屉品牌区「Eidoria / 万象屿」 |
+| 安全感优先（§2.1 P6） | 删除先显示影响范围与恢复路径（回收站），危险动作不默认聚焦 |
+
+## 功能（v0.1）
+
+- **浏览**：网格 / 列表视图、排序（名称/大小/时间/类型 + 升降序）、隐藏文件开关、面包屑胶囊（点分段跳转、点空白编辑路径）、后退/前进/上一级/刷新、按文件夹记忆的多标签页（Large+）
+- **预览**：图片（含尺寸事实条）、Markdown 渲染、代码高亮（highlight.js）、PDF（浏览器内嵌）、音视频、ZIP 条目表、属性面板（可复制路径）
+- **搜索**：搜索岛 + 悬浮面板，当前目录筛选 / 递归搜索，类型芯片，结果显示父路径
+- **操作**：新建文件夹/文件、重命名、批量重命名（查找替换）、复制/剪切/粘贴（冲突确认）、删除到回收站（影响范围确认）、回收站还原/清空
+- **收藏 / 最近**：文件夹收藏、最近访问（持久化）
+- **设置**：浅色/深色/跟随系统、减少动态效果、默认视图/排序、显示系统文件、删除确认
+- **自适应**：Compact 底部导航 + 抽屉导航 + 悬浮预览窗（可拖）；Medium 导轨；Expanded+ 永久抽屉 + 预览侧栏；Large+ 连接式标签页、状态栏
+
+## 结构
+
+```text
+server/            Express 文件系统 API（安全路径约束/回收站/设置持久化）+ Vite 中间件
+src/tokens.css     MD3 设计令牌（浅/深，源自概念稿 Token 表）
+src/app.css        布局与组件样式（对齐 ai-v3 概念图）
+src/state/         全局状态（标签会话/导航/选集/剪贴板/搜索/对话框）
+src/shell/         抽屉、导轨、底栏、标签条、面包屑、工具栏、状态栏
+src/views/         主页、浏览器、预览、搜索面板、回收站、设置、对话框
+src/ui/            图标（Material Icons 内联）、控件库、类型元数据
+scripts/           演示数据种子、图标生成
+src/__tests__/     jsdom 冒烟测试（渲染 + 交互 + 真实 API 联测）
+```
+
+## 设计对照与验收
+
+深浅主题只换颜色角色不换布局；Compact 触控目标 ≥48dp 等效；破坏性动作保留一行影响说明；规划概念图中的索引中心/双窗格/媒体/插件/本地 AI **不进入本版导航**（与概念稿 §6/§7 的优先级一致）。
+
+## 后续
+
+按概念稿推荐顺序：搜索与索引中心 → 存储洞察 → 压缩包工作台/冲突任务 → 双窗格/编辑 PDF 工作台；Avalonia/.NET 原生版按 `docs/DEVELOPMENT.md` 分层与 AOT 规范移植。

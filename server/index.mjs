@@ -1,0 +1,227 @@
+// Eidoria web first-version server: filesystem API + Vite middleware (dev) / static (prod).
+import express from 'express';
+import http from 'node:http';
+import path from 'node:path';
+import fsp from 'node:fs/promises';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import AdmZip from 'adm-zip';
+
+import {
+  ROOTS, safePath, listDir, entryOf, rootsInfo, readText, mimeOf,
+  searchEntries, apiError, classify, extOf,
+} from './fs.mjs';
+import {
+  getSettings, saveSettings, getFavorites, toggleFavorite, pushRecent, getRecent,
+  trashList, trashDelete, trashRestore, trashEmpty,
+} from './store.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = Number(process.env.PORT || 5173);
+const HOST = process.env.HOST || '0.0.0.0';
+
+const app = express();
+app.use(express.json({ limit: '20mb' }));
+
+const wrap = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res))
+    .then((data) => {
+      if (data !== undefined && !res.headersSent) res.json(data);
+    })
+    .catch(next);
+
+/* ------------------------------ bootstrap ------------------------------ */
+
+app.get('/api/state', wrap(async () => {
+  return {
+    settings: await getSettings(),
+    favorites: await getFavorites(),
+    recent: await getRecent(),
+    roots: await rootsInfo(),
+  };
+}));
+
+app.post('/api/settings', wrap(async (req) => {
+  return saveSettings(req.body || {});
+}));
+
+app.post('/api/favorites/toggle', wrap(async (req) => toggleFavorite(req.body.path)));
+
+/* ------------------------------- listing ------------------------------- */
+
+app.get('/api/list', wrap(async (req) => {
+  const dir = String(req.query.path || ROOTS[0]);
+  return listDir(dir);
+}));
+
+app.get('/api/stat', wrap(async (req) => {
+  const e = await entryOf(safePath(String(req.query.path)));
+  if (!e) throw apiError(404, 'not found');
+  return e;
+}));
+
+app.get('/api/search', wrap(async (req) => {
+  const dir = String(req.query.path || ROOTS[0]);
+  const q = String(req.query.q || '');
+  const recursive = String(req.query.recursive ?? '1') !== '0';
+  const kind = String(req.query.kind || '');
+  return { results: await searchEntries(dir, q, { recursive, kind }) };
+}));
+
+app.get('/api/text', wrap(async (req) => {
+  return readText(safePath(String(req.query.path)));
+}));
+
+app.get('/api/raw', wrap(async (req, res) => {
+  const abs = safePath(String(req.query.path));
+  const st = await fsp.stat(abs);
+  if (!st.isFile()) throw apiError(400, 'not a file');
+  res.setHeader('Content-Type', mimeOf(abs));
+  res.setHeader('Content-Length', st.size);
+  res.setHeader('Cache-Control', 'private, max-age=5');
+  fs.createReadStream(abs).pipe(res);
+}));
+
+app.get('/api/zip', wrap(async (req) => {
+  const abs = safePath(String(req.query.path));
+  const zip = new AdmZip(abs);
+  const entries = zip.getEntries().map((en) => ({
+    name: en.entryName,
+    isDir: en.isDirectory,
+    size: en.header.size,
+    compressedSize: en.header.compressedSize,
+    kind: classify(path.basename(en.entryName), en.isDirectory),
+    mtime: en.header.time?.getTime?.() ?? 0,
+  }));
+  return { entries };
+}));
+
+/* --------------------------------- ops --------------------------------- */
+
+app.post('/api/ops/rename', wrap(async (req) => {
+  const abs = safePath(req.body.path);
+  const newName = String(req.body.newName || '').trim();
+  if (!newName || newName.includes('/') || newName.includes('\\')) throw apiError(400, 'invalid name');
+  const dest = path.join(path.dirname(abs), newName);
+  safePath(dest);
+  await fsp.rename(abs, dest);
+  return { path: dest };
+}));
+
+app.post('/api/ops/mkdir', wrap(async (req) => {
+  const dir = safePath(req.body.path);
+  const name = String(req.body.name || '').trim();
+  if (!name || name.includes('/')) throw apiError(400, 'invalid name');
+  const dest = path.join(dir, name);
+  safePath(dest);
+  await fsp.mkdir(dest, { recursive: true });
+  return { path: dest };
+}));
+
+app.post('/api/ops/newfile', wrap(async (req) => {
+  const dir = safePath(req.body.path);
+  const name = String(req.body.name || '').trim();
+  if (!name || name.includes('/')) throw apiError(400, 'invalid name');
+  const dest = path.join(dir, name);
+  safePath(dest);
+  await fsp.writeFile(dest, req.body.content ?? '');
+  return { path: dest };
+}));
+
+app.post('/api/ops/delete', wrap(async (req) => {
+  const names = await trashDelete(req.body.paths || []);
+  return { deleted: names };
+}));
+
+app.post('/api/ops/copy', wrap(async (req) => {
+  return transfer(req.body, false);
+}));
+
+app.post('/api/ops/move', wrap(async (req) => {
+  return transfer(req.body, true);
+}));
+
+async function transfer({ paths, dest, overwrite }, move) {
+  const destDir = safePath(dest);
+  const st = await fsp.stat(destDir).catch(() => null);
+  if (!st?.isDirectory()) throw apiError(400, 'destination is not a directory');
+  const results = [];
+  for (const p of paths || []) {
+    const abs = safePath(p);
+    const target = path.join(destDir, path.basename(abs));
+    safePath(target);
+    if (fs.existsSync(target) && !overwrite) {
+      results.push({ name: path.basename(abs), conflict: true });
+      continue;
+    }
+    if (fs.existsSync(target)) await fsp.rm(target, { recursive: true, force: true });
+    if (move) await fsp.rename(abs, target).catch(async () => {
+      await fsp.cp(abs, target, { recursive: true });
+      await fsp.rm(abs, { recursive: true, force: true });
+    });
+    else await fsp.cp(abs, target, { recursive: true });
+    results.push({ name: path.basename(abs), ok: true });
+  }
+  return { results };
+}
+
+app.post('/api/ops/paste-info', wrap(async (req) => {
+  // Check whether paste targets already exist (conflict pre-check).
+  const destDir = safePath(req.body.dest);
+  const out = [];
+  for (const p of req.body.paths || []) {
+    const abs = safePath(p);
+    const target = path.join(destDir, path.basename(abs));
+    out.push({ source: abs, target, exists: fs.existsSync(target) });
+  }
+  return { items: out };
+}));
+
+/* --------------------------------- trash -------------------------------- */
+
+app.get('/api/trash', wrap(async () => ({ items: await trashList() })));
+app.post('/api/trash/restore', wrap(async (req) => ({ restored: await trashRestore(req.body.ids || []) })));
+app.post('/api/trash/empty', wrap(async () => { await trashEmpty(); return { ok: true }; }));
+
+/* ------------------------------- transfer ------------------------------- */
+
+app.post('/api/recent', wrap(async (req) => ({ recent: await pushRecent(req.body.path) })));
+
+/* -------------------------------- static -------------------------------- */
+
+const distDir = path.join(__dirname, '..', 'dist');
+const publicDir = path.join(__dirname, '..', 'public');
+
+app.use('/eidoria-icon.png', (req, res) => {
+  const icon = path.join(publicDir, 'eidoria-icon.png');
+  if (fs.existsSync(icon)) return res.sendFile(icon);
+  res.status(404).end();
+});
+
+app.use((err, req, res, next) => {
+  const status = err.status || 500;
+  if (status >= 500) console.error(err);
+  res.status(status).json({ error: err.message || 'error' });
+});
+
+const server = http.createServer(app);
+
+const wantDev = process.env.EIDORIA_SERVE_STATIC !== '1' || !fs.existsSync(path.join(distDir, 'index.html'));
+if (wantDev) {
+  const { createServer: createViteServer } = await import('vite');
+  const vite = await createViteServer({
+    configFile: path.join(__dirname, '..', 'vite.config.ts'),
+    server: { middlewareMode: true, hmr: { server }, allowedHosts: true },
+    appType: 'spa',
+  });
+  app.use(vite.middlewares);
+  console.log('[eidoria] vite dev middleware enabled');
+} else {
+  app.use(express.static(distDir));
+  app.get('*', (req, res) => res.sendFile(path.join(distDir, 'index.html')));
+  console.log('[eidoria] serving static dist/');
+}
+
+server.listen(PORT, HOST, () => {
+  console.log(`[eidoria] listening on http://${HOST}:${PORT}  roots=${ROOTS.join(':')}`);
+});
