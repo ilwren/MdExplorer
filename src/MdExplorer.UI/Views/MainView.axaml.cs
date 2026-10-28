@@ -1069,9 +1069,10 @@ public partial class MainView : UserControl
         drag.DraggedContainer.RenderTransform = new TranslateTransform(clampedDeltaX, 0);
 
         var draggedCenter = startSlot.Center.X + clampedDeltaX;
+        // 等宽标签拖到相邻槽位时，中心会精确重合；到达中心即视为已跨过该槽位。
         drag.TargetIndex = drag.Slots
             .Where((_, index) => index != drag.StartIndex)
-            .Count(slot => slot.Center.X < draggedCenter);
+            .Count(slot => slot.Center.X <= draggedCenter);
 
         var slotExtent = startSlot.Width + 4;
         for (var i = 0; i < drag.Containers.Count; i++)
