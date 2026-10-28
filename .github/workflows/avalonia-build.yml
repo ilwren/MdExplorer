@@ -31,7 +31,20 @@ jobs:
       - name: Restore
         run: dotnet restore MdExplorer.slnx
       - name: Build Release
-        run: dotnet build MdExplorer.slnx --configuration Release --no-restore
+        shell: bash
+        run: |
+          set +e
+          dotnet build MdExplorer.slnx --configuration Release --no-restore --verbosity minimal > build.log 2>&1
+          result=$?
+          cat build.log
+          if [ "$result" -ne 0 ]; then
+            diagnostics=$(grep -Ei 'error|failed|exception|invalid|not found' build.log | tail -n 30)
+            if [ -z "$diagnostics" ]; then diagnostics=$(tail -n 30 build.log); fi
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error title=Build diagnostic::$line"
+            done <<< "$diagnostics"
+            exit "$result"
+          fi
       - name: Check retained Web prototype JavaScript
         if: runner.os == 'Linux'
         run: |

@@ -131,10 +131,10 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <TextBox x:Name="PathEditor" Text="{Binding PathInput, UpdateSourceTrigger=PropertyChanged}" IsVisible="{Binding IsPathEditing}" Watermark="输入文件夹路径…" KeyDown="OnPathKeyDown" VerticalAlignment="Center" />
+              <TextBox x:Name="PathEditor" Text="{Binding PathInput, UpdateSourceTrigger=PropertyChanged}" IsVisible="{Binding IsPathEditing}" PlaceholderText="输入文件夹路径…" KeyDown="OnPathKeyDown" VerticalAlignment="Center" />
             </Grid>
           </Border>
-          <TextBox x:Name="SearchBox" Grid.Column="2" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" Watermark="⌕  搜索此文件夹…" VerticalAlignment="Center" Height="42" />
+          <TextBox x:Name="SearchBox" Grid.Column="2" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="⌕  搜索此文件夹…" VerticalAlignment="Center" Height="42" />
         </Grid>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,4">

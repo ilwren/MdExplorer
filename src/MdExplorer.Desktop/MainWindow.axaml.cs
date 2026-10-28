@@ -62,7 +62,7 @@ public partial class MainWindow : Window
 
         if (BrowserNavigationRow.ColumnDefinitions.Count >= 3)
             BrowserNavigationRow.ColumnDefinitions[2].Width = new GridLength(_isCompact ? 112 : isMedium ? 175 : 250);
-        SearchBox.Watermark = _isCompact ? "⌕ 搜索" : "⌕  搜索此文件夹…";
+        SearchBox.PlaceholderText = _isCompact ? "⌕ 搜索" : "⌕  搜索此文件夹…";
         FilterHelper.IsVisible = !_isCompact;
         if (width >= 840 && _viewModel.IsFloatingPreviewOpen)
             _viewModel.IsFloatingPreviewOpen = false;
