@@ -388,6 +388,9 @@ public sealed class ScreenshotTests
                 window.MouseMove(point);
                 await Task.Delay(20);
             }
+            var dragTransform = first.RenderTransform as Avalonia.Media.TranslateTransform;
+            Assert.True(dragTransform is { X: > 50 },
+                $"拖拽中首个标签应有横向位移；Bounds={first.Bounds}，Transform={first.RenderTransform}，Start={start}，End={end}。");
             window.MouseUp(end, MouseButton.Left);
             await Task.Delay(150);
 
