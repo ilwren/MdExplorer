@@ -46,7 +46,7 @@ Web 的顶部控制条是设计演示壳，可切换五档画布和 06–15 规�
 当前有意保留为后续工作的入口或提示：多标签会话状态、系统分享、回收站、设置、复制/移动/删除、可取消任务队列、真实缩略图/文件格式预览、Android SAF，以及 07、09–15 规划场景。06/08 仅用演示数据，不会读写真实索引、分析或清理文件。
 用户数据仅通过当前桌面进程读取；创建文件夹会写入当前目录，其余概念按钮不伪装成已完成操作。
 
-**验证记录：**本执行环境没有本地 `dotnet` SDK；GitHub Actions 已在 Ubuntu 与 Windows runner 上成功执行 .NET 10 `restore` + Release `build`（run `40643624251`）。原生桌面窗口尚未在图形环境中启动做交互/截图验收。
+**验证记录：**本执行环境没有本地 `dotnet` SDK；GitHub Actions 已在 Ubuntu 与 Windows runner 上成功执行 .NET 10 `restore` + Release `build`，并在 Linux 检查 Web 原型脚本（run `40644974374`）。原生桌面窗口尚未在图形环境中启动做交互/截图验收。
 
 ## Web 概念稿对照图（无头 Chromium 实拍）
 
@@ -186,7 +186,7 @@ Compact / Medium 的预览窗改为概念图 04 的大圆角浮窗，深色下**
 
 ```
 MdExplorer.slnx                         原生 Avalonia 解决方案
-src/MdExplorer.Desktop/                 C# 桌面应用（XAML + ViewModel）
+src/MdExplorer.Desktop/                 C# 桌面应用（浏览器 + 规划页 06/08）
 Directory.Build.props                    C# 14 / nullable / 可重复构建设置
 Directory.Packages.props                 Avalonia NuGet 版本集中锁定
 index.html      应用骨架 + Material Symbols 图标 sprite + 演示控制条 + 场景覆盖层
@@ -208,6 +208,6 @@ docs/           从设计分支同步的规格文档（作为实现依据）+ �
 
 - **Web 对照原型**使用固定虚构样例，不访问真实文件系统；SVG 风景缩略图不含外部图片请求。
 - **Avalonia 原生首版**读取当前用户可访问的本地目录；仅“新建文件夹”会写入磁盘，其余尚未实现的操作明确显示阶段提示。
-- 两端均无账号、云服务、网络搜索与遥测；原生 06 页面仅为概念预演，07–15 尚未迁移。
+- 两端均无账号、云服务、网络搜索与遥测；原生 06/08 页面仅为规划预演，07、09–15 尚未迁移。
 - Web 顶部深色控制条与画布缩放属于演示壳，不是原生界面。
-- 本沙箱无 .NET SDK，原生 Avalonia 工程尚未经过 `dotnet restore/build/run`；Web 概念原型只作视觉/交互参考，不替代原生端。
+- 本沙箱无 .NET SDK，因此没有本地启动原生窗口；GitHub Actions 已验证跨平台 Release 编译，但尚未做原生 UI 截图/交互验收。Web 概念原型只作视觉参考，不替代原生端。
