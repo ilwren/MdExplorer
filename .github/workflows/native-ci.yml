@@ -1,0 +1,33 @@
+name: native-ci
+
+on:
+  push:
+    branches: ["arena/6cf6015e-mdexplorer"]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: native/global.json
+
+      - name: Diagnostics
+        run: |
+          dotnet --info
+          dotnet package search Avalonia --exact-match --take 10 || true
+          dotnet package search CommunityToolkit.Mvvm --exact-match --take 5 || true
+
+      - name: Restore
+        run: dotnet restore native/MdExplorer.slnx
+
+      - name: Build
+        run: dotnet build native/MdExplorer.slnx -c Release --no-restore
+
+      - name: Test
+        run: |
+          dotnet test native/tests/MdExplorer.Domain.Tests/MdExplorer.Domain.Tests.csproj -c Release --no-build
+          dotnet test native/tests/MdExplorer.Application.Tests/MdExplorer.Application.Tests.csproj -c Release --no-build
