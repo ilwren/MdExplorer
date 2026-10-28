@@ -386,7 +386,7 @@ public sealed class ScreenshotTests
                     start.X + (end.X - start.X) * step / 6,
                     start.Y + (end.Y - start.Y) * step / 6);
                 // Headless 的 MouseMove 不会自动继承 MouseDown 的按钮状态，需显式带左键修饰。
-                window.MouseMove(point, Avalonia.Input.Raw.RawInputModifiers.LeftMouseButton);
+                window.MouseMove(point, RawInputModifiers.LeftMouseButton);
                 await Task.Delay(20);
             }
             var dragTransform = first.RenderTransform as Avalonia.Media.TranslateTransform;
