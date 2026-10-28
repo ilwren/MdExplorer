@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     private bool _previewOpen = true;
     private bool _isCompact;
     private bool _isSearchCenterOpen;
+    private bool _isStorageInsightsOpen;
 
     public MainWindow()
     {
@@ -19,6 +20,9 @@ public partial class MainWindow : Window
         _viewModel = new MainWindowViewModel();
         DataContext = _viewModel;
         SearchIndexControl.CloseRequested += (_, _) => CloseSearchCenter();
+        SearchIndexControl.StoragePreviewRequested += (_, _) => OpenStorageInsights();
+        StorageInsightsControl.CloseRequested += (_, _) => CloseStorageInsights();
+        StorageInsightsControl.SearchPreviewRequested += (_, _) => OpenSearchCenter();
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
         SizeChanged += OnWindowSizeChanged;
         KeyDown += OnWindowKeyDown;
@@ -38,8 +42,9 @@ public partial class MainWindow : Window
     private void ApplyResponsiveLayout(double width)
     {
         if (MainLayout.ColumnDefinitions.Count < 3) return;
-        MainLayout.IsVisible = !_isSearchCenterOpen;
+        MainLayout.IsVisible = !_isSearchCenterOpen && !_isStorageInsightsOpen;
         SearchIndexPanel.IsVisible = _isSearchCenterOpen;
+        StorageInsightsHost.IsVisible = _isStorageInsightsOpen;
         _isCompact = width < 600;
         var isMedium = width >= 600 && width < 840;
         var isExpanded = width >= 840 && width < 1200;
@@ -131,6 +136,11 @@ public partial class MainWindow : Window
             CloseSearchCenter();
             e.Handled = true;
         }
+        else if (e.Key == Key.Escape && _isStorageInsightsOpen)
+        {
+            CloseStorageInsights();
+            e.Handled = true;
+        }
         else if (e.Key == Key.Escape && _viewModel.IsPathEditing)
         {
             _viewModel.IsPathEditing = false;
@@ -218,9 +228,12 @@ public partial class MainWindow : Window
             _viewModel.NavigateShortcutCommand.Execute(item);
     }
 
-    private void OnSearchIndexClick(object? sender, RoutedEventArgs e)
+    private void OnSearchIndexClick(object? sender, RoutedEventArgs e) => OpenSearchCenter();
+
+    private void OpenSearchCenter()
     {
         _isSearchCenterOpen = true;
+        _isStorageInsightsOpen = false;
         _viewModel.IsFloatingPreviewOpen = false;
         ApplyResponsiveLayout(Bounds.Width);
     }
@@ -228,6 +241,22 @@ public partial class MainWindow : Window
     private void CloseSearchCenter()
     {
         _isSearchCenterOpen = false;
+        ApplyResponsiveLayout(Bounds.Width);
+    }
+
+    private void OnStorageInsightsClick(object? sender, RoutedEventArgs e) => OpenStorageInsights();
+
+    private void OpenStorageInsights()
+    {
+        _isStorageInsightsOpen = true;
+        _isSearchCenterOpen = false;
+        _viewModel.IsFloatingPreviewOpen = false;
+        ApplyResponsiveLayout(Bounds.Width);
+    }
+
+    private void CloseStorageInsights()
+    {
+        _isStorageInsightsOpen = false;
         ApplyResponsiveLayout(Bounds.Width);
     }
 

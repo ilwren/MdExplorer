@@ -17,6 +17,7 @@ public partial class SearchIndexView : UserControl
     }
 
     public event EventHandler? CloseRequested;
+    public event EventHandler? StoragePreviewRequested;
 
     public void FocusSearchInput()
     {
@@ -35,6 +36,7 @@ public partial class SearchIndexView : UserControl
     }
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
+    private void OnStoragePreviewClick(object? sender, RoutedEventArgs e) => StoragePreviewRequested?.Invoke(this, EventArgs.Empty);
     private void OnFileNameModeClick(object? sender, RoutedEventArgs e) => _viewModel.SearchMode = "文件名";
     private void OnContentModeClick(object? sender, RoutedEventArgs e) => _viewModel.SearchMode = "正文";
     private void OnAllTypesClick(object? sender, RoutedEventArgs e) => _viewModel.SetType("全部类型");
