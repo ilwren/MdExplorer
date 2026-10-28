@@ -6,9 +6,10 @@
 
 > ✅ **验证状态：已通过 GitHub Actions 持续集成验证**（工作流 `.github/workflows/native-ci.yml`）。
 > Ubuntu + .NET SDK 10.0.100（`global.json`）：`dotnet restore` / `dotnet build -c Release` /
-> `dotnet test`（Domain.Tests + Application.Tests）**全部通过**，无编译错误、无测试失败、
-> 无 NuGet 高危告警（SQLitePCLRaw 已钉 2.1.12）。生成环境本身没有 .NET SDK，
-> 编译验证由 CI 完成；`dotnet publish`（AOT 产物）尚未在 CI 中执行。
+> `dotnet test`（Domain.Tests + Application.Tests + ArchitectureChecks）**全部通过**，
+> 无编译错误、无测试失败、无 NuGet 高危告警（SQLitePCLRaw 已钉 2.1.12）。
+> CI 覆盖三项：**编译+测试**（Domain / Application / ArchitectureChecks）、**AOT 发布 linux-x64**（含原生工具链与产物检查）、
+> **AOT 发布 win-x64**。分层引用规则（§4.2）由 `tests/MdExplorer.ArchitectureChecks` 在 CI 中锁死。
 
 ## 结构（§4.2 分层，CI 引用规则锁死）
 
@@ -67,5 +68,6 @@ dotnet publish src/MdExplorer.Desktop -c Release -r linux-x64   # Linux
 - PDF 页面渲染、音视频内嵌播放：降级策略（§6.5），外部打开兜底。
 - 7z/RAR：仅元数据；ZIP 全功能（`ZipArchiveService`，无外部工具依赖）。
 - Android 宿主（Platform.Android/SAF）：按 Spike 推进，本仓库暂未包含。
-- AOT 发布产物（`dotnet publish`）未纳入 CI；本地发布时如遇 AOT 裁剪告警，按 §11 白名单登记。
+- AOT 发布（`dotnet publish -r linux-x64/win-x64`）已在 CI 中通过；如本地新增代码遇到裁剪告警，按 §11 白名单登记。
+- CI 未覆盖 Android/macOS 目标；Avalonia 绑定为反射式（非 compiled bindings，便于渐进迁移）。
 - CI 状态：`native-ci` 工作流（push 触发）= restore/build/test 三阶段全绿。
