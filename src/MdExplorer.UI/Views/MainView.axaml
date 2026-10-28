@@ -32,6 +32,7 @@
       <MenuItem Header="加入/取消收藏" Click="OnMenuFavorite" />
       <MenuItem Header="压缩为 ZIP" Click="OnMenuCompress" />
       <MenuItem Header="打开压缩包工作台" Click="OnMenuOpenArchiveWorkbench" />
+      <MenuItem Header="在文档工作台打开" Click="OnMenuOpenDocumentWorkbench" />
       <MenuItem Header="解压到文件夹" Click="OnMenuExtract" />
       <MenuItem Header="复制路径" Click="OnMenuCopyPath" />
       <MenuItem Header="打开所在文件夹" Click="OnMenuOpenContainingFolder" />
@@ -462,6 +463,7 @@
           <views:SearchCenterView IsVisible="{Binding IsSearchCenterPage}" />
           <views:StorageInsightsView IsVisible="{Binding IsStorageInsightsPage}" />
           <views:ArchiveWorkbenchView IsVisible="{Binding IsArchiveWorkbenchPage}" />
+          <views:DocumentWorkbenchView DataContext="{Binding DocumentWorkbench}" IsVisible="{Binding IsDocumentWorkbenchPage}" />
 
           <!-- 浏览器页：独立白色工作区浮在外层柔和底板上（预览亦同语言） -->
           <Border x:Name="BrowserWorkspace" IsVisible="{Binding IsBrowser}" Classes="workspace-surface" ClipToBounds="True" Margin="10">

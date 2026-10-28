@@ -14,7 +14,7 @@ using MdExplorer.UI.Preview;
 
 namespace MdExplorer.UI.ViewModels;
 
-public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter, StorageInsights, ArchiveWorkbench }
+public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter, StorageInsights, ArchiveWorkbench, DocumentWorkbench }
 public enum SizeClass { Compact, Medium, Expanded, Large, ExtraLarge }
 internal enum DialogKind { None, Prompt, Confirm, Conflict, Message, Progress, BatchRename }
 
@@ -50,6 +50,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private bool _secondaryBrowserInitialized;
 
     public PreviewViewModel Preview { get; }
+
+    /// <summary>独立文档工作台：持有文本编辑与 PDF 阅读状态，页面切换时不随预览选集重建。</summary>
+    public DocumentWorkbenchViewModel DocumentWorkbench { get; }
     public PlatformCapabilities Capabilities => _services.Capabilities;
     public ISettingsStore SettingsStore => _services.SettingsStore;
 
@@ -73,6 +76,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _services = services;
         _launcher = () => services.Launcher;
         Preview = new PreviewViewModel(MdExplorer.UI.Preview.BuiltInPreviewProviders.Create(services.Archive, services.FileSystem), () => Launcher);
+        DocumentWorkbench = new DocumentWorkbenchViewModel(services.FileSystem, services.TextFiles, this, () => Launcher);
+        DocumentWorkbench.CloseRequested += async (_, _) => await CloseDocumentWorkbenchAsync().ConfigureAwait(true);
+        DocumentWorkbench.DocumentSaved += async (_, path) => await OnDocumentSavedAsync(path).ConfigureAwait(true);
+        DocumentWorkbench.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DocumentWorkbenchViewModel.Title) && Page == ShellPage.DocumentWorkbench)
+                OnPropertyChanged(nameof(PageTitle));
+        };
         _persistedRoots.AddRange(services.PersistedRoots);
         AuthorizedRoots.CollectionChanged += (_, _) =>
         {
@@ -89,6 +100,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         SubscribeBrowserSession(Browser, isPrimary: true);
         SubscribeBrowserSession(SecondaryBrowser, isPrimary: false);
         Preview.ArchiveWorkbenchRequested += async (_, path) => await OpenArchiveWorkbenchAsync(path).ConfigureAwait(true);
+        Preview.DocumentWorkbenchRequested += async (_, item) => await OpenDocumentWorkbenchAsync(item).ConfigureAwait(true);
         FavoriteItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFavorites));
         RecentFolders.CollectionChanged += (_, _) =>
         {
@@ -177,6 +189,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         browser.FavoritesChanged += async (_, _) => await RefreshFavoritesAsync().ConfigureAwait(true);
         browser.RecentsChanged += async (_, _) => await RefreshRecentsAsync().ConfigureAwait(true);
         browser.ArchiveWorkbenchRequested += async (_, path) => await OpenArchiveWorkbenchAsync(path).ConfigureAwait(true);
+        browser.DocumentWorkbenchRequested += async (_, item) => await OpenDocumentWorkbenchAsync(item).ConfigureAwait(true);
         browser.PropertyChanged += (sender, e) =>
         {
             if (sender is not BrowserViewModel session)
@@ -413,6 +426,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         ShellPage.SearchCenter => "搜索中心",
         ShellPage.StorageInsights => "存储洞察",
         ShellPage.ArchiveWorkbench => string.IsNullOrWhiteSpace(ArchiveName) ? "压缩包" : ArchiveName,
+        ShellPage.DocumentWorkbench => string.IsNullOrWhiteSpace(DocumentWorkbench.Title) ? "文档" : DocumentWorkbench.Title,
         _ => ActiveBrowser.IsSearchMode ? "搜索结果" : ActiveBrowser.CurrentFolderName,
     };
 
@@ -433,6 +447,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsSearchCenterPage => Page == ShellPage.SearchCenter;
     public bool IsStorageInsightsPage => Page == ShellPage.StorageInsights;
     public bool IsArchiveWorkbenchPage => Page == ShellPage.ArchiveWorkbench;
+    public bool IsDocumentWorkbenchPage => Page == ShellPage.DocumentWorkbench;
 
     public bool IsCompact => SizeClass == SizeClass.Compact;
     public bool IsMedium => SizeClass == SizeClass.Medium;
@@ -470,6 +485,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsSearchCenterPage));
         OnPropertyChanged(nameof(IsStorageInsightsPage));
         OnPropertyChanged(nameof(IsArchiveWorkbenchPage));
+        OnPropertyChanged(nameof(IsDocumentWorkbenchPage));
         OnPropertyChanged(nameof(ShowPreviewPaneEffective));
         NotifyDualPaneState();
         ApplyActivePanePreviewSource();
@@ -512,6 +528,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         };
         if (next != SizeClass)
             SizeClass = next;
+        DocumentWorkbench.IsCompactLayout = next == SizeClass.Compact;
     }
 
     public void RefreshPreviewVisibility()
@@ -1085,6 +1102,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         if (Browser.IsSearchPanelOpen) { Browser.IsSearchPanelOpen = false; return true; }
         if (IsDrawerOpen) { IsDrawerOpen = false; return true; }
         if (IsPreviewPageOpen) { IsPreviewPageOpen = false; return true; }
+        if (Page == ShellPage.DocumentWorkbench)
+        {
+            if (!await DocumentWorkbench.ConfirmDiscardAsync().ConfigureAwait(true)) return true;
+            DocumentWorkbench.Clear();
+            Page = ShellPage.Browser;
+            return true;
+        }
         if (Page == ShellPage.ArchiveWorkbench)
         {
             if (!string.IsNullOrEmpty(ArchiveCurrentFolder))
@@ -1691,6 +1715,73 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     }
 
     partial void OnArchiveSelectedBytesChanged(long value) => OnPropertyChanged(nameof(ArchiveSelectedSummaryText));
+
+    public async Task OpenDocumentWorkbenchAsync(FileItem item)
+    {
+        if (!DocumentWorkbenchViewModel.CanOpen(item))
+        {
+            Notify(DocumentWorkbenchViewModel.IsSupportedText(item) && FileLocator.IsStorageUri(item.FullPath)
+                ? "授权文件夹中的文本暂仅支持只读预览"
+                : "此类型暂不支持文档工作台");
+            return;
+        }
+
+        if (DocumentWorkbench.IsSameDocument(item.FullPath))
+        {
+            Page = ShellPage.DocumentWorkbench;
+            IsDrawerOpen = false;
+            IsPreviewPageOpen = false;
+            OnPropertyChanged(nameof(PageTitle));
+            return;
+        }
+
+        if (DocumentWorkbench.HasDocument &&
+            !await DocumentWorkbench.ConfirmDiscardAsync().ConfigureAwait(true))
+            return;
+
+        FileItem fresh = item;
+        try
+        {
+            fresh = await _services.FileSystem.StatAsync(item.FullPath, CancellationToken.None).ConfigureAwait(true) ?? item;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+        {
+            Notify($"无法读取此文档：{ex.Message}");
+            return;
+        }
+        if (!DocumentWorkbenchViewModel.CanOpen(fresh))
+        {
+            Notify("此类型暂不支持文档工作台");
+            return;
+        }
+
+        Page = ShellPage.DocumentWorkbench;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        await DocumentWorkbench.LoadAsync(fresh).ConfigureAwait(true);
+        OnPropertyChanged(nameof(PageTitle));
+    }
+
+    public async Task CloseDocumentWorkbenchAsync()
+    {
+        if (!await DocumentWorkbench.ConfirmDiscardAsync().ConfigureAwait(true))
+            return;
+        DocumentWorkbench.Clear();
+        Page = ShellPage.Browser;
+    }
+
+    private async Task OnDocumentSavedAsync(string path)
+    {
+        await Browser.RecordRecentFileAsync(path).ConfigureAwait(true);
+        await Browser.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
+        if (_secondaryBrowserInitialized)
+            await SecondaryBrowser.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
+        if (string.Equals(Preview.CurrentItem?.FullPath, path, StringComparison.Ordinal))
+        {
+            var fresh = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true) ?? Preview.CurrentItem;
+            await Preview.LoadAsync(fresh).ConfigureAwait(true);
+        }
+    }
 
     public async Task OpenArchiveWorkbenchAsync(string path)
     {

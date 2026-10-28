@@ -43,6 +43,9 @@ public sealed partial class PreviewViewModel(
     public bool ShowSource => HighlightLanguage is not null;
     public bool ShowPlainText => TextContent is not null && HighlightLanguage is null;
     public bool HasArchive => ArchiveEntries.Count > 0;
+    /// <summary>轻编辑/PDF 文档可从只读预览进入独立工作台。</summary>
+    public bool CanOpenDocumentWorkbench =>
+        CurrentItem is { } item && DocumentWorkbenchViewModel.CanOpen(item);
     /// <summary>仅本地 ZIP 家族文件可进入工作台；SAF 定位串不伪装成本地路径。</summary>
     public bool CanOpenArchiveWorkbench =>
         CurrentItem is { IsFolder: false, Kind: FileKind.Archive } item &&
@@ -68,6 +71,9 @@ public sealed partial class PreviewViewModel(
 
     /// <summary>请求 Shell 打开当前本地压缩包的工作台。</summary>
     public event EventHandler<string>? ArchiveWorkbenchRequested;
+
+    /// <summary>请求 Shell 打开当前文本/PDF 文档工作台。</summary>
+    public event EventHandler<FileItem>? DocumentWorkbenchRequested;
 
     partial void OnImageChanged(Bitmap? value)
     {
@@ -119,6 +125,7 @@ public sealed partial class PreviewViewModel(
         var generation = ++_generation;
         CurrentItem = item;
         OnPropertyChanged(nameof(CanOpenArchiveWorkbench));
+        OnPropertyChanged(nameof(CanOpenDocumentWorkbench));
         RaiseQuickFacts();
         Image = null;
         TextContent = null;
@@ -249,6 +256,13 @@ public sealed partial class PreviewViewModel(
             if (documentGeneration == _generation && renderGeneration == _pdfRenderGeneration)
                 IsLoading = false;
         }
+    }
+
+    [RelayCommand]
+    private void OpenDocumentWorkbench()
+    {
+        if (CanOpenDocumentWorkbench && CurrentItem is { } item)
+            DocumentWorkbenchRequested?.Invoke(this, item);
     }
 
     [RelayCommand]

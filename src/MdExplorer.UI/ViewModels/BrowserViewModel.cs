@@ -212,6 +212,9 @@ public sealed partial class BrowserViewModel : ObservableObject
     /// <summary>请求 Shell 打开本地 ZIP 家族压缩包工作台；参数为压缩包完整路径。</summary>
     public event EventHandler<string>? ArchiveWorkbenchRequested;
 
+    /// <summary>请求 Shell 打开文本/PDF 文档工作台；参数为当前行模型快照。</summary>
+    public event EventHandler<FileItem>? DocumentWorkbenchRequested;
+
     public bool IsListView => ViewMode == BrowserViewMode.List;
     public bool IsGridView => ViewMode == BrowserViewMode.Grid;
     public bool IsDetailsView => ViewMode == BrowserViewMode.Details;
@@ -1997,6 +2000,25 @@ public sealed partial class BrowserViewModel : ObservableObject
         await _dialogs.RunOperationAsync("正在压缩…", (progress, ct) =>
             _archive.CompressToZipAsync(sources, dest, progress, ct)).ConfigureAwait(true);
         await ReloadAfterOperationAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task OpenDocumentWorkbenchAsync(FileItemViewModel? item)
+    {
+        item ??= SelectedItems.FirstOrDefault();
+        if (item is null || item.IsFolder) return;
+        if (!DocumentWorkbenchViewModel.IsSupportedText(item.Model) && !FileKindClassifier.IsPdf(item.Model))
+        {
+            _dialogs.Notify("此类型暂不支持文档工作台");
+            return;
+        }
+        if (DocumentWorkbenchViewModel.IsSupportedText(item.Model) && FileLocator.IsStorageUri(item.FullPath))
+        {
+            _dialogs.Notify("授权文件夹中的文本暂仅支持只读预览");
+            return;
+        }
+        await RecordRecentFileAsync(item.FullPath).ConfigureAwait(true);
+        DocumentWorkbenchRequested?.Invoke(this, item.Model);
     }
 
     [RelayCommand]

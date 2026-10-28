@@ -22,7 +22,14 @@ public sealed record PreviewContent(
     PdfPreviewDocument? Pdf = null);
 
 /// <summary>PDF 预览负载：原始字节仅在内存中保留，翻页时按需光栅化，避免整本同时驻留位图。</summary>
-public sealed record PdfPreviewDocument(byte[] Data, int PageCount, Bitmap FirstPage);
+public sealed record PdfPreviewDocument(
+    byte[] Data,
+    int PageCount,
+    Bitmap FirstPage,
+    IReadOnlyList<PdfPageSize>? PageSizes = null);
+
+/// <summary>PDF 页面在 72dpi 下的逻辑尺寸，供工作台计算纸张宽高比。</summary>
+public sealed record PdfPageSize(double Width, double Height);
 
 /// <summary>
 /// 预览提供者：插件体系 P0 的第一类扩展点。P1 起同名能力由声明式清单描述，
@@ -93,26 +100,39 @@ internal sealed class ImagePreviewProvider(IFileSystemService fileSystem) : IPre
 internal static class PdfPreviewRenderer
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
-    private const int RenderWidth = 1200;
+    internal const int DefaultRenderWidth = 1200;
 
-    private static RenderOptions Options => new(
+    private static RenderOptions Options(int width, PdfRotation rotation) => new(
         Dpi: 144,
-        Width: RenderWidth,
+        Width: Math.Clamp(width, 96, 3600),
         WithAnnotations: true,
         WithFormFill: true,
-        WithAspectRatio: true);
+        WithAspectRatio: true,
+        Rotation: rotation);
 
-    internal static async Task<PdfPreviewDocument> LoadAsync(byte[] data, CancellationToken cancellationToken)
+    internal static async Task<PdfPreviewDocument> LoadAsync(
+        byte[] data,
+        CancellationToken cancellationToken,
+        string? password = null,
+        int renderWidth = DefaultRenderWidth,
+        PdfRotation rotation = PdfRotation.Rotate0)
     {
         return await Task.Run(() =>
         {
             Gate.Wait(cancellationToken);
             try
             {
-                var pageCount = Conversion.GetPageCount(data);
+                var pageCount = Conversion.GetPageCount(data, password);
                 if (pageCount <= 0)
                     throw new InvalidDataException("PDF 不包含任何页面。");
-                return new PdfPreviewDocument(data, pageCount, RenderPageLocked(data, 0));
+                var sizes = Conversion.GetPageSizes(data, password)
+                    .Select(size => new PdfPageSize(size.Width, size.Height))
+                    .ToArray();
+                return new PdfPreviewDocument(
+                    data,
+                    pageCount,
+                    RenderPageLocked(data, 0, password, renderWidth, rotation),
+                    sizes);
             }
             finally
             {
@@ -121,14 +141,20 @@ internal static class PdfPreviewRenderer
         }, cancellationToken).ConfigureAwait(true);
     }
 
-    internal static async Task<Bitmap> RenderPageAsync(byte[] data, int pageIndex, CancellationToken cancellationToken)
+    internal static async Task<Bitmap> RenderPageAsync(
+        byte[] data,
+        int pageIndex,
+        CancellationToken cancellationToken,
+        string? password = null,
+        int renderWidth = DefaultRenderWidth,
+        PdfRotation rotation = PdfRotation.Rotate0)
     {
         return await Task.Run(() =>
         {
             Gate.Wait(cancellationToken);
             try
             {
-                return RenderPageLocked(data, pageIndex);
+                return RenderPageLocked(data, pageIndex, password, renderWidth, rotation);
             }
             finally
             {
@@ -137,10 +163,15 @@ internal static class PdfPreviewRenderer
         }, cancellationToken).ConfigureAwait(true);
     }
 
-    private static Bitmap RenderPageLocked(byte[] data, int pageIndex)
+    private static Bitmap RenderPageLocked(
+        byte[] data,
+        int pageIndex,
+        string? password,
+        int renderWidth,
+        PdfRotation rotation)
     {
         using var png = new MemoryStream();
-        Conversion.SavePng(png, data, new Index(pageIndex), options: Options);
+        Conversion.SavePng(png, data, new Index(pageIndex), password, Options(renderWidth, rotation));
         png.Position = 0;
         return new Bitmap(png);
     }

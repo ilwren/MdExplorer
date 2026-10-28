@@ -173,6 +173,48 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task Large_DocumentWorkbenchText() => await CaptureAsync("38-large-document-editor.png", 1440, 900, async shell =>
+    {
+        await OpenDocumentByNameAsync(shell, "Program.cs");
+        var workbench = shell.DocumentWorkbench;
+        Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
+        Assert.True(workbench.IsTextDocument);
+        workbench.BeginEditCommand.Execute(null);
+        workbench.EditorText += "\n// Eidoria 文档工作台编辑中\n";
+        Assert.True(workbench.IsDirty);
+    });
+
+    [AvaloniaFact]
+    public async Task Large_DocumentWorkbenchPdf() => await CaptureAsync("39-large-pdf-workbench.png", 1440, 900, async shell =>
+    {
+        await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
+        var workbench = shell.DocumentWorkbench;
+        Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
+        Assert.Equal(2, workbench.PdfPageCount);
+        Assert.Equal(2, workbench.PdfPages.Count);
+        Assert.NotNull(workbench.PdfImage);
+        workbench.NextPdfPageCommand.Execute(null);
+        workbench.ZoomInCommand.Execute(null);
+        for (int i = 0; i < 80 && workbench.IsLoading; i++)
+            await Task.Delay(50);
+        Assert.Equal(1, workbench.PdfPageIndex);
+        Assert.Equal(125, workbench.ZoomPercent);
+        Assert.NotNull(workbench.PdfImage);
+    });
+
+    [AvaloniaFact]
+    public async Task Compact_DocumentWorkbenchText() => await CaptureAsync("40-compact-document-editor.png", 390, 844, async shell =>
+    {
+        await OpenDocumentByNameAsync(shell, "README.md");
+        var workbench = shell.DocumentWorkbench;
+        Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
+        Assert.True(workbench.IsCompactLayout);
+        Assert.True(workbench.IsMarkdown);
+        workbench.BeginEditCommand.Execute(null);
+        Assert.True(workbench.IsEditing);
+    });
+
+    [AvaloniaFact]
     public async Task Large_AddressBar() => await CaptureAsync("19-large-address.png", 1440, 900, shell =>
     {
         shell.Browser.BeginEditAddressCommand.Execute(null);
@@ -530,6 +572,12 @@ public sealed class ScreenshotTests
             "no thumbnails decoded; kinds=" + string.Join(",", shell.Browser.Items.Select(i => i.Name + ":" + i.Kind)));
         Assert.NotNull(shell.Preview.Image);
     }
+    private static async Task OpenDocumentByNameAsync(ShellViewModel shell, string name)
+    {
+        var item = shell.Browser.Items.First(i => i.Name == name);
+        await shell.OpenDocumentWorkbenchAsync(item.Model);
+    }
+
     private static async Task SelectByNameAsync(ShellViewModel shell, string name, Func<bool> ready)
     {
         var item = shell.Browser.Items.First(i => i.Name == name);

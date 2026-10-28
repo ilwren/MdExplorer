@@ -1571,6 +1571,7 @@ public partial class MainView : UserControl
     private void OnMenuFavorite(object? sender, RoutedEventArgs e) => MenuBrowser?.ToggleFavoriteCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
     private void OnMenuCompress(object? sender, RoutedEventArgs e) => MenuBrowser?.CompressSelectionCommand.Execute(null);
     private void OnMenuOpenArchiveWorkbench(object? sender, RoutedEventArgs e) => MenuBrowser?.OpenArchiveWorkbenchCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
+    private void OnMenuOpenDocumentWorkbench(object? sender, RoutedEventArgs e) => MenuBrowser?.OpenDocumentWorkbenchCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
     private void OnMenuExtract(object? sender, RoutedEventArgs e) => MenuBrowser?.ExtractSelectionCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
     private void OnMenuSelectionMode(object? sender, RoutedEventArgs e) => MenuBrowser?.EnterSelectionModeCommand.Execute(null);
     private void OnMenuBatchRename(object? sender, RoutedEventArgs e) => MenuBrowser?.BatchRenameSelectionCommand.Execute(null);

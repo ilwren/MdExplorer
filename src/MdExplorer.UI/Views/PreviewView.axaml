@@ -117,6 +117,14 @@
               <TextBlock Text="打开" VerticalAlignment="Center" />
             </StackPanel>
           </md:MdButton>
+          <md:MdButton Variant="Tonal" Height="42" MinWidth="132" Margin="0,0,8,6"
+                       Command="{Binding OpenDocumentWorkbenchCommand}"
+                       IsVisible="{Binding CanOpenDocumentWorkbench}">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.Description}" Size="18" />
+              <TextBlock Text="文档工作台" VerticalAlignment="Center" />
+            </StackPanel>
+          </md:MdButton>
           <md:MdButton Variant="Tonal" Height="42" MinWidth="132" Margin="0,0,0,6"
                        Command="{Binding OpenArchiveWorkbenchCommand}"
                        IsVisible="{Binding CanOpenArchiveWorkbench}">
