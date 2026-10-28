@@ -45,7 +45,7 @@ export function SearchPanel() {
 
   const runSearch = (q: string, kind: string, deep: boolean) => {
     app.setSearch({ query: q, kind, recursive: deep, busy: true });
-    api.search(base, q, kind, deep)
+    api.search(base, q, kind, deep, s.content)
       .then((r) => app.setSearch({ results: r.results.slice(0, 200), busy: false }))
       .catch(() => app.setSearch({ results: [], busy: false }));
   };
@@ -88,6 +88,17 @@ export function SearchPanel() {
               </button>
             ))}
           </div>
+          <Segmented
+            value={s.content ? 'content' : 'name'}
+            options={[
+              { id: 'name', label: '文件名' },
+              { id: 'content', label: '正文' },
+            ]}
+            onChange={(v) => {
+              app.setSearch({ content: v === 'content' });
+              if (s.query.trim()) runSearch(s.query, s.kind, scope === 'deep');
+            }}
+          />
           <Segmented
             value={scope}
             options={[
@@ -135,7 +146,11 @@ function SearchRow({ e }: { e: FsEntry }) {
       </span>
       <span className="searchrow__body">
         <span className="searchrow__name">{e.name}</span>
-        <span className="searchrow__path">{parent}</span>
+        {e.snippet ? (
+          <span className="searchrow__snippet">…{e.snippet}…</span>
+        ) : (
+          <span className="searchrow__path">{parent}</span>
+        )}
       </span>
       <span className="searchrow__meta">{e.isDir ? '文件夹' : formatSize(e.size)}</span>
     </button>

@@ -183,3 +183,122 @@ export async function searchEntries(dir, query, { recursive = true, kind = '', l
 export function ensureDirSync(p) {
   fs.mkdirSync(p, { recursive: true });
 }
+
+/* ------------------------------ insights ------------------------------ */
+
+/**
+ * One-pass budgeted scan: by-kind totals, folder sizes, largest files.
+ * Skip-listed heavy dirs are ignored (same as search).
+ */
+export async function scanInsights(budgetMs = 6000) {
+  const deadline = Date.now() + budgetMs;
+  const byKind = {};            // kind -> { bytes, count }
+  const dirSizes = new Map();   // dir -> bytes
+  const dirCounts = new Map();  // dir -> file count
+  const largeFiles = [];        // top files
+  const recentGrowth = [];      // recently written files
+  const recentCutoff = Date.now() - 30 * 24 * 3600 * 1000;
+  let totalBytes = 0, totalFiles = 0, truncated = false;
+
+  async function walk(d) {
+    if (Date.now() > deadline) { truncated = true; return; }
+    let names;
+    try { names = await fsp.readdir(d); } catch { return; }
+    let sum = 0, count = 0;
+    for (const name of names) {
+      if (Date.now() > deadline) { truncated = true; break; }
+      const full = path.join(d, name);
+      const st = await fsp.stat(full).catch(() => null);
+      if (!st) continue;
+      if (st.isDirectory()) {
+        if (SKIP_DIRS.has(name) || name.startsWith('.')) continue;
+        const sub = await walk(full);
+        sum += sub.bytes; count += sub.files;
+      } else if (st.isFile()) {
+        if (name.startsWith('.')) continue;
+        const kind = classify(name, false);
+        byKind[kind] = byKind[kind] || { bytes: 0, count: 0 };
+        byKind[kind].bytes += st.size;
+        byKind[kind].count += 1;
+        totalBytes += st.size; totalFiles += 1;
+        sum += st.size; count += 1;
+        largeFiles.push({ path: full, name, size: st.size, kind });
+        if (st.mtimeMs > recentCutoff && recentGrowth.length < 400) {
+          recentGrowth.push({ path: full, name, size: st.size, kind, mtime: st.mtimeMs });
+        }
+      }
+    }
+    dirSizes.set(d, sum);
+    dirCounts.set(d, count);
+    return { bytes: sum, files: count };
+  }
+
+  for (const r of ROOTS) await walk(r);
+
+  largeFiles.sort((a, b) => b.size - a.size);
+  const folders = [...dirSizes.entries()]
+    .map(([p, bytes]) => ({ path: p, bytes, files: dirCounts.get(p) ?? 0 }))
+    .filter((f) => f.bytes > 0)
+    .sort((a, b) => b.bytes - a.bytes)
+    .slice(0, 48);
+
+  return {
+    byKind: Object.entries(byKind)
+      .map(([kind, v]) => ({ kind, ...v }))
+      .sort((a, b) => b.bytes - a.bytes),
+    folders,
+    largeFiles: largeFiles.slice(0, 40),
+    recentGrowth: recentGrowth.sort((a, b) => b.mtime - a.mtime).slice(0, 8),
+    totalBytes,
+    totalFiles,
+    truncated,
+    scannedAt: Date.now(),
+  };
+}
+
+/** Content search in text-ish files with snippets (budgeted). */
+export async function searchContent(dir, query, { limit = 80, budgetMs = 5000 } = {}) {
+  const abs = safePath(dir);
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const deadline = Date.now() + budgetMs;
+  const results = [];
+  const TEXTUAL = new Set(['markdown', 'code', 'text', 'doc', 'other']);
+
+  async function walk(d, depth) {
+    if (results.length >= limit || Date.now() > deadline || depth > 10) return;
+    let names;
+    try { names = await fsp.readdir(d); } catch { return; }
+    for (const name of names) {
+      if (results.length >= limit || Date.now() > deadline) return;
+      if (name.startsWith('.')) continue;
+      const full = path.join(d, name);
+      const st = await fsp.stat(full).catch(() => null);
+      if (!st) continue;
+      if (st.isDirectory()) {
+        if (!SKIP_DIRS.has(name)) await walk(full, depth + 1);
+        continue;
+      }
+      const kind = classify(name, false);
+      if (!TEXTUAL.has(kind)) continue;
+      if (st.size > 2 * 1024 * 1024) continue;
+      const fh = await fsp.open(full, 'r').catch(() => null);
+      if (!fh) continue;
+      try {
+        const buf = Buffer.alloc(Math.min(st.size, 256 * 1024));
+        await fh.read(buf, 0, buf.length, 0);
+        const text = buf.toString('utf8');
+        const idx = text.toLowerCase().indexOf(q);
+        if (idx >= 0) {
+          const start = Math.max(0, idx - 40);
+          const snippet = text.slice(start, idx + q.length + 60).replace(/\s+/g, ' ');
+          results.push({ path: full, name, size: st.size, mtime: st.mtimeMs, kind, ext: extOf(name), snippet });
+        }
+      } finally {
+        await fh.close();
+      }
+    }
+  }
+  await walk(abs, 0);
+  return results;
+}

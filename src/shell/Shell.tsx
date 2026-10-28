@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { api } from '../api';
 import { Icon } from '../ui/icons';
 import { Button, Chip, IconButton, Menu, TextField, type MenuItem } from '../ui/widgets';
 import { locTitle, useApp, type Location, type TabState } from '../state/app';
@@ -38,6 +39,7 @@ const MAIN_NAV: NavItem[] = [
   { loc: { kind: 'category', cat: 'video' }, label: '视频', icon: 'movie' },
   { loc: { kind: 'category', cat: 'doc' }, label: '文档', icon: 'description' },
   { loc: { kind: 'trash' }, label: '回收站', icon: 'delete' },
+  { loc: { kind: 'insights' }, label: '存储洞察', icon: 'data_usage' },
 ];
 
 const BOTTOM_NAV: NavItem[] = [
@@ -326,7 +328,25 @@ export function NavRow() {
         <IconButton name="refresh" title="刷新" onClick={app.refresh} />
       </div>
 
-      {dirPath ? (
+      {loc.kind === 'zip' ? (
+        <div className="breadcrumb" title={loc.path}>
+          <button className="breadcrumb__seg" onClick={() => app.navigate({ kind: 'zip', path: loc.path, inner: '' })}>
+            <Icon name="folder_zip" size={15} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />
+            {loc.path.split('/').pop()}
+          </button>
+          {loc.inner.split('/').filter(Boolean).map((seg, i, arr) => (
+            <React.Fragment key={i}>
+              <Icon name="chevron_right" size={16} className="breadcrumb__sep" />
+              <button
+                className="breadcrumb__seg"
+                onClick={() => app.navigate({ kind: 'zip', path: loc.path, inner: arr.slice(0, i + 1).join('/') })}
+              >
+                {seg}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
+      ) : dirPath ? (
         <Breadcrumb path={dirPath} compact={wc === 'compact'} />
       ) : (
         <div className="breadcrumb"><span className="breadcrumb__seg">{locTitle(loc)}</span></div>
@@ -379,22 +399,76 @@ export function NavRow() {
 export function Toolbar() {
   const app = useApp();
   const sel = app.activeTab.selection;
-  const dirPath = app.activeTab.location.kind === 'dir' ? app.activeTab.location.path : null;
+  const loc = app.activeTab.location;
+  const isZip = loc.kind === 'zip';
+  const dirPath = loc.kind === 'dir' ? loc.path : null;
   const canPaste = !!app.clipboard && !!dirPath;
   const one = sel.length === 1 ? sel[0] : null;
   const [sortMenu, setSortMenu] = useState<{ x: number; y: number } | null>(null);
   const [viewMenu, setViewMenu] = useState<{ x: number; y: number } | null>(null);
   const [batchOpen, setBatchOpen] = useState(false);
 
+  if (isZip) {
+    const zipPath = loc.path;
+    return (
+      <div className="toolbar">
+        <IconButton
+          name="unarchive"
+          title="解压所选"
+          disabled={!sel.length}
+          onClick={() => app.setDialog({
+            kind: 'extract', path: zipPath,
+            entries: app.listing.filter((x) => sel.includes(x.path)),
+          })}
+        />
+        <IconButton
+          name="folder_zip"
+          title="解压全部"
+          onClick={() => app.setDialog({ kind: 'extract', path: zipPath, entries: null })}
+        />
+        <IconButton
+          name="fact_check"
+          title="任务中心"
+          onClick={() => app.setTaskPanelOpen(true)}
+        />
+        <div className="toolbar__gap" />
+        <IconButton
+          name="sort" title="排序"
+          onClick={(e) => {
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setSortMenu({ x: r.left, y: r.bottom + 6 });
+          }}
+        />
+        {sortMenu && (
+          <Menu
+            x={sortMenu.x} y={sortMenu.y}
+            onClose={() => setSortMenu(null)}
+            onPick={(id) => {
+              if (id === 'dir-toggle') app.patchSettings({ sortDir: app.settings.sortDir === 'asc' ? 'desc' : 'asc' });
+              else app.patchSettings({ sortBy: id as 'name' | 'size' | 'mtime' | 'kind' });
+            }}
+            items={[
+              { id: 'name', label: `名称${app.settings.sortBy === 'name' ? '  ✓' : ''}`, icon: 'sort_by_alpha' },
+              { id: 'size', label: `大小${app.settings.sortBy === 'size' ? '  ✓' : ''}`, icon: 'data_usage' },
+              { id: 'mtime', label: `修改时间${app.settings.sortBy === 'mtime' ? '  ✓' : ''}`, icon: 'schedule' },
+              { id: 'dir-toggle', label: app.settings.sortDir === 'asc' ? '改为降序' : '改为升序', icon: 'swap_vert' },
+            ]}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="toolbar">
       <IconButton name="create_new_folder" title="新建文件夹" disabled={!dirPath} onClick={() => app.setDialog({ kind: 'newfolder', dir: dirPath! })} />
       <IconButton name="content_cut" title="剪切" disabled={!sel.length} onClick={() => app.setClipboard({ op: 'cut', paths: sel })} />
       <IconButton name="content_copy" title="复制" disabled={!sel.length} onClick={() => app.setClipboard({ op: 'copy', paths: sel })} />
-      <IconButton name="content_paste" title="粘贴" disabled={!canPaste} onClick={() => void doPaste()} />
+      <IconButton name="content_paste" title="粘贴" disabled={!canPaste} onClick={() => doPaste()} />
       <IconButton name="drive_file_rename_outline" title="重命名" disabled={!one} onClick={() => one && app.setDialog({ kind: 'rename', path: one, name: one.split('/').pop()! })} />
       <IconButton name="delete" title="删除" disabled={!sel.length} onClick={() => app.setDialog({ kind: 'confirm-delete', paths: sel })} />
       <IconButton name="edit_note" title="批量重命名" disabled={!sel.length} onClick={() => setBatchOpen(true)} />
+      <IconButton name="fact_check" title="任务中心" onClick={() => app.setTaskPanelOpen(true)} />
       <div className="toolbar__gap" />
       <IconButton
         name="sort" title="排序"
@@ -447,31 +521,10 @@ export function Toolbar() {
 
   async function doPaste() {
     const cb = app.clipboard!;
-    const dest = dirPath!;
-    const info = await api_pasteInfo(cb.paths, dest);
-    const conflicts = info.items.filter((i) => i.exists);
-    const run = async (overwrite: boolean) => {
-      const fn = cb.op === 'cut' ? api_move : api_copy;
-      const r = await fn(cb.paths, dest, overwrite);
-      if (cb.op === 'cut') app.setClipboard(null);
-      app.refresh();
-      app.toast(`${r.results.length} 项已${cb.op === 'cut' ? '移动' : '复制'}`);
-    };
-    if (conflicts.length) {
-      const ok = window.confirm(`${conflicts.length} 个同名项目已存在，是否替换？`);
-      if (!ok) return;
-      await run(true);
-    } else {
-      await run(false);
-    }
+    await app.runTransfer(cb.op === 'cut', cb.paths, dirPath!);
+    app.setTaskPanelOpen(true);
   }
 }
-
-import { api } from '../api';
-
-function api_copy(p: string[], d: string, o: boolean) { return api.copy(p, d, o); }
-function api_move(p: string[], d: string, o: boolean) { return api.move(p, d, o); }
-function api_pasteInfo(p: string[], d: string) { return api.pasteInfo(p, d); }
 
 export function BatchRenameDialog({ onClose }: { onClose: () => void }) {
   const app = useApp();

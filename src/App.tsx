@@ -8,8 +8,12 @@ import { HomeView } from './views/HomeView';
 import { FloatingPreview, PreviewPane } from './views/Preview';
 import { SearchPanel } from './views/SearchPanel';
 import { SettingsView, TrashView } from './views/MiscViews';
+import { InsightsView } from './views/InsightsView';
+import { ZipView } from './views/ZipView';
 import { DialogHost, Toasts } from './views/Dialogs';
-import { IconButton } from './ui/widgets';
+import { MiniTaskBar, TaskPanel } from './views/TaskCenter';
+import { IconButton, Menu, type MenuItem } from './ui/widgets';
+import { Icon } from './ui/icons';
 
 function MainContent() {
   const app = useApp();
@@ -18,8 +22,64 @@ function MainContent() {
     case 'home': return <HomeView />;
     case 'settings': return <SettingsView />;
     case 'trash': return <TrashView />;
+    case 'insights': return <InsightsView />;
+    case 'zip': return <ZipView />;
     default: return <BrowserView />;
   }
+}
+
+/** Compact FAB — 新建 (folder pages only), per responsive spec §2. */
+function CompactFab() {
+  const app = useApp();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const loc = app.activeTab.location;
+  const dir = loc.kind === 'dir' ? loc.path : null;
+  if (!dir) return null;
+  return (
+    <>
+      <button
+        className="fab"
+        title="新建"
+        onClick={(e) => {
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          setMenu({ x: Math.max(8, r.left - 120), y: r.top - 100 });
+        }}
+      >
+        <Icon name="add" size={26} />
+      </button>
+      {menu && (
+        <Menu
+          x={menu.x} y={menu.y}
+          onClose={() => setMenu(null)}
+          onPick={(id) => {
+            if (id === 'folder') app.setDialog({ kind: 'newfolder', dir: dir! });
+            if (id === 'file') app.setDialog({ kind: 'newfile', dir: dir! });
+          }}
+          items={[
+            { id: 'folder', label: '新建文件夹', icon: 'create_new_folder' },
+            { id: 'file', label: '新建文件', icon: 'note_add' },
+          ] as MenuItem[]}
+        />
+      )}
+    </>
+  );
+}
+
+/** Compact selection context bar (long-press/multi-select) per spec §2. */
+function CompactSelectionBar() {
+  const app = useApp();
+  const sel = app.activeTab.selection;
+  if (sel.length === 0) return null;
+  return (
+    <div className="ctxbar">
+      <IconButton name="close" title="退出选择" variant="plain" onClick={() => app.clearSelection()} />
+      <span className="ctxbar__count">已选 {sel.length}</span>
+      <IconButton name="select_all" title="全选" variant="plain" onClick={app.selectAll} />
+      <IconButton name="content_copy" title="复制" variant="plain" onClick={() => app.setClipboard({ op: 'copy', paths: sel })} />
+      <IconButton name="content_cut" title="剪切" variant="plain" onClick={() => app.setClipboard({ op: 'cut', paths: sel })} />
+      <IconButton name="delete" title="删除" variant="plain" onClick={() => app.setDialog({ kind: 'confirm-delete', paths: sel })} />
+    </div>
+  );
 }
 
 function Shell() {
@@ -32,10 +92,9 @@ function Shell() {
   const showPane = !compact && !medium && app.previewPaneOpen && !!app.previewTarget;
   const showFloat = (compact || medium) && !!app.previewTarget;
 
-  // Folders: no floating preview shell; selection drives preview.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' && app.activeTab.selection.length > 0 && !app.dialog) {
+      if (e.key === 'Delete' && app.activeTab.selection.length > 0 && !app.dialog && !app.conflict) {
         app.setDialog({ kind: 'confirm-delete', paths: app.activeTab.selection });
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !app.dialog && !app.search.open) {
@@ -58,7 +117,11 @@ function Shell() {
         )}
 
         <main className="main">
-          {compact && <CompactTopBar onOpenDrawer={() => setDrawerOpen(true)} />}
+          {compact && app.activeTab.selection.length > 0 ? (
+            <CompactSelectionBar />
+          ) : compact ? (
+            <CompactTopBar onOpenDrawer={() => setDrawerOpen(true)} />
+          ) : null}
           {showTabs && <TabStrip />}
           <NavRow />
           {!compact && <Toolbar />}
@@ -76,16 +139,12 @@ function Shell() {
           </div>
 
           {!compact && <StatusBar />}
-          {compact && app.clipboard && (
-            <div className="minitask">
-              <span>{app.clipboard.paths.length} 项待粘贴</span>
-              <button onClick={() => app.navigate(app.activeTab.location.kind === 'dir' ? app.activeTab.location : { kind: 'home' })}>前往粘贴</button>
-            </div>
-          )}
+          <MiniTaskBar />
         </main>
       </div>
 
       {compact && <BottomNav />}
+      {compact && <CompactFab />}
 
       {drawerOpen && (
         <div className="drawer-scrim" onMouseDown={(e) => e.target === e.currentTarget && setDrawerOpen(false)}>
@@ -99,6 +158,7 @@ function Shell() {
       )}
 
       {showFloat && <FloatingPreview />}
+      <TaskPanel />
       <SearchPanel />
       <DialogHost />
       <Toasts />

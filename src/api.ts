@@ -8,6 +8,12 @@ export interface FsEntry {
   kind: string;
   ext: string;
   children?: number;
+  compressedSize?: number;
+  /** set for entries inside a zip archive (virtual paths) */
+  zipOf?: string;
+  zipEntry?: string;
+  /** content-search hit */
+  snippet?: string;
 }
 
 export interface AppSettings {
@@ -44,15 +50,26 @@ export const api = {
   toggleFavorite: (path: string) => post<{ favorites: string[]; added: boolean }>('/api/favorites/toggle', { path }),
   list: (path: string) => req<{ path: string; name: string; parent: string; entries: FsEntry[] }>(`/api/list?path=${encodeURIComponent(path)}`),
   stat: (path: string) => req<FsEntry>(`/api/stat?path=${encodeURIComponent(path)}`),
-  search: (path: string, q: string, kind = '', recursive = true) =>
-    req<{ results: FsEntry[] }>(`/api/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(q)}&kind=${kind}&recursive=${recursive ? 1 : 0}`),
+  search: (path: string, q: string, kind = '', recursive = true, content = false) =>
+    req<{ results: FsEntry[] }>(`/api/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(q)}&kind=${kind}&recursive=${recursive ? 1 : 0}&content=${content ? 1 : 0}`),
   text: (path: string) => req<{ text: string; truncated: boolean; size: number }>(`/api/text?path=${encodeURIComponent(path)}`),
-  zip: (path: string) => req<{ entries: { name: string; isDir: boolean; size: number; compressedSize: number; kind: string }[] }>(`/api/zip?path=${encodeURIComponent(path)}`),
+  /** List zip contents. `inner` omitted -> flat dump of all entries; `inner` (even '') -> children of that virtual folder. */
+  zip: (path: string, inner?: string) => req<{ entries: FsEntry[] }>(`/api/zip?path=${encodeURIComponent(path)}${inner !== undefined ? `&inner=${encodeURIComponent(inner)}` : ''}`),
+  zipEntryText: (path: string, entry: string) => req<{ text: string; size: number }>(`/api/zip/entry-text?path=${encodeURIComponent(path)}&entry=${encodeURIComponent(entry)}`),
+  zipEntryUrl: (path: string, entry: string) => `/api/zip/entry-raw?path=${encodeURIComponent(path)}&entry=${encodeURIComponent(entry)}`,
+  zipExtract: (path: string, entry: string | null, dest: string, keepStructure: boolean, policy: string) =>
+    post<{ results: { name: string; status: string; target?: string }[] }>('/api/zip/extract', { path, entry, dest, keepStructure, policy }),
+  insights: () => req<Insights>('/api/insights'),
   rawUrl: (path: string) => `/api/raw?path=${encodeURIComponent(path)}`,
+  /** Resolve the right URL for previewing an entry (real file or zip member). */
+  entryUrl: (e: FsEntry) =>
+    e.zipOf ? `/api/zip/entry-raw?path=${encodeURIComponent(e.zipOf)}&entry=${encodeURIComponent(e.zipEntry ?? '')}` : `/api/raw?path=${encodeURIComponent(e.path)}`,
   rename: (path: string, newName: string) => post<{ path: string }>('/api/ops/rename', { path, newName }),
   mkdir: (path: string, name: string) => post<{ path: string }>('/api/ops/mkdir', { path, name }),
   newfile: (path: string, name: string, content = '') => post<{ path: string }>('/api/ops/newfile', { path, name, content }),
   del: (paths: string[]) => post<{ deleted: string[] }>('/api/ops/delete', { paths }),
+  transfer: (paths: string[], dest: string, move: boolean, policy: 'ask' | 'overwrite' | 'skip' | 'keep-both') =>
+    post<{ results: TransferResult[] }>('/api/ops/transfer', { paths, dest, move, policy }),
   copy: (paths: string[], dest: string, overwrite = false) => post<{ results: { name: string; conflict?: boolean; ok?: boolean }[] }>('/api/ops/copy', { paths, dest, overwrite }),
   move: (paths: string[], dest: string, overwrite = false) => post<{ results: { name: string; conflict?: boolean; ok?: boolean }[] }>('/api/ops/move', { paths, dest, overwrite }),
   pasteInfo: (paths: string[], dest: string) => post<{ items: { source: string; target: string; exists: boolean }[] }>('/api/ops/paste-info', { paths, dest }),
@@ -61,3 +78,16 @@ export const api = {
   trashEmpty: () => post<{ ok: boolean }>('/api/trash/empty', {}),
   pushRecent: (path: string) => post<{ recent: string[] }>('/api/recent', { path }),
 };
+
+export interface TransferResult { name: string; status: 'ok' | 'kept' | 'skipped' | 'conflict'; target?: string }
+
+export interface Insights {
+  byKind: { kind: string; bytes: number; count: number }[];
+  folders: { path: string; bytes: number; files: number }[];
+  largeFiles: { path: string; name: string; size: number; kind: string }[];
+  recentGrowth: { path: string; name: string; size: number; kind: string; mtime: number }[];
+  totalBytes: number;
+  totalFiles: number;
+  truncated: boolean;
+  scannedAt: number;
+}

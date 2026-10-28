@@ -9,8 +9,9 @@ import AdmZip from 'adm-zip';
 
 import {
   ROOTS, safePath, listDir, entryOf, rootsInfo, readText, mimeOf,
-  searchEntries, apiError, classify, extOf,
+  searchEntries, searchContent, scanInsights, apiError, classify, extOf,
 } from './fs.mjs';
+import { zipList, zipEntryBytes, zipEntries, uniqueTarget } from './zip.mjs';
 import {
   getSettings, saveSettings, getFavorites, toggleFavorite, pushRecent, getRecent,
   trashList, trashDelete, trashRestore, trashEmpty,
@@ -65,8 +66,12 @@ app.get('/api/search', wrap(async (req) => {
   const q = String(req.query.q || '');
   const recursive = String(req.query.recursive ?? '1') !== '0';
   const kind = String(req.query.kind || '');
+  const content = String(req.query.content ?? '') === '1';
+  if (content) return { results: await searchContent(dir, q) };
   return { results: await searchEntries(dir, q, { recursive, kind }) };
 }));
+
+app.get('/api/insights', wrap(async () => scanInsights()));
 
 app.get('/api/text', wrap(async (req) => {
   return readText(safePath(String(req.query.path)));
@@ -84,16 +89,59 @@ app.get('/api/raw', wrap(async (req, res) => {
 
 app.get('/api/zip', wrap(async (req) => {
   const abs = safePath(String(req.query.path));
-  const zip = new AdmZip(abs);
-  const entries = zip.getEntries().map((en) => ({
-    name: en.entryName,
-    isDir: en.isDirectory,
-    size: en.header.size,
-    compressedSize: en.header.compressedSize,
-    kind: classify(path.basename(en.entryName), en.isDirectory),
-    mtime: en.header.time?.getTime?.() ?? 0,
-  }));
-  return { entries };
+  const inner = req.query.inner;
+  // no `inner` param -> flat entry dump (tree building / previews)
+  if (inner === undefined) return { entries: zipEntries(abs) };
+  // `inner` present (even empty) -> virtual-folder children listing
+  return { entries: zipList(abs, String(inner)) };
+}));
+
+app.get('/api/zip/entry-text', wrap(async (req) => {
+  const abs = safePath(String(req.query.path));
+  const entry = String(req.query.entry || '');
+  const buf = zipEntryBytes(abs, entry);
+  return { text: buf.toString('utf8').slice(0, 256 * 1024), size: buf.length };
+}));
+
+app.get('/api/zip/entry-raw', wrap(async (req, res) => {
+  const abs = safePath(String(req.query.path));
+  const entry = String(req.query.entry || '');
+  const buf = zipEntryBytes(abs, entry);
+  res.setHeader('Content-Type', mimeOf(entry));
+  res.setHeader('Content-Length', buf.length);
+  res.end(buf);
+}));
+
+app.post('/api/zip/extract', wrap(async (req) => {
+  const abs = safePath(req.body.path);
+  const entry = req.body.entry ? String(req.body.entry) : null;
+  const dest = safePath(req.body.dest);
+  const keepStructure = req.body.keepStructure !== false;
+  const policy = String(req.body.policy || 'ask'); // ask | overwrite | skip | keep-both
+  await fsp.mkdir(dest, { recursive: true }).catch(() => {});
+  const st = await fsp.stat(dest).catch(() => null);
+  if (!st?.isDirectory()) throw apiError(400, 'destination is not a directory');
+
+  const names = entry ? [entry] : zipEntries(abs).filter((e) => !e.isDir).map((e) => e.name);
+  const results = [];
+  for (const name of names) {
+    if (name.endsWith('/')) continue;
+    const data = zipEntryBytes(abs, name);
+    const rel = keepStructure ? name : name.split('/').pop();
+    let target = path.join(dest, rel);
+    safePath(target);
+    await fsp.mkdir(path.dirname(target), { recursive: true });
+    if (fs.existsSync(target)) {
+      if (policy === 'skip' || policy === 'ask') {
+        results.push({ name, status: policy === 'ask' ? 'conflict' : 'skipped' });
+        continue;
+      }
+      if (policy === 'keep-both') target = uniqueTarget(path.dirname(target), path.basename(target));
+    }
+    await fsp.writeFile(target, data);
+    results.push({ name, status: 'ok', target });
+  }
+  return { results };
 }));
 
 /* --------------------------------- ops --------------------------------- */
@@ -133,34 +181,43 @@ app.post('/api/ops/delete', wrap(async (req) => {
   return { deleted: names };
 }));
 
+app.post('/api/ops/transfer', wrap(async (req) => {
+  return transfer(req.body, !!req.body.move);
+}));
+
 app.post('/api/ops/copy', wrap(async (req) => {
-  return transfer(req.body, false);
+  return transfer({ ...req.body, policy: req.body.overwrite ? 'overwrite' : 'ask' }, false);
 }));
 
 app.post('/api/ops/move', wrap(async (req) => {
-  return transfer(req.body, true);
+  return transfer({ ...req.body, policy: req.body.overwrite ? 'overwrite' : 'ask' }, true);
 }));
 
-async function transfer({ paths, dest, overwrite }, move) {
+async function transfer({ paths, dest, policy = 'ask' }, move) {
   const destDir = safePath(dest);
   const st = await fsp.stat(destDir).catch(() => null);
   if (!st?.isDirectory()) throw apiError(400, 'destination is not a directory');
   const results = [];
   for (const p of paths || []) {
     const abs = safePath(p);
-    const target = path.join(destDir, path.basename(abs));
+    const base = path.basename(abs);
+    let target = path.join(destDir, base);
     safePath(target);
-    if (fs.existsSync(target) && !overwrite) {
-      results.push({ name: path.basename(abs), conflict: true });
-      continue;
+    if (fs.existsSync(target)) {
+      if (policy === 'ask') { results.push({ name: base, status: 'conflict' }); continue; }
+      if (policy === 'skip') { results.push({ name: base, status: 'skipped' }); continue; }
+      if (policy === 'keep-both') target = uniqueTarget(destDir, base);
+      else await fsp.rm(target, { recursive: true, force: true });
     }
-    if (fs.existsSync(target)) await fsp.rm(target, { recursive: true, force: true });
-    if (move) await fsp.rename(abs, target).catch(async () => {
+    if (move) {
+      await fsp.rename(abs, target).catch(async () => {
+        await fsp.cp(abs, target, { recursive: true });
+        await fsp.rm(abs, { recursive: true, force: true });
+      });
+    } else {
       await fsp.cp(abs, target, { recursive: true });
-      await fsp.rm(abs, { recursive: true, force: true });
-    });
-    else await fsp.cp(abs, target, { recursive: true });
-    results.push({ name: path.basename(abs), ok: true });
+    }
+    results.push({ name: base, status: policy === 'keep-both' ? 'kept' : 'ok', target });
   }
   return { results };
 }

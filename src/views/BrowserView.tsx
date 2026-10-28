@@ -13,7 +13,7 @@ function EntryVisual({ e, size, radius }: { e: FsEntry; size: number; radius: nu
   if (isThumb) {
     return (
       <span className="thumb" style={{ borderRadius: radius }}>
-        <img src={api.rawUrl(e.path)} alt="" loading="lazy" />
+        <img src={api.entryUrl(e)} alt="" loading="lazy" />
       </span>
     );
   }
@@ -103,6 +103,30 @@ export function FileRow({ e }: { e: FsEntry }) {
 
 export function EntryMenu({ e, x, y, onClose }: { e: FsEntry; x: number; y: number; onClose: () => void }) {
   const app = useApp();
+
+  if (e.zipOf) {
+    return (
+      <Menu
+        x={x} y={y}
+        onClose={onClose}
+        onPick={(id) => {
+          const sel = app.activeTab.selection.includes(e.path) ? app.activeTab.selection : [e.path];
+          const selEntries = app.listing.filter((x) => sel.includes(x.path));
+          const zipPath = e.zipOf!;
+          if (id === 'open') app.openEntry(e);
+          if (id === 'extract') app.setDialog({ kind: 'extract', path: zipPath, entries: selEntries });
+          if (id === 'copyname') navigator.clipboard?.writeText(e.name).then(() => app.toast('已复制名称'));
+        }}
+        items={[
+          { id: 'open', label: e.isDir ? '打开' : '预览', icon: e.isDir ? 'folder_open' : 'preview' },
+          { id: 'extract', label: '解压所选', icon: 'unarchive' },
+          { id: 'separator', separator: true },
+          { id: 'copyname', label: '复制名称', icon: 'content_paste' },
+        ]}
+      />
+    );
+  }
+
   return (
     <Menu
       x={x} y={y}

@@ -17,7 +17,7 @@ export function useEntryFacts(e: FsEntry | null) {
     if (!e || e.kind !== 'image' || e.ext === 'svg') return;
     const im = new Image();
     im.onload = () => setImg({ w: im.naturalWidth, h: im.naturalHeight });
-    im.src = api.rawUrl(e.path);
+    im.src = api.entryUrl(e);
   }, [e?.path, e?.kind, e?.ext]);
   return img;
 }
@@ -31,24 +31,16 @@ const LANG_BY_EXT: Record<string, string> = {
 
 export function PreviewBody({ e }: { e: FsEntry }) {
   const meta = kindMeta(e.kind);
-  const img = useEntryFacts(e);
 
-  if (e.kind === 'image' && e.ext !== 'svg') {
+  if ((e.kind === 'image' && e.ext !== 'svg') || e.ext === 'svg') {
     return (
       <div className="pv-image">
-        <img src={api.rawUrl(e.path)} alt={e.name} />
-      </div>
-    );
-  }
-  if (e.ext === 'svg') {
-    return (
-      <div className="pv-image">
-        <img src={api.rawUrl(e.path)} alt={e.name} />
+        <img src={api.entryUrl(e)} alt={e.name} />
       </div>
     );
   }
   if (e.kind === 'video') {
-    return <div className="pv-media"><video src={api.rawUrl(e.path)} controls preload="metadata" /></div>;
+    return <div className="pv-media"><video src={api.entryUrl(e)} controls preload="metadata" /></div>;
   }
   if (e.kind === 'audio') {
     return (
@@ -56,18 +48,18 @@ export function PreviewBody({ e }: { e: FsEntry }) {
         <span className="pv-audio__well" style={{ background: meta.wellBg, color: meta.wellFg }}>
           <Icon name="audio_file" size={56} />
         </span>
-        <audio src={api.rawUrl(e.path)} controls preload="metadata" />
+        <audio src={api.entryUrl(e)} controls preload="metadata" />
       </div>
     );
   }
   if (e.kind === 'pdf') {
     return (
       <div className="pv-pdf">
-        <iframe src={api.rawUrl(e.path)} title={e.name} />
+        <iframe src={api.entryUrl(e)} title={e.name} />
       </div>
     );
   }
-  if (e.kind === 'archive') {
+  if (e.kind === 'archive' && !e.zipOf) {
     return <ZipPreview e={e} />;
   }
   if (e.kind === 'markdown' || e.kind === 'code' || e.kind === 'text') {
@@ -90,7 +82,10 @@ function TextPreview({ e }: { e: FsEntry }) {
   useEffect(() => {
     let alive = true;
     setHtml(null); setText(null);
-    api.text(e.path).then((r) => {
+    const loader = e.zipOf
+      ? api.zipEntryText(e.zipOf, e.zipEntry ?? '').then((r) => ({ text: r.text, truncated: false, size: r.size }))
+      : api.text(e.path);
+    loader.then((r) => {
       if (!alive) return;
       if (e.kind === 'markdown') {
         const raw = marked.parse(r.text, { async: false }) as string;
@@ -100,7 +95,7 @@ function TextPreview({ e }: { e: FsEntry }) {
       }
     }).catch(() => setText('（无法读取文件内容）'));
     return () => { alive = false; };
-  }, [e.path, e.kind]);
+  }, [e.path, e.kind, e.zipOf, e.zipEntry]);
 
   if (html !== null) return <div className="pv-markdown markdown-body" dangerouslySetInnerHTML={{ __html: html }} />;
   if (text === null) return <div className="pv-loading">读取中…</div>;
@@ -154,7 +149,7 @@ export function PropertiesBody({ e }: { e: FsEntry }) {
     ['类型', `${kindMeta(e.kind).label}${e.ext ? ` (.${e.ext})` : ''}`],
     ['大小', e.isDir ? `${e.children ?? '—'} 个项目` : formatSize(e.size)],
     ['修改时间', formatTime(e.mtime)],
-    ['位置', <span className="props__path" title={e.path}>{e.path}</span>],
+    ['位置', <span className="props__path" title={e.zipOf ? `${e.zipOf} › ${e.zipEntry}` : e.path}>{e.zipOf ? `${e.zipOf.split('/').pop()} › ${e.zipEntry}` : e.path}</span>],
   ];
   if (img) rows.splice(3, 0, ['尺寸', `${img.w} × ${img.h}`]);
   return (
@@ -215,7 +210,8 @@ function PreviewChrome({ e, floating, onClose }: { e: FsEntry; floating?: boolea
           icon="open_in_new"
           className="pv-open"
           onClick={() => {
-            if (e.isDir) app.openEntry(e);
+            if (e.isDir && !e.zipOf) app.openEntry(e);
+            else if (e.zipOf) app.openEntry(e);
             else window.open(api.rawUrl(e.path), '_blank', 'noopener');
           }}
         >
@@ -226,20 +222,23 @@ function PreviewChrome({ e, floating, onClose }: { e: FsEntry; floating?: boolea
           variant="outline"
           title="共享"
           onClick={() => {
+            const label = e.zipOf ? `${e.zipOf} › ${e.zipEntry}` : e.path;
             const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
-            if (nav.share) nav.share({ title: e.name, text: e.path }).catch(() => {});
-            else navigator.clipboard?.writeText(e.path).then(() => app.toast('已复制路径'));
+            if (nav.share) nav.share({ title: e.name, text: label }).catch(() => {});
+            else navigator.clipboard?.writeText(label).then(() => app.toast('已复制路径'));
           }}
         />
-        <IconButton
-          name="more_vert"
-          variant="outline"
-          title="更多"
-          onClick={(ev) => {
-            const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
-            setMenu({ x: r.left - 160, y: r.bottom + 4 });
-          }}
-        />
+        {!e.zipOf && (
+          <IconButton
+            name="more_vert"
+            variant="outline"
+            title="更多"
+            onClick={(ev) => {
+              const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+              setMenu({ x: r.left - 160, y: r.bottom + 4 });
+            }}
+          />
+        )}
       </div>
       {menu && (
         <Menu
