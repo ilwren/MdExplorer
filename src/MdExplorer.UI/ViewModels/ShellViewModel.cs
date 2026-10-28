@@ -547,7 +547,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             {
                 folder = await provider.OpenFolderBookmarkAsync(root.Bookmark).ConfigureAwait(true);
             }
-            catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException or ArgumentException)
             {
                 // 在下方保留失效行，供用户定点重新授权。
             }
@@ -581,7 +581,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             _ = await enumerator.MoveNextAsync().ConfigureAwait(true);
             return true;
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException or ArgumentException)
         {
             return false;
         }
@@ -608,7 +608,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                 AllowMultiple = true,
             }).ConfigureAwait(true);
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException or ArgumentException)
         {
             Notify("无法打开系统文件夹选择器");
             return false;
@@ -625,7 +625,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                 if (folder.CanBookmark)
                     bookmark = await folder.SaveBookmarkAsync().ConfigureAwait(true);
             }
-            catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException) { }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException or ArgumentException) { }
 
             if (bookmark is not null)
             {

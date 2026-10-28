@@ -93,9 +93,9 @@ public sealed class AppTrashService : ITrashService
             await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                foreach (var entry in Directory.EnumerateFileSystemEntries(FilesDir))
+                foreach (var entry in Directory.EnumerateFileSystemEntries(FilesDir).ToArray())
                     DeleteLocalPath(entry);
-                foreach (var entry in Directory.EnumerateFileSystemEntries(InfoDir))
+                foreach (var entry in Directory.EnumerateFileSystemEntries(InfoDir).ToArray())
                     DeleteLocalPath(entry);
             }, cancellationToken).ConfigureAwait(false);
         }
@@ -133,10 +133,11 @@ public sealed class AppTrashService : ITrashService
             estimate ?? 0);
 
         // 先提交元数据再搬 payload：崩溃时至多留下无 payload 的信息文件，List 会忽略；
-        // payload 搬妥而源删除失败时则回滚副本，绝不把重复副本冒充已回收。
+        // 源删除尚未开始时可安全回滚副本；删除一旦开始便可能只删掉一半，此时必须保留 payload。
         await WriteMetadataAsync(metadata, cancellationToken).ConfigureAwait(false);
 
         var sourceRemoved = false;
+        var sourceDeleteStarted = false;
         var localMoved = false;
         var committed = false;
         try
@@ -174,6 +175,7 @@ public sealed class AppTrashService : ITrashService
 
             if (!sourceRemoved)
             {
+                sourceDeleteStarted = true;
                 await _fileSystem.DeleteKeyAsync(path, cancellationToken).ConfigureAwait(false);
                 sourceRemoved = true;
             }
@@ -181,7 +183,7 @@ public sealed class AppTrashService : ITrashService
         }
         catch
         {
-            if (!committed && !sourceRemoved)
+            if (!committed && !sourceRemoved && !sourceDeleteStarted)
             {
                 TryDeleteLocalPath(stagingPath);
                 TryDeleteLocalPath(payloadPath);
