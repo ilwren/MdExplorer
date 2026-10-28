@@ -465,11 +465,11 @@ public partial class MainView : UserControl
     // ---------- 双窗格活动会话 ----------
     private void OnPrimaryPanePointerPressed(object? sender, PointerPressedEventArgs e) => Shell?.ActivatePrimaryPane();
 
-    private void OnPrimaryPaneGotFocus(object? sender, GotFocusEventArgs e) => Shell?.ActivatePrimaryPane();
+    private void OnPrimaryPaneGotFocus(object? sender, FocusChangedEventArgs e) => Shell?.ActivatePrimaryPane();
 
     private void OnSecondaryPanePointerPressed(object? sender, PointerPressedEventArgs e) => Shell?.ActivateSecondaryPane();
 
-    private void OnSecondaryPaneGotFocus(object? sender, GotFocusEventArgs e) => Shell?.ActivateSecondaryPane();
+    private void OnSecondaryPaneGotFocus(object? sender, FocusChangedEventArgs e) => Shell?.ActivateSecondaryPane();
 
     private BrowserViewModel? BrowserForItem(FileItemViewModel? item)
     {
