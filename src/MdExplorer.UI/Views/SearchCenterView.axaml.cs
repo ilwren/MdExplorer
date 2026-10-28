@@ -71,7 +71,7 @@ public partial class SearchCenterView : UserControl
             SearchContentGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
             SearchContentGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
             SearchContentGrid.RowDefinitions.Add(new RowDefinition(new GridLength(12)));
-            SearchContentGrid.RowDefinitions.Add(new RowDefinition(new GridLength(304)));
+            SearchContentGrid.RowDefinitions.Add(new RowDefinition(new GridLength(376)));
 
             Grid.SetRow(ResultsCard, 0);
             Grid.SetColumn(ResultsCard, 0);

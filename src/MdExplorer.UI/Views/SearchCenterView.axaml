@@ -15,7 +15,7 @@
       </md:MdButton>
     </Grid>
 
-    <md:MdScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+    <md:MdScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
                        AllowMouseDrag="True">
       <StackPanel Orientation="Horizontal" Spacing="8">
         <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindAll}" Variant="Outlined"
