@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.01 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 1.01 sec).
   Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 1.01 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 6 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 2.74 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 5.42 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.12 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 10 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 3 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 5.17 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 6.53 sec).
   MdExplorer.Domain -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/bin/Release/net10.0/MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/bin/Release/net10.0/MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/bin/Release/net10.0/MdExplorer.Application.dll
@@ -22,15 +22,5 @@
   MdExplorer.Screenshots -> /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:24.79]     MdExplorer.Screenshots.ScreenshotTests.Large_TabDrag_ReordersTabs [FAIL]
-  Failed MdExplorer.Screenshots.ScreenshotTests.Large_TabDrag_ReordersTabs [880 ms]
-  Error Message:
-   Assert.Equal() Failure: Collections differ at index 0
-                                          ↓ (pos 31)
-Expected: "/tmp/mdexplorer-sample/Pictures/Camera"
-Actual:   "/tmp/mdexplorer-sample/Pictures"
-  Stack Trace:
-     at MdExplorer.Screenshots.ScreenshotTests.Large_TabDrag_ReordersTabs() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs:line 398
---- End of stack trace from previous location ---
 
-Failed!  - Failed:     1, Passed:    39, Skipped:     0, Total:    40, Duration: 30 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    40, Skipped:     0, Total:    40, Duration: 26 s - MdExplorer.Screenshots.dll (net10.0)
