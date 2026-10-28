@@ -62,7 +62,7 @@
                      Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
           <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
             <TextBlock Classes="body" Text="应用内回收站" />
-            <TextBlock Classes="caption">
+            <TextBlock Classes="caption" TextWrapping="Wrap">
               <Run Text="{Binding TrashSummaryText}" /><Run Text=" · 上限 " /><Run Text="{Binding TrashQuotaText}" /><Run Text=" · " /><Run Text="{Binding TrashRetentionText}" />
             </TextBlock>
           </StackPanel>

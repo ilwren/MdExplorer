@@ -12,7 +12,7 @@ namespace MdExplorer.UI.Services;
 /// </summary>
 public sealed class AppTrashService : ITrashService
 {
-    public const long DefaultQuotaBytes = 1024L * 1024 * 1024;
+    public const long DefaultQuotaBytes = 1_000_000_000;
     public const int DefaultRetentionDays = 30;
 
     private readonly string _trashRoot;

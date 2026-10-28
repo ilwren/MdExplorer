@@ -72,7 +72,9 @@
                 </Border>
                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                   <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                  <TextBlock Classes="caption" Text="{Binding MetaText}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="caption" Text="{Binding SizeText}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="caption" Text="{Binding DeletedText}" TextTrimming="CharacterEllipsis"
+                             IsVisible="{Binding HasDeletedText}" />
                   <TextBlock Classes="caption" Text="{Binding OriginalPath}" TextTrimming="CharacterEllipsis" IsVisible="{Binding ShowOriginalPath}"
                              ToolTip.Tip="{Binding OriginalPath}" />
                 </StackPanel>

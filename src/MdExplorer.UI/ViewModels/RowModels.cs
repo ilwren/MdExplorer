@@ -26,9 +26,9 @@ public sealed record AuthorizedRootModel(
         ? "需要重新授权"
         : IsPersistent ? "读写 · 已保存" : "读写 · 仅本次会话";
     public string LocationText => !IsAvailable
-        ? "文件夹不可用或授权已失效"
-        : IsPersistent ? "系统选择器授权 · 重启后仍可用" : "系统选择器授权 · 重启后需重新授权";
-    public string PathToolTip => IsAvailable ? Path : LocationText;
+        ? "文件夹不可用"
+        : IsPersistent ? "重启后仍可用" : "重启后需重新授权";
+    public string PathToolTip => IsAvailable ? Path : "文件夹不可用或授权已失效";
     public string? StatusGlyph => !IsAvailable
         ? MdSymbols.Warning
         : IsPersistent ? MdSymbols.CheckCircle : MdSymbols.PendingActions;
@@ -47,11 +47,29 @@ public sealed record TrashItemModel(
     long? SizeBytes = null)
 {
     public bool ShowOriginalPath => !FileLocator.IsStorageUri(OriginalPath);
+    public bool HasDeletedText => !string.IsNullOrWhiteSpace(DeletedText);
     public string SizeText => SizeBytes is { } bytes ? Formatting.Bytes(bytes) : "大小未知";
     public string MetaText => string.IsNullOrWhiteSpace(DeletedText)
         ? SizeText
         : $"{DeletedText} · {SizeText}";
-    public string? Glyph => IsFolder ? MdSymbols.Folder : MdSymbols.InsertDriveFile;
+    public string? Glyph => IsFolder
+        ? MdSymbols.Folder
+        : FileKindClassifier.Classify(Name) switch
+        {
+            FileKind.Image => MdSymbols.Image,
+            FileKind.Video => MdSymbols.Movie,
+            FileKind.Audio => MdSymbols.MusicNote,
+            FileKind.Document => Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+                ? MdSymbols.PictureAsPdf
+                : MdSymbols.Description,
+            FileKind.Archive => MdSymbols.FolderZip,
+            FileKind.Code => MdSymbols.Code,
+            FileKind.Data => MdSymbols.DataObject,
+            FileKind.Font => MdSymbols.FontDownload,
+            FileKind.Executable => MdSymbols.Terminal,
+            FileKind.Text => MdSymbols.TextSnippet,
+            _ => MdSymbols.InsertDriveFile,
+        };
 }
 
 /// <summary>预览元数据行。</summary>
