@@ -240,7 +240,7 @@ public sealed class TransferConflictAndTaskDetailsTests : IDisposable
                 [new OperationError("bad.txt", "拒绝访问", Path.Combine(_root, "bad.txt"))],
                 produced,
                 SkippedCount: 3)),
-            (_, _) => Task.CompletedTask);
+            _ => Task.CompletedTask);
 
         Assert.False(outcome.Success);
         var task = Assert.Single(shell.OperationTasks);
