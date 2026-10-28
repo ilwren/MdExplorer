@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MdExplorer.UI.Views.TasksView">
+  <ScrollViewer>
+    <StackPanel Spacing="10" Margin="16">
+      <TextBlock Text="任务队列（全局串行）" Classes="md-title" />
+      <TextBlock Text="全部写操作经 FileOperationQueue；冲突询问可「应用到其余」。"
+                 Classes="md-sub" TextWrapping="Wrap" />
+      <ItemsControl ItemsSource="{Binding Jobs}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Classes="md-card" Margin="0,4">
+              <Grid ColumnDefinitions="*,180,120,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <ProgressBar Grid.Column="1" Value="{Binding Progress}" Minimum="0" Maximum="100"
+                             Height="10" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding StateText}" Classes="md-sub"
+                           VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <Button Grid.Column="3" Classes="md danger" Content="取消"
+                        Command="{Binding CancelCommand}" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

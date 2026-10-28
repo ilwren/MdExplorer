@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="using:MdExplorer.UI.Controls"
+             x:Class="MdExplorer.UI.Views.InsightsView">
+  <ScrollViewer>
+    <StackPanel Spacing="14" Margin="16">
+      <TextBlock Text="统计" Classes="md-title" />
+      <TextBlock Text="{Binding StatusText}" Classes="md-sub" />
+
+      <Border Classes="md-card">
+        <ItemsControl ItemsSource="{Binding Summary}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Width="130" Margin="4">
+                <TextBlock Text="{Binding Value}" FontSize="22" FontWeight="SemiBold"
+                           Foreground="{DynamicResource MdPrimary}" />
+                <TextBlock Text="{Binding Label}" Classes="md-sub" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Border>
+
+      <Border Classes="md-card">
+        <StackPanel Spacing="8">
+          <TextBlock Text="类型分布" Classes="md-title" />
+          <ItemsControl ItemsSource="{Binding ByExtension}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <DockPanel Margin="0,2">
+                  <TextBlock DockPanel.Dock="Left" Text="{Binding Ext}" Width="120" />
+                  <TextBlock Text="{Binding Count}" Classes="md-sub" Width="80" />
+                  <TextBlock Text="{Binding Bytes}" Classes="md-sub" />
+                </DockPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Grid ColumnDefinitions="*,*">
+        <Border Grid.Column="0" Classes="md-card" Margin="0,0,6,0">
+          <StackPanel Spacing="6">
+            <TextBlock Text="最大文件" Classes="md-title" />
+            <ItemsControl ItemsSource="{Binding Largest}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <DockPanel Margin="0,2">
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Snippet}" Classes="md-sub" HorizontalAlignment="Right" />
+                  </DockPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="1" Classes="md-card" Margin="6,0,0,0">
+          <StackPanel Spacing="6">
+            <TextBlock Text="最近修改" Classes="md-title" />
+            <ItemsControl ItemsSource="{Binding Newest}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <DockPanel Margin="0,2">
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Snippet}" Classes="md-sub" HorizontalAlignment="Right" />
+                  </DockPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

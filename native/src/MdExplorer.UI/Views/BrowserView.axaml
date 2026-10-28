@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="using:MdExplorer.UI.Controls"
+             x:Class="MdExplorer.UI.Views.BrowserView">
+  <Grid RowDefinitions="Auto,*">
+    <!-- 工具行：过滤/排序/视图 -->
+    <DockPanel Grid.Row="0" Margin="8,4,8,0">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+        <Button Classes="md" Command="{Binding SetSortCommand}" CommandParameter="name" ToolTip.Tip="按名称排序">
+          <ctrl:MdIcon IconName="sort" />
+        </Button>
+        <Button Classes="md" Command="{Binding SetSortCommand}" CommandParameter="size" ToolTip.Tip="按大小排序">
+          <TextBlock Text="大小" Classes="md-sub" />
+        </Button>
+        <Button Classes="md" Command="{Binding SetSortCommand}" CommandParameter="modified" ToolTip.Tip="按时间排序">
+          <TextBlock Text="时间" Classes="md-sub" />
+        </Button>
+        <Button Classes="md" Command="{Binding SetViewModeCommand}" CommandParameter="grid" ToolTip.Tip="网格">
+          <ctrl:MdIcon IconName="grid_view" />
+        </Button>
+        <Button Classes="md" Command="{Binding SetViewModeCommand}" CommandParameter="list" ToolTip.Tip="列表">
+          <ctrl:MdIcon IconName="view_list" />
+        </Button>
+        <Button Classes="md" Command="{Binding SelectAllCommand}" ToolTip.Tip="全选 (Ctrl+A)">
+          <ctrl:MdIcon IconName="check" />
+        </Button>
+      </StackPanel>
+      <TextBox Classes="md" Watermark="过滤当前列表…" Text="{Binding FilterText, Mode=TwoWay}"
+               MaxWidth="320" HorizontalAlignment="Left" />
+    </DockPanel>
+
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <Grid Margin="8">
+        <!-- 网格 -->
+        <ItemsControl ItemsSource="{Binding Entries}" IsVisible="{Binding IsGridView}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Width="132" Height="120" Margin="4" CornerRadius="12"
+                      Background="{DynamicResource MdSurfaceContainer}"
+                      PointerPressed="OnEntryPressed"
+                      DoubleTapped="OnEntryDoubleTapped"
+                      Tag="{Binding}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                  <ctrl:MdIcon IconName="{Binding IconName}" IconSize="36"
+                               Foreground="{DynamicResource MdPrimary}" HorizontalAlignment="Center" />
+                  <TextBlock Text="{Binding Name}" TextAlignment="Center"
+                             TextTrimming="CharacterEllipsis" MaxWidth="116" FontSize="12" />
+                  <TextBlock Text="{Binding SizeLabel}" Classes="md-sub" TextAlignment="Center" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- 列表 -->
+        <ItemsControl ItemsSource="{Binding Entries}" IsVisible="{Binding !IsGridView}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="Auto,*,120,150" Height="40"
+                    PointerPressed="OnEntryPressed"
+                    DoubleTapped="OnEntryDoubleTapped"
+                    Tag="{Binding}">
+                <ctrl:MdIcon Grid.Column="0" IconName="{Binding IconName}" IconSize="22"
+                             Foreground="{DynamicResource MdPrimary}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
+                           Margin="10,0" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Text="{Binding SizeLabel}" Classes="md-sub"
+                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+                <TextBlock Grid.Column="3" Text="{Binding ModifiedLabel}" Classes="md-sub"
+                           VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

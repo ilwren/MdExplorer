@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Desktop host (Win/Linux by RID) — composition root only — §4.1 -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <PublishAot>true</PublishAot>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>MdExplorer</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../MdExplorer.UI/MdExplorer.UI.csproj" />
+    <ProjectReference Include="../MdExplorer.Application/MdExplorer.Application.csproj" />
+    <ProjectReference Include="../MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj" />
+    <ProjectReference Include="../MdExplorer.Platform.Windows/MdExplorer.Platform.Windows.csproj" />
+    <ProjectReference Include="../MdExplorer.Platform.Linux/MdExplorer.Platform.Linux.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+</Project>

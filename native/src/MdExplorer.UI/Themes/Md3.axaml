@@ -1,0 +1,225 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+  <ResourceDictionary>
+  <!-- MD3 色板映射 tokens.css（论文稿 03-design.md）；Light/Dark 双主题随 ThemeVariant 切换。
+       命名走 "Md*" 前缀，避免与 FluentTheme 内置键冲突。 -->
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Light">
+      <Color x:Key="MdPrimaryColor">#006B67</Color>
+      <Color x:Key="MdSurfaceColor">#FCFCFC</Color>
+      <Color x:Key="MdSurfaceContainerColor">#F2F4F2</Color>
+      <Color x:Key="MdSurfaceContainerHighColor">#ECEEEC</Color>
+      <Color x:Key="MdOnSurfaceColor">#181D1B</Color>
+      <Color x:Key="MdOnSurfaceVarColor">#5A615E</Color>
+      <Color x:Key="MdOutlineColor">#77817E</Color>
+      <Color x:Key="MdErrorColor">#BA1A1A</Color>
+      <SolidColorBrush x:Key="MdPrimary" Color="{DynamicResource MdPrimaryColor}" />
+      <SolidColorBrush x:Key="MdSurface" Color="{DynamicResource MdSurfaceColor}" />
+      <SolidColorBrush x:Key="MdSurfaceContainer" Color="{DynamicResource MdSurfaceContainerColor}" />
+      <SolidColorBrush x:Key="MdSurfaceContainerHigh" Color="{DynamicResource MdSurfaceContainerHighColor}" />
+      <SolidColorBrush x:Key="MdOnSurface" Color="{DynamicResource MdOnSurfaceColor}" />
+      <SolidColorBrush x:Key="MdOnSurfaceVar" Color="{DynamicResource MdOnSurfaceVarColor}" />
+      <SolidColorBrush x:Key="MdOutline" Color="{DynamicResource MdOutlineColor}" />
+      <SolidColorBrush x:Key="MdError" Color="{DynamicResource MdErrorColor}" />
+      <SolidColorBrush x:Key="MdOnPrimary" Color="#FFFFFF" />
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="Dark">
+      <Color x:Key="MdPrimaryColor">#6DDACB</Color>
+      <Color x:Key="MdSurfaceColor">#111513</Color>
+      <Color x:Key="MdSurfaceContainerColor">#1C211E</Color>
+      <Color x:Key="MdSurfaceContainerHighColor">#262B28</Color>
+      <Color x:Key="MdOnSurfaceColor">#E1E4E1</Color>
+      <Color x:Key="MdOnSurfaceVarColor">#BEC9C4</Color>
+      <Color x:Key="MdOutlineColor">#8C9993</Color>
+      <Color x:Key="MdErrorColor">#FFB4AB</Color>
+      <SolidColorBrush x:Key="MdPrimary" Color="{DynamicResource MdPrimaryColor}" />
+      <SolidColorBrush x:Key="MdSurface" Color="{DynamicResource MdSurfaceColor}" />
+      <SolidColorBrush x:Key="MdSurfaceContainer" Color="{DynamicResource MdSurfaceContainerColor}" />
+      <SolidColorBrush x:Key="MdSurfaceContainerHigh" Color="{DynamicResource MdSurfaceContainerHighColor}" />
+      <SolidColorBrush x:Key="MdOnSurface" Color="{DynamicResource MdOnSurfaceColor}" />
+      <SolidColorBrush x:Key="MdOnSurfaceVar" Color="{DynamicResource MdOnSurfaceVarColor}" />
+      <SolidColorBrush x:Key="MdOutline" Color="{DynamicResource MdOutlineColor}" />
+      <SolidColorBrush x:Key="MdError" Color="{DynamicResource MdErrorColor}" />
+      <SolidColorBrush x:Key="MdOnPrimary" Color="#003734" />
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+  </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- 控件样式：Avalonia 选择器语法 -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource MdSurface}" />
+    <Setter Property="FontFamily" Value="Inter, Segoe UI, sans-serif" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{DynamicResource MdOnSurface}" />
+  </Style>
+
+  <Style Selector="Button.md">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource MdOnSurfaceVar}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}"
+                Margin="{TemplateBinding Margin}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Foreground="{TemplateBinding Foreground}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.md:pointerover /template/ Border">
+    <Setter Property="Background" Value="{DynamicResource MdSurfaceContainerHigh}" />
+  </Style>
+
+  <Style Selector="Button.md.tonal">
+    <Setter Property="Background" Value="{DynamicResource MdSurfaceContainerHigh}" />
+    <Setter Property="Foreground" Value="{DynamicResource MdPrimary}" />
+    <Setter Property="Padding" Value="18,8" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="CornerRadius" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.md.filled">
+    <Setter Property="Background" Value="{DynamicResource MdPrimary}" />
+    <Setter Property="Foreground" Value="{DynamicResource MdOnPrimary}" />
+    <Setter Property="Padding" Value="18,8" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="CornerRadius" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.md.danger">
+    <Setter Property="Foreground" Value="{DynamicResource MdError}" />
+  </Style>
+
+  <Style Selector="Border.md-card">
+    <Setter Property="Background" Value="{DynamicResource MdSurfaceContainer}" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="Padding" Value="16" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MdOutline}" />
+  </Style>
+
+  <Style Selector="Border.md-pill">
+    <Setter Property="Background" Value="{DynamicResource MdSurfaceContainerHigh}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,4" />
+  </Style>
+
+  <Style Selector="TextBlock.md-title">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource MdOnSurface}" />
+  </Style>
+  <Style Selector="TextBlock.md-sub">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource MdOnSurfaceVar}" />
+  </Style>
+
+  <Style Selector="TextBox.md">
+    <Setter Property="Background" Value="{DynamicResource MdSurfaceContainerHigh}" />
+    <Setter Property="Foreground" Value="{DynamicResource MdOnSurface}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="CaretBrush" Value="{DynamicResource MdPrimary}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource MdPrimary}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                Padding="{TemplateBinding Padding}">
+          <ScrollViewer Name="PART_ScrollViewer"
+                        HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
+                        VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
+            <TextPresenter Name="PART_TextPresenter"
+                           Text="{TemplateBinding Text, Mode=TwoWay}"
+                           CaretIndex="{TemplateBinding CaretIndex}"
+                           SelectionStart="{TemplateBinding SelectionStart}"
+                           SelectionEnd="{TemplateBinding SelectionEnd}"
+                           TextAlignment="{TemplateBinding TextAlignment}"
+                           TextWrapping="{TemplateBinding TextWrapping}"
+                           PasswordChar="{TemplateBinding PasswordChar}"
+                           SelectionBrush="{TemplateBinding SelectionBrush}"
+                           CaretBrush="{TemplateBinding CaretBrush}"
+                           Foreground="{TemplateBinding Foreground}" />
+          </ScrollViewer>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="ListBox.md">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <ItemsPresenter />
+        </ScrollViewer>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="ListBoxItem.md">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Root"
+                Background="Transparent"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}"
+                Margin="{TemplateBinding Margin}">
+          <ContentPresenter Content="{TemplateBinding Content}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBoxItem.md:pointerover /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource MdSurfaceContainerHigh}" />
+  </Style>
+  <Style Selector="ListBoxItem.md:selected /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource MdSurfaceContainerHigh}" />
+  </Style>
+
+  <Style Selector="Border.md-rail">
+    <Setter Property="Background" Value="{DynamicResource MdSurfaceContainer}" />
+    <Setter Property="CornerRadius" Value="28" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="Margin" Value="12" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Width" Value="72" />
+  </Style>
+
+  <Style Selector="Border.md-tabstrip">
+    <Setter Property="Background" Value="{DynamicResource MdSurfaceContainer}" />
+    <Setter Property="CornerRadius" Value="24" />
+    <Setter Property="Height" Value="44" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="Margin" Value="8,6" />
+  </Style>
+
+  <Style Selector="ScrollViewer.md">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+    <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+  </Style>
+</Styles>

@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MdExplorer.UI.Views.SettingsView">
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16" MaxWidth="560">
+      <TextBlock Text="设置" Classes="md-title" />
+      <TextBlock Text="{Binding SavedHint}" Classes="md-sub" />
+
+      <Border Classes="md-card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="外观" Classes="md-title" />
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Text="主题" Width="120" VerticalAlignment="Center" />
+            <ComboBox x:Name="ThemeBox" Width="180" HorizontalAlignment="Left"
+                      SelectionChanged="OnThemeChanged" />
+          </DockPanel>
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Text="默认视图" Width="120" VerticalAlignment="Center" />
+            <ComboBox x:Name="ViewBox" Width="180" HorizontalAlignment="Left"
+                      SelectionChanged="OnViewChanged" />
+          </DockPanel>
+          <CheckBox Content="减少动效" IsChecked="{Binding Settings.ReduceMotion, Mode=TwoWay}" />
+          <CheckBox Content="显示隐藏文件" IsChecked="{Binding Settings.ShowHidden, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="md-card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="行为" Classes="md-title" />
+          <CheckBox Content="删除前确认" IsChecked="{Binding Settings.ConfirmDelete, Mode=TwoWay}" />
+          <CheckBox Content="排序降序" IsChecked="{Binding Settings.SortDescending, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="md-card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="关于" Classes="md-title" />
+          <TextBlock Text="MdExplorer v2 · C#/Avalonia 原生版。Material Design 3 变量映射见 Themes/Md3.axaml（tokens.css）。"
+                     Classes="md-sub" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Button Classes="md filled" Content="保存设置" Command="{Binding SaveCommand}"
+              HorizontalAlignment="Left" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

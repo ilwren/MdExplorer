@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/MdExplorer.Application/MdExplorer.Application.csproj" />
+    <ProjectReference Include="../../src/MdExplorer.Domain/MdExplorer.Domain.csproj" />
+    <ProjectReference Include="../../src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+</Project>

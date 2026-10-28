@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="using:MdExplorer.UI.Controls"
+             x:Class="MdExplorer.UI.Views.ArchiveView">
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <StackPanel Grid.Row="0" Spacing="4" Margin="16,12,16,4">
+      <TextBlock Text="压缩包工作台" Classes="md-title" />
+      <TextBlock Text="{Binding StatusText}" Classes="md-sub" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Spacing="8" Margin="16,4">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="md tonal" Content="加载"
+                Command="{Binding LoadCommand}" Margin="8,0,0,0" />
+        <TextBox Classes="md" Watermark="zip 文件路径…"
+                 Text="{Binding ArchivePathText, Mode=TwoWay}" />
+      </DockPanel>
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="md filled" Content="解压到"
+                Command="{Binding ExtractHereCommand}" Margin="8,0,0,0" />
+        <TextBox Classes="md" Watermark="解压目标目录…"
+                 Text="{Binding DestDirText, Mode=TwoWay}" />
+      </DockPanel>
+      <Button Classes="md" Content="压缩浏览页所选文件" Command="{Binding CompressSelectionCommand}"
+              HorizontalAlignment="Left" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="2" Margin="16,4">
+      <ItemsControl ItemsSource="{Binding Entries}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Grid ColumnDefinitions="Auto,*,Auto" Height="32">
+              <ctrl:MdIcon Grid.Column="0" IconName="{Binding IconName}" IconSize="20" />
+              <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="10,0"
+                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Text="{Binding SizeLabel}" Classes="md-sub"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <TextBlock Grid.Row="3" Margin="16,8" Classes="md-sub" TextWrapping="Wrap"
+               Text="支持 .zip 增删改查；.7z/.rar 降级为元数据（P5 可预期降级）。压缩产物为纯文本 zip，无需外部工具。" />
+  </Grid>
+</UserControl>

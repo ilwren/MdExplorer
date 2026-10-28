@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Domain: zero dependencies (not even logging abstractions) — §4.2 -->
+</Project>

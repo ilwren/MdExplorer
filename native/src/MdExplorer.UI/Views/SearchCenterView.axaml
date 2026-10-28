@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="using:MdExplorer.UI.Controls"
+             x:Class="MdExplorer.UI.Views.SearchCenterView">
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <!-- 搜索行 -->
+    <DockPanel Grid.Row="0" Margin="12,12,12,4">
+      <Button DockPanel.Dock="Right" Classes="md tonal" Content="搜索"
+              Command="{Binding SearchCommand}" Margin="8,0,0,0" />
+      <TextBox Classes="md" Watermark="搜索文件名（v1 本地实时遍历）…"
+               Text="{Binding QueryText, Mode=TwoWay}" FontSize="16" />
+    </DockPanel>
+
+    <!-- 过滤条（概念稿 §4.1） -->
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="12,4">
+      <CheckBox Content="图片" IsChecked="{Binding KindImage, Mode=TwoWay}" />
+      <CheckBox Content="视频" IsChecked="{Binding KindVideo, Mode=TwoWay}" />
+      <CheckBox Content="音频" IsChecked="{Binding KindAudio, Mode=TwoWay}" />
+      <CheckBox Content="文档" IsChecked="{Binding KindDocument, Mode=TwoWay}" />
+      <CheckBox Content="压缩包" IsChecked="{Binding KindArchive, Mode=TwoWay}" />
+      <CheckBox Content="代码" IsChecked="{Binding KindCode, Mode=TwoWay}" />
+      <CheckBox Content="文本" IsChecked="{Binding KindText, Mode=TwoWay}" />
+      <Button Classes="md" Content="清除" Command="{Binding ClearCommand}" />
+    </StackPanel>
+
+    <!-- 结果 -->
+    <ScrollViewer Grid.Row="2" Margin="12,4">
+      <StackPanel>
+        <TextBlock Text="{Binding StatusText}" Classes="md-sub" Margin="0,0,0,8" />
+        <ItemsControl ItemsSource="{Binding Results}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Classes="md-card" Margin="0,4" Padding="12">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <ctrl:MdIcon Grid.Column="0" IconName="file" IconSize="22"
+                               Foreground="{DynamicResource MdPrimary}" VerticalAlignment="Top" />
+                  <StackPanel Grid.Column="1" Spacing="2" Margin="10,0">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Path}" Classes="md-sub" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Snippet}" Classes="md-sub" TextWrapping="Wrap"
+                               MaxLines="2" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding KindLabel}" Classes="md-sub"
+                             VerticalAlignment="Top" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- 索引与隐私（默认关闭，用户显式启用） -->
+    <Border Grid.Row="3" Classes="md-card" Margin="12,4,12,12">
+      <StackPanel Spacing="8">
+        <TextBlock Text="本地索引（可选）" Classes="md-title" />
+        <TextBlock Text="{Binding IndexStatusText}" Classes="md-sub" TextWrapping="Wrap" />
+        <TextBlock Text="索引只保存在本机；不上传、不遥测。内容索引默认关闭。" Classes="md-sub"
+                   TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="md tonal" Content="建立索引" Command="{Binding RebuildIndexCommand}" />
+          <Button Classes="md" Content="清空索引" Command="{Binding ClearIndexCommand}" />
+          <Button Classes="md" Content="内容索引开关" Command="{Binding ToggleContentIndexCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

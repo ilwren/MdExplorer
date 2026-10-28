@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="using:MdExplorer.UI.Controls"
+             x:Class="MdExplorer.UI.Views.HomeView">
+  <ScrollViewer>
+    <StackPanel Spacing="14" Margin="16">
+      <TextBlock Text="主页" Classes="md-title" />
+      <TextBlock Text="快捷入口" Classes="md-sub" />
+      <ItemsControl ItemsSource="{Binding Shortcuts}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button Classes="md" Click="OnShortcutClick" Tag="{Binding}"
+                    Width="150" Height="88" Margin="4" Background="{DynamicResource MdSurfaceContainer}"
+                    HorizontalContentAlignment="Left">
+              <StackPanel Spacing="8" Margin="8">
+                <ctrl:MdIcon IconName="{Binding IconName}" IconSize="24"
+                             Foreground="{DynamicResource MdPrimary}" />
+                <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Text="存储" Classes="md-sub" />
+      <Border Classes="md-card">
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Binding StorageSummary}" Classes="md-title" />
+          <ItemsControl ItemsSource="{Binding Volumes}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Left" Text="{Binding Label}" />
+                  <TextBlock Text="{Binding Detail}" Classes="md-sub" HorizontalAlignment="Right" />
+                </DockPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

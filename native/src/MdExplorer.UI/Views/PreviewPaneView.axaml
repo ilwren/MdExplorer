@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="using:MdExplorer.UI.Controls"
+             x:Class="MdExplorer.UI.Views.PreviewPaneView">
+  <Grid RowDefinitions="Auto,*">
+    <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,10">
+      <TextBlock Text="{Binding Title}" Classes="md-title" TextTrimming="CharacterEllipsis" />
+      <TextBlock Text="{Binding Subtitle}" Classes="md-sub" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="10">
+        <!-- 空态 -->
+        <TextBlock Text="选择文件以预览" Classes="md-sub" IsVisible="{Binding IsEmpty}" />
+
+        <!-- 文本 -->
+        <Border Classes="md-card" IsVisible="{Binding IsText}" Padding="12">
+          <ScrollViewer MaxHeight="480" HorizontalScrollBarVisibility="Auto">
+            <TextBlock Text="{Binding Text}" FontFamily="Consolas, monospace" FontSize="12"
+                       TextWrapping="NoWrap" />
+          </ScrollViewer>
+        </Border>
+
+        <!-- 图片 -->
+        <Border Classes="md-card" IsVisible="{Binding IsImage}" Padding="8">
+          <Image x:Name="PreviewImage" Stretch="Uniform" MaxHeight="420" />
+        </Border>
+
+        <!-- PDF/媒体 -->
+        <StackPanel IsVisible="{Binding IsPdf}" Spacing="8">
+          <Border Classes="md-card">
+            <StackPanel Spacing="6">
+              <ctrl:MdIcon IconName="description" IconSize="36" Foreground="{DynamicResource MdPrimary}" />
+              <TextBlock Text="{Binding MediaTitle}" Classes="md-title" />
+              <TextBlock Text="PDF：v1 提供元数据 + 系统打开（渲染器为隔离 Spike）" Classes="md-sub"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+        <StackPanel IsVisible="{Binding IsMedia}" Spacing="8">
+          <Border Classes="md-card">
+            <StackPanel Spacing="6">
+              <ctrl:MdIcon IconName="movie" IconSize="36" Foreground="{DynamicResource MdPrimary}" />
+              <TextBlock Text="{Binding MediaTitle}" Classes="md-title" />
+              <TextBlock Text="媒体：用系统播放器打开（解码器为隔离 Spike）" Classes="md-sub"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- 压缩包 -->
+        <StackPanel IsVisible="{Binding IsArchive}" Spacing="6">
+          <ItemsControl ItemsSource="{Binding ArchiveEntries}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid ColumnDefinitions="Auto,*,Auto" Height="30">
+                  <ctrl:MdIcon Grid.Column="0" IconName="{Binding IconName}" IconSize="18" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="8,0"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Text="{Binding SizeLabel}" Classes="md-sub"
+                             VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <!-- 元数据兜底 -->
+        <Border Classes="md-card" IsVisible="{Binding IsMetadata}">
+          <StackPanel Spacing="6">
+            <ctrl:MdIcon IconName="info" IconSize="28" Foreground="{DynamicResource MdPrimary}" />
+            <TextBlock Text="{Binding MetadataSummary}" Classes="md-sub" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Shared Avalonia Views + ViewModels. MUST NOT reference any Platform.* implementation — §4.2 -->
+  <PropertyGroup>
+    <!-- 经典反射绑定：x:DataType 编译绑定留待全量标注后开启 -->
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <RootNamespace>MdExplorer.UI</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../MdExplorer.Domain/MdExplorer.Domain.csproj" />
+    <ProjectReference Include="../MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj" />
+    <ProjectReference Include="../MdExplorer.Application/MdExplorer.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+</Project>

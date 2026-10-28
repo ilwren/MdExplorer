@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Windows adapters (LibraryImport source-generated interop) — §4.1 -->
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj" />
+    <ProjectReference Include="../MdExplorer.Domain/MdExplorer.Domain.csproj" />
+  </ItemGroup>
+</Project>

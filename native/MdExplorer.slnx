@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MdExplorer.Domain/MdExplorer.Domain.csproj" />
+    <Project Path="src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj" />
+    <Project Path="src/MdExplorer.Application/MdExplorer.Application.csproj" />
+    <Project Path="src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj" />
+    <Project Path="src/MdExplorer.Platform.Windows/MdExplorer.Platform.Windows.csproj" />
+    <Project Path="src/MdExplorer.Platform.Linux/MdExplorer.Platform.Linux.csproj" />
+    <Project Path="src/MdExplorer.UI/MdExplorer.UI.csproj" />
+    <Project Path="src/MdExplorer.Desktop/MdExplorer.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MdExplorer.Domain.Tests/MdExplorer.Domain.Tests.csproj" />
+    <Project Path="tests/MdExplorer.Application.Tests/MdExplorer.Application.Tests.csproj" />
+  </Folder>
+</Solution>

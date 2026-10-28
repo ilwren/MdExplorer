@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Linux adapters (XDG/freedesktop) — §4.1 -->
+  <ItemGroup>
+    <ProjectReference Include="../MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj" />
+    <ProjectReference Include="../MdExplorer.Domain/MdExplorer.Domain.csproj" />
+  </ItemGroup>
+</Project>

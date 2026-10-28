@@ -1,0 +1,182 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="using:MdExplorer.UI.Controls"
+        xmlns:views="using:MdExplorer.UI.Views"
+        x:Class="MdExplorer.UI.Views.MainWindow"
+        Title="MdExplorer"
+        Width="1280" Height="820"
+        MinWidth="360" MinHeight="520"
+        Background="{DynamicResource MdSurface}"
+        KeyDown="OnWindowKeyDown">
+  <Grid RowDefinitions="Auto,*,Auto,Auto">
+    <!-- 顶部工具栏 -->
+    <DockPanel Grid.Row="0" Margin="12,8,12,4">
+      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="2">
+        <Button Classes="md" Command="{Binding ActiveTab.GoBackCommand}" ToolTip.Tip="后退">
+          <ctrl:MdIcon IconName="arrow_back" />
+        </Button>
+        <Button Classes="md" Command="{Binding ActiveTab.GoForwardCommand}" ToolTip.Tip="前进">
+          <ctrl:MdIcon IconName="arrow_forward" />
+        </Button>
+        <Button Classes="md" Command="{Binding ActiveTab.GoUpCommand}" ToolTip.Tip="上一级">
+          <ctrl:MdIcon IconName="arrow_upward" />
+        </Button>
+        <Button Classes="md" Command="{Binding ActiveTab.RefreshCommand}" ToolTip.Tip="刷新 (F5)">
+          <ctrl:MdIcon IconName="refresh" />
+        </Button>
+        <Border Classes="md-pill" Margin="10,0" VerticalAlignment="Center" MaxWidth="420">
+          <TextBlock Text="{Binding ActiveTab.LocationText}"
+                     Classes="md-sub" TextTrimming="CharacterEllipsis"
+                     ToolTip.Tip="{Binding ActiveTab.LocationText}" />
+        </Border>
+      </StackPanel>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+        <Button Classes="md" Command="{Binding OpenSearchCenterCommand}" ToolTip.Tip="搜索中心">
+          <ctrl:MdIcon IconName="manage_search" />
+        </Button>
+        <Button Classes="md" Command="{Binding ActiveTab.NewFolderCommand}" ToolTip.Tip="新建文件夹">
+          <ctrl:MdIcon IconName="add" />
+        </Button>
+        <Button Classes="md" Command="{Binding OpenTasksCommand}" ToolTip.Tip="任务队列">
+          <ctrl:MdIcon IconName="fact_check" />
+        </Button>
+        <Button Classes="md" Command="{Binding OpenArchiveWorkbenchCommand}" ToolTip.Tip="压缩包工作台">
+          <ctrl:MdIcon IconName="archive" />
+        </Button>
+        <Button Classes="md" Command="{Binding ToggleThemeCommand}" ToolTip.Tip="切换主题">
+          <ctrl:MdIcon IconName="data_usage" />
+        </Button>
+      </StackPanel>
+    </DockPanel>
+
+    <!-- 主体：导航栏 | 标签+内容 | 预览 -->
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto">
+      <Border Grid.Column="0" Classes="md-rail" IsVisible="{Binding IsRailVisible}">
+        <StackPanel Spacing="2">
+          <Button Classes="md" Command="{Binding OpenHomeCommand}" ToolTip.Tip="主页">
+            <ctrl:MdIcon IconName="home" IconSize="22" />
+          </Button>
+          <Button Classes="md" Command="{Binding OpenRecentCommand}" ToolTip.Tip="最近">
+            <ctrl:MdIcon IconName="schedule" IconSize="22" />
+          </Button>
+          <Button Classes="md" Command="{Binding OpenFavoritesCommand}" ToolTip.Tip="收藏">
+            <ctrl:MdIcon IconName="star" IconSize="22" />
+          </Button>
+          <Button Classes="md" Command="{Binding OpenCategoryCommand}" CommandParameter="image" ToolTip.Tip="图片">
+            <ctrl:MdIcon IconName="image" IconSize="22" />
+          </Button>
+          <Button Classes="md" Command="{Binding OpenCategoryCommand}" CommandParameter="video" ToolTip.Tip="视频">
+            <ctrl:MdIcon IconName="movie" IconSize="22" />
+          </Button>
+          <Button Classes="md" Command="{Binding OpenCategoryCommand}" CommandParameter="document" ToolTip.Tip="文档">
+            <ctrl:MdIcon IconName="description" IconSize="22" />
+          </Button>
+          <Button Classes="md" Command="{Binding OpenCategoryCommand}" CommandParameter="archive" ToolTip.Tip="压缩包">
+            <ctrl:MdIcon IconName="archive" IconSize="22" />
+          </Button>
+          <Separator Margin="8,6" />
+          <Button Classes="md" Command="{Binding OpenTrashCommand}" ToolTip.Tip="回收站">
+            <ctrl:MdIcon IconName="delete" IconSize="22" />
+          </Button>
+          <Button Classes="md" Command="{Binding OpenInsightsCommand}" ToolTip.Tip="统计">
+            <ctrl:MdIcon IconName="data_usage" IconSize="22" />
+          </Button>
+          <Button Classes="md" Command="{Binding OpenSettingsCommand}" ToolTip.Tip="设置">
+            <ctrl:MdIcon IconName="settings" IconSize="22" />
+          </Button>
+        </StackPanel>
+      </Border>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,*">
+        <!-- 标签条 -->
+        <Border Grid.Row="0" Classes="md-tabstrip" IsVisible="{Binding IsRailVisible}">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Classes="md" Command="{Binding NewTabCommand}" ToolTip.Tip="新建标签 (Ctrl+T)">
+              <ctrl:MdIcon IconName="add" />
+            </Button>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <StackPanel Orientation="Horizontal" Spacing="2">
+                <ItemsControl ItemsSource="{Binding Tabs}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" Spacing="2" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Classes="md" Click="OnTabClick" Tag="{Binding}"
+                              HorizontalContentAlignment="Left"
+                              Padding="12,6">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ctrl:MdIcon IconName="folder" IconSize="16" />
+                          <TextBlock Text="{Binding Title}" MaxWidth="140" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </DockPanel>
+        </Border>
+
+        <!-- 内容区（IViewFactory 创建的页面宿主） -->
+        <ContentControl x:Name="PageHost" Grid.Row="1" Margin="4,0,4,4" />
+      </Grid>
+
+      <!-- 预览栏 -->
+      <Border Grid.Column="2" IsVisible="{Binding IsPreviewVisible}"
+              Width="340" Margin="4"
+              Classes="md-card">
+        <views:PreviewPaneView DataContext="{Binding Preview}" />
+      </Border>
+    </Grid>
+
+    <!-- 任务条 -->
+    <Border Grid.Row="2" IsVisible="{Binding HasJobs}" Classes="md-card" Margin="12,4" Padding="10,8">
+      <StackPanel>
+        <ItemsControl ItemsSource="{Binding Jobs}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="*,160,Auto,Auto" Margin="2">
+                <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <ProgressBar Grid.Column="1" Value="{Binding Progress}" Minimum="0" Maximum="100" Height="8"
+                             VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding StateText}" Classes="md-sub" Margin="8,0" />
+                <Button Grid.Column="3" Classes="md" Content="取消" Command="{Binding CancelCommand}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+    <!-- 底部导航（Compact） -->
+    <Border Grid.Row="3" IsVisible="{Binding IsBottomNavVisible}" Classes="md-card" Margin="8,4" Padding="8">
+      <Grid ColumnDefinitions="*,*,*,*,*">
+        <Button Grid.Column="0" Classes="md" Command="{Binding OpenHomeCommand}">
+          <ctrl:MdIcon IconName="home" />
+        </Button>
+        <Button Grid.Column="1" Classes="md" Command="{Binding OpenSearchCenterCommand}">
+          <ctrl:MdIcon IconName="manage_search" />
+        </Button>
+        <Button Grid.Column="2" Classes="md" Command="{Binding OpenTrashCommand}">
+          <ctrl:MdIcon IconName="delete" />
+        </Button>
+        <Button Grid.Column="3" Classes="md" Command="{Binding OpenInsightsCommand}">
+          <ctrl:MdIcon IconName="data_usage" />
+        </Button>
+        <Button Grid.Column="4" Classes="md" Command="{Binding OpenSettingsCommand}">
+          <ctrl:MdIcon IconName="settings" />
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- Snackbar（§5.7 应用内优先） -->
+    <Border Grid.Row="3" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,64"
+            IsVisible="{Binding IsSnackbarOpen}"
+            Background="{DynamicResource MdOnSurface}" CornerRadius="10" Padding="16,10">
+      <TextBlock Text="{Binding SnackbarText}" Foreground="{DynamicResource MdSurface}" />
+    </Border>
+  </Grid>
+</Window>

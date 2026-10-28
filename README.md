@@ -6,6 +6,13 @@
 
 > 说明：本环境无 .NET SDK 且 NuGet 不可达，无法构建分支文档规划的 Avalonia/.NET 10 应用；因此第一版以可运行的 Web 形态忠实还原概念图设计（布局结构、Token 规格、交互形态均按 `docs/CONCEPT-DESIGN.md`、`docs/RESPONSIVE-LAYOUT.md`、`docs/BRAND.md` 执行），Avalonia 版可按同一设计规格另行移植。
 
+
+## 原生版（C# / Avalonia）
+
+`native/` 目录包含按 `docs/DEVELOPMENT.md` 规范实现的 **.NET 10 + Avalonia 12** 原生版源码
+（分层架构、全局写操作队列、MD3 主题、AOT 发布配置）。注意：该目录为**纯源码交付，未经编译验证**，
+本地构建说明见 [`native/README.md`](native/README.md)。
+
 ## 运行
 
 ```bash

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Ports & DTOs; depends on Domain only — §4.1 -->
+  <ItemGroup>
+    <ProjectReference Include="../MdExplorer.Domain/MdExplorer.Domain.csproj" />
+  </ItemGroup>
+</Project>

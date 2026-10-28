@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="using:MdExplorer.UI.Controls"
+             x:Class="MdExplorer.UI.Views.TrashView">
+  <Grid RowDefinitions="Auto,*">
+    <DockPanel Grid.Row="0" Margin="16,12,16,4">
+      <Button DockPanel.Dock="Right" Classes="md danger" Content="清空回收站"
+              Click="OnEmptyClick" />
+      <StackPanel>
+        <TextBlock Text="回收站" Classes="md-title" />
+        <TextBlock Text="{Binding StatusText}" Classes="md-sub" />
+      </StackPanel>
+    </DockPanel>
+
+    <ScrollViewer Grid.Row="1" Margin="16,4">
+      <ItemsControl ItemsSource="{Binding Items}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Classes="md-card" Margin="0,4">
+              <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                <ctrl:MdIcon Grid.Column="0" IconName="delete" IconSize="22"
+                             Foreground="{DynamicResource MdError}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Spacing="2" Margin="10,0">
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding OriginalPath}" Classes="md-sub"
+                             TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="{Binding DeletedLabel}" Classes="md-sub"
+                           VerticalAlignment="Center" Margin="8,0" />
+                <TextBlock Grid.Column="3" Text="{Binding SizeLabel}" Classes="md-sub"
+                           VerticalAlignment="Center" Margin="8,0" />
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6">
+                  <Button Classes="md tonal" Content="还原" Click="OnRestoreClick" Tag="{Binding}" />
+                  <Button Classes="md danger" Content="永久删除" Click="OnDeleteClick" Tag="{Binding}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>
