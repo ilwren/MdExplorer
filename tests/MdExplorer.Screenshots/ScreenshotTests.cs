@@ -348,7 +348,7 @@ public sealed class ScreenshotTests
         }
     }
 
-    /// <summary>指针回归：横向拖动文件标签超过相邻标签中点后，模型顺序应真实交换。</summary>
+    /// <summary>指针回归：在真实桌面窗口顶部横向拖动文件标签超过相邻标签中点后，模型顺序应真实交换。</summary>
     [AvaloniaFact]
     public async Task Large_TabDrag_ReordersTabs()
     {
@@ -358,14 +358,14 @@ public sealed class ScreenshotTests
         var originalOrder = shell.Browser.Tabs.Select(tab => tab.Path).ToArray();
         Assert.Equal(2, originalOrder.Length);
 
-        var view = new MainView { DataContext = shell };
-        var window = new Window { Width = 1440, Height = 900, Content = view };
+        var window = new MainWindow { Width = 1440, Height = 900, DataContext = shell };
+        var view = Assert.IsType<MainView>(window.Content);
         window.Show();
         try
         {
             await Task.Delay(150);
             window.CaptureRenderedFrame();
-            var strip = view.FindControl<ItemsControl>("TabStrip");
+            var strip = view.FindControl<ItemsControl>("DesktopTabStrip");
             Assert.NotNull(strip);
             var first = strip!.ContainerFromIndex(0);
             var second = strip.ContainerFromIndex(1);
@@ -402,6 +402,80 @@ public sealed class ScreenshotTests
         }
         finally
         {
+            window.Close();
+        }
+    }
+
+    /// <summary>窗口 Chrome 回归：Expanded+ 用顶部标签，桌面窄窗保留自有窗口按钮，最大化时关闭缩放热区并切换还原语义。</summary>
+    [AvaloniaFact]
+    public async Task MainWindowChrome_AdaptsToWindowSizeAndState()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        var window = new MainWindow { Width = 1440, Height = 900, DataContext = shell };
+        var view = Assert.IsType<MainView>(window.Content);
+        window.Show();
+        try
+        {
+            await Task.Delay(150);
+            window.CaptureRenderedFrame();
+
+            var chrome = view.FindControl<Border>("DesktopWindowChrome");
+            var desktopTabs = view.FindControl<Control>("DesktopTabScroller");
+            var workspaceTabs = view.FindControl<Border>("WorkspaceTabStripHost");
+            var compactControls = view.FindControl<StackPanel>("CompactWindowControls");
+            var resizeGrips = view.FindControl<Grid>("WindowResizeGrips");
+            var selectionBar = view.FindControl<Border>("SelectionModeBar");
+            var maximizeButton = view.FindControl<Control>("WindowMaximizeButton");
+
+            Assert.NotNull(chrome);
+            Assert.NotNull(desktopTabs);
+            Assert.NotNull(workspaceTabs);
+            Assert.NotNull(compactControls);
+            Assert.NotNull(resizeGrips);
+            Assert.NotNull(selectionBar);
+            Assert.NotNull(maximizeButton);
+
+            Assert.True(chrome!.IsVisible);
+            Assert.True(desktopTabs!.IsVisible);
+            Assert.False(workspaceTabs!.IsVisible);
+            Assert.False(compactControls!.IsVisible);
+            Assert.True(resizeGrips!.IsVisible);
+            Assert.Equal("最大化窗口", AutomationProperties.GetName(maximizeButton!));
+
+            shell.GoSettingsCommand.Execute(null);
+            await Task.Delay(50);
+            window.CaptureRenderedFrame();
+            Assert.True(chrome.IsVisible);
+            Assert.False(desktopTabs.IsVisible);
+
+            await shell.OpenFolderAsync(PicturesDir);
+            await shell.Browser.WhenIdleAsync();
+            window.Width = 768;
+            window.Height = 900;
+            shell.SetViewportSize(768, 900);
+            await Task.Delay(100);
+            window.CaptureRenderedFrame();
+
+            Assert.False(chrome.IsVisible);
+            Assert.True(workspaceTabs.IsVisible);
+            Assert.True(compactControls.IsVisible);
+            Assert.Equal(120, selectionBar!.Margin.Right);
+
+            window.Width = 1440;
+            window.Height = 900;
+            shell.SetViewportSize(1440, 900);
+            window.WindowState = WindowState.Maximized;
+            await Task.Delay(100);
+            window.CaptureRenderedFrame();
+
+            Assert.True(chrome.IsVisible);
+            Assert.False(resizeGrips.IsVisible);
+            Assert.Equal("还原窗口", AutomationProperties.GetName(maximizeButton));
+        }
+        finally
+        {
+            window.WindowState = WindowState.Normal;
             window.Close();
         }
     }
