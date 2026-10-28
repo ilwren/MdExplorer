@@ -929,8 +929,8 @@
     <!-- 浮层：任务中心（非模态；操作继续在队列中运行） -->
     <Grid IsVisible="{Binding IsTaskCenterOpen}">
       <Border Background="#22000000" Tapped="OnTaskCenterScrimTapped" />
-      <Border x:Name="TaskCenterCard" HorizontalAlignment="Right" VerticalAlignment="Bottom" MinWidth="320" MaxWidth="440"
-              Margin="16,16,16,84" CornerRadius="26" Padding="19"
+      <Border x:Name="TaskCenterCard" Classes="task-center" Classes.compact="{Binding IsCompact}"
+              VerticalAlignment="Bottom" Padding="19"
               Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
               BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
               BoxShadow="0 18 42 #2B000000">
@@ -940,8 +940,10 @@
             <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" />
           </Transitions>
         </Border.Transitions>
-        <Grid RowDefinitions="Auto,*">
-          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <Border Width="36" Height="4" CornerRadius="2" HorizontalAlignment="Center" Margin="0,0,0,14"
+                  Background="{DynamicResource Md.Sys.Color.Outline.Brush}" IsVisible="{Binding IsCompact}" />
+          <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
             <StackPanel Spacing="2">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <md:MdIcon Glyph="{x:Static md:MdSymbols.PendingActions}" Size="22" VerticalAlignment="Center" />
@@ -954,9 +956,10 @@
             <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.Close}"
                              Command="{Binding CloseTaskCenterCommand}" AutomationProperties.Name="关闭任务中心" />
           </Grid>
-          <TextBlock Grid.Row="1" Classes="body" Text="尚无文件操作记录。"
+          <TextBlock Grid.Row="2" Classes="body" Text="尚无文件操作记录。"
                      IsVisible="{Binding !HasOperationTasks}" Margin="4,8" />
-          <md:MdScrollViewer Grid.Row="1" MaxHeight="420" HorizontalScrollBarVisibility="Disabled" AllowMouseDrag="True">
+          <md:MdScrollViewer Grid.Row="2" Classes="task-center-list" Classes.compact="{Binding IsCompact}"
+                             HorizontalScrollBarVisibility="Disabled" AllowMouseDrag="True">
             <ItemsControl ItemsSource="{Binding OperationTasks}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:OperationTaskViewModel">

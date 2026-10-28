@@ -500,6 +500,10 @@ public sealed class ScreenshotTests
     public async Task Large_TaskDetails() => await CaptureAsync(
         "35-large-task-details.png", 1440, 900, ArrangeTaskDetailsAsync);
 
+    [AvaloniaFact]
+    public async Task Compact_TaskDetailsSheet() => await CaptureAsync(
+        "36-compact-task-sheet.png", 390, 844, ArrangeTaskDetailsAsync);
+
     private static Task ArrangeTransferConflictAsync(ShellViewModel shell)
     {
         _ = shell.AskConflictAsync(CreateConflictPrompt());

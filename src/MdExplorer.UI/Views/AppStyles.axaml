@@ -434,4 +434,26 @@
     <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
   </Style>
 
+  <!-- 任务中心：桌面为右下浮卡；Compact 收敛为贴底 Sheet，避免窄屏左右留白与内容截断。 -->
+  <Style Selector="Border.task-center">
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="Margin" Value="16,16,16,84" />
+    <Setter Property="MinWidth" Value="320" />
+    <Setter Property="MaxWidth" Value="440" />
+    <Setter Property="CornerRadius" Value="26" />
+  </Style>
+  <Style Selector="Border.task-center.compact">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="Margin" Value="0,56,0,0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MaxWidth" Value="10000" />
+    <Setter Property="CornerRadius" Value="28,28,0,0" />
+  </Style>
+  <Style Selector="md|MdScrollViewer.task-center-list">
+    <Setter Property="MaxHeight" Value="420" />
+  </Style>
+  <Style Selector="md|MdScrollViewer.task-center-list.compact">
+    <Setter Property="MaxHeight" Value="560" />
+  </Style>
+
 </Styles>
