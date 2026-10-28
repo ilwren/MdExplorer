@@ -1,13 +1,4 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:01.33]     MdExplorer.Tests.StorageInsightsTests.Analyze_AggregatesKindsTopFoldersAndLargestFiles [FAIL]
-  Failed MdExplorer.Tests.StorageInsightsTests.Analyze_AggregatesKindsTopFoldersAndLargestFiles [12 ms]
-  Error Message:
-   System.InvalidOperationException : Sequence contains no matching element
-  Stack Trace:
-     at System.Linq.ThrowHelper.ThrowNoMatchException()
-   at System.Linq.Enumerable.Single[TSource](IEnumerable`1 source, Func`2 predicate)
-   at MdExplorer.Tests.StorageInsightsTests.Analyze_AggregatesKindsTopFoldersAndLargestFiles() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/StorageInsightsTests.cs:line 61
---- End of stack trace from previous location ---
 
-Failed!  - Failed:     1, Passed:   109, Skipped:     0, Total:   110, Duration: 794 ms - MdExplorer.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   110, Skipped:     0, Total:   110, Duration: 553 ms - MdExplorer.Tests.dll (net10.0)
