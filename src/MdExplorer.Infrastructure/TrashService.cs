@@ -32,6 +32,12 @@ public sealed class TrashService : ITrashService
         return [];
     }
 
+    public async Task<TrashStats> GetStatsAsync(CancellationToken cancellationToken)
+    {
+        var items = await ListAsync(cancellationToken).ConfigureAwait(false);
+        return new TrashStats(items.Sum(item => item.SizeBytes ?? 0), items.Count);
+    }
+
     public async Task RestoreAsync(string trashItemId, CancellationToken cancellationToken)
     {
         if (OperatingSystem.IsLinux())
@@ -46,6 +52,17 @@ public sealed class TrashService : ITrashService
             await LinuxTrash.DeletePermanentlyAsync(trashItemId, cancellationToken).ConfigureAwait(false);
         else
             throw new PlatformNotSupportedException();
+    }
+
+    public async Task EmptyAsync(CancellationToken cancellationToken)
+    {
+        if (!OperatingSystem.IsLinux())
+            throw new PlatformNotSupportedException("当前平台无法在应用内清空系统回收站");
+        foreach (var item in await LinuxTrash.ListAsync(cancellationToken).ConfigureAwait(false))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await LinuxTrash.DeletePermanentlyAsync(item.Id, cancellationToken).ConfigureAwait(false);
+        }
     }
 }
 
@@ -126,7 +143,13 @@ internal static class LinuxTrash
                 if (original is null) continue;
                 var trashName = Path.GetFileNameWithoutExtension(infoFile);
                 var payload = Path.Combine(FilesDir, trashName);
-                items.Add(new TrashedItem(trashName, Path.GetFileName(original), original, deleted, Directory.Exists(payload)));
+                items.Add(new TrashedItem(
+                    trashName,
+                    Path.GetFileName(original),
+                    original,
+                    deleted,
+                    Directory.Exists(payload),
+                    ComputePayloadSize(payload)));
             }
             catch (IOException) { /* 单条 info 损坏不中断枚举 */ }
             catch (UnauthorizedAccessException) { }
@@ -155,6 +178,29 @@ internal static class LinuxTrash
         var info = Path.Combine(InfoDir, trashItemId + ".trashinfo");
         if (File.Exists(info)) File.Delete(info);
     }, ct);
+
+    private static long? ComputePayloadSize(string payload)
+    {
+        try
+        {
+            if (File.Exists(payload))
+                return new FileInfo(payload).Length;
+            if (!Directory.Exists(payload))
+                return null;
+
+            long total = 0;
+            foreach (var file in Directory.EnumerateFiles(payload, "*", SearchOption.AllDirectories))
+            {
+                try { total = checked(total + new FileInfo(file).Length); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+                catch (OverflowException) { return long.MaxValue; }
+            }
+            return total;
+        }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+    }
 
     private static TrashedItem? Find(string trashItemId)
     {

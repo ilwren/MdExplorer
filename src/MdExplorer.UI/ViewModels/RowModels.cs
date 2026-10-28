@@ -1,4 +1,5 @@
 using System.Globalization;
+using Md3.Avalonia.Controls;
 using MdExplorer.Domain;
 
 namespace MdExplorer.UI.ViewModels;
@@ -9,14 +10,45 @@ public sealed record VolumeItemModel(string Name, string Path, string UsageText,
     public string UsedPercentText => $"{UsedPercent:0}%";
 }
 
-/// <summary>已授权文件夹（Android SAF）入口行模型。Path 为 content:// 定位串。</summary>
-public sealed record AuthorizedRootModel(string Name, string Path);
+/// <summary>
+/// 已授权文件夹（Android SAF）管理行。Path 为 content:// 定位串；失效书签保留行但 Path 为空，
+/// 让用户能定点重新授权，而不是在下次启动时静默消失。
+/// </summary>
+public sealed record AuthorizedRootModel(
+    string Name,
+    string Path,
+    string? Bookmark = null,
+    bool IsAvailable = true,
+    bool IsPersistent = true)
+{
+    public bool NeedsReauthorization => !IsAvailable;
+    public string StateText => !IsAvailable
+        ? "需要重新授权"
+        : IsPersistent ? "读写 · 已保存" : "读写 · 仅本次会话";
+    public string LocationText => IsAvailable ? Path : "文件夹不可用或授权已失效";
+    public string? StatusGlyph => !IsAvailable
+        ? MdSymbols.Warning
+        : IsPersistent ? MdSymbols.CheckCircle : MdSymbols.PendingActions;
+}
 
 /// <summary>文件名索引根行（仅本地文件夹）。</summary>
 public sealed record SearchIndexRootModel(string Name, string Path);
 
 /// <summary>回收站行。</summary>
-public sealed record TrashItemModel(string Id, string Name, string OriginalPath, string DeletedText, bool IsFolder);
+public sealed record TrashItemModel(
+    string Id,
+    string Name,
+    string OriginalPath,
+    string DeletedText,
+    bool IsFolder,
+    long? SizeBytes = null)
+{
+    public string SizeText => SizeBytes is { } bytes ? Formatting.Bytes(bytes) : "大小未知";
+    public string MetaText => string.IsNullOrWhiteSpace(DeletedText)
+        ? SizeText
+        : $"{DeletedText} · {SizeText}";
+    public string? Glyph => IsFolder ? MdSymbols.Folder : MdSymbols.InsertDriveFile;
+}
 
 /// <summary>预览元数据行。</summary>
 public sealed record MetadataRowModel(string Key, string Value);

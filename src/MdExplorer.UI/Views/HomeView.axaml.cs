@@ -63,7 +63,7 @@ public partial class HomeView : UserControl
     {
         if (e.Source is Button) return; // 移除按钮的轻触不触发打开
         if (sender is Control { DataContext: AuthorizedRootModel root } && Shell is { } shell)
-            await shell.OpenFolderAsync(root.Path);
+            await shell.OpenAuthorizedRootAsync(root);
     }
 
     private async void OnRemoveAuthorizedRootClick(object? sender, RoutedEventArgs e)

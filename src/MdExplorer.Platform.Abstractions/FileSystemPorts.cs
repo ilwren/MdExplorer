@@ -135,11 +135,29 @@ public interface ITrashService
     bool CanBrowseTrash { get; }
     Task MoveToTrashAsync(string path, CancellationToken cancellationToken);
     Task<IReadOnlyList<TrashedItem>> ListAsync(CancellationToken cancellationToken);
+    Task<TrashStats> GetStatsAsync(CancellationToken cancellationToken);
     Task RestoreAsync(string trashItemId, CancellationToken cancellationToken);
     Task DeletePermanentlyAsync(string trashItemId, CancellationToken cancellationToken);
+
+    /// <summary>永久删除当前可浏览回收站中的全部条目；不支持浏览时实现应明确失败。</summary>
+    Task EmptyAsync(CancellationToken cancellationToken);
 }
 
-public sealed record TrashedItem(string Id, string OriginalName, string OriginalPath, DateTimeOffset DeletedAt, bool IsFolder);
+public sealed record TrashedItem(
+    string Id,
+    string OriginalName,
+    string OriginalPath,
+    DateTimeOffset DeletedAt,
+    bool IsFolder,
+    long? SizeBytes = null);
+
+/// <summary>回收站占用快照。QuotaBytes/RetentionDays 为 null 表示系统回收站不归应用配额管理。</summary>
+public sealed record TrashStats(long UsedBytes, int ItemCount, long? QuotaBytes = null, int? RetentionDays = null)
+{
+    public double UsedPercent => QuotaBytes is > 0
+        ? Math.Clamp(UsedBytes * 100.0 / QuotaBytes.Value, 0, 100)
+        : 0;
+}
 
 /// <summary>存储卷发现。</summary>
 public interface IVolumeService
@@ -322,4 +340,5 @@ public sealed record PlatformCapabilities(
     bool CanMoveToTrash,
     bool CanBrowseTrash,
     bool IsAndroid,
-    bool IsDesktop);
+    bool IsDesktop,
+    bool UsesAppTrash = false);

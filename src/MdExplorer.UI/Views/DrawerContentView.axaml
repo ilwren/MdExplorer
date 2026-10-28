@@ -78,10 +78,13 @@
       <ItemsControl ItemsSource="{Binding AuthorizedRoots}" IsVisible="{Binding Capabilities.IsAndroid}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:AuthorizedRootModel">
-            <md:MdButton Classes="nav-entry" Variant="Text" Click="OnAuthorizedRootClick">
+            <md:MdButton Classes="nav-entry" Variant="Text" Click="OnAuthorizedRootClick" ToolTip.Tip="{Binding LocationText}">
               <StackPanel Orientation="Horizontal" Spacing="12">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="22" />
-                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                <md:MdIcon Glyph="{Binding StatusGlyph}" Size="22" VerticalAlignment="Center" />
+                <StackPanel VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Name}" />
+                  <TextBlock Classes="caption" Text="{Binding StateText}" />
+                </StackPanel>
               </StackPanel>
             </md:MdButton>
           </DataTemplate>

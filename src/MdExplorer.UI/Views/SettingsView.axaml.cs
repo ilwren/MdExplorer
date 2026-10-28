@@ -41,6 +41,26 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private async void OnAuthorizedRootClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: AuthorizedRootModel root } && DataContext is ShellViewModel shell)
+            await shell.OpenAuthorizedRootAsync(root);
+    }
+
+    private async void OnReauthorizeRootClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: AuthorizedRootModel root } && DataContext is ShellViewModel shell)
+            await shell.ReauthorizeAuthorizedRootAsync(root);
+        e.Handled = true;
+    }
+
+    private async void OnRemoveAuthorizedRootClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: AuthorizedRootModel root } && DataContext is ShellViewModel shell)
+            await shell.RemoveAuthorizedRootAsync(root);
+        e.Handled = true;
+    }
+
     private async void OnLicensesClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not IDialogs dialogs) return;

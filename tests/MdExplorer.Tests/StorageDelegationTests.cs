@@ -242,6 +242,22 @@ public sealed class StorageDelegationTests : IDisposable
     }
 
     [Fact]
+    public async Task ForgetRootDropsRegisteredDescendantsWithoutDeletingProviderTree()
+    {
+        var t = BuildTree();
+        _ = await ListAllAsync(t.Fs, t.RootKey);
+        var subItems = await ListAllAsync(t.Fs, t.SubKey);
+        var nestedKey = Assert.Single(subItems).FullPath;
+
+        t.Fs.ForgetRoot(t.RootKey);
+
+        Assert.Null(await t.Fs.StatAsync(t.RootKey, CancellationToken.None));
+        Assert.Null(await t.Fs.StatAsync(t.AKey, CancellationToken.None));
+        Assert.Null(await t.Fs.StatAsync(nestedKey, CancellationToken.None));
+        Assert.Equal(3, t.Root.Children.Count); // 只遗忘 Eidoria 的会话注册，不触碰提供者文件
+    }
+
+    [Fact]
     public async Task LocalPathsPassThroughUnchanged()
     {
         var t = BuildTree();

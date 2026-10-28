@@ -4,46 +4,92 @@
              xmlns:vm="using:MdExplorer.UI.ViewModels"
              x:Class="MdExplorer.UI.Views.TrashView"
              x:DataType="vm:ShellViewModel">
-  <Grid Margin="20,12,20,20" RowDefinitions="Auto,*">
-    <TextBlock Classes="h1" Text="回收站" />
-    <Grid Grid.Row="1" Margin="0,12,0,0">
-      <StackPanel IsVisible="{Binding !Capabilities.CanBrowseTrash}" VerticalAlignment="Center"
-                  HorizontalAlignment="Center" Spacing="8" MaxWidth="420">
-        <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="48" HorizontalAlignment="Center" />
-        <TextBlock Classes="body" TextWrapping="Wrap" TextAlignment="Center"
-                   Text="当前平台无法在应用内浏览回收站。移入回收站的文件请通过系统回收站（桌面）管理；Android 无系统回收站，删除会要求二次确认。" />
-      </StackPanel>
+  <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" AllowMouseDrag="True">
+    <StackPanel Margin="20,12,20,28" Spacing="16" MaxWidth="920" HorizontalAlignment="Stretch">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <StackPanel Spacing="2" VerticalAlignment="Center">
+          <TextBlock Classes="h1" Text="{Binding TrashTitle}" />
+          <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding Capabilities.UsesAppTrash}"
+                     Text="仅保留经 Eidoria 删除的项目，不是 Android 系统回收站" />
+        </StackPanel>
+        <md:MdButton Grid.Column="1" Variant="Outlined" VerticalAlignment="Center"
+                     Command="{Binding EmptyTrashCommand}" IsVisible="{Binding HasTrashItems}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="18"
+                       Foreground="{DynamicResource Md.Sys.Color.Error.Brush}" />
+            <TextBlock Text="清空回收站" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Md.Sys.Color.Error.Brush}" />
+          </StackPanel>
+        </md:MdButton>
+      </Grid>
 
-      <StackPanel IsVisible="{Binding ShowTrashEmpty}" VerticalAlignment="Center"
-                  HorizontalAlignment="Center" Spacing="8">
-        <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="48" HorizontalAlignment="Center"
-                   Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
-        <TextBlock Classes="body" Text="回收站是空的" />
-      </StackPanel>
+      <Border Classes="card" IsVisible="{Binding Capabilities.CanBrowseTrash}">
+        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="14" RowSpacing="12">
+          <Border Width="44" Height="44" CornerRadius="14" VerticalAlignment="Center"
+                  Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="23"
+                       Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+            <TextBlock Classes="body" Text="{Binding TrashSummaryText}" />
+            <TextBlock Classes="caption" IsVisible="{Binding HasTrashQuota}">
+              <Run Text="上限 " /><Run Text="{Binding TrashQuotaText}" /><Run Text=" · " /><Run Text="{Binding TrashRetentionText}" />
+            </TextBlock>
+            <TextBlock Classes="caption" Text="系统回收站 · 由系统管理" IsVisible="{Binding !HasTrashQuota}" />
+          </StackPanel>
+          <md:MdLinearProgressIndicator Grid.Row="1" Grid.ColumnSpan="2" Minimum="0" Maximum="100"
+                                        Value="{Binding TrashUsedPercent}" Height="6"
+                                        IsVisible="{Binding HasTrashQuota}" />
+        </Grid>
+      </Border>
 
-      <md:MdList ItemsSource="{Binding TrashItems}" IsVisible="{Binding Capabilities.CanBrowseTrash}"
-               Background="Transparent" BorderThickness="0">
-        <md:MdList.ItemTemplate>
+      <Border Classes="card" IsVisible="{Binding !Capabilities.CanBrowseTrash}">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="body" Text="此平台暂不支持在此浏览回收站" />
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="删除仍会送至系统回收站；如需还原或清空，请使用系统文件管理器。" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding ShowTrashEmpty}">
+        <StackPanel Spacing="8" HorizontalAlignment="Center" Margin="16">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="38" HorizontalAlignment="Center"
+                     Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+          <TextBlock Classes="body" Text="回收站是空的" HorizontalAlignment="Center" />
+          <TextBlock Classes="caption" Text="删除的项目会显示在这里" HorizontalAlignment="Center" />
+        </StackPanel>
+      </Border>
+
+      <ItemsControl ItemsSource="{Binding TrashItems}" IsVisible="{Binding Capabilities.CanBrowseTrash}">
+        <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:TrashItemModel">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10" Margin="4,6" ToolTip.Tip="{Binding OriginalPath}">
-              <Border Width="38" Height="38" CornerRadius="11" VerticalAlignment="Center"
-                      Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="19"
-                           Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
-              </Border>
-              <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
-                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                <TextBlock Classes="caption" Text="{Binding DeletedText}" />
-              </StackPanel>
-              <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.Refresh}" Click="OnRestoreClick"
-                               ToolTip.Tip="还原" AutomationProperties.Name="还原" />
-              <md:MdIconButton Grid.Column="3" Icon="{x:Static md:MdSymbols.Delete}" Click="OnDeleteClick"
-                               Foreground="{DynamicResource Md.Sys.Color.Error.Brush}"
-                               ToolTip.Tip="永久删除" AutomationProperties.Name="永久删除" />
-            </Grid>
+            <Border Classes="card" Padding="14" Margin="0,0,0,10">
+              <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+                <Border Width="44" Height="44" CornerRadius="14" VerticalAlignment="Center"
+                        Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
+                  <md:MdIcon Glyph="{Binding Glyph}" Size="23"
+                             Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="caption" Text="{Binding MetaText}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="caption" Text="{Binding OriginalPath}" TextTrimming="CharacterEllipsis"
+                             ToolTip.Tip="{Binding OriginalPath}" />
+                </StackPanel>
+                <md:MdButton Grid.Column="2" Variant="Tonal" VerticalAlignment="Center" Click="OnRestoreClick">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <md:MdIcon Glyph="{x:Static md:MdSymbols.Refresh}" Size="18" />
+                    <TextBlock Text="还原" VerticalAlignment="Center" />
+                  </StackPanel>
+                </md:MdButton>
+                <md:MdIconButton Grid.Column="3" Icon="{x:Static md:MdSymbols.Delete}" Click="OnDeleteClick"
+                                 Foreground="{DynamicResource Md.Sys.Color.Error.Brush}" VerticalAlignment="Center"
+                                 ToolTip.Tip="永久删除" />
+              </Grid>
+            </Border>
           </DataTemplate>
-        </md:MdList.ItemTemplate>
-      </md:MdList>
-    </Grid>
-  </Grid>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </md:MdScrollViewer>
 </UserControl>

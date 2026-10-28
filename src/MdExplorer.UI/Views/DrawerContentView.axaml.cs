@@ -25,7 +25,7 @@ public partial class DrawerContentView : UserControl
     private async void OnAuthorizedRootClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Control { DataContext: AuthorizedRootModel root } && Shell is { } shell)
-            await shell.OpenFolderAsync(root.Path);
+            await shell.OpenAuthorizedRootAsync(root);
     }
 
     private async void OnFavoriteClick(object? sender, RoutedEventArgs e)

@@ -1510,16 +1510,18 @@ public sealed partial class BrowserViewModel : ObservableObject
         if (SelectedItems.Count == 0) return;
         var items = SelectedItems.ToList();
         var canTrash = _trash.CanMoveToTrash;
-        var title = canTrash ? "移入回收站？" : "永久删除？";
+        var isAppTrash = _trash is AppTrashService;
+        var trashName = isAppTrash ? "应用内回收站" : "回收站";
+        var title = canTrash ? $"移入{trashName}？" : "永久删除？";
         var message = canTrash
-            ? $"将 {items.Count} 个项目移入回收站，之后可从回收站恢复。"
+            ? $"将 {items.Count} 个项目移入{trashName}，之后可从{trashName}恢复。"
             : $"将永久删除 {items.Count} 个项目，此操作无法撤销。";
-        if (!await _dialogs.ConfirmAsync(title, message, canTrash ? "移入回收站" : "永久删除", destructive: true).ConfigureAwait(true))
+        if (!await _dialogs.ConfirmAsync(title, message, canTrash ? $"移入{trashName}" : "永久删除", destructive: true).ConfigureAwait(true))
             return;
 
         if (canTrash)
         {
-            var outcome = await _dialogs.RunOperationAsync("正在移入回收站…", async (progress, ct) =>
+            var outcome = await _dialogs.RunOperationAsync($"正在移入{trashName}…", async (progress, ct) =>
             {
                 var errors = new List<OperationError>();
                 var done = 0;
@@ -1527,7 +1529,7 @@ public sealed partial class BrowserViewModel : ObservableObject
                 {
                     ct.ThrowIfCancellationRequested();
                     try { await _trash.MoveToTrashAsync(item.FullPath, ct).ConfigureAwait(true); done++; }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException or InvalidOperationException or NotSupportedException)
                     {
                         errors.Add(new OperationError(item.Name, ex.Message));
                     }

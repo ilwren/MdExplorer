@@ -50,6 +50,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public ObservableCollection<AuthorizedRootModel> AuthorizedRoots { get; } = [];
 
     public bool HasAuthorizedRoots => AuthorizedRoots.Count > 0;
+    public int AvailableAuthorizedRootCount => AuthorizedRoots.Count(root => root.IsAvailable);
+    public int UnavailableAuthorizedRootCount => AuthorizedRoots.Count(root => root.NeedsReauthorization);
+    public bool HasUnavailableAuthorizedRoots => UnavailableAuthorizedRootCount > 0;
+    public string AuthorizedRootsSummaryText => AuthorizedRoots.Count == 0
+        ? "尚未授权文件夹"
+        : UnavailableAuthorizedRootCount == 0
+            ? $"{AvailableAuthorizedRootCount} 个可用"
+            : $"{AvailableAuthorizedRootCount} 个可用 · {UnavailableAuthorizedRootCount} 个需重新授权";
 
     public ShellViewModel(AppHost.AppServices services)
     {
@@ -57,7 +65,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _launcher = () => services.Launcher;
         Preview = new PreviewViewModel(MdExplorer.UI.Preview.BuiltInPreviewProviders.Create(services.Archive, services.FileSystem), () => Launcher);
         _persistedRoots.AddRange(services.PersistedRoots);
-        AuthorizedRoots.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAuthorizedRoots));
+        AuthorizedRoots.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasAuthorizedRoots));
+            OnPropertyChanged(nameof(AvailableAuthorizedRootCount));
+            OnPropertyChanged(nameof(UnavailableAuthorizedRootCount));
+            OnPropertyChanged(nameof(HasUnavailableAuthorizedRoots));
+            OnPropertyChanged(nameof(AuthorizedRootsSummaryText));
+        };
         Browser = new BrowserViewModel(
             services.FileSystem, services.Operations, services.Trash,
             services.Archive, services.Search, services.SettingsStore,
@@ -93,7 +108,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             OnPropertyChanged(nameof(HasRecentFiles));
             OnPropertyChanged(nameof(HasRecents));
         };
-        TrashItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowTrashEmpty));
+        TrashItems.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(ShowTrashEmpty));
+            OnPropertyChanged(nameof(HasTrashItems));
+            OnPropertyChanged(nameof(TrashItemCountText));
+            OnPropertyChanged(nameof(TrashSummaryText));
+        };
         SearchIndexRoots.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasSearchIndexRoots));
@@ -174,7 +195,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         ShellPage.Home => "文件",
         ShellPage.Favorites => "收藏",
-        ShellPage.Trash => "回收站",
+        ShellPage.Trash => Capabilities.UsesAppTrash ? "应用内回收站" : "回收站",
         ShellPage.Settings => "设置",
         ShellPage.SearchCenter => "搜索中心",
         ShellPage.StorageInsights => "存储洞察",
@@ -186,8 +207,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool HasRecentFolders => RecentFolders.Count > 0;
     public bool HasRecentFiles => RecentFiles.Count > 0;
     public bool HasRecents => HasRecentFolders || HasRecentFiles;
-    /// <summary>可浏览平台的回收站为空时展示占位（Windows/Android 走平台说明分支）。</summary>
+    /// <summary>可浏览回收站为空时展示占位（Windows 仍走平台说明分支）。</summary>
     public bool ShowTrashEmpty => Capabilities.CanBrowseTrash && TrashItems.Count == 0;
+    public bool HasTrashItems => TrashItems.Count > 0;
+    public string TrashItemCountText => TrashItems.Count.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
 
     public bool IsHome => Page == ShellPage.Home;
     public bool IsBrowser => Page == ShellPage.Browser;
@@ -474,6 +497,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         IsDrawerOpen = false;
         IsPreviewPageOpen = false;
         _ = RefreshSearchIndexAsync();
+        if (Capabilities.CanBrowseTrash)
+            _ = RefreshTrashAsync();
     }
 
     [RelayCommand]
@@ -515,28 +540,64 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public async Task AttachStorageAsync(IStorageProvider provider)
     {
         _services.StorageFileSystem.StorageProvider = provider;
-        foreach (var root in _persistedRoots)
+        foreach (var root in _persistedRoots.ToArray())
         {
+            IStorageFolder? folder = null;
             try
             {
-                if (await provider.OpenFolderBookmarkAsync(root.Bookmark).ConfigureAwait(true) is { } folder)
-                    AddAuthorizedRootModel(folder.Name, _services.StorageFileSystem.RegisterRoot(folder));
+                folder = await provider.OpenFolderBookmarkAsync(root.Bookmark).ConfigureAwait(true);
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
             {
-                // 书签/授权失效则跳过（条目保留在持久化中，用户可重新授权覆盖）
+                // 在下方保留失效行，供用户定点重新授权。
+            }
+
+            if (folder is null)
+            {
+                AddAuthorizedRootModel(root.Name, string.Empty, root.Bookmark, isAvailable: false, isPersistent: true);
+                continue;
+            }
+
+            var uri = _services.StorageFileSystem.RegisterRoot(folder);
+            if (await IsAuthorizedRootReachableAsync(uri).ConfigureAwait(true))
+            {
+                AddAuthorizedRootModel(folder.Name, uri, root.Bookmark, isAvailable: true, isPersistent: true);
+            }
+            else
+            {
+                _services.StorageFileSystem.ForgetRoot(uri);
+                AddAuthorizedRootModel(root.Name, string.Empty, root.Bookmark, isAvailable: false, isPersistent: true);
             }
         }
     }
 
+    private async Task<bool> IsAuthorizedRootReachableAsync(string uri)
+    {
+        try
+        {
+            await using var enumerator = _services.FileSystem
+                .ListAsync(uri, includeHidden: false, CancellationToken.None)
+                .GetAsyncEnumerator();
+            _ = await enumerator.MoveNextAsync().ConfigureAwait(true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     [RelayCommand]
-    private async Task PickAuthorizedFolderAsync()
+    private async Task PickAuthorizedFolderAsync() =>
+        await PickAuthorizedFolderCoreAsync().ConfigureAwait(true);
+
+    private async Task<bool> PickAuthorizedFolderCoreAsync()
     {
         var provider = _services.StorageFileSystem.StorageProvider;
         if (provider is null || !provider.CanPickFolder)
         {
             Notify("当前环境不支持文件夹选择");
-            return;
+            return false;
         }
         IReadOnlyList<IStorageFolder> picked;
         try
@@ -550,49 +611,124 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
         {
             Notify("无法打开系统文件夹选择器");
-            return;
+            return false;
         }
         string? firstUri = null;
         foreach (var folder in picked)
         {
             var uri = _services.StorageFileSystem.RegisterRoot(folder);
             firstUri ??= uri;
-            AddAuthorizedRootModel(folder.Name, uri);
+            string? bookmark = null;
             try
             {
-                // 书签持久化尽力而为：失败时该授权仅本次会话有效
-                if (folder.CanBookmark && await folder.SaveBookmarkAsync().ConfigureAwait(true) is { } bookmark)
-                {
-                    _persistedRoots.RemoveAll(r => r.Name == folder.Name);
-                    _persistedRoots.Add(new AuthorizedRoot(folder.Name, bookmark));
-                }
+                // 书签持久化尽力而为：失败时该授权仅本次会话有效，管理行会如实标注。
+                if (folder.CanBookmark)
+                    bookmark = await folder.SaveBookmarkAsync().ConfigureAwait(true);
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException) { }
+
+            if (bookmark is not null)
+            {
+                _persistedRoots.RemoveAll(r => r.Name == folder.Name || r.Bookmark == bookmark);
+                _persistedRoots.Add(new AuthorizedRoot(folder.Name, bookmark));
+            }
+            AddAuthorizedRootModel(folder.Name, uri, bookmark, isAvailable: true, isPersistent: bookmark is not null);
         }
         if (picked.Count > 0)
         {
             await SaveRootsAsync().ConfigureAwait(true);
             if (firstUri is not null)
                 await OpenFolderAsync(firstUri).ConfigureAwait(true);
+            return true;
         }
+        return false;
     }
 
-    /// <summary>移除授权入口与书签（不触碰实际文件；系统侧授权亦可在系统设置撤销）。</summary>
+    /// <summary>可用授权直接打开；失效授权定点进入系统选择器续授。</summary>
+    public async Task OpenAuthorizedRootAsync(AuthorizedRootModel root)
+    {
+        if (root.IsAvailable && !string.IsNullOrWhiteSpace(root.Path))
+            await OpenFolderAsync(root.Path).ConfigureAwait(true);
+        else
+            await ReauthorizeAuthorizedRootAsync(root).ConfigureAwait(true);
+    }
+
+    public async Task ReauthorizeAuthorizedRootAsync(AuthorizedRootModel root)
+    {
+        if (root.IsAvailable)
+        {
+            await OpenAuthorizedRootAsync(root).ConfigureAwait(true);
+            return;
+        }
+
+        if (!await PickAuthorizedFolderCoreAsync().ConfigureAwait(true))
+            return;
+
+        AuthorizedRoots.Remove(root);
+        if (!string.IsNullOrWhiteSpace(root.Bookmark))
+            _persistedRoots.RemoveAll(r => r.Bookmark == root.Bookmark);
+        await SaveRootsAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>移除 Eidoria 中的授权入口与书签；不删除真实文件，系统侧授权仍可在系统设置中撤销。</summary>
     public async Task RemoveAuthorizedRootAsync(AuthorizedRootModel root)
     {
+        var leavingCurrent = root.IsAvailable &&
+                             Browser.CurrentPath is { } current &&
+                             IsPathWithinAuthorizedRoot(current, root.Path);
         AuthorizedRoots.Remove(root);
-        _persistedRoots.RemoveAll(r => r.Name == root.Name);
+        _persistedRoots.RemoveAll(r =>
+            (!string.IsNullOrWhiteSpace(root.Bookmark) && r.Bookmark == root.Bookmark) ||
+            r.Name == root.Name);
+        if (root.IsAvailable && !string.IsNullOrWhiteSpace(root.Path))
+            _services.StorageFileSystem.ForgetRoot(root.Path);
         await SaveRootsAsync().ConfigureAwait(true);
-        Notify($"已移除授权：{root.Name}");
+        if (leavingCurrent)
+            await OpenFolderAsync(_services.StartFolder).ConfigureAwait(true);
+        Notify($"已移除授权入口：{root.Name}（未删除文件）");
+    }
+
+    private bool IsPathWithinAuthorizedRoot(string path, string rootPath)
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        string? current = path;
+        while (current is not null && visited.Add(current))
+        {
+            if (string.Equals(current, rootPath, StringComparison.Ordinal))
+                return true;
+            current = _services.FileSystem.GetParentPath(current);
+        }
+        return false;
     }
 
     /// <summary>父文件夹定位串（双形态统一，供收藏跳转等跨界调用）。</summary>
     public string? BrowserParentOf(string path) => _services.FileSystem.GetParentPath(path);
 
-    private void AddAuthorizedRootModel(string name, string uri)
+    private void AddAuthorizedRootModel(
+        string name,
+        string uri,
+        string? bookmark,
+        bool isAvailable,
+        bool isPersistent)
     {
-        if (AuthorizedRoots.All(r => r.Path != uri))
-            AuthorizedRoots.Add(new AuthorizedRootModel(name, uri));
+        var model = new AuthorizedRootModel(name, uri, bookmark, isAvailable, isPersistent);
+        var index = -1;
+        for (var i = 0; i < AuthorizedRoots.Count; i++)
+        {
+            var existing = AuthorizedRoots[i];
+            if ((isAvailable && existing.Path == uri) ||
+                (!string.IsNullOrWhiteSpace(bookmark) && existing.Bookmark == bookmark) ||
+                (!existing.IsAvailable && existing.Name == name))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (index >= 0)
+            AuthorizedRoots[index] = model;
+        else
+            AuthorizedRoots.Add(model);
     }
 
     private async Task SaveRootsAsync()
@@ -718,15 +854,68 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     }
 
     // ---------- 回收站页 ----------
+    [ObservableProperty] private long _trashUsedBytes;
+    [ObservableProperty] private long? _trashQuotaBytes;
+    [ObservableProperty] private int? _trashRetentionDays;
+    [ObservableProperty] private double _trashUsedPercent;
+
+    public string TrashTitle => Capabilities.UsesAppTrash ? "应用内回收站" : "回收站";
+    public bool HasTrashQuota => TrashQuotaBytes is > 0;
+    public string TrashUsedText => Formatting.Bytes(TrashUsedBytes);
+    public string TrashQuotaText => TrashQuotaBytes is { } quota ? Formatting.Bytes(quota) : "系统管理";
+    public string TrashRetentionText => TrashRetentionDays is { } days ? $"{days} 天后自动清理" : "由系统管理";
+    public string TrashSummaryText => $"{TrashItemCountText} 项 · {TrashUsedText}";
+
+    partial void OnTrashUsedBytesChanged(long value)
+    {
+        OnPropertyChanged(nameof(TrashUsedText));
+        OnPropertyChanged(nameof(TrashSummaryText));
+    }
+
+    partial void OnTrashQuotaBytesChanged(long? value)
+    {
+        OnPropertyChanged(nameof(HasTrashQuota));
+        OnPropertyChanged(nameof(TrashQuotaText));
+    }
+
+    partial void OnTrashRetentionDaysChanged(int? value) => OnPropertyChanged(nameof(TrashRetentionText));
+
     private async Task RefreshTrashAsync()
     {
         TrashItems.Clear();
-        if (!Capabilities.CanBrowseTrash) return;
-        var items = await _services.Trash.ListAsync(CancellationToken.None).ConfigureAwait(true);
-        foreach (var item in items)
-            TrashItems.Add(new TrashItemModel(item.Id, item.OriginalName, item.OriginalPath,
-                item.DeletedAt == default ? "" : Formatting.DateTime(item.DeletedAt, DateTimeOffset.Now),
-                item.IsFolder));
+        if (!Capabilities.CanBrowseTrash)
+        {
+            ApplyTrashStats(new TrashStats(0, 0));
+            return;
+        }
+
+        try
+        {
+            var items = await _services.Trash.ListAsync(CancellationToken.None).ConfigureAwait(true);
+            foreach (var item in items)
+                TrashItems.Add(new TrashItemModel(
+                    item.Id,
+                    item.OriginalName,
+                    item.OriginalPath,
+                    item.DeletedAt == default ? "" : Formatting.DateTime(item.DeletedAt, DateTimeOffset.Now),
+                    item.IsFolder,
+                    item.SizeBytes));
+            ApplyTrashStats(await _services.Trash.GetStatsAsync(CancellationToken.None).ConfigureAwait(true));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
+        {
+            ApplyTrashStats(new TrashStats(0, 0));
+            Notify($"无法读取回收站：{ex.Message}");
+        }
+    }
+
+    private void ApplyTrashStats(TrashStats stats)
+    {
+        TrashUsedBytes = stats.UsedBytes;
+        TrashQuotaBytes = stats.QuotaBytes;
+        TrashRetentionDays = stats.RetentionDays;
+        TrashUsedPercent = stats.UsedPercent;
+        OnPropertyChanged(nameof(TrashSummaryText));
     }
 
     [RelayCommand]
@@ -738,7 +927,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             await _services.Trash.RestoreAsync(row.Id, CancellationToken.None).ConfigureAwait(true);
             Notify($"已还原 {row.Name}");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
         {
             await ConfirmAsync("还原失败", ex.Message, "知道了").ConfigureAwait(true);
         }
@@ -752,9 +941,30 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         if (!await ConfirmAsync("永久删除？", $"将永久删除回收站中的「{row.Name}」。", "永久删除", destructive: true).ConfigureAwait(true))
             return;
         try { await _services.Trash.DeletePermanentlyAsync(row.Id, CancellationToken.None).ConfigureAwait(true); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
         {
             await ConfirmAsync("删除失败", ex.Message, "知道了").ConfigureAwait(true);
+        }
+        await RefreshTrashAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task EmptyTrashAsync()
+    {
+        if (!HasTrashItems) return;
+        var title = Capabilities.UsesAppTrash ? "清空应用内回收站？" : "清空回收站？";
+        var message = $"将永久删除 {TrashSummaryText}。此操作无法撤销。";
+        if (!await ConfirmAsync(title, message, "清空回收站", destructive: true).ConfigureAwait(true))
+            return;
+
+        try
+        {
+            await _services.Trash.EmptyAsync(CancellationToken.None).ConfigureAwait(true);
+            Notify("回收站已清空");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
+        {
+            await ConfirmAsync("清空失败", ex.Message, "知道了").ConfigureAwait(true);
         }
         await RefreshTrashAsync().ConfigureAwait(true);
     }

@@ -44,7 +44,11 @@ public static class AppHost
         var fileSystem = new DelegatingFileSystemService(new LocalFileSystemService(), new StorageItemRegistry());
         var operations = new DelegatingFileOperationService(new FileOperationService(), fileSystem);
         var knownFolders = new KnownFoldersService();
-        var trash = new TrashService();
+        // Android 没有可统一浏览/还原的系统回收站：改用应用数据目录内的配额回收站，
+        // 同一服务同时覆盖应用专属目录与 SAF 授权树；桌面继续走系统回收站。
+        ITrashService trash = OperatingSystem.IsAndroid()
+            ? new AppTrashService(dataDir, fileSystem)
+            : new TrashService();
         var store = SettingsStore.LoadOrDefault(dataDir);
         var searchIndex = new FileNameIndexService(dataDir, store);
         var search = new IndexedSearchService(searchIndex, new SearchService(), store);
@@ -59,7 +63,8 @@ public static class AppHost
             trash.CanMoveToTrash,
             trash.CanBrowseTrash,
             OperatingSystem.IsAndroid(),
-            OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsMacOS());
+            OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsMacOS(),
+            UsesAppTrash: trash is AppTrashService);
 
         return new AppServices(
             fileSystem,

@@ -175,6 +175,31 @@ public sealed class StorageItemRegistry
             _parents.Remove(key);
         }
     }
+
+    /// <summary>移除一个授权根及其已登记后代；移除授权入口后不再从应用内解析这棵缓存树。</summary>
+    public void ForgetTree(string rootKey)
+    {
+        lock (_gate)
+        {
+            var doomed = new HashSet<string>(StringComparer.Ordinal) { rootKey };
+            var changed = true;
+            while (changed)
+            {
+                changed = false;
+                foreach (var (child, parent) in _parents)
+                {
+                    if (doomed.Contains(parent) && doomed.Add(child))
+                        changed = true;
+                }
+            }
+
+            foreach (var key in doomed)
+            {
+                _items.Remove(key);
+                _parents.Remove(key);
+            }
+        }
+    }
 }
 
 /// <summary>
@@ -197,6 +222,37 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
     {
         registry.Register(folder, null);
         return folder.Key;
+    }
+
+    /// <summary>从会话注册表中移除授权根及后代（不触碰真实文件或系统授权本身）。</summary>
+    public void ForgetRoot(string key) => registry.ForgetTree(key);
+
+    /// <summary>
+    /// 确保文件夹定位串可被委托层解析。跨重启还原 SAF 文件时，嵌套父夹可能尚未被浏览登记；
+    /// 此时经 StorageProvider 按定位串重新取得文件夹。仅登记该夹本身，不猜测其父链。
+    /// </summary>
+    internal async Task<bool> EnsureFolderRegisteredAsync(string key, CancellationToken cancellationToken)
+    {
+        if (!IsStorage(key))
+            return Directory.Exists(key);
+        if (ResolveFolder(key) is not null)
+            return true;
+        if (StorageProvider is null)
+            return false;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            var folder = await StorageProvider.TryGetFolderFromPathAsync(key).ConfigureAwait(false);
+            if (folder is null)
+                return false;
+            registry.Register(AvaloniaStorageEntry.Wrap(folder), parentKey: null);
+            return ResolveFolder(key) is not null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException or ArgumentException)
+        {
+            return false;
+        }
     }
 
     internal IStorageEntry? ResolveItem(string key) => registry.Resolve(key);
