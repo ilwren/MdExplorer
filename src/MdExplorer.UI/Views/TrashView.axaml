@@ -73,7 +73,7 @@
                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                   <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                   <TextBlock Classes="caption" Text="{Binding MetaText}" TextTrimming="CharacterEllipsis" />
-                  <TextBlock Classes="caption" Text="{Binding OriginalPath}" TextTrimming="CharacterEllipsis"
+                  <TextBlock Classes="caption" Text="{Binding OriginalPath}" TextTrimming="CharacterEllipsis" IsVisible="{Binding ShowOriginalPath}"
                              ToolTip.Tip="{Binding OriginalPath}" />
                 </StackPanel>
                 <md:MdButton Grid.Column="2" Variant="Tonal" VerticalAlignment="Center" Click="OnRestoreClick">

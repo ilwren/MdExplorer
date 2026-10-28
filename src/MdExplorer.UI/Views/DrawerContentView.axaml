@@ -78,7 +78,7 @@
       <ItemsControl ItemsSource="{Binding AuthorizedRoots}" IsVisible="{Binding Capabilities.IsAndroid}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:AuthorizedRootModel">
-            <md:MdButton Classes="nav-entry" Variant="Text" Click="OnAuthorizedRootClick" ToolTip.Tip="{Binding LocationText}">
+            <md:MdButton Classes="nav-entry" Variant="Text" Click="OnAuthorizedRootClick" ToolTip.Tip="{Binding PathToolTip}">
               <StackPanel Orientation="Horizontal" Spacing="12">
                 <md:MdIcon Glyph="{Binding StatusGlyph}" Size="22" VerticalAlignment="Center" />
                 <StackPanel VerticalAlignment="Center">

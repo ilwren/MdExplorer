@@ -25,7 +25,10 @@ public sealed record AuthorizedRootModel(
     public string StateText => !IsAvailable
         ? "需要重新授权"
         : IsPersistent ? "读写 · 已保存" : "读写 · 仅本次会话";
-    public string LocationText => IsAvailable ? Path : "文件夹不可用或授权已失效";
+    public string LocationText => !IsAvailable
+        ? "文件夹不可用或授权已失效"
+        : IsPersistent ? "系统选择器授权 · 重启后仍可用" : "系统选择器授权 · 重启后需重新授权";
+    public string PathToolTip => IsAvailable ? Path : LocationText;
     public string? StatusGlyph => !IsAvailable
         ? MdSymbols.Warning
         : IsPersistent ? MdSymbols.CheckCircle : MdSymbols.PendingActions;
@@ -43,6 +46,7 @@ public sealed record TrashItemModel(
     bool IsFolder,
     long? SizeBytes = null)
 {
+    public bool ShowOriginalPath => !FileLocator.IsStorageUri(OriginalPath);
     public string SizeText => SizeBytes is { } bytes ? Formatting.Bytes(bytes) : "大小未知";
     public string MetaText => string.IsNullOrWhiteSpace(DeletedText)
         ? SizeText

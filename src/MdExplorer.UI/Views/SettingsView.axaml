@@ -8,6 +8,73 @@
     <StackPanel Margin="20,12,20,28" Spacing="24" MaxWidth="720" HorizontalAlignment="Stretch">
       <TextBlock Classes="h1" Text="设置" />
 
+      <Border Classes="card" IsVisible="{Binding Capabilities.IsAndroid}">
+      <StackPanel Spacing="12">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="h3" Text="已授权文件夹" />
+          <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AuthorizedRootsSummaryText}" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Classes="caption" TextWrapping="Wrap"
+                   Text="系统选择器授予的读写范围仅限所选文件夹。移除只删除 Eidoria 中的入口，不删除文件；系统侧授权仍可在系统设置中撤销。" />
+
+        <ItemsControl ItemsSource="{Binding AuthorizedRoots}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthorizedRootModel">
+              <Border CornerRadius="16" Padding="12" Margin="0,0,0,8"
+                      Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                  <Border Width="40" Height="40" CornerRadius="20" VerticalAlignment="Center"
+                          Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
+                    <md:MdIcon Glyph="{Binding StatusGlyph}" Size="21"
+                               Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="caption" Text="{Binding StateText}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="caption" Text="{Binding LocationText}" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding PathToolTip}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <md:MdButton Variant="Tonal" Content="打开" IsVisible="{Binding IsAvailable}"
+                                 Click="OnAuthorizedRootClick" />
+                    <md:MdButton Variant="Tonal" Content="重新授权" IsVisible="{Binding NeedsReauthorization}"
+                                 Click="OnReauthorizeRootClick" />
+                    <md:MdIconButton Icon="{x:Static md:MdSymbols.Close}" Click="OnRemoveAuthorizedRootClick"
+                                     ToolTip.Tip="移除授权入口（不删除文件）" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="caption" Text="尚未授权文件夹；授权后才可浏览应用专属目录之外的文件。" IsVisible="{Binding !HasAuthorizedRoots}" />
+
+        <md:MdButton Variant="Filled" HorizontalAlignment="Left" Command="{Binding PickAuthorizedFolderCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Add}" Size="19" />
+            <TextBlock Text="授权新文件夹" VerticalAlignment="Center" />
+          </StackPanel>
+        </md:MdButton>
+
+        <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="24" VerticalAlignment="Center"
+                     Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+            <TextBlock Classes="body" Text="应用内回收站" />
+            <TextBlock Classes="caption">
+              <Run Text="{Binding TrashSummaryText}" /><Run Text=" · 上限 " /><Run Text="{Binding TrashQuotaText}" /><Run Text=" · " /><Run Text="{Binding TrashRetentionText}" />
+            </TextBlock>
+          </StackPanel>
+          <md:MdButton Grid.Column="2" Variant="Tonal" Content="查看" Command="{Binding GoTrashCommand}" VerticalAlignment="Center" />
+        </Grid>
+        <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding TrashUsedPercent}" Height="6"
+                                      IsVisible="{Binding HasTrashQuota}" />
+        <TextBlock Classes="caption" TextWrapping="Wrap"
+                   Text="不是 Android 系统回收站；只保留经 Eidoria 删除的项目，超过上限时会保留原文件。" />
+      </StackPanel>
+      </Border>
+
       <Border Classes="card">
       <StackPanel Spacing="10">
         <TextBlock Classes="h3" Text="外观" />
@@ -98,73 +165,6 @@
           <md:MdButton Variant="Outlined" Content="重建索引" Margin="0,0,8,8" Command="{Binding RebuildSearchIndexCommand}" />
           <md:MdButton Variant="Outlined" Content="清除索引" Margin="0,0,8,8" Command="{Binding ClearSearchIndexCommand}" />
         </WrapPanel>
-      </StackPanel>
-      </Border>
-
-      <Border Classes="card" IsVisible="{Binding Capabilities.IsAndroid}">
-      <StackPanel Spacing="12">
-        <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Classes="h3" Text="已授权文件夹" />
-          <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AuthorizedRootsSummaryText}" VerticalAlignment="Center" />
-        </Grid>
-        <TextBlock Classes="caption" TextWrapping="Wrap"
-                   Text="系统选择器授予的读写范围仅限所选文件夹。移除只删除 Eidoria 中的入口，不删除文件；系统侧授权仍可在系统设置中撤销。" />
-
-        <ItemsControl ItemsSource="{Binding AuthorizedRoots}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:AuthorizedRootModel">
-              <Border CornerRadius="16" Padding="12" Margin="0,0,0,8"
-                      Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                  <Border Width="40" Height="40" CornerRadius="20" VerticalAlignment="Center"
-                          Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
-                    <md:MdIcon Glyph="{Binding StatusGlyph}" Size="21"
-                               Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-                  </Border>
-                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Classes="caption" Text="{Binding StateText}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Classes="caption" Text="{Binding LocationText}" TextTrimming="CharacterEllipsis"
-                               ToolTip.Tip="{Binding LocationText}" />
-                  </StackPanel>
-                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <md:MdButton Variant="Tonal" Content="打开" IsVisible="{Binding IsAvailable}"
-                                 Click="OnAuthorizedRootClick" />
-                    <md:MdButton Variant="Tonal" Content="重新授权" IsVisible="{Binding NeedsReauthorization}"
-                                 Click="OnReauthorizeRootClick" />
-                    <md:MdIconButton Icon="{x:Static md:MdSymbols.Close}" Click="OnRemoveAuthorizedRootClick"
-                                     ToolTip.Tip="移除授权入口（不删除文件）" />
-                  </StackPanel>
-                </Grid>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <TextBlock Classes="caption" Text="尚未授权文件夹；授权后才可浏览应用专属目录之外的文件。" IsVisible="{Binding !HasAuthorizedRoots}" />
-
-        <md:MdButton Variant="Filled" HorizontalAlignment="Left" Command="{Binding PickAuthorizedFolderCommand}">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <md:MdIcon Glyph="{x:Static md:MdSymbols.Add}" Size="19" />
-            <TextBlock Text="授权新文件夹" VerticalAlignment="Center" />
-          </StackPanel>
-        </md:MdButton>
-
-        <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-          <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="24" VerticalAlignment="Center"
-                     Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-            <TextBlock Classes="body" Text="应用内回收站" />
-            <TextBlock Classes="caption">
-              <Run Text="{Binding TrashSummaryText}" /><Run Text=" · 上限 " /><Run Text="{Binding TrashQuotaText}" /><Run Text=" · " /><Run Text="{Binding TrashRetentionText}" />
-            </TextBlock>
-          </StackPanel>
-          <md:MdButton Grid.Column="2" Variant="Tonal" Content="查看" Command="{Binding GoTrashCommand}" VerticalAlignment="Center" />
-        </Grid>
-        <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding TrashUsedPercent}" Height="6"
-                                      IsVisible="{Binding HasTrashQuota}" />
-        <TextBlock Classes="caption" TextWrapping="Wrap"
-                   Text="不是 Android 系统回收站；只保留经 Eidoria 删除的项目，超过上限时会保留原文件。" />
       </StackPanel>
       </Border>
 

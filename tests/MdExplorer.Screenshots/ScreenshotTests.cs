@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using MdExplorer.Domain;
+using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.Services;
 using MdExplorer.UI.ViewModels;
 using MdExplorer.UI.Views;
@@ -46,10 +47,22 @@ public sealed class ScreenshotTests
         }
     }
 
-    private async Task<ShellViewModel> CreateShellAsync(string themeMode = "Light")
+    private async Task<ShellViewModel> CreateShellAsync(string themeMode = "Light", bool androidAccess = false)
     {
         var dataDir = Path.Combine(Path.GetTempPath(), "mdexplorer-shots", Guid.NewGuid().ToString("N"));
-        var services = AppHost.Build(dataDirectory: dataDir, startFolder: PicturesDir);
+        var built = AppHost.Build(dataDirectory: dataDir, startFolder: PicturesDir);
+        var services = androidAccess
+            ? built with
+            {
+                Trash = new AppTrashService(dataDir, built.StorageFileSystem),
+                Capabilities = new PlatformCapabilities(
+                    CanMoveToTrash: true,
+                    CanBrowseTrash: true,
+                    IsAndroid: true,
+                    IsDesktop: false,
+                    UsesAppTrash: true),
+            }
+            : built;
         services.SettingsStore.Settings.ThemeMode = themeMode;
         services.SettingsStore.Settings.SeedColor = "#006A6A";
         ThemeService.Apply(services.SettingsStore.Settings);
@@ -70,9 +83,15 @@ public sealed class ScreenshotTests
         return shell;
     }
 
-    private async Task CaptureAsync(string fileName, double width, double height, Func<ShellViewModel, Task>? arrange = null, string themeMode = "Light")
+    private async Task CaptureAsync(
+        string fileName,
+        double width,
+        double height,
+        Func<ShellViewModel, Task>? arrange = null,
+        string themeMode = "Light",
+        bool androidAccess = false)
     {
-        var shell = await CreateShellAsync(themeMode);
+        var shell = await CreateShellAsync(themeMode, androidAccess);
         shell.SetViewportSize(width, height);
         if (arrange is not null)
             await arrange(shell);
@@ -458,6 +477,94 @@ public sealed class ScreenshotTests
         Assert.Equal("docs/", shell.ArchiveCurrentFolder);
         Assert.Contains("ZIP 工作台样例", shell.ArchivePreviewText, StringComparison.Ordinal);
         Assert.Equal(1, shell.ArchiveSelectedCount);
+    }
+
+    [AvaloniaFact]
+    public async Task Compact_AndroidAccessManagement() => await CaptureAsync(
+        "31-compact-android-access.png", 390, 844, ArrangeAndroidAccessAsync, androidAccess: true);
+
+    [AvaloniaFact]
+    public async Task Compact_AndroidAppTrash() => await CaptureAsync(
+        "32-compact-android-app-trash.png", 390, 844, ArrangeAndroidAppTrashAsync, androidAccess: true);
+
+    private static Task ArrangeAndroidAccessAsync(ShellViewModel shell)
+    {
+        shell.AuthorizedRoots.Clear();
+        shell.AuthorizedRoots.Add(new AuthorizedRootModel(
+            "Download",
+            "content://com.android.externalstorage.documents/tree/primary%3ADownload",
+            "bookmark-download",
+            IsAvailable: true,
+            IsPersistent: true));
+        shell.AuthorizedRoots.Add(new AuthorizedRootModel(
+            "相机备份",
+            "content://com.android.externalstorage.documents/tree/primary%3ADCIM",
+            Bookmark: null,
+            IsAvailable: true,
+            IsPersistent: false));
+        shell.AuthorizedRoots.Add(new AuthorizedRootModel(
+            "旧 SD 卡",
+            string.Empty,
+            "bookmark-stale",
+            IsAvailable: false,
+            IsPersistent: true));
+        SeedAndroidTrashState(shell);
+        shell.Page = ShellPage.Settings;
+
+        Assert.True(shell.Capabilities.IsAndroid);
+        Assert.Equal(2, shell.AvailableAuthorizedRootCount);
+        Assert.Equal(1, shell.UnavailableAuthorizedRootCount);
+        Assert.True(shell.HasTrashQuota);
+        return Task.CompletedTask;
+    }
+
+    private static Task ArrangeAndroidAppTrashAsync(ShellViewModel shell)
+    {
+        SeedAndroidTrashState(shell);
+        shell.Page = ShellPage.Trash;
+
+        Assert.True(shell.Capabilities.UsesAppTrash);
+        Assert.Equal("应用内回收站", shell.TrashTitle);
+        Assert.Equal(4, shell.TrashItems.Count);
+        Assert.True(shell.HasTrashQuota);
+        return Task.CompletedTask;
+    }
+
+    private static void SeedAndroidTrashState(ShellViewModel shell)
+    {
+        shell.TrashItems.Clear();
+        shell.TrashItems.Add(new TrashItemModel(
+            "sample-video",
+            "旅行视频.mp4",
+            "content://com.android.externalstorage.documents/tree/primary%3ADownload/document/primary%3ADownload%2F旅行视频.mp4",
+            "10月28日 09:42",
+            IsFolder: false,
+            SizeBytes: 512L * 1024 * 1024));
+        shell.TrashItems.Add(new TrashItemModel(
+            "sample-folder",
+            "相机备份",
+            "content://com.android.externalstorage.documents/tree/primary%3ADCIM/document/primary%3ADCIM%2F相机备份",
+            "10月27日 21:18",
+            IsFolder: true,
+            SizeBytes: 210L * 1024 * 1024));
+        shell.TrashItems.Add(new TrashItemModel(
+            "sample-archive",
+            "设计稿 v2.zip",
+            "content://com.android.externalstorage.documents/tree/primary%3ADownload/document/primary%3ADownload%2F设计稿%20v2.zip",
+            "10月26日 16:05",
+            IsFolder: false,
+            SizeBytes: 18L * 1024 * 1024));
+        shell.TrashItems.Add(new TrashItemModel(
+            "sample-note",
+            "会议记录.md",
+            "content://com.android.externalstorage.documents/tree/primary%3ADownload/document/primary%3ADownload%2F会议记录.md",
+            "10月25日 11:30",
+            IsFolder: false,
+            SizeBytes: 24L * 1024));
+        shell.TrashUsedBytes = shell.TrashItems.Sum(item => item.SizeBytes ?? 0);
+        shell.TrashQuotaBytes = AppTrashService.DefaultQuotaBytes;
+        shell.TrashRetentionDays = AppTrashService.DefaultRetentionDays;
+        shell.TrashUsedPercent = shell.TrashUsedBytes * 100.0 / AppTrashService.DefaultQuotaBytes;
     }
 
     /// <summary>桌面溢出菜单：三列分组 + 限高滚动的呈现冒烟。</summary>
