@@ -53,6 +53,12 @@
           <TextBlock Text="搜索中心" FontSize="14.5" VerticalAlignment="Center" />
         </StackPanel>
       </md:MdButton>
+      <md:MdButton Classes="nav-entry" Classes.active="{Binding IsStorageInsightsPage}" Variant="Text" Command="{Binding GoStorageInsightsCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.Storage}" Size="22" />
+          <TextBlock Text="存储洞察" FontSize="14.5" VerticalAlignment="Center" />
+        </StackPanel>
+      </md:MdButton>
 
       <Border Height="10" />
       <ItemsControl ItemsSource="{Binding Places}">

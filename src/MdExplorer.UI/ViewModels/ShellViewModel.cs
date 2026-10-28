@@ -13,7 +13,7 @@ using MdExplorer.UI.Preview;
 
 namespace MdExplorer.UI.ViewModels;
 
-public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter }
+public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter, StorageInsights }
 public enum SizeClass { Compact, Medium, Expanded, Large, ExtraLarge }
 internal enum DialogKind { None, Prompt, Confirm, Conflict, Message, Progress, BatchRename }
 
@@ -93,6 +93,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             OnPropertyChanged(nameof(HasSearchCenterResults));
             OnPropertyChanged(nameof(ShowSearchCenterEmpty));
         };
+        StorageKindUsages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasStorageKindUsages));
+        StorageTopFolders.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasStorageTopFolders));
+        StorageLargestFiles.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasStorageLargestFiles));
+        StorageDuplicateGroups.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasStorageDuplicateGroups));
         OperationTasks.CollectionChanged += (_, _) => RefreshTaskCenterSummary();
         Preview.PropertyChanged += (_, e) =>
         {
@@ -156,6 +160,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         ShellPage.Trash => "回收站",
         ShellPage.Settings => "设置",
         ShellPage.SearchCenter => "搜索中心",
+        ShellPage.StorageInsights => "存储洞察",
         _ => Browser.IsSearchMode ? "搜索结果" : Browser.CurrentFolderName,
     };
 
@@ -172,6 +177,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsTrashPage => Page == ShellPage.Trash;
     public bool IsSettingsPage => Page == ShellPage.Settings;
     public bool IsSearchCenterPage => Page == ShellPage.SearchCenter;
+    public bool IsStorageInsightsPage => Page == ShellPage.StorageInsights;
 
     public bool IsCompact => SizeClass == SizeClass.Compact;
     public bool IsMedium => SizeClass == SizeClass.Medium;
@@ -203,6 +209,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsTrashPage));
         OnPropertyChanged(nameof(IsSettingsPage));
         OnPropertyChanged(nameof(IsSearchCenterPage));
+        OnPropertyChanged(nameof(IsStorageInsightsPage));
         OnPropertyChanged(nameof(ShowPreviewPaneEffective));
     }
 
@@ -255,6 +262,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public ObservableCollection<TrashItemModel> TrashItems { get; } = [];
     public ObservableCollection<SearchIndexRootModel> SearchIndexRoots { get; } = [];
     public ObservableCollection<FileItemViewModel> SearchCenterResults { get; } = [];
+    public ObservableCollection<StorageKindUsageModel> StorageKindUsages { get; } = [];
+    public ObservableCollection<StorageFolderUsageModel> StorageTopFolders { get; } = [];
+    public ObservableCollection<FileItemViewModel> StorageLargestFiles { get; } = [];
+    public ObservableCollection<StorageDuplicateGroupModel> StorageDuplicateGroups { get; } = [];
     public ObservableCollection<OperationTaskViewModel> OperationTasks { get; } = [];
 
     [ObservableProperty] private bool _isTaskCenterOpen;
@@ -450,6 +461,24 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         IsDrawerOpen = false;
         IsPreviewPageOpen = false;
         await RefreshSearchIndexAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task GoStorageInsightsAsync()
+    {
+        Page = ShellPage.StorageInsights;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        if (!HasStorageRoot)
+        {
+            var current = Browser.CurrentPath;
+            if (!string.IsNullOrWhiteSpace(current) && !FileLocator.IsStorageUri(current) && Directory.Exists(current))
+                TrySetStorageRoot(current, notifyOnFailure: false);
+            else
+                TrySetStorageRoot(_services.StartFolder, notifyOnFailure: false);
+        }
+
+        await RefreshHomeAsync().ConfigureAwait(true);
     }
 
     public async Task OpenFolderAsync(string path)
@@ -695,6 +724,359 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         }
         await RefreshTrashAsync().ConfigureAwait(true);
     }
+
+    // ---------- 存储洞察（只读） ----------
+    [ObservableProperty] private string _storageRootPath = string.Empty;
+    [ObservableProperty] private bool _isStorageAnalyzing;
+    [ObservableProperty] private bool _isStorageFindingDuplicates;
+    [ObservableProperty] private bool _hasStorageAnalysis;
+    [ObservableProperty] private bool _hasStorageDuplicateScan;
+    [ObservableProperty] private string _storageStatusText = "选择文件夹后开始分析";
+    [ObservableProperty] private string _storageDuplicateStatusText = "尚未查找重复文件";
+    [ObservableProperty] private long _storageTotalBytes;
+    [ObservableProperty] private long _storageFileCount;
+    [ObservableProperty] private long _storageFolderCount;
+    [ObservableProperty] private bool _storageIsPartial;
+    [ObservableProperty] private bool _storageWasTruncated;
+    [ObservableProperty] private long _storageDuplicateReclaimableBytes;
+    [ObservableProperty] private int _storageDuplicateCandidateCount;
+    [ObservableProperty] private int _storageDuplicateFilesSkipped;
+    [ObservableProperty] private bool _storageDuplicateIsPartial;
+    [ObservableProperty] private bool _storageDuplicateWasTruncated;
+
+    public bool HasStorageRoot => !string.IsNullOrWhiteSpace(StorageRootPath);
+    public bool IsStorageBusy => IsStorageAnalyzing || IsStorageFindingDuplicates;
+    public bool ShowStorageEmpty => !HasStorageAnalysis && !IsStorageAnalyzing;
+    public bool HasStorageKindUsages => StorageKindUsages.Count > 0;
+    public bool HasStorageTopFolders => StorageTopFolders.Count > 0;
+    public bool HasStorageLargestFiles => StorageLargestFiles.Count > 0;
+    public bool HasStorageDuplicateGroups => StorageDuplicateGroups.Count > 0;
+    public string StorageRootName
+    {
+        get
+        {
+            if (!HasStorageRoot)
+                return "未选择";
+            var trimmed = StorageRootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var name = Path.GetFileName(trimmed);
+            return string.IsNullOrWhiteSpace(name) ? StorageRootPath : name;
+        }
+    }
+    public string StorageTotalSizeText => Formatting.Bytes(StorageTotalBytes);
+    public string StorageFileCountText => StorageFileCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+    public string StorageFolderCountText => StorageFolderCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+    public string StorageAnalysisStateText =>
+        !HasStorageAnalysis ? "未分析" :
+        StorageWasTruncated ? "已截断" :
+        StorageIsPartial ? "部分结果" : "完整";
+    public string StorageDuplicateReclaimableText => Formatting.Bytes(StorageDuplicateReclaimableBytes);
+    public string StorageDuplicateStateText =>
+        !HasStorageDuplicateScan ? "未查找" :
+        StorageDuplicateWasTruncated ? "已截断" :
+        StorageDuplicateIsPartial ? "部分结果" : "完整";
+
+    partial void OnStorageRootPathChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasStorageRoot));
+        OnPropertyChanged(nameof(StorageRootName));
+        ClearStorageResults(HasStorageRoot ? "等待分析" : "选择文件夹后开始分析");
+    }
+
+    partial void OnIsStorageAnalyzingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsStorageBusy));
+        OnPropertyChanged(nameof(ShowStorageEmpty));
+    }
+
+    partial void OnIsStorageFindingDuplicatesChanged(bool value) => OnPropertyChanged(nameof(IsStorageBusy));
+    partial void OnHasStorageAnalysisChanged(bool value) => OnPropertyChanged(nameof(ShowStorageEmpty));
+
+    public bool TrySetStorageRoot(string? path, bool notifyOnFailure = true)
+    {
+        if (TryNormalizeSearchIndexRoot(path) is not { } normalized || !Directory.Exists(normalized))
+        {
+            if (notifyOnFailure)
+                Notify("存储洞察只能分析本地文件夹");
+            return false;
+        }
+
+        StorageRootPath = normalized;
+        return true;
+    }
+
+    [RelayCommand]
+    private void UseCurrentFolderForStorage()
+    {
+        var path = Browser.CurrentPath;
+        if (string.IsNullOrWhiteSpace(path) || FileLocator.IsStorageUri(path) || !Directory.Exists(path))
+        {
+            Notify("当前文件夹不能用于存储洞察");
+            return;
+        }
+
+        TrySetStorageRoot(path);
+    }
+
+    [RelayCommand]
+    private async Task AnalyzeStorageAsync()
+    {
+        if (IsStorageBusy)
+            return;
+        if (TryNormalizeSearchIndexRoot(StorageRootPath) is not { } root || !Directory.Exists(root))
+        {
+            StorageStatusText = "只能分析本地文件夹";
+            Notify("存储洞察只能分析本地文件夹");
+            return;
+        }
+
+        StorageRootPath = root;
+        ClearStorageResults("正在分析…");
+        IsStorageAnalyzing = true;
+        StorageAnalysisResult? result = null;
+        try
+        {
+            var options = new StorageAnalysisOptions(IncludeHidden: ShowHidden);
+            var outcome = await RunOperationAsync($"正在分析「{StorageRootName}」…", async (progress, ct) =>
+            {
+                result = await _services.StorageInsights
+                    .AnalyzeAsync(root, options, progress, ct).ConfigureAwait(true);
+                return new OperationOutcome(
+                    result.FileCount > int.MaxValue ? int.MaxValue : (int)result.FileCount,
+                    [],
+                    []);
+            }).ConfigureAwait(true);
+
+            if (outcome.Cancelled)
+            {
+                StorageStatusText = "分析已取消";
+                return;
+            }
+            if (!outcome.Success || result is null)
+            {
+                StorageStatusText = "分析未完成";
+                return;
+            }
+
+            ApplyStorageAnalysis(result);
+        }
+        finally
+        {
+            IsStorageAnalyzing = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task AnalyzeStorageFolderAsync(StorageFolderUsageModel? folder)
+    {
+        if (folder is not null && TrySetStorageRoot(folder.Path))
+            await AnalyzeStorageAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task FindStorageDuplicatesAsync()
+    {
+        if (IsStorageBusy)
+            return;
+        if (TryNormalizeSearchIndexRoot(StorageRootPath) is not { } root || !Directory.Exists(root))
+        {
+            StorageDuplicateStatusText = "只能分析本地文件夹";
+            Notify("存储洞察只能分析本地文件夹");
+            return;
+        }
+
+        StorageRootPath = root;
+        ClearStorageDuplicateResults("正在查找重复文件…");
+        IsStorageFindingDuplicates = true;
+        StorageDuplicateResult? result = null;
+        try
+        {
+            var options = new StorageAnalysisOptions(IncludeHidden: ShowHidden);
+            var outcome = await RunOperationAsync("正在查找重复文件…", async (progress, ct) =>
+            {
+                result = await _services.StorageInsights
+                    .FindDuplicatesAsync(root, options, progress, ct).ConfigureAwait(true);
+                return new OperationOutcome(result.Groups.Count, [], []);
+            }).ConfigureAwait(true);
+
+            if (outcome.Cancelled)
+            {
+                StorageDuplicateStatusText = "重复查找已取消";
+                return;
+            }
+            if (!outcome.Success || result is null)
+            {
+                StorageDuplicateStatusText = "重复查找未完成";
+                return;
+            }
+
+            ApplyStorageDuplicates(result);
+        }
+        finally
+        {
+            IsStorageFindingDuplicates = false;
+        }
+    }
+
+    public async Task OpenStorageItemAsync(FileItemViewModel item)
+    {
+        if (item.IsFolder)
+        {
+            await OpenFolderAsync(item.FullPath).ConfigureAwait(true);
+            return;
+        }
+
+        Page = ShellPage.Browser;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        await Browser.NavigateToFileLocationAsync(item.FullPath).ConfigureAwait(true);
+    }
+
+    private void ClearStorageResults(string status)
+    {
+        StorageKindUsages.Clear();
+        StorageTopFolders.Clear();
+        StorageLargestFiles.Clear();
+        StorageTotalBytes = 0;
+        StorageFileCount = 0;
+        StorageFolderCount = 0;
+        StorageIsPartial = false;
+        StorageWasTruncated = false;
+        HasStorageAnalysis = false;
+        ClearStorageDuplicateResults("尚未查找重复文件");
+        StorageStatusText = status;
+        NotifyStorageComputed();
+    }
+
+    private void ClearStorageDuplicateResults(string status)
+    {
+        StorageDuplicateGroups.Clear();
+        StorageDuplicateReclaimableBytes = 0;
+        StorageDuplicateCandidateCount = 0;
+        StorageDuplicateFilesSkipped = 0;
+        StorageDuplicateIsPartial = false;
+        StorageDuplicateWasTruncated = false;
+        HasStorageDuplicateScan = false;
+        StorageDuplicateStatusText = status;
+        OnPropertyChanged(nameof(StorageDuplicateReclaimableText));
+        OnPropertyChanged(nameof(StorageDuplicateStateText));
+    }
+
+    private void ApplyStorageAnalysis(StorageAnalysisResult result)
+    {
+        StorageTotalBytes = result.TotalBytes;
+        StorageFileCount = result.FileCount;
+        StorageFolderCount = result.FolderCount;
+        StorageIsPartial = result.IsPartial;
+        StorageWasTruncated = result.WasTruncated;
+
+        var denominator = Math.Max(1, result.TotalBytes);
+        foreach (var usage in result.KindUsages)
+        {
+            StorageKindUsages.Add(new StorageKindUsageModel(
+                usage.Kind,
+                StorageKindName(usage.Kind),
+                StorageKindGlyph(usage.Kind),
+                usage.TotalBytes,
+                usage.FileCount,
+                (double)usage.TotalBytes / denominator * 100));
+        }
+
+        foreach (var folder in result.TopFolders)
+        {
+            StorageTopFolders.Add(new StorageFolderUsageModel(
+                folder.IsRootFiles ? "根目录文件" : folder.Name,
+                folder.Path,
+                folder.TotalBytes,
+                folder.FileCount,
+                folder.FolderCount,
+                (double)folder.TotalBytes / denominator * 100,
+                folder.IsRootFiles));
+        }
+
+        foreach (var file in result.LargestFiles)
+        {
+            StorageLargestFiles.Add(new FileItemViewModel(file)
+            {
+                IsFavorite = _services.SettingsStore.IsFavorite(file.FullPath),
+            });
+        }
+
+        HasStorageAnalysis = true;
+        StorageStatusText = $"{StorageFileCountText} 个文件 · {StorageTotalSizeText}" +
+                             (result.WasTruncated ? " · 已截断" : result.IsPartial ? " · 部分结果" : string.Empty);
+        NotifyStorageComputed();
+    }
+
+    private void ApplyStorageDuplicates(StorageDuplicateResult result)
+    {
+        StorageDuplicateReclaimableBytes = result.ReclaimableBytes;
+        StorageDuplicateCandidateCount = result.CandidateFileCount;
+        StorageDuplicateFilesSkipped = result.FilesSkipped;
+        StorageDuplicateIsPartial = result.IsPartial;
+        StorageDuplicateWasTruncated = result.WasTruncated;
+
+        foreach (var group in result.Groups.Take(50))
+        {
+            var files = group.Files
+                .Select(file => new FileItemViewModel(file)
+                {
+                    IsFavorite = _services.SettingsStore.IsFavorite(file.FullPath),
+                })
+                .ToArray();
+            StorageDuplicateGroups.Add(new StorageDuplicateGroupModel(group.FileSize, group.Sha256, files));
+        }
+
+        HasStorageDuplicateScan = true;
+        StorageDuplicateStatusText = result.Groups.Count == 0
+            ? "未发现完全相同的文件"
+            : $"{result.Groups.Count} 组 · {result.CandidateFileCount} 个候选 · 可复核 {StorageDuplicateReclaimableText}" +
+              (result.WasTruncated ? " · 已截断" : result.IsPartial ? " · 部分结果" : string.Empty) +
+              (result.FilesSkipped > 0 ? $" · 跳过 {result.FilesSkipped}" : string.Empty);
+        OnPropertyChanged(nameof(StorageDuplicateReclaimableText));
+        OnPropertyChanged(nameof(StorageDuplicateStateText));
+    }
+
+    private void NotifyStorageComputed()
+    {
+        OnPropertyChanged(nameof(StorageTotalSizeText));
+        OnPropertyChanged(nameof(StorageFileCountText));
+        OnPropertyChanged(nameof(StorageFolderCountText));
+        OnPropertyChanged(nameof(StorageAnalysisStateText));
+        OnPropertyChanged(nameof(StorageDuplicateReclaimableText));
+        OnPropertyChanged(nameof(StorageDuplicateStateText));
+    }
+
+    private static string StorageKindName(FileKind kind) => kind switch
+    {
+        FileKind.Image => "图像",
+        FileKind.Video => "视频",
+        FileKind.Audio => "音频",
+        FileKind.Document => "文档",
+        FileKind.Archive => "压缩包",
+        FileKind.Code => "代码",
+        FileKind.Text => "文本",
+        FileKind.Data => "数据",
+        FileKind.Font => "字体",
+        FileKind.Executable => "程序",
+        FileKind.Folder => "文件夹",
+        _ => "其他",
+    };
+
+    private static string? StorageKindGlyph(FileKind kind) => kind switch
+    {
+        FileKind.Folder => MdSymbols.Folder,
+        FileKind.Image => MdSymbols.Image,
+        FileKind.Video => MdSymbols.Movie,
+        FileKind.Audio => MdSymbols.MusicNote,
+        FileKind.Document => MdSymbols.Description,
+        FileKind.Archive => MdSymbols.FolderZip,
+        FileKind.Code => MdSymbols.Code,
+        FileKind.Data => MdSymbols.DataObject,
+        FileKind.Font => MdSymbols.FontDownload,
+        FileKind.Executable => MdSymbols.Terminal,
+        FileKind.Text => MdSymbols.TextSnippet,
+        _ => MdSymbols.InsertDriveFile,
+    };
 
     // ---------- 搜索中心 / 文件名索引 ----------
     [ObservableProperty] private bool _useSearchIndex = true;

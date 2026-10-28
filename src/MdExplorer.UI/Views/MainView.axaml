@@ -249,6 +249,14 @@
                 <TextBlock FontSize="11" Text="搜索" HorizontalAlignment="Center" />
               </StackPanel>
             </md:MdButton>
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsStorageInsightsPage}" Variant="Text" Height="64" ContainerHeight="56" Padding="0" Command="{Binding GoStorageInsightsCommand}">
+              <StackPanel HorizontalAlignment="Center" Spacing="3">
+                <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Storage}" Size="21" />
+                </Border>
+                <TextBlock FontSize="11" Text="存储" HorizontalAlignment="Center" />
+              </StackPanel>
+            </md:MdButton>
             <md:MdButton Classes="rail-entry" Classes.active="{Binding IsTrashPage}" Variant="Text" Height="64" ContainerHeight="56" Padding="0" Command="{Binding GoTrashCommand}"
                          IsVisible="{Binding Capabilities.CanMoveToTrash}">
               <StackPanel HorizontalAlignment="Center" Spacing="3">
@@ -288,6 +296,7 @@
           </Grid.Transitions>
           <views:HomeView IsVisible="{Binding IsHome}" />
           <views:SearchCenterView IsVisible="{Binding IsSearchCenterPage}" />
+          <views:StorageInsightsView IsVisible="{Binding IsStorageInsightsPage}" />
 
           <!-- 浏览器页：独立白色工作区浮在外层柔和底板上（预览亦同语言） -->
           <Border IsVisible="{Binding IsBrowser}" Classes="workspace-surface" ClipToBounds="True" Margin="10">

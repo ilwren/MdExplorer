@@ -53,6 +53,72 @@ public interface IFileInspectorService
     Task<string> ComputeHashAsync(string path, string algorithm, IProgress<double>? progress, CancellationToken cancellationToken);
 }
 
+/// <summary>存储洞察扫描边界。所有上限都会在服务层钳制，达到硬顶时结果显式标记截断。</summary>
+public sealed record StorageAnalysisOptions(
+    bool IncludeHidden = false,
+    int LargestFileCount = 20,
+    int TopFolderCount = 12,
+    int MaxEntries = 250_000,
+    int MaxDuplicateCandidateFiles = 10_000);
+
+public sealed record StorageKindUsage(FileKind Kind, long TotalBytes, long FileCount);
+
+/// <summary>分析根的一级占用桶；IsRootFiles=true 表示根目录直属文件聚合。</summary>
+public sealed record StorageFolderUsage(
+    string Path,
+    string Name,
+    long TotalBytes,
+    long FileCount,
+    long FolderCount,
+    bool IsRootFiles);
+
+public sealed record StorageAnalysisResult(
+    string RootPath,
+    long TotalBytes,
+    long FileCount,
+    long FolderCount,
+    bool IsPartial,
+    bool WasTruncated,
+    IReadOnlyList<StorageKindUsage> KindUsages,
+    IReadOnlyList<StorageFolderUsage> TopFolders,
+    IReadOnlyList<FileItem> LargestFiles);
+
+public sealed record DuplicateFileGroup(long FileSize, string Sha256, IReadOnlyList<FileItem> Files)
+{
+    public int Count => Files.Count;
+    public long TotalBytes => FileSize * Count;
+    public long ReclaimableBytes => FileSize * Math.Max(0, Count - 1);
+}
+
+public sealed record StorageDuplicateResult(
+    string RootPath,
+    IReadOnlyList<DuplicateFileGroup> Groups,
+    long ReclaimableBytes,
+    int CandidateFileCount,
+    int FilesHashed,
+    int FilesSkipped,
+    bool IsPartial,
+    bool WasTruncated);
+
+/// <summary>
+/// 只读存储洞察：递归聚合容量、类型、一级子文件夹与大文件，并以同尺寸预筛 + SHA-256
+/// 查找精确重复文件。此端口不提供删除/清理动作；复核后的处置仍回文件上下文。
+/// </summary>
+public interface IStorageInsightsService
+{
+    Task<StorageAnalysisResult> AnalyzeAsync(
+        string rootPath,
+        StorageAnalysisOptions options,
+        IProgress<OperationProgress>? progress,
+        CancellationToken cancellationToken);
+
+    Task<StorageDuplicateResult> FindDuplicatesAsync(
+        string rootPath,
+        StorageAnalysisOptions options,
+        IProgress<OperationProgress>? progress,
+        CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// 当前文件夹外部变更监视端口：Watch 返回的句柄 Dispose 即停。变更回调已做防抖合并，
 /// 且可能在任意线程触发（UI 层需自行切回 UI 线程）。监视不可用（特殊文件系统）时静默降级为不回调。

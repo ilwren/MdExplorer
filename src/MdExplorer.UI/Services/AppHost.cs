@@ -25,7 +25,8 @@ public static class AppHost
         DelegatingFileSystemService StorageFileSystem,
         IReadOnlyList<AuthorizedRoot> PersistedRoots,
         ISystemClipboardService SystemClipboard,
-        IFileNameIndexService SearchIndex);
+        IFileNameIndexService SearchIndex,
+        IStorageInsightsService StorageInsights);
 
     /// <param name="dataDirectory">设置/收藏落点；为空时按平台默认（LocalApplicationData/MdExplorer）。</param>
     /// <param name="startFolder">初始文件夹；为空时桌面=用户主目录，Android=个人目录。</param>
@@ -78,7 +79,8 @@ public static class AppHost
             fileSystem,
             AuthorizedRootsStore.Load(dataDir),
             systemClipboard ?? new AvaloniaSystemClipboardService(),
-            searchIndex);
+            searchIndex,
+            new StorageInsightsService());
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);

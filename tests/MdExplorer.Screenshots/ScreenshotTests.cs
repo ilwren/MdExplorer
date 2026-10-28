@@ -407,6 +407,32 @@ public sealed class ScreenshotTests
         Assert.NotEmpty(shell.SearchCenterResults);
     });
 
+    [AvaloniaFact]
+    public async Task Large_StorageInsights() => await CaptureAsync("27-large-storage-insights.png", 1440, 900, async shell =>
+    {
+        await shell.GoStorageInsightsCommand.ExecuteAsync(null);
+        Assert.True(shell.TrySetStorageRoot(SampleRoot));
+        await shell.AnalyzeStorageCommand.ExecuteAsync(null);
+        await shell.FindStorageDuplicatesCommand.ExecuteAsync(null);
+        shell.DismissSnackbarCommand.Execute(null);
+        Assert.True(shell.HasStorageAnalysis);
+        Assert.True(shell.HasStorageDuplicateScan);
+        Assert.NotEmpty(shell.StorageTopFolders);
+        Assert.NotEmpty(shell.StorageLargestFiles);
+    });
+
+    [AvaloniaFact]
+    public async Task Compact_StorageInsights() => await CaptureAsync("28-compact-storage-insights.png", 390, 844, async shell =>
+    {
+        await shell.GoStorageInsightsCommand.ExecuteAsync(null);
+        Assert.True(shell.TrySetStorageRoot(SampleRoot));
+        await shell.AnalyzeStorageCommand.ExecuteAsync(null);
+        shell.DismissSnackbarCommand.Execute(null);
+        Assert.True(shell.HasStorageAnalysis);
+        Assert.NotEmpty(shell.StorageKindUsages);
+        Assert.NotEmpty(shell.StorageLargestFiles);
+    });
+
     /// <summary>桌面溢出菜单：三列分组 + 限高滚动的呈现冒烟。</summary>
     [AvaloniaFact]
     public async Task Large_OverflowMenu_Open()
