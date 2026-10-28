@@ -96,20 +96,56 @@ jobs:
         with:
           global-json-file: native/global.json
 
-      - name: Install Native AOT toolchain
+      - name: Install Native AOT + headless display deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang zlib1g-dev
+          sudo apt-get install -y clang zlib1g-dev xvfb \
+            libfontconfig1 libx11-6 libxrandr2 libxi6 libice6 libsm6 libgl1 libglx-mesa0
 
       - name: Publish (linux-x64, PublishAot)
-        run: dotnet publish native/src/MdExplorer.Desktop/MdExplorer.Desktop.csproj -c Release -r linux-x64
-
-      - name: Smoke-run binary
         run: |
-          BIN=$(find native/src/MdExplorer.Desktop/bin/Release -type f -name MdExplorer | head -1)
-          echo "published: $BIN"
-          file "$BIN" || true
-          ldd "$BIN" | head -20 || true
+          set -eo pipefail
+          dotnet publish native/src/MdExplorer.Desktop/MdExplorer.Desktop.csproj -c Release -r linux-x64 \
+            2>&1 | sed -e 's/\x1b\[[0-9;]*m//g' | tee publish.log
+          grep -cE "warning IL[0-9]+" publish.log > ilwarn.txt || echo 0 > ilwarn.txt
+          echo "::notice::AOT/裁剪告警数：$(cat ilwarn.txt)"
+
+      - name: Verify output really is Native AOT
+        run: |
+          set -eo pipefail
+          PUB=native/src/MdExplorer.Desktop/bin/Release/net10.0/linux-x64/publish
+          BIN="$PUB/MdExplorer"
+          test -f "$BIN" || { echo "::error::未找到发布产物 $BIN"; ls -la "$PUB"; exit 1; }
+          SIZE=$(stat -c%s "$BIN")
+          echo "published: $BIN ($SIZE bytes)"
+          file "$BIN"
+          file "$BIN" | grep -q "ELF 64-bit" || { echo "::error::产物不是原生 ELF 可执行文件"; exit 1; }
+          if ldd "$BIN" 2>&1 | grep -qiE "libcoreclr|libhostfxr|libhostpolicy"; then
+            echo "::error::产物仍依赖 CoreCLR/hostfxr，说明不是 Native AOT"; ldd "$BIN"; exit 1
+          fi
+          if [ -f "$PUB/MdExplorer.dll" ]; then
+            echo "::error::publish 目录仍含托管程序集 MdExplorer.dll，不是 Native AOT"; ls -la "$PUB"; exit 1
+          fi
+          echo "✅ Native AOT 产物校验通过（无 CoreCLR 依赖、无托管 dll）"
+          du -sh "$PUB" || true
+          ls -la "$PUB" | head -20
+
+      - name: Runtime smoke test under Xvfb (must stay alive 20s)
+        run: |
+          set -eo pipefail
+          BIN=native/src/MdExplorer.Desktop/bin/Release/net10.0/linux-x64/publish/MdExplorer
+          set +e
+          xvfb-run -a --server-args="-screen 0 1280x800x24" timeout 20 "$BIN" > app.log 2>&1
+          CODE=$?
+          set -e
+          echo "app exit code: $CODE (124 = 被 timeout 终止，即存活满 20s)"
+          sed -e 's/\x1b\[[0-9;]*m//g' app.log | tail -40
+          if [ "$CODE" -ne 124 ]; then
+            echo "::error::Native AOT 产物运行失败，退出码 $CODE"
+            sed -e 's/\x1b\[[0-9;]*m//g' app.log | tail -20 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
+          echo "✅ 应用在 Native AOT 下启动并稳定运行 20s 无崩溃"
 
   aot-publish-windows:
     runs-on: windows-latest
@@ -123,3 +159,19 @@ jobs:
 
       - name: Publish (win-x64, PublishAot)
         run: dotnet publish native/src/MdExplorer.Desktop/MdExplorer.Desktop.csproj -c Release -r win-x64
+
+      - name: Verify output really is Native AOT
+        shell: pwsh
+        run: |
+          $pub = "native/src/MdExplorer.Desktop/bin/Release/net10.0/win-x64/publish"
+          $exe = Join-Path $pub "MdExplorer.exe"
+          if (-not (Test-Path $exe)) { Write-Error "未找到发布产物 $exe"; Get-ChildItem $pub; exit 1 }
+          $size = (Get-Item $exe).Length
+          Write-Host "published: $exe ($size bytes)"
+          if (Test-Path (Join-Path $pub "MdExplorer.dll")) { Write-Error "publish 目录仍含托管 dll，不是 Native AOT"; exit 1 }
+          if ((Test-Path (Join-Path $pub "hostfxr.dll")) -or (Test-Path (Join-Path $pub "coreclr.dll"))) {
+            Write-Error "publish 目录含 hostfxr/coreclr，不是 Native AOT"; exit 1
+          }
+          if ($size -lt 1MB) { Write-Error "可执行文件仅 $size 字节，疑似 apphost 而非 Native AOT 产物"; exit 1 }
+          Write-Host "✅ Windows Native AOT 产物校验通过"
+          Get-ChildItem $pub | Select-Object Name, Length | Format-Table -AutoSize
