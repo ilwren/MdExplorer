@@ -1,0 +1,282 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MdExplorer.Desktop.MainWindow"
+        Title="Eidoria · 万象屿"
+        Width="1440" Height="900" MinWidth="360" MinHeight="520"
+        Background="{DynamicResource SurfaceBrush}"
+        WindowStartupLocation="CenterScreen">
+  <Grid x:Name="RootLayout" RowDefinitions="56,44,*,32" Background="{DynamicResource SurfaceBrush}">
+    <!-- App header -->
+    <Border Grid.Row="0" Background="{DynamicResource SurfaceLowBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="12,0">
+        <Button Grid.Column="0" Command="{Binding ToggleNavigationCommand}" ToolTip.Tip="导航" VerticalAlignment="Center" Padding="10">
+          <TextBlock Text="☰" FontSize="19" />
+        </Button>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="6,0,20,0">
+          <Grid Width="32" Height="32" VerticalAlignment="Center">
+            <Border Width="19" Height="24" Background="#84D8BE" CornerRadius="4" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2" />
+            <Border Width="19" Height="24" Background="#2478DF" CornerRadius="4" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="2,2,0,0" />
+            <Path Data="M 2,2 L 14,2 L 2,14 Z" Fill="#FFB743" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="2,2,0,0" />
+          </Grid>
+          <StackPanel Spacing="-2" VerticalAlignment="Center">
+            <TextBlock Text="Eidoria" FontWeight="SemiBold" FontSize="16" />
+            <TextBlock Text="万象屿" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
+          </StackPanel>
+        </StackPanel>
+        <TextBlock Grid.Column="2" Text="本地文件" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="12,0" />
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button Command="{Binding ToggleThemeCommand}" ToolTip.Tip="切换浅色 / 深色主题">
+            <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="◐"/><TextBlock Text="主题"/></StackPanel>
+          </Button>
+          <Button Command="{Binding OpenTasksCommand}" ToolTip.Tip="任务中心">
+            <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="☷"/><TextBlock Text="任务"/></StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Session tabs -->
+    <Border x:Name="TabBar" Grid.Row="1" Background="{DynamicResource SurfaceLowBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,0,1" Padding="12,3">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Classes="tab-button tab-selected" Click="OnTabHomeClick"><StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="▧"/><TextBlock Text="主页"/></StackPanel></Button>
+        <Button Classes="tab-button" Click="OnTabPicturesClick"><StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="▧"/><TextBlock Text="图片"/></StackPanel></Button>
+        <Button Classes="tab-button" Click="OnTabDocumentsClick"><StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="▤"/><TextBlock Text="文档"/></StackPanel></Button>
+        <Button Command="{Binding NewTabCommand}" ToolTip.Tip="新建标签页" FontSize="19" Padding="10,3">+</Button>
+      </StackPanel>
+    </Border>
+
+    <!-- Responsive three-zone browser -->
+    <Grid x:Name="MainLayout" Grid.Row="2" ColumnDefinitions="258,*,306" Background="{DynamicResource SurfaceBrush}">
+      <!-- Permanent drawer / rail -->
+      <Border x:Name="NavigationPanel" Grid.Column="0" Background="{DynamicResource SurfaceLowBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,0,1,0" Padding="12,14">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+          <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Button x:Name="NewFolderExpanded" Background="{DynamicResource PrimaryContainerBrush}" HorizontalContentAlignment="Left" Click="OnCreateFolderClick">
+              <StackPanel Orientation="Horizontal" Spacing="12"><TextBlock Text="＋" Foreground="{DynamicResource PrimaryBrush}" FontSize="18"/><TextBlock Text="新建文件夹" FontWeight="SemiBold"/></StackPanel>
+            </Button>
+            <Button x:Name="NewFolderRail" IsVisible="False" Background="{DynamicResource PrimaryContainerBrush}" Click="OnCreateFolderClick" ToolTip.Tip="新建文件夹" Padding="10"><TextBlock Text="＋" Foreground="{DynamicResource PrimaryBrush}" FontSize="18"/></Button>
+          </Grid>
+          <TextBlock x:Name="BrowseLabel" Grid.Row="1" Text="浏览" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="10,2,0,7" />
+          <Grid Grid.Row="2">
+            <ItemsControl x:Name="NavExpanded" ItemsSource="{Binding NavigationItems}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="3" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Click="OnNavigationClick" HorizontalContentAlignment="Left" Padding="12,9" Margin="0,1" Tag="{Binding Key}">
+                    <StackPanel Orientation="Horizontal" Spacing="14"><TextBlock Text="{Binding Glyph}" Width="20" FontSize="17" HorizontalAlignment="Center"/><TextBlock Text="{Binding Title}"/></StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl x:Name="NavRail" ItemsSource="{Binding NavigationItems}" IsVisible="False">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Click="OnNavigationClick" ToolTip.Tip="{Binding Title}" HorizontalAlignment="Center" Padding="10" Tag="{Binding Key}">
+                    <TextBlock Text="{Binding Glyph}" FontSize="19" />
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Grid>
+          <StackPanel x:Name="StorageBlock" Grid.Row="3" Spacing="7" Margin="2,10,2,10">
+            <TextBlock Text="存储量" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="8,0,0,2" />
+            <ItemsControl ItemsSource="{Binding Volumes}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="9" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Click="OnVolumeClick" Tag="{Binding Name}" Padding="4,2" HorizontalContentAlignment="Stretch" ToolTip.Tip="打开卷">
+                    <StackPanel Spacing="3" Margin="3,2">
+                      <Grid ColumnDefinitions="*,Auto"><TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"/><TextBlock Grid.Column="1" Text="{Binding FreeText}" FontSize="10" Foreground="{DynamicResource MutedBrush}"/></Grid>
+                      <ProgressBar Minimum="0" Maximum="1" Value="{Binding UsedRatio}" Height="5" Background="{DynamicResource OutlineBrush}" Foreground="{DynamicResource PrimaryBrush}" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+          <Border Grid.Row="4" Height="1" Background="{DynamicResource OutlineBrush}" Margin="4,2" />
+          <Grid Grid.Row="5">
+            <StackPanel x:Name="FooterExpanded" Orientation="Horizontal" HorizontalAlignment="Stretch" Spacing="4">
+              <Button Click="OnTrashClick" HorizontalContentAlignment="Left" Padding="10,9"><StackPanel Orientation="Horizontal" Spacing="13"><TextBlock Text="▱"/><TextBlock Text="回收站"/></StackPanel></Button>
+              <Button Click="OnSettingsClick" HorizontalContentAlignment="Left" Padding="10,9"><StackPanel Orientation="Horizontal" Spacing="13"><TextBlock Text="⚙"/><TextBlock Text="设置"/></StackPanel></Button>
+            </StackPanel>
+            <StackPanel x:Name="FooterRail" IsVisible="False" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="3">
+              <Button Click="OnTrashClick" ToolTip.Tip="回收站" Padding="9"><TextBlock Text="▱"/></Button>
+              <Button Click="OnSettingsClick" ToolTip.Tip="设置" Padding="9"><TextBlock Text="⚙"/></Button>
+            </StackPanel>
+          </Grid>
+        </Grid>
+      </Border>
+
+      <!-- Main browser surface -->
+      <Grid Grid.Column="1" RowDefinitions="54,50,42,*" Margin="16,12,12,0">
+        <Grid x:Name="BrowserNavigationRow" Grid.Row="0" ColumnDefinitions="Auto,*,250" ColumnSpacing="8">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="1" VerticalAlignment="Center">
+            <Button Command="{Binding NavigateBackCommand}" ToolTip.Tip="后退" Padding="9"><TextBlock Text="←" FontSize="18"/></Button>
+            <Button Command="{Binding NavigateForwardCommand}" ToolTip.Tip="前进" Padding="9"><TextBlock Text="→" FontSize="18"/></Button>
+            <Button Command="{Binding NavigateUpCommand}" ToolTip.Tip="向上" Padding="9"><TextBlock Text="↑" FontSize="18"/></Button>
+          </StackPanel>
+          <Border x:Name="BreadcrumbFrame" Grid.Column="1" Background="{DynamicResource SurfaceLowBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="22" Padding="7,3" VerticalAlignment="Center" Height="42" PointerPressed="OnBreadcrumbAreaPointerPressed">
+            <Grid>
+              <ItemsControl x:Name="BreadcrumbStrip" ItemsSource="{Binding Breadcrumbs}" IsVisible="{Binding IsBreadcrumbVisible}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" VerticalAlignment="Center" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="1">
+                      <Button Click="OnBreadcrumbClick" Tag="{Binding FullPath}" Padding="9,5" MaxWidth="150" ToolTip.Tip="{Binding FullPath}"><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/></Button>
+                      <TextBlock Text="›" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="1,0" />
+                      <Button Click="OnBreadcrumbDropdownClick" Tag="{Binding FullPath}" Padding="3,2" FontSize="10" ToolTip.Tip="子文件夹">⌄</Button>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBox x:Name="PathEditor" Text="{Binding PathInput, UpdateSourceTrigger=PropertyChanged}" IsVisible="{Binding IsPathEditing}" Watermark="输入文件夹路径…" KeyDown="OnPathKeyDown" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+          <TextBox x:Name="SearchBox" Grid.Column="2" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" Watermark="⌕  搜索此文件夹…" VerticalAlignment="Center" Height="42" />
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+          <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+            <Button Click="OnCreateFolderClick" ToolTip.Tip="新建文件夹"><StackPanel Orientation="Horizontal" Spacing="7"><TextBlock Text="＋"/><TextBlock Text="新建"/></StackPanel></Button>
+            <Button Command="{Binding RefreshCommand}" ToolTip.Tip="刷新"><StackPanel Orientation="Horizontal" Spacing="7"><TextBlock Text="↻"/><TextBlock Text="刷新"/></StackPanel></Button>
+            <Button Command="{Binding ToggleHiddenCommand}" ToolTip.Tip="显示 / 隐藏隐藏文件"><StackPanel Orientation="Horizontal" Spacing="7"><TextBlock Text="◉"/><TextBlock Text="隐藏项"/></StackPanel></Button>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+            <Button Click="OnGridViewClick" ToolTip.Tip="网格视图" Padding="10"><TextBlock Text="▦" FontSize="18"/></Button>
+            <Button Click="OnListViewClick" ToolTip.Tip="列表视图" Padding="10"><TextBlock Text="☷" FontSize="18"/></Button>
+            <Button Click="OnDetailsViewClick" ToolTip.Tip="详细信息" Padding="10"><TextBlock Text="▤" FontSize="18"/></Button>
+          </StackPanel>
+        </Grid>
+
+        <ScrollViewer x:Name="FilterScroll" Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+          <Button Background="{DynamicResource SelectedBrush}" Click="OnTypeAllClick" Padding="11,5"><TextBlock Text="全部" FontSize="12"/></Button>
+          <Button Classes="filter-chip" Click="OnTypeImageClick">图片</Button>
+          <Button Classes="filter-chip" Click="OnTypeVideoClick">视频</Button>
+          <Button Classes="filter-chip" Click="OnTypeAudioClick">音频</Button>
+          <Button Classes="filter-chip" Click="OnTypeDocumentClick">文档</Button>
+          <Button Classes="filter-chip" Click="OnTypeArchiveClick">压缩包</Button>
+          <TextBlock x:Name="FilterHelper" Text="本机文件 · 搜索仅限当前目录" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0" />
+          </StackPanel>
+        </ScrollViewer>
+
+        <ScrollViewer Grid.Row="3" x:Name="FileScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,3,0,8">
+          <Grid>
+            <ItemsControl x:Name="GridItems" ItemsSource="{Binding Entries}" IsVisible="{Binding IsGridView}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Classes="file-card" Click="OnEntryClick" DoubleTapped="OnEntryDoubleTapped" Width="170" Height="164" Margin="0,0,10,10" Padding="0" Tag="{Binding FullPath}">
+                    <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="18" Padding="14">
+                      <Grid RowDefinitions="*,Auto,Auto">
+                        <Grid ColumnDefinitions="*,Auto"><TextBlock Text="{Binding Glyph}" Foreground="{DynamicResource PrimaryBrush}" FontSize="35" HorizontalAlignment="Center" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="{Binding SelectionMark}" Foreground="{DynamicResource PrimaryBrush}" FontWeight="Bold"/></Grid>
+                        <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" Margin="0,8,0,3" />
+                        <TextBlock Grid.Row="2" Text="{Binding SizeText}" Foreground="{DynamicResource MutedBrush}" FontSize="11" HorizontalAlignment="Center" />
+                      </Grid>
+                    </Border>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <ItemsControl x:Name="ListItems" ItemsSource="{Binding Entries}" IsVisible="{Binding IsListView}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Classes="file-row" Click="OnEntryClick" DoubleTapped="OnEntryDoubleTapped" HorizontalContentAlignment="Stretch" Padding="8,5" Tag="{Binding FullPath}">
+                    <Grid ColumnDefinitions="32,*,Auto" MinHeight="45"><TextBlock Text="{Binding Glyph}" Foreground="{DynamicResource PrimaryBrush}" FontSize="19" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="2" Text="{Binding SizeText}" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="10,0"/></Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid IsVisible="{Binding IsDetailsView}">
+              <Grid RowDefinitions="36,*">
+                <Grid ColumnDefinitions="*,160,120,140" Margin="12,0"><TextBlock Text="名称" Foreground="{DynamicResource MutedBrush}"/><TextBlock Grid.Column="1" Text="修改时间" Foreground="{DynamicResource MutedBrush}"/><TextBlock Grid.Column="2" Text="类型" Foreground="{DynamicResource MutedBrush}"/><TextBlock Grid.Column="3" Text="大小" Foreground="{DynamicResource MutedBrush}"/></Grid>
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding Entries}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Classes="file-row" Click="OnEntryClick" DoubleTapped="OnEntryDoubleTapped" HorizontalContentAlignment="Stretch" Padding="10,7" Tag="{Binding FullPath}">
+                        <Grid ColumnDefinitions="*,160,120,140" MinHeight="38"><StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="{Binding Glyph}" Foreground="{DynamicResource PrimaryBrush}"/><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding ModifiedText}" Foreground="{DynamicResource MutedBrush}"/><TextBlock Grid.Column="2" Text="{Binding TypeLabel}" Foreground="{DynamicResource MutedBrush}"/><TextBlock Grid.Column="3" Text="{Binding SizeText}" Foreground="{DynamicResource MutedBrush}"/></Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Grid>
+            </Grid>
+            <StackPanel IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="9" Margin="16">
+              <TextBlock Text="⌂" FontSize="42" Foreground="{DynamicResource PrimaryBrush}" HorizontalAlignment="Center" />
+              <TextBlock Text="这里还没有匹配的文件" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+              <TextBlock Text="可以尝试其他搜索词，或创建一个新文件夹。" Foreground="{DynamicResource MutedBrush}" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" />
+            </StackPanel>
+          </Grid>
+        </ScrollViewer>
+      </Grid>
+
+      <!-- Preview / properties pane -->
+      <Border x:Name="PreviewPanel" Grid.Column="2" Background="{DynamicResource SurfaceLowBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1,0,0,0" Padding="16">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Grid ColumnDefinitions="*,Auto"><TextBlock Text="预览与属性" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/><Button Grid.Column="1" Click="OnClosePreviewClick" ToolTip.Tip="收起预览" Padding="8"><TextBlock Text="×" FontSize="18"/></Button></Grid>
+          <StackPanel Grid.Row="1" Spacing="12" VerticalAlignment="Top" Margin="0,18,0,0">
+            <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="22" Height="220">
+              <TextBlock Text="{Binding PreviewGlyph}" FontSize="62" Foreground="{DynamicResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <TextBlock Text="预览  ·  属性" Foreground="{DynamicResource PrimaryBrush}" FontSize="12" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding PreviewTitle}" FontWeight="SemiBold" FontSize="18" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding PreviewSubtitle}" Foreground="{DynamicResource MutedBrush}" FontSize="12" />
+            <Border Background="{DynamicResource SurfaceCardBrush}" CornerRadius="16" Padding="14">
+              <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                <TextBlock Text="大小" Foreground="{DynamicResource MutedBrush}"/><TextBlock Grid.Column="1" Text="{Binding PreviewSize}"/>
+                <TextBlock Grid.Row="1" Text="修改时间" Foreground="{DynamicResource MutedBrush}"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PreviewModified}"/>
+                <TextBlock Grid.Row="2" Text="位置" Foreground="{DynamicResource MutedBrush}"/><TextBlock Grid.Row="2" Grid.Column="1" Text="当前文件夹"/>
+              </Grid>
+            </Border>
+            <TextBlock Text="文件内容保留在本机，不会上传。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+          </StackPanel>
+          <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Button Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}" Click="OnOpenSelectedClick"><TextBlock Text="打开" FontWeight="SemiBold"/></Button>
+            <Button Grid.Column="1" Click="OnShareClick" ToolTip.Tip="系统分享"><TextBlock Text="↗" FontSize="18"/></Button>
+          </Grid>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- Compact / Medium floating preview, styled after concept 04 -->
+    <Border x:Name="FloatingPreviewLayer" Grid.Row="2" Background="#66000000" IsVisible="{Binding IsFloatingPreviewOpen}" Panel.ZIndex="10" Padding="16">
+      <Border x:Name="FloatingPreviewCard" Width="560" MaxWidth="760" Height="680" MaxHeight="900" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="28" Padding="18">
+        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" RowSpacing="12">
+          <Grid ColumnDefinitions="*,Auto"><TextBlock Text="文件预览" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"><Button Click="OnFloatExpandClick" ToolTip.Tip="展开 / 还原" Padding="8"><TextBlock Text="⛶" FontSize="17"/></Button><Button Click="OnFloatCloseClick" ToolTip.Tip="关闭预览" Padding="8"><TextBlock Text="×" FontSize="19"/></Button></StackPanel></Grid>
+          <TextBlock Grid.Row="1" Text="{Binding PreviewTitle}" FontWeight="SemiBold" FontSize="18" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
+          <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+            <Button Click="OnFloatPreviewTabClick" Background="{DynamicResource SelectedBrush}" Padding="15,7">预览</Button>
+            <Button Click="OnFloatPropertiesTabClick" Padding="15,7">属性</Button>
+          </StackPanel>
+          <Grid Grid.Row="3" Margin="0,4">
+            <Border Background="#FFF7F1E9" CornerRadius="18" IsVisible="{Binding IsPreviewTab}">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"><TextBlock Text="{Binding PreviewGlyph}" FontSize="76" Foreground="#006A6A" HorizontalAlignment="Center"/><TextBlock Text="{Binding PreviewSubtitle}" Foreground="#414848" FontSize="12" HorizontalAlignment="Center"/></StackPanel>
+            </Border>
+            <Border Background="{DynamicResource SurfaceLowBrush}" CornerRadius="18" Padding="20" IsVisible="{Binding IsPropertiesTab}">
+              <StackPanel VerticalAlignment="Center" Spacing="14"><TextBlock Text="文件属性" FontWeight="SemiBold" FontSize="18"/><TextBlock Text="名称" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="{Binding PreviewTitle}" TextWrapping="Wrap"/><TextBlock Text="大小" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="{Binding PreviewSize}"/><TextBlock Text="修改时间" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="{Binding PreviewModified}"/></StackPanel>
+            </Border>
+          </Grid>
+          <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+            <Border Background="{DynamicResource SurfaceLowBrush}" CornerRadius="15" Padding="12,7"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="大小" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="{Binding PreviewSize}"/></StackPanel></Border>
+            <Border Background="{DynamicResource SurfaceLowBrush}" CornerRadius="15" Padding="12,7"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="修改" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="{Binding PreviewModified}"/></StackPanel></Border>
+          </StackPanel>
+          <Grid Grid.Row="5" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Button Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}" Click="OnOpenSelectedClick"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8"><TextBlock Text="▷"/><TextBlock Text="打开" FontWeight="SemiBold"/></StackPanel></Button>
+            <Button Grid.Column="1" Click="OnShareClick" ToolTip.Tip="共享"><TextBlock Text="↗" FontSize="18"/></Button>
+          </Grid>
+        </Grid>
+      </Border>
+    </Border>
+
+    <!-- Status line -->
+    <Border Grid.Row="3" Background="{DynamicResource SurfaceLowBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="0,1,0,0" Padding="16,0">
+      <Grid ColumnDefinitions="*,Auto"><TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="{Binding CountText}" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center"/></Grid>
+    </Border>
+  </Grid>
+</Window>

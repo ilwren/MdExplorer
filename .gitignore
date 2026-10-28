@@ -1,7 +1,14 @@
-# 本地验证用资产（无头浏览器字体、临时截图等）—— 不入库
+# Local validation assets
 .local/
 node_modules/
 __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# .NET / Avalonia build outputs
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo

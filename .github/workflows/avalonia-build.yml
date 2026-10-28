@@ -1,0 +1,39 @@
+name: Avalonia desktop build
+
+on:
+  push:
+    branches:
+      - arena/8f24df8b-mdexplorer
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore MdExplorer.slnx
+      - name: Build Release
+        run: dotnet build MdExplorer.slnx --configuration Release --no-restore
+      - name: Check retained Web prototype JavaScript
+        if: runner.os == 'Linux'
+        run: |
+          node --check app.js
+          node --check scenes.js

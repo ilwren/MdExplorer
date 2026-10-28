@@ -1,26 +1,53 @@
-# Eidoria（万象屿）· 可交互概念原型
+# Eidoria（万象屿）· Avalonia 原生桌面首版
 
-基于 `arena/c665818d-mdexplorer` 分支的 [开发文档](docs/DEVELOPMENT.md)、[概念设计 v3](docs/CONCEPT-DESIGN.md)、
+基于 [开发文档](docs/DEVELOPMENT.md)、[概念设计 v3](docs/CONCEPT-DESIGN.md)、
 [响应式布局](docs/RESPONSIVE-LAYOUT.md)、[插件系统](docs/PLUGIN-SYSTEM.md)、[本地 AI](docs/LOCAL-AI.md)
-与 [品牌规范](docs/BRAND.md) 实现的**零依赖 Web 可交互设计原型**。
+与 [品牌规范](docs/BRAND.md) 开始构建 **C# 14 + Avalonia 12.1 的原生桌面应用**。
 
-> 本仓库的 `MdExplorer` 工程代号保持不变；此原型按概念图 `ai-v3/01–15` 落地设计，
-> **不是**最终的 Avalonia 12 / .NET 10 应用。第二版补齐了 06–15 的规划场景，
-> 并修正了 Compact 预览窗、Windows 式面包屑、窗口控制与磁盘列表位置。
+> `MdExplorer` 是工程代号；产品名为 Eidoria（万象屿）。原生应用当前实现核心浏览器 UI 的第一段：
+> 本地目录浏览、响应式抽屉/导轨、Windows 式路径导航、网格/列表/详细视图、搜索筛选、浅深主题与 Compact 浮窗预览。
+> `ai-v3/06–15` 仍是规划场景，原生端尚未接入；旧 Web 原型保留作为概念视觉对照，不是产品运行时。
 
-## 运行
+## 运行原生应用
 
-无需构建、无需依赖，直接静态托管即可：
+需要安装 .NET 10 SDK：
 
 ```bash
-python3 -m http.server 8000
+dotnet restore MdExplorer.slnx
+dotnet run --project src/MdExplorer.Desktop/MdExplorer.Desktop.csproj
+```
+
+当前工程使用 Avalonia Fluent 基础控件与项目内 MD3 语义色资源，依赖版本锁定在 Avalonia `12.1.4`。
+本原生首版为 Windows / Linux 桌面 UI 纵切；Android 宿主、SAF、正式任务队列与完整文件操作将在后续分阶段接入。
+推送到当前分支后，GitHub Actions 会在 Ubuntu 与 Windows runner 上执行 Release restore/build。
+
+## Web 对照预览
+
+旧版零依赖概念原型仍可静态运行：
+
+```bash
+python3 -m http.server 8000 --bind 0.0.0.0
 # 浏览器打开 http://localhost:8000
 ```
 
-Live preview 已绑定 `0.0.0.0:8000`，打开后即可交互。顶部深色控制条是**演示壳**，
-其中「场景」下拉可切换概念图 06–15 的规划预演。
+Web 的顶部控制条是设计演示壳，可切换五档画布和 06–15 规划场景；它不是原生应用运行时。
 
-## 实现对照图（无头 Chromium 实拍）
+## 原生 Avalonia 首版实现范围
+
+项目入口位于 `MdExplorer.slnx` / `src/MdExplorer.Desktop/`。当前原生窗口已落地：
+
+- 桌面文件浏览骨架：应用头部、标签视觉框架、侧栏导航、存储卷用量、工具栏、内容区、预览属性侧栏与状态栏。
+- 按窗口宽度切换 Compact（导航抽屉 + 04 式预览浮窗）、Medium（窄导轨）、Expanded / Large（永久导航 + 预览侧栏）；不是缩放整张窗口。
+- 真实本地文件夹枚举与打开：主页/常用目录、路径分段导航与子文件夹菜单、路径编辑（`Ctrl+L`）、后退/前进/上级、文件名实时筛选、类型过滤、隐藏项、刷新。
+- 网格 / 列表 / 详细信息视图（`Ctrl+1/2/3`）、主题切换、创建文件夹、双击文件夹进入、系统默认应用打开文件。
+- 主题采用 MD3 青色种子 `#006A6A` 与浅 / 深语义色资源；窗口控件与系统窗框由原生桌面系统提供。
+
+当前有意保留为后续工作的入口或提示：多标签会话状态、系统分享、回收站、设置、复制/移动/删除、可取消任务队列、真实缩略图/文件格式预览、Android SAF、06–15 概念场景。
+用户数据仅通过当前桌面进程读取；创建文件夹会写入当前目录，其余概念按钮不伪装成已完成操作。
+
+**验证限制：**本执行环境没有 `dotnet`、C# 编译器或 Avalonia SDK，因此此处只能静态检查工程与 XAML，未能执行 `dotnet restore/build/run`。请在安装 .NET 10 SDK 的机器上先运行上面的命令并回报编译错误，以便继续迭代。
+
+## Web 概念稿对照图（无头 Chromium 实拍）
 
 ### 第一版 · 核心浏览器基线（概念图 01–05）
 
@@ -56,7 +83,7 @@ Live preview 已绑定 `0.0.0.0:8000`，打开后即可交互。顶部深色控�
 |---|---|---|---|
 | ![11](docs/assets/preview/v2/10-editor-pdf-workbench.jpg) | ![12](docs/assets/preview/v2/11-media-player.jpg) | ![13](docs/assets/preview/v2/12-extensions-lua.jpg) | ![14](docs/assets/preview/v2/13-local-ai-search.jpg) |
 
-## 第一版 · 核心浏览器基线（概念图 01–05）
+## Web 原型 · 第一版核心浏览器基线（概念图 01–05）
 
 | 概念图 | 落地内容 |
 |---|---|
@@ -94,7 +121,7 @@ Live preview 已绑定 `0.0.0.0:8000`，打开后即可交互。顶部深色控�
 - 新建、复制/剪切/粘贴、重命名、删除（先显示影响范围 + 可撤销），全部写入**任务中心**。
 - 浅/深主题成对、减少动态效果开关。
 
-## 第二版 · 补齐与修正
+## Web 原型 · 第二版补齐与修正
 
 ### ① Windows 文件资源管理器式面包屑（对照 02）
 
@@ -157,6 +184,10 @@ Compact / Medium 的预览窗改为概念图 04 的大圆角浮窗，深色下**
 ## 文件
 
 ```
+MdExplorer.slnx                         原生 Avalonia 解决方案
+src/MdExplorer.Desktop/                 C# 桌面应用（XAML + ViewModel）
+Directory.Build.props                    C# 14 / nullable / 可重复构建设置
+Directory.Packages.props                 Avalonia NuGet 版本集中锁定
 index.html      应用骨架 + Material Symbols 图标 sprite + 演示控制条 + 场景覆盖层
 styles.css      MD3 设计系统、组件、五档断点与动效
 scenes.css      窗口控件 / Windows 面包屑 / Compact 浮窗 / 规划场景样式
@@ -174,8 +205,8 @@ docs/           从设计分支同步的规格文档（作为实现依据）+ �
 
 ## 边界
 
-- 数据为固定虚构样例（与 `docs/IMAGE-PROMPTS.md` 的固定样例一致），**不访问真实文件系统**。
-- 缩略图为纯 SVG 生成的风景图，不含外部图片请求；无网络、无账号、无遥测。
-- 顶部深色控制条、画布缩放与窗口控制是**演示壳**，不属于应用界面本身。
-- 概念图 `ai-v3/06–15` 在本原型中以「概念预演」形态实现，仅用于设计评审，**不代表功能已落地**。
-- 本沙箱无 .NET SDK，因此这一版不是 Avalonia 工程；视觉与交互按概念图收敛，便于先验收设计再决定后续实现栈。
+- **Web 对照原型**使用固定虚构样例，不访问真实文件系统；SVG 风景缩略图不含外部图片请求。
+- **Avalonia 原生首版**读取当前用户可访问的本地目录；仅“新建文件夹”会写入磁盘，其余尚未实现的操作明确显示阶段提示。
+- 两端均无账号、云服务、网络搜索与遥测；规划场景 `ai-v3/06–15` 在原生端尚未实现。
+- Web 顶部深色控制条与画布缩放属于演示壳，不是原生界面。
+- 本沙箱无 .NET SDK，原生 Avalonia 工程尚未经过 `dotnet restore/build/run`；Web 概念原型只作视觉/交互参考，不替代原生端。

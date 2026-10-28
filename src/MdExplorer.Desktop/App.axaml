@@ -1,0 +1,60 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MdExplorer.Desktop.App"
+             RequestedThemeVariant="Light">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="PrimaryBrush" Color="#006A6A" />
+          <SolidColorBrush x:Key="OnPrimaryBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="SurfaceBrush" Color="#F7FAF9" />
+          <SolidColorBrush x:Key="SurfaceLowBrush" Color="#EFF4F3" />
+          <SolidColorBrush x:Key="SurfaceCardBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="OnSurfaceBrush" Color="#191D1D" />
+          <SolidColorBrush x:Key="MutedBrush" Color="#414848" />
+          <SolidColorBrush x:Key="OutlineBrush" Color="#C1C9C8" />
+          <SolidColorBrush x:Key="SelectedBrush" Color="#BCEBE8" />
+          <SolidColorBrush x:Key="PrimaryContainerBrush" Color="#9CF1ED" />
+          <SolidColorBrush x:Key="DangerBrush" Color="#BA1A1A" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="PrimaryBrush" Color="#70D5D1" />
+          <SolidColorBrush x:Key="OnPrimaryBrush" Color="#003737" />
+          <SolidColorBrush x:Key="SurfaceBrush" Color="#101414" />
+          <SolidColorBrush x:Key="SurfaceLowBrush" Color="#191D1D" />
+          <SolidColorBrush x:Key="SurfaceCardBrush" Color="#202525" />
+          <SolidColorBrush x:Key="OnSurfaceBrush" Color="#E0E3E2" />
+          <SolidColorBrush x:Key="MutedBrush" Color="#AAB3B2" />
+          <SolidColorBrush x:Key="OutlineBrush" Color="#404948" />
+          <SolidColorBrush x:Key="SelectedBrush" Color="#174B49" />
+          <SolidColorBrush x:Key="PrimaryContainerBrush" Color="#00504F" />
+          <SolidColorBrush x:Key="DangerBrush" Color="#FFB4AB" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}" />
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}" />
+      <Setter Property="CornerRadius" Value="20" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SelectedBrush}" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceLowBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource OutlineBrush}" />
+      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="Padding" Value="12,9" />
+    </Style>
+  </Application.Styles>
+</Application>
