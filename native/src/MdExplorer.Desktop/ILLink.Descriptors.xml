@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Native AOT / trimming 根描述符（§11 P2）。
+
+  为什么必须存在：本项目 UI 采用 Avalonia「经典反射绑定」（`{Binding Foo}`），
+  绑定引擎在运行时用反射读取数据上下文类型的属性。Native AOT 默认会裁掉只被反射访问的
+  属性元数据，导致绑定**静默失效**（界面能加载但值为空）。
+  自检 `MdExplorer --selftest` 的 binding-reflection 项就是这条规则的回归门槛。
+
+  保留策略：仅保留被绑定路径直接触及的程序集中的类型成员，其余照常裁剪。
+  后续若迁移到编译绑定（x:DataType），本文件可整体删除。
+-->
+<linker>
+  <assembly fullname="MdExplorer.UI">
+    <type fullname="MdExplorer.UI.ViewModels.*" preserve="all" />
+    <type fullname="MdExplorer.UI.Views.*" preserve="all" />
+    <type fullname="MdExplorer.UI.Services.*" preserve="all" />
+  </assembly>
+  <assembly fullname="MdExplorer.Application">
+    <type fullname="MdExplorer.Application.*" preserve="all" />
+  </assembly>
+  <assembly fullname="MdExplorer.Domain">
+    <type fullname="MdExplorer.Domain.*" preserve="all" />
+  </assembly>
+  <assembly fullname="MdExplorer.Platform.Abstractions">
+    <type fullname="MdExplorer.Platform.Abstractions.*" preserve="all" />
+  </assembly>
+</linker>

@@ -6,6 +6,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>MdExplorer</AssemblyName>
   </PropertyGroup>
+  <!-- 反射绑定所需元数据在 AOT 下必须显式保留，否则绑定静默失效（见 ILLink.Descriptors.xml） -->
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../MdExplorer.UI/MdExplorer.UI.csproj" />
     <ProjectReference Include="../MdExplorer.Application/MdExplorer.Application.csproj" />
