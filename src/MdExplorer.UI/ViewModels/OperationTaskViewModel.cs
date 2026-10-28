@@ -226,32 +226,22 @@ public sealed partial class OperationTaskViewModel : ObservableObject, IDisposab
         if (outcome.Cancelled)
         {
             Status = OperationTaskStatus.Cancelled;
-            Detail = outcome.SucceededCount > 0
-                ? $"已取消；此前完成了 {outcome.SucceededCount} 项"
-                : "已取消";
+            Detail = "任务已取消";
         }
         else if (outcome.Errors.Count > 0)
         {
             Status = OperationTaskStatus.Failed;
             ProgressPercent = 100;
-            Detail = outcome.SucceededCount > 0
-                ? $"完成了 {outcome.SucceededCount} 项，{outcome.Errors.Count} 项失败"
-                : $"{outcome.Errors.Count} 项失败";
-            if (SkippedCount > 0)
-                Detail += $"，跳过 {SkippedCount} 项";
+            Detail = outcome.SucceededCount > 0 ? "部分项目未完成" : "任务未能完成";
             ErrorText = BuildErrorText(outcome.Errors);
         }
         else
         {
             Status = OperationTaskStatus.Completed;
             ProgressPercent = 100;
-            Detail = (outcome.SucceededCount, SkippedCount) switch
-            {
-                (> 0, > 0) => $"已完成 {outcome.SucceededCount} 项，跳过 {SkippedCount} 项",
-                (> 0, _) => $"已完成 {outcome.SucceededCount} 项",
-                (_, > 0) => $"已跳过 {SkippedCount} 项",
-                _ => "已完成",
-            };
+            Detail = outcome.SucceededCount == 0 && SkippedCount > 0
+                ? "所选项目均已跳过"
+                : "任务已完成";
         }
 
         OnPropertyChanged(nameof(TimeText));

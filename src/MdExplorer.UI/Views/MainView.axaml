@@ -131,6 +131,28 @@
         </StackPanel>
       </Border>
     </DataTemplate>
+
+    <DataTemplate x:Key="ConflictCompactCardTemplate" x:DataType="vm:ConflictItemSnapshot">
+      <Border Classes="card" Padding="10">
+        <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+          <TextBlock Grid.ColumnSpan="2" Classes="caption" Text="{Binding Heading}" />
+          <Border Grid.Row="1" Height="64" CornerRadius="12" ClipToBounds="True" Background="{Binding Display.GlyphBackgroundBrush}">
+            <Grid>
+              <Image Source="{Binding Display.Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding Display.HasThumbnail}" />
+              <md:MdIcon Glyph="{Binding Display.Glyph}" Size="30" Foreground="{Binding Display.GlyphBrush}"
+                         IsVisible="{Binding Display.ShowGlyph}" />
+            </Grid>
+          </Border>
+          <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+            <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FullPath}" />
+            <TextBlock Classes="caption" Text="{Binding SizeText}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="caption" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="caption" Text="{Binding HashText}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="caption" Text="{Binding LocationText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FullPath}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
   </UserControl.Resources>
 
   <Grid>
@@ -1078,9 +1100,9 @@
             </Grid>
             <StackPanel Spacing="10" IsVisible="{Binding IsCompact}">
               <ContentControl Content="{Binding CurrentConflict.Source}"
-                              ContentTemplate="{StaticResource ConflictCardTemplate}" />
+                              ContentTemplate="{StaticResource ConflictCompactCardTemplate}" />
               <ContentControl Content="{Binding CurrentConflict.Target}"
-                              ContentTemplate="{StaticResource ConflictCardTemplate}" />
+                              ContentTemplate="{StaticResource ConflictCompactCardTemplate}" />
             </StackPanel>
 
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
