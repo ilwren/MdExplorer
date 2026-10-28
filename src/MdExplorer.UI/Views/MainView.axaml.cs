@@ -1016,8 +1016,8 @@ public partial class MainView : UserControl
             if (Math.Abs(delta.X) < 7 || Math.Abs(delta.Y) > Math.Abs(delta.X) * 1.5)
                 return;
             drag.IsDragging = true;
-            if (sender is IInputElement senderElement)
-                e.Pointer.Capture(senderElement);
+            // 不主动改捕获：按下时指针已隐式捕获到命中元素，改捕获会先触发
+            // PointerCaptureLost 并冒泡到标签，反而把刚开始的拖拽取消。
             drag.DraggedContainer.ZIndex = 10;
             drag.DraggedContainer.Opacity = 0.88;
             if (!_reduceMotion && Shell?.ReduceMotion != true)
