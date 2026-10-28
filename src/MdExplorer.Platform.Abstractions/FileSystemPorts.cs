@@ -179,11 +179,63 @@ public interface IArchiveService
     Task<IReadOnlyList<ArchiveEntryItem>> ListEntriesAsync(string archivePath, int maxEntries, CancellationToken cancellationToken);
     Task<OperationOutcome> ExtractAsync(string archivePath, string destinationFolder,
         IProgress<OperationProgress>? progress, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 解压全部或所选条目。options 的条目集合为 null 表示全部；条目名以 / 或 \ 结尾时，
+    /// 表示该虚拟文件夹的全部后代。所有落点都必须先做 Zip Slip 校验。
+    /// </summary>
+    Task<OperationOutcome> ExtractEntriesAsync(string archivePath, string destinationFolder,
+        ArchiveExtractOptions options, IProgress<OperationProgress>? progress, CancellationToken cancellationToken);
+
+    /// <summary>有界读取单个文件条目；不存在、为目录或超过上限时返回 null，禁止无界读入内存。</summary>
+    Task<byte[]?> ReadEntryBytesAsync(string archivePath, string entryFullName, int maxBytes, CancellationToken cancellationToken);
+
     Task<OperationOutcome> CompressToZipAsync(IReadOnlyList<string> sources, string destinationZipPath,
         IProgress<OperationProgress>? progress, CancellationToken cancellationToken);
 }
 
-public sealed record ArchiveEntryItem(string FullName, long Length, long CompressedLength, DateTimeOffset LastWriteTime, bool IsFolder);
+/// <summary>
+/// 压缩包解压选项：是否保留虚拟目录结构，以及同名冲突策略。默认值故意不是覆盖，
+/// 避免复刻早期整包解压的静默覆盖语义；UI 必须在执行前把当前策略展示给用户。
+/// </summary>
+public sealed record ArchiveExtractOptions(
+    IReadOnlySet<string>? EntryFullNames = null,
+    bool PreserveStructure = true,
+    ConflictPolicy ConflictPolicy = ConflictPolicy.KeepBoth);
+
+public sealed record ArchiveEntryItem(string FullName, long Length, long CompressedLength, DateTimeOffset LastWriteTime, bool IsFolder)
+{
+    /// <summary>统一为 / 分隔的虚拟路径；目录保留尾随 /（若原条目有）。</summary>
+    public string VirtualPath => FullName.Replace('\\', '/');
+
+    public string Name
+    {
+        get
+        {
+            var path = VirtualPath.TrimEnd('/');
+            var slash = path.LastIndexOf('/');
+            return slash >= 0 ? path[(slash + 1)..] : path;
+        }
+    }
+
+    /// <summary>父虚拟目录；根层为空字符串，非根层以 / 结尾。</summary>
+    public string ParentPath
+    {
+        get
+        {
+            var path = VirtualPath.TrimEnd('/');
+            var slash = path.LastIndexOf('/');
+            return slash >= 0 ? path[..(slash + 1)] : string.Empty;
+        }
+    }
+
+    public FileKind Kind => IsFolder
+        ? FileKind.Folder
+        : FileKindClassifier.Classify(Name);
+
+    /// <summary>压缩后体积占原体积的比例（0~1）；空文件或目录为 0。</summary>
+    public double CompressionRatio => Length > 0 ? Math.Clamp(CompressedLength / (double)Length, 0, 1) : 0;
+}
 
 /// <summary>递归文件名搜索（流式产出）。</summary>
 public interface ISearchService

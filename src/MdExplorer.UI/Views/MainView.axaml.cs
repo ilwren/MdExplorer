@@ -1013,6 +1013,7 @@ public partial class MainView : UserControl
     private void OnToolbarRename(object? sender, RoutedEventArgs e) => Browser?.RenameCommand.Execute(Browser.SelectedItems.FirstOrDefault());
     private void OnMenuFavorite(object? sender, RoutedEventArgs e) => Browser?.ToggleFavoriteCommand.Execute(Browser.SelectedItems.FirstOrDefault());
     private void OnMenuCompress(object? sender, RoutedEventArgs e) => Browser?.CompressSelectionCommand.Execute(null);
+    private void OnMenuOpenArchiveWorkbench(object? sender, RoutedEventArgs e) => Browser?.OpenArchiveWorkbenchCommand.Execute(Browser.SelectedItems.FirstOrDefault());
     private void OnMenuExtract(object? sender, RoutedEventArgs e) => Browser?.ExtractSelectionCommand.Execute(Browser.SelectedItems.FirstOrDefault());
     private void OnMenuSelectionMode(object? sender, RoutedEventArgs e) => Browser?.EnterSelectionModeCommand.Execute(null);
     private void OnMenuBatchRename(object? sender, RoutedEventArgs e) => Browser?.BatchRenameSelectionCommand.Execute(null);

@@ -110,14 +110,22 @@
             </StackPanel>
           </Border>
         </WrapPanel>
-        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CanOpen}">
-          <md:MdButton Variant="Filled" Height="42" MinWidth="116" Command="{Binding OpenCommand}">
+        <WrapPanel Orientation="Horizontal" IsVisible="{Binding CanOpen}">
+          <md:MdButton Variant="Filled" Height="42" MinWidth="116" Margin="0,0,8,6" Command="{Binding OpenCommand}">
             <StackPanel Orientation="Horizontal" Spacing="7">
               <md:MdIcon Glyph="{x:Static md:MdSymbols.OpenInNew}" Size="18" />
               <TextBlock Text="打开" VerticalAlignment="Center" />
             </StackPanel>
           </md:MdButton>
-        </StackPanel>
+          <md:MdButton Variant="Tonal" Height="42" MinWidth="132" Margin="0,0,0,6"
+                       Command="{Binding OpenArchiveWorkbenchCommand}"
+                       IsVisible="{Binding CanOpenArchiveWorkbench}">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderZip}" Size="18" />
+              <TextBlock Text="压缩包工作台" VerticalAlignment="Center" />
+            </StackPanel>
+          </md:MdButton>
+        </WrapPanel>
         </StackPanel>
       </md:MdScrollViewer>
 

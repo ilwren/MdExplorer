@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Reflection;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,7 +14,7 @@ using MdExplorer.UI.Preview;
 
 namespace MdExplorer.UI.ViewModels;
 
-public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter, StorageInsights }
+public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter, StorageInsights, ArchiveWorkbench }
 public enum SizeClass { Compact, Medium, Expanded, Large, ExtraLarge }
 internal enum DialogKind { None, Prompt, Confirm, Conflict, Message, Progress, BatchRename }
 
@@ -26,6 +27,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private int _favoritesRefreshGeneration;
     private int _recentsRefreshGeneration;
     private CancellationTokenSource? _searchCenterCts;
+    private List<ArchiveEntryItem> _archiveEntries = [];
+    private readonly Dictionary<string, ArchiveFolderAggregate> _archiveFolders = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<ArchiveEntryItem>> _archiveFilesByParent = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<string>> _archiveChildFolders = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<string>> _archiveDescendantsByFolder = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ArchiveEntryItem> _archiveExplicitFolders = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _selectedArchiveEntries = new(StringComparer.Ordinal);
+    private int _archiveGeneration;
+    private int _archivePreviewGeneration;
     private Func<IFileLauncherService> _launcher;
     private IFileLauncherService Launcher => _launcher();
 
@@ -55,6 +65,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             this, Preview, () => Launcher);
         Browser.FavoritesChanged += async (_, _) => await RefreshFavoritesAsync().ConfigureAwait(true);
         Browser.RecentsChanged += async (_, _) => await RefreshRecentsAsync().ConfigureAwait(true);
+        Browser.ArchiveWorkbenchRequested += async (_, path) => await OpenArchiveWorkbenchAsync(path).ConfigureAwait(true);
+        Preview.ArchiveWorkbenchRequested += async (_, path) => await OpenArchiveWorkbenchAsync(path).ConfigureAwait(true);
         Browser.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(BrowserViewModel.CurrentFolderName))
@@ -97,6 +109,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         StorageTopFolders.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasStorageTopFolders));
         StorageLargestFiles.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasStorageLargestFiles));
         StorageDuplicateGroups.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasStorageDuplicateGroups));
+        ArchiveVisibleEntries.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasArchiveVisibleEntries));
+            OnPropertyChanged(nameof(ShowArchiveEmpty));
+        };
         OperationTasks.CollectionChanged += (_, _) => RefreshTaskCenterSummary();
         Preview.PropertyChanged += (_, e) =>
         {
@@ -161,6 +178,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         ShellPage.Settings => "设置",
         ShellPage.SearchCenter => "搜索中心",
         ShellPage.StorageInsights => "存储洞察",
+        ShellPage.ArchiveWorkbench => string.IsNullOrWhiteSpace(ArchiveName) ? "压缩包" : ArchiveName,
         _ => Browser.IsSearchMode ? "搜索结果" : Browser.CurrentFolderName,
     };
 
@@ -178,6 +196,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsSettingsPage => Page == ShellPage.Settings;
     public bool IsSearchCenterPage => Page == ShellPage.SearchCenter;
     public bool IsStorageInsightsPage => Page == ShellPage.StorageInsights;
+    public bool IsArchiveWorkbenchPage => Page == ShellPage.ArchiveWorkbench;
 
     public bool IsCompact => SizeClass == SizeClass.Compact;
     public bool IsMedium => SizeClass == SizeClass.Medium;
@@ -210,6 +229,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsSettingsPage));
         OnPropertyChanged(nameof(IsSearchCenterPage));
         OnPropertyChanged(nameof(IsStorageInsightsPage));
+        OnPropertyChanged(nameof(IsArchiveWorkbenchPage));
         OnPropertyChanged(nameof(ShowPreviewPaneEffective));
     }
 
@@ -266,6 +286,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public ObservableCollection<StorageFolderUsageModel> StorageTopFolders { get; } = [];
     public ObservableCollection<FileItemViewModel> StorageLargestFiles { get; } = [];
     public ObservableCollection<StorageDuplicateGroupModel> StorageDuplicateGroups { get; } = [];
+    public ObservableCollection<ArchiveWorkbenchEntryViewModel> ArchiveVisibleEntries { get; } = [];
+    public ObservableCollection<ArchiveBreadcrumbModel> ArchiveBreadcrumbs { get; } = [];
     public ObservableCollection<OperationTaskViewModel> OperationTasks { get; } = [];
 
     [ObservableProperty] private bool _isTaskCenterOpen;
@@ -678,6 +700,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         if (Browser.IsSearchPanelOpen) { Browser.IsSearchPanelOpen = false; return true; }
         if (IsDrawerOpen) { IsDrawerOpen = false; return true; }
         if (IsPreviewPageOpen) { IsPreviewPageOpen = false; return true; }
+        if (Page == ShellPage.ArchiveWorkbench)
+        {
+            if (!string.IsNullOrEmpty(ArchiveCurrentFolder))
+            {
+                NavigateArchiveFolder(ArchiveParentFolder(ArchiveCurrentFolder));
+            }
+            else
+            {
+                Page = ShellPage.Browser;
+            }
+            return true;
+        }
         if (Page == ShellPage.Browser && await Browser.TryGoBackAsync().ConfigureAwait(true)) return true;
         if (Page != ShellPage.Home) { GoHome(); return true; }
         return false;
@@ -1077,6 +1111,727 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         FileKind.Text => MdSymbols.TextSnippet,
         _ => MdSymbols.InsertDriveFile,
     };
+
+    // ---------- 压缩包工作台（ZIP 家族只读虚拟文件夹） ----------
+    private const int MaxArchiveEntries = 10_000;
+    private const int MaxVisibleArchiveEntries = 2_000;
+    private const int MaxArchivePreviewBytes = 16 * 1024 * 1024;
+    private const int MaxArchivePreviewTextBytes = 256 * 1024;
+
+    [ObservableProperty] private string _archivePath = string.Empty;
+    [ObservableProperty] private string _archiveName = string.Empty;
+    [ObservableProperty] private string _archiveCurrentFolder = string.Empty;
+    [ObservableProperty] private string _archiveFilterText = string.Empty;
+    [ObservableProperty] private bool _isArchiveBusy;
+    [ObservableProperty] private bool _hasArchive;
+    [ObservableProperty] private bool _archiveIsTruncated;
+    [ObservableProperty] private string _archiveStatusText = "从文件列表打开 ZIP、JAR 或 APK";
+    [ObservableProperty] private string _archiveDestinationPath = string.Empty;
+    [ObservableProperty] private bool _archivePreserveStructure = true;
+    [ObservableProperty] private bool _archiveOpenAfterExtract;
+    [ObservableProperty] private string _archiveConflictPolicyName = nameof(ConflictPolicy.KeepBoth);
+    [ObservableProperty] private ArchiveWorkbenchEntryViewModel? _selectedArchiveEntry;
+    [ObservableProperty] private Bitmap? _archivePreviewImage;
+    [ObservableProperty] private string? _archivePreviewText;
+    [ObservableProperty] private string _archivePreviewMessage = "选择一个条目查看详情";
+    [ObservableProperty] private int _archiveEntryCount;
+    [ObservableProperty] private int _archiveFileCount;
+    [ObservableProperty] private int _archiveFolderCount;
+    [ObservableProperty] private long _archiveUncompressedBytes;
+    [ObservableProperty] private long _archiveCompressedBytes;
+    [ObservableProperty] private int _archiveSelectedCount;
+    [ObservableProperty] private long _archiveSelectedBytes;
+
+    public bool HasArchiveVisibleEntries => ArchiveVisibleEntries.Count > 0;
+    public bool ShowArchiveEmpty => HasArchive && !IsArchiveBusy && ArchiveVisibleEntries.Count == 0;
+    public bool IsArchiveFiltering => !string.IsNullOrWhiteSpace(ArchiveFilterText);
+    public bool CanArchiveGoUp => HasArchive && !IsArchiveFiltering && !string.IsNullOrEmpty(ArchiveCurrentFolder);
+    public bool HasSelectedArchiveEntry => SelectedArchiveEntry is not null;
+    public bool HasArchivePreviewImage => ArchivePreviewImage is not null;
+    public bool HasArchivePreviewText => ArchivePreviewText is not null;
+    public bool HasArchiveSelection => ArchiveSelectedCount > 0;
+    public string ArchiveUncompressedSizeText => Formatting.Bytes(ArchiveUncompressedBytes);
+    public string ArchiveCompressedSizeText => Formatting.Bytes(ArchiveCompressedBytes);
+    public string ArchiveCompressionRatioText => ArchiveUncompressedBytes > 0
+        ? (ArchiveCompressedBytes * 100.0 / ArchiveUncompressedBytes).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "%"
+        : "—";
+    public string ArchiveCountsText =>
+        $"{ArchiveFileCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} 个文件 · " +
+        $"{ArchiveFolderCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} 个文件夹";
+    public string ArchiveSelectedSummaryText => ArchiveSelectedCount == 0
+        ? "尚未勾选条目"
+        : $"已选 {ArchiveSelectedCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} 个文件 · {Formatting.Bytes(ArchiveSelectedBytes)}";
+    public string ArchiveDestinationName => string.IsNullOrWhiteSpace(ArchiveDestinationPath)
+        ? "未选择"
+        : Path.GetFileName(ArchiveDestinationPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+    public string ArchiveConflictPolicyText => ArchiveConflictPolicyName switch
+    {
+        nameof(ConflictPolicy.Overwrite) => "覆盖同名文件",
+        nameof(ConflictPolicy.Skip) => "跳过同名文件",
+        _ => "两者保留（自动改名）",
+    };
+    public bool IsArchiveKeepBoth => ArchiveConflictPolicyName == nameof(ConflictPolicy.KeepBoth);
+    public bool IsArchiveSkipConflicts => ArchiveConflictPolicyName == nameof(ConflictPolicy.Skip);
+    public bool IsArchiveOverwriteConflicts => ArchiveConflictPolicyName == nameof(ConflictPolicy.Overwrite);
+    public string? SelectedArchiveGlyph => SelectedArchiveEntry?.Glyph;
+    public string SelectedArchiveTitle => SelectedArchiveEntry?.Name ?? "压缩包概览";
+    public string SelectedArchivePathText => SelectedArchiveEntry?.DisplayPath ?? ArchivePath;
+    public string SelectedArchiveOriginalSizeText => SelectedArchiveEntry is { } entry ? Formatting.Bytes(entry.Length) : ArchiveUncompressedSizeText;
+    public string SelectedArchiveCompressedSizeText => SelectedArchiveEntry is { } entry ? Formatting.Bytes(entry.CompressedLength) : ArchiveCompressedSizeText;
+    public string SelectedArchiveRatioText => SelectedArchiveEntry?.CompressionRatioText ?? ArchiveCompressionRatioText;
+    public string SelectedArchiveModifiedText => SelectedArchiveEntry?.FullModifiedText ?? "—";
+
+    partial void OnArchiveNameChanged(string value) => OnPropertyChanged(nameof(PageTitle));
+
+    partial void OnArchiveCurrentFolderChanged(string value)
+    {
+        OnPropertyChanged(nameof(CanArchiveGoUp));
+        BuildArchiveBreadcrumbs();
+    }
+
+    partial void OnArchiveFilterTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsArchiveFiltering));
+        OnPropertyChanged(nameof(CanArchiveGoUp));
+        if (HasArchive)
+            RefreshArchiveVisibleEntries();
+    }
+
+    partial void OnIsArchiveBusyChanged(bool value) => OnPropertyChanged(nameof(ShowArchiveEmpty));
+    partial void OnHasArchiveChanged(bool value) => OnPropertyChanged(nameof(ShowArchiveEmpty));
+
+    partial void OnArchiveDestinationPathChanged(string value) => OnPropertyChanged(nameof(ArchiveDestinationName));
+
+    partial void OnArchiveConflictPolicyNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(ArchiveConflictPolicyText));
+        OnPropertyChanged(nameof(IsArchiveKeepBoth));
+        OnPropertyChanged(nameof(IsArchiveSkipConflicts));
+        OnPropertyChanged(nameof(IsArchiveOverwriteConflicts));
+    }
+
+    partial void OnSelectedArchiveEntryChanged(ArchiveWorkbenchEntryViewModel? value)
+    {
+        OnPropertyChanged(nameof(HasSelectedArchiveEntry));
+        OnPropertyChanged(nameof(SelectedArchiveGlyph));
+        OnPropertyChanged(nameof(SelectedArchiveTitle));
+        OnPropertyChanged(nameof(SelectedArchivePathText));
+        OnPropertyChanged(nameof(SelectedArchiveOriginalSizeText));
+        OnPropertyChanged(nameof(SelectedArchiveCompressedSizeText));
+        OnPropertyChanged(nameof(SelectedArchiveRatioText));
+        OnPropertyChanged(nameof(SelectedArchiveModifiedText));
+    }
+
+    partial void OnArchivePreviewImageChanged(Bitmap? value) => OnPropertyChanged(nameof(HasArchivePreviewImage));
+    partial void OnArchivePreviewTextChanged(string? value) => OnPropertyChanged(nameof(HasArchivePreviewText));
+
+    partial void OnArchiveSelectedCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(ArchiveSelectedSummaryText));
+        OnPropertyChanged(nameof(HasArchiveSelection));
+    }
+
+    partial void OnArchiveSelectedBytesChanged(long value) => OnPropertyChanged(nameof(ArchiveSelectedSummaryText));
+
+    public async Task OpenArchiveWorkbenchAsync(string path)
+    {
+        if (FileLocator.IsStorageUri(path))
+        {
+            Notify("授权文件夹中的压缩包暂不支持工作台");
+            return;
+        }
+        if (!_services.Archive.CanOpen(path))
+        {
+            Notify("当前仅支持 ZIP、JAR、APK 压缩包");
+            return;
+        }
+
+        string fullPath;
+        try { fullPath = Path.GetFullPath(path); }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException)
+        {
+            Notify("压缩包路径无效");
+            return;
+        }
+        if (!File.Exists(fullPath))
+        {
+            Notify("压缩包不存在");
+            return;
+        }
+
+        var generation = ++_archiveGeneration;
+        _archivePreviewGeneration++;
+        Page = ShellPage.ArchiveWorkbench;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        ResetArchiveWorkbench(fullPath);
+        IsArchiveBusy = true;
+        try
+        {
+            var listed = await _services.Archive
+                .ListEntriesAsync(fullPath, MaxArchiveEntries + 1, CancellationToken.None)
+                .ConfigureAwait(true);
+            if (generation != _archiveGeneration) return;
+
+            ArchiveIsTruncated = listed.Count > MaxArchiveEntries;
+            _archiveEntries = listed.Take(MaxArchiveEntries).ToList();
+            BuildArchiveTree();
+            HasArchive = true;
+            UpdateArchiveStats();
+            RefreshArchiveVisibleEntries();
+            ArchivePreviewMessage = ArchiveFileCount == 0
+                ? "这个压缩包里没有文件条目"
+                : "选择一个条目查看详情；文本与图片可直接预览";
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+        {
+            if (generation == _archiveGeneration)
+            {
+                HasArchive = false;
+                ArchiveStatusText = "无法读取这个压缩包";
+                ArchivePreviewMessage = $"无法读取：{ex.Message}";
+                Notify("无法打开压缩包");
+            }
+        }
+        finally
+        {
+            if (generation == _archiveGeneration)
+                IsArchiveBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseArchiveWorkbench()
+    {
+        _archivePreviewGeneration++;
+        Page = ShellPage.Browser;
+    }
+
+    public void NavigateArchiveFolder(string? folderPath)
+    {
+        var normalized = NormalizeArchiveFolderPath(folderPath);
+        if (normalized.Length > 0 && !_archiveFolders.ContainsKey(normalized))
+            return;
+
+        SelectedArchiveEntry = null;
+        ClearArchivePreview("选择一个条目查看详情");
+        if (!string.IsNullOrEmpty(ArchiveFilterText))
+            ArchiveFilterText = string.Empty; // 先清筛选会在旧目录刷新一次，随后由目标目录刷新覆盖。
+        ArchiveCurrentFolder = normalized;
+        RefreshArchiveVisibleEntries();
+    }
+
+    [RelayCommand]
+    private void ArchiveGoUp()
+    {
+        if (CanArchiveGoUp)
+            NavigateArchiveFolder(ArchiveParentFolder(ArchiveCurrentFolder));
+    }
+
+    [RelayCommand]
+    private void ClearArchiveFilter() => ArchiveFilterText = string.Empty;
+
+    [RelayCommand]
+    private void SelectVisibleArchiveEntries()
+    {
+        foreach (var row in ArchiveVisibleEntries)
+            row.IsChecked = true;
+        RefreshArchiveSelectionSummary();
+    }
+
+    [RelayCommand]
+    private void ClearArchiveSelection()
+    {
+        _selectedArchiveEntries.Clear();
+        foreach (var row in ArchiveVisibleEntries)
+            row.IsChecked = false;
+        RefreshArchiveSelectionSummary();
+    }
+
+    [RelayCommand]
+    private void SetArchiveConflictPolicy(string? policy)
+    {
+        if (Enum.TryParse<ConflictPolicy>(policy, out var parsed))
+            ArchiveConflictPolicyName = parsed.ToString();
+    }
+
+    public async Task SelectArchiveEntryAsync(ArchiveWorkbenchEntryViewModel? row)
+    {
+        if (row is null) return;
+        SelectedArchiveEntry = row;
+        var generation = ++_archivePreviewGeneration;
+        ClearArchivePreview(row.IsFolder
+            ? $"{row.DescendantFileCount:N0} 个后代文件；双击或点箭头进入"
+            : "正在读取条目…");
+        if (row.IsFolder) return;
+
+        if (row.Length > MaxArchivePreviewBytes)
+        {
+            ArchivePreviewMessage = $"条目为 {Formatting.Bytes(row.Length)}，超过 {Formatting.Bytes(MaxArchivePreviewBytes)} 的免解压预览上限";
+            return;
+        }
+        if (row.Kind is not (FileKind.Image or FileKind.Text or FileKind.Code or FileKind.Data))
+        {
+            ArchivePreviewMessage = "此类型在工作台仅显示元数据，可解压后用完整预览打开";
+            return;
+        }
+        if (row.Entry is null)
+        {
+            ArchivePreviewMessage = "找不到这个条目的原始记录";
+            return;
+        }
+
+        try
+        {
+            var bytes = await _services.Archive.ReadEntryBytesAsync(
+                ArchivePath, row.Entry.FullName, MaxArchivePreviewBytes, CancellationToken.None).ConfigureAwait(true);
+            if (generation != _archivePreviewGeneration) return;
+            if (bytes is null)
+            {
+                ArchivePreviewMessage = "无法在预览上限内读取这个条目";
+                return;
+            }
+
+            if (row.Kind == FileKind.Image)
+            {
+                try
+                {
+                    using var stream = new MemoryStream(bytes);
+                    SetArchivePreviewImage(new Bitmap(stream));
+                    ArchivePreviewMessage = "免整包解压预览";
+                }
+                catch (Exception)
+                {
+                    ArchivePreviewMessage = "这张图片无法解码，可解压后重试";
+                }
+                return;
+            }
+
+            if (ContainsNullByte(bytes))
+            {
+                ArchivePreviewMessage = "检测到二进制内容，工作台仅显示元数据";
+                return;
+            }
+
+            var text = DecodeArchivePreviewText(bytes);
+            ArchivePreviewText = bytes.Length > MaxArchivePreviewTextBytes
+                ? text + "\n\n… 预览已截断"
+                : text;
+            ArchivePreviewMessage = bytes.Length == 0 ? "空文件" : "免整包解压预览";
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+        {
+            if (generation == _archivePreviewGeneration)
+                ArchivePreviewMessage = $"预览失败：{ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ExtractArchiveAllAsync() => await ExtractArchiveAsync(selectedOnly: false).ConfigureAwait(true);
+
+    [RelayCommand]
+    private async Task ExtractArchiveSelectedAsync() => await ExtractArchiveAsync(selectedOnly: true).ConfigureAwait(true);
+
+    private async Task ExtractArchiveAsync(bool selectedOnly)
+    {
+        if (IsArchiveBusy || !HasArchive) return;
+        if (ArchiveFileCount == 0)
+        {
+            Notify("压缩包中没有可解压的文件");
+            return;
+        }
+
+        HashSet<string>? selectedNames = null;
+        if (selectedOnly)
+        {
+            selectedNames = _archiveEntries
+                .Where(entry => !entry.IsFolder && _selectedArchiveEntries.Contains(NormalizeArchiveVirtualPath(entry.FullName)))
+                .Select(entry => entry.FullName)
+                .ToHashSet(StringComparer.Ordinal);
+            if (selectedNames.Count == 0)
+            {
+                Notify("先勾选要解压的条目");
+                return;
+            }
+        }
+
+        string destination;
+        try { destination = Path.GetFullPath(ArchiveDestinationPath); }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException)
+        {
+            Notify("解压目标路径无效");
+            return;
+        }
+
+        var policy = Enum.TryParse<ConflictPolicy>(ArchiveConflictPolicyName, out var parsed)
+            ? parsed
+            : ConflictPolicy.KeepBoth;
+        var options = new ArchiveExtractOptions(selectedNames, ArchivePreserveStructure, policy);
+        var archivePath = ArchivePath;
+        var title = selectedOnly
+            ? $"正在解压所选 {selectedNames!.Count} 个文件…"
+            : $"正在解压「{ArchiveName}」…";
+
+        IsArchiveBusy = true;
+        try
+        {
+            var outcome = await RunOperationAsync(title, (progress, ct) =>
+                _services.Archive.ExtractEntriesAsync(archivePath, destination, options, progress, ct)).ConfigureAwait(true);
+
+            if (outcome.Cancelled)
+            {
+                ArchiveStatusText = "解压已取消；已完成的文件保留在目标文件夹";
+            }
+            else if (outcome.Success)
+            {
+                ArchiveStatusText = $"已解压 {outcome.SucceededCount:N0} 项到 {destination}";
+            }
+            else
+            {
+                ArchiveStatusText = "解压未全部完成，逐项原因见任务中心";
+            }
+
+            await Browser.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
+            if (outcome.Success && ArchiveOpenAfterExtract && Directory.Exists(destination))
+                await OpenFolderAsync(destination).ConfigureAwait(true);
+        }
+        finally
+        {
+            IsArchiveBusy = false;
+        }
+    }
+
+    private void ResetArchiveWorkbench(string fullPath)
+    {
+        HasArchive = false;
+        ArchivePath = fullPath;
+        ArchiveName = Path.GetFileName(fullPath);
+        var parent = Path.GetDirectoryName(fullPath);
+        var stem = Path.GetFileNameWithoutExtension(fullPath);
+        ArchiveDestinationPath = string.IsNullOrWhiteSpace(parent)
+            ? fullPath + "-extracted"
+            : Path.Combine(parent, string.IsNullOrWhiteSpace(stem) ? "extracted" : stem);
+        ArchiveCurrentFolder = string.Empty;
+        ArchiveFilterText = string.Empty;
+        ArchiveIsTruncated = false;
+        ArchivePreserveStructure = true;
+        ArchiveOpenAfterExtract = false;
+        ArchiveConflictPolicyName = nameof(ConflictPolicy.KeepBoth);
+        SelectedArchiveEntry = null;
+        _archiveEntries = [];
+        _archiveFolders.Clear();
+        _archiveFilesByParent.Clear();
+        _archiveChildFolders.Clear();
+        _archiveDescendantsByFolder.Clear();
+        _archiveExplicitFolders.Clear();
+        _selectedArchiveEntries.Clear();
+        ArchiveVisibleEntries.Clear();
+        ArchiveEntryCount = 0;
+        ArchiveFileCount = 0;
+        ArchiveFolderCount = 0;
+        ArchiveUncompressedBytes = 0;
+        ArchiveCompressedBytes = 0;
+        ArchiveSelectedCount = 0;
+        ArchiveSelectedBytes = 0;
+        ArchiveStatusText = "正在读取条目…";
+        ClearArchivePreview("正在读取条目…");
+        BuildArchiveBreadcrumbs();
+        NotifyArchiveStats();
+    }
+
+    private void BuildArchiveTree()
+    {
+        _archiveFolders.Clear();
+        _archiveFilesByParent.Clear();
+        _archiveChildFolders.Clear();
+        _archiveDescendantsByFolder.Clear();
+        _archiveExplicitFolders.Clear();
+        GetArchiveFolderAggregate(string.Empty);
+        _archiveDescendantsByFolder[string.Empty] = [];
+
+        foreach (var entry in _archiveEntries)
+        {
+            var virtualPath = NormalizeArchiveVirtualPath(entry.FullName);
+            if (entry.IsFolder)
+            {
+                var folderPath = NormalizeArchiveFolderPath(virtualPath);
+                EnsureArchiveFolderChain(folderPath);
+                _archiveExplicitFolders[folderPath] = entry;
+                var aggregate = GetArchiveFolderAggregate(folderPath);
+                if (entry.LastWriteTime > aggregate.LastWriteTime)
+                    aggregate.LastWriteTime = entry.LastWriteTime;
+                continue;
+            }
+
+            var parent = ArchiveParentFolder(virtualPath);
+            if (parent.Length > 0)
+                EnsureArchiveFolderChain(parent);
+            if (!_archiveFilesByParent.TryGetValue(parent, out var siblings))
+                _archiveFilesByParent[parent] = siblings = [];
+            siblings.Add(entry);
+
+            foreach (var ancestor in ArchiveAncestorFolders(parent))
+            {
+                var aggregate = GetArchiveFolderAggregate(ancestor);
+                aggregate.FileCount++;
+                aggregate.Length += entry.Length;
+                aggregate.CompressedLength += entry.CompressedLength;
+                if (entry.LastWriteTime > aggregate.LastWriteTime)
+                    aggregate.LastWriteTime = entry.LastWriteTime;
+                if (!_archiveDescendantsByFolder.TryGetValue(ancestor, out var descendants))
+                    _archiveDescendantsByFolder[ancestor] = descendants = [];
+                descendants.Add(virtualPath);
+            }
+        }
+    }
+
+    private void RefreshArchiveVisibleEntries()
+    {
+        ArchiveVisibleEntries.Clear();
+        if (!HasArchive) return;
+
+        var rows = new List<ArchiveWorkbenchEntryViewModel>();
+        var query = ArchiveFilterText.Trim();
+        int total;
+        if (query.Length > 0)
+        {
+            var matches = _archiveEntries
+                .Where(entry => !entry.IsFolder && NormalizeArchiveVirtualPath(entry.FullName)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(entry => NormalizeArchiveVirtualPath(entry.FullName), StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            total = matches.Length;
+            foreach (var entry in matches.Take(MaxVisibleArchiveEntries))
+                rows.Add(CreateArchiveFileRow(entry));
+        }
+        else
+        {
+            var folderPaths = _archiveChildFolders.TryGetValue(ArchiveCurrentFolder, out var children)
+                ? children.OrderBy(path => ArchiveSegmentName(path), StringComparer.CurrentCultureIgnoreCase).ToArray()
+                : [];
+            var files = _archiveFilesByParent.TryGetValue(ArchiveCurrentFolder, out var directFiles)
+                ? directFiles.OrderBy(entry => entry.Name, StringComparer.CurrentCultureIgnoreCase).ToArray()
+                : [];
+            total = folderPaths.Length + files.Length;
+            foreach (var folderPath in folderPaths)
+            {
+                if (rows.Count >= MaxVisibleArchiveEntries) break;
+                rows.Add(CreateArchiveFolderRow(folderPath));
+            }
+            foreach (var entry in files)
+            {
+                if (rows.Count >= MaxVisibleArchiveEntries) break;
+                rows.Add(CreateArchiveFileRow(entry));
+            }
+        }
+
+        foreach (var row in rows)
+            ArchiveVisibleEntries.Add(row);
+
+        ArchiveStatusText = IsArchiveFiltering
+            ? $"匹配 {total:N0} 个文件"
+            : ArchiveCountsText;
+        if (rows.Count < total)
+            ArchiveStatusText += $" · 显示前 {rows.Count:N0} 项";
+        if (ArchiveIsTruncated)
+            ArchiveStatusText += $" · 仅载入前 {MaxArchiveEntries:N0} 条";
+        OnPropertyChanged(nameof(ShowArchiveEmpty));
+    }
+
+    private ArchiveWorkbenchEntryViewModel CreateArchiveFileRow(ArchiveEntryItem entry)
+    {
+        var virtualPath = NormalizeArchiveVirtualPath(entry.FullName);
+        var row = ArchiveWorkbenchEntryViewModel.FromFile(entry, _selectedArchiveEntries.Contains(virtualPath));
+        row.CheckedChanged += OnArchiveEntryCheckedChanged;
+        return row;
+    }
+
+    private ArchiveWorkbenchEntryViewModel CreateArchiveFolderRow(string folderPath)
+    {
+        var aggregate = GetArchiveFolderAggregate(folderPath);
+        var descendants = _archiveDescendantsByFolder.TryGetValue(folderPath, out var names)
+            ? names.ToArray()
+            : [];
+        var allChecked = descendants.Length > 0 && descendants.All(name => _selectedArchiveEntries.Contains(name));
+        _archiveExplicitFolders.TryGetValue(folderPath, out var explicitEntry);
+        var row = ArchiveWorkbenchEntryViewModel.FromFolder(
+            folderPath,
+            explicitEntry,
+            aggregate.Length,
+            aggregate.CompressedLength,
+            aggregate.LastWriteTime,
+            descendants,
+            allChecked);
+        row.CheckedChanged += OnArchiveEntryCheckedChanged;
+        return row;
+    }
+
+    private void OnArchiveEntryCheckedChanged(object? sender, EventArgs e)
+    {
+        if (sender is not ArchiveWorkbenchEntryViewModel row) return;
+        if (row.IsChecked)
+        {
+            foreach (var name in row.DescendantEntryNames)
+                _selectedArchiveEntries.Add(name);
+        }
+        else
+        {
+            foreach (var name in row.DescendantEntryNames)
+                _selectedArchiveEntries.Remove(name);
+        }
+        RefreshArchiveSelectionSummary();
+    }
+
+    private void RefreshArchiveSelectionSummary()
+    {
+        var selected = _archiveEntries
+            .Where(entry => !entry.IsFolder && _selectedArchiveEntries.Contains(NormalizeArchiveVirtualPath(entry.FullName)))
+            .ToArray();
+        ArchiveSelectedCount = selected.Length;
+        ArchiveSelectedBytes = selected.Sum(entry => entry.Length);
+    }
+
+    private void UpdateArchiveStats()
+    {
+        ArchiveEntryCount = _archiveEntries.Count;
+        ArchiveFileCount = _archiveEntries.Count(entry => !entry.IsFolder);
+        ArchiveFolderCount = _archiveFolders.Keys.Count(path => path.Length > 0);
+        var root = GetArchiveFolderAggregate(string.Empty);
+        ArchiveUncompressedBytes = root.Length;
+        ArchiveCompressedBytes = root.CompressedLength;
+        RefreshArchiveSelectionSummary();
+        NotifyArchiveStats();
+    }
+
+    private void NotifyArchiveStats()
+    {
+        OnPropertyChanged(nameof(ArchiveUncompressedSizeText));
+        OnPropertyChanged(nameof(ArchiveCompressedSizeText));
+        OnPropertyChanged(nameof(ArchiveCompressionRatioText));
+        OnPropertyChanged(nameof(ArchiveCountsText));
+        OnPropertyChanged(nameof(SelectedArchiveOriginalSizeText));
+        OnPropertyChanged(nameof(SelectedArchiveCompressedSizeText));
+        OnPropertyChanged(nameof(SelectedArchiveRatioText));
+    }
+
+    private void BuildArchiveBreadcrumbs()
+    {
+        ArchiveBreadcrumbs.Clear();
+        ArchiveBreadcrumbs.Add(new ArchiveBreadcrumbModel(
+            string.IsNullOrWhiteSpace(ArchiveName) ? "压缩包" : ArchiveName, string.Empty));
+        var current = string.Empty;
+        foreach (var segment in ArchiveCurrentFolder.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            current += segment + "/";
+            ArchiveBreadcrumbs.Add(new ArchiveBreadcrumbModel(segment, current));
+        }
+    }
+
+    private ArchiveFolderAggregate GetArchiveFolderAggregate(string folderPath)
+    {
+        if (!_archiveFolders.TryGetValue(folderPath, out var aggregate))
+            _archiveFolders[folderPath] = aggregate = new ArchiveFolderAggregate();
+        return aggregate;
+    }
+
+    private void EnsureArchiveFolderChain(string folderPath)
+    {
+        var normalized = NormalizeArchiveFolderPath(folderPath);
+        GetArchiveFolderAggregate(string.Empty);
+        if (normalized.Length == 0) return;
+
+        var current = string.Empty;
+        foreach (var segment in normalized.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var child = current + segment + "/";
+            GetArchiveFolderAggregate(child);
+            if (!_archiveChildFolders.TryGetValue(current, out var children))
+                _archiveChildFolders[current] = children = [];
+            if (!children.Contains(child))
+                children.Add(child);
+            current = child;
+        }
+    }
+
+    private void ClearArchivePreview(string message)
+    {
+        SetArchivePreviewImage(null);
+        ArchivePreviewText = null;
+        ArchivePreviewMessage = message;
+    }
+
+    private void SetArchivePreviewImage(Bitmap? next)
+    {
+        var previous = ArchivePreviewImage;
+        ArchivePreviewImage = next;
+        if (previous is not null && !ReferenceEquals(previous, next))
+            previous.Dispose();
+    }
+
+    private static bool ContainsNullByte(byte[] bytes)
+    {
+        var sample = Math.Min(bytes.Length, 8192);
+        for (var i = 0; i < sample; i++)
+        {
+            if (bytes[i] == 0) return true;
+        }
+        return false;
+    }
+
+    private static string DecodeArchivePreviewText(byte[] bytes)
+    {
+        var length = Math.Min(bytes.Length, MaxArchivePreviewTextBytes);
+        if (length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            return System.Text.Encoding.UTF8.GetString(bytes, 3, length - 3);
+        if (length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+            return System.Text.Encoding.Unicode.GetString(bytes, 0, length);
+        if (length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+            return System.Text.Encoding.BigEndianUnicode.GetString(bytes, 0, length);
+        return System.Text.Encoding.UTF8.GetString(bytes, 0, length);
+    }
+
+    private static string NormalizeArchiveVirtualPath(string path) =>
+        path.Replace('\\', '/').TrimStart('/');
+
+    private static string NormalizeArchiveFolderPath(string? path)
+    {
+        var normalized = NormalizeArchiveVirtualPath(path ?? string.Empty).Trim();
+        if (normalized.Length == 0) return string.Empty;
+        return normalized.EndsWith('/') ? normalized : normalized + "/";
+    }
+
+    private static string ArchiveParentFolder(string path)
+    {
+        var normalized = NormalizeArchiveVirtualPath(path).TrimEnd('/');
+        var slash = normalized.LastIndexOf('/');
+        return slash >= 0 ? normalized[..(slash + 1)] : string.Empty;
+    }
+
+    private static IEnumerable<string> ArchiveAncestorFolders(string parent)
+    {
+        yield return string.Empty;
+        var current = string.Empty;
+        foreach (var segment in parent.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            current += segment + "/";
+            yield return current;
+        }
+    }
+
+    private static string ArchiveSegmentName(string folderPath)
+    {
+        var trimmed = folderPath.TrimEnd('/');
+        var slash = trimmed.LastIndexOf('/');
+        return slash >= 0 ? trimmed[(slash + 1)..] : trimmed;
+    }
+
+    private sealed class ArchiveFolderAggregate
+    {
+        public int FileCount;
+        public long Length;
+        public long CompressedLength;
+        public DateTimeOffset LastWriteTime;
+    }
 
     // ---------- 搜索中心 / 文件名索引 ----------
     [ObservableProperty] private bool _useSearchIndex = true;

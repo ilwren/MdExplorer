@@ -314,7 +314,9 @@ internal sealed class ArchivePreviewProvider(IArchiveService archive) : IPreview
     {
         var entries = await archive.ListEntriesAsync(item.FullPath, 500, cancellationToken).ConfigureAwait(true);
         var rows = entries
-            .Select(e => new ArchiveEntryRowModel(e.FullName, e.IsFolder ? "" : Formatting.Bytes(e.Length)))
+            .Select(e => new ArchiveEntryRowModel(
+                e.FullName,
+                e.IsFolder ? "" : $"{Formatting.Bytes(e.Length)} → {Formatting.Bytes(e.CompressedLength)}"))
             .ToArray();
         return new PreviewContent(Entries: rows);
     }

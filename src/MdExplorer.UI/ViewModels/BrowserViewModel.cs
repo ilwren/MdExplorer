@@ -144,6 +144,9 @@ public sealed partial class BrowserViewModel : ObservableObject
     /// <summary>最近访问文件夹/文件变化时通知 Shell 刷新主页入口。</summary>
     public event EventHandler? RecentsChanged;
 
+    /// <summary>请求 Shell 打开本地 ZIP 家族压缩包工作台；参数为压缩包完整路径。</summary>
+    public event EventHandler<string>? ArchiveWorkbenchRequested;
+
     public bool IsListView => ViewMode == BrowserViewMode.List;
     public bool IsGridView => ViewMode == BrowserViewMode.Grid;
     public bool IsDetailsView => ViewMode == BrowserViewMode.Details;
@@ -1564,6 +1567,25 @@ public sealed partial class BrowserViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenArchiveWorkbench(FileItemViewModel? item)
+    {
+        item ??= SelectedItems.FirstOrDefault();
+        if (item is null || item.IsFolder) return;
+        if (FileLocator.IsStorageUri(item.FullPath))
+        {
+            _dialogs.Notify("授权文件夹中的压缩包暂不支持工作台");
+            return;
+        }
+        if (!_archive.CanOpen(item.FullPath))
+        {
+            _dialogs.Notify("当前仅支持 ZIP、JAR、APK 压缩包");
+            return;
+        }
+
+        ArchiveWorkbenchRequested?.Invoke(this, item.FullPath);
+    }
+
+    [RelayCommand]
     private async Task ExtractSelectionAsync(FileItemViewModel? item)
     {
         item ??= SelectedItems.FirstOrDefault();
@@ -1574,8 +1596,13 @@ public sealed partial class BrowserViewModel : ObservableObject
             return;
         }
         var destDir = Path.Combine(CurrentPath, Path.GetFileNameWithoutExtension(item.Name));
+        // 快捷整包解压也改走显式选项：保留结构、同名两者保留，不再静默覆盖。
+        var options = new ArchiveExtractOptions(
+            EntryFullNames: null,
+            PreserveStructure: true,
+            ConflictPolicy: ConflictPolicy.KeepBoth);
         await _dialogs.RunOperationAsync("正在解压…", (progress, ct) =>
-            _archive.ExtractAsync(item.FullPath, destDir, progress, ct)).ConfigureAwait(true);
+            _archive.ExtractEntriesAsync(item.FullPath, destDir, options, progress, ct)).ConfigureAwait(true);
         await ReloadAfterOperationAsync().ConfigureAwait(true);
     }
 

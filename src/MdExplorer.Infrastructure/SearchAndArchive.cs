@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
+using MdExplorer.Application;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
 
@@ -83,10 +84,20 @@ public sealed class ArchiveService : IArchiveService
             return items;
         }, cancellationToken);
 
-    public async Task<OperationOutcome> ExtractAsync(
+    public Task<OperationOutcome> ExtractAsync(
         string archivePath, string destinationFolder,
+        IProgress<OperationProgress>? progress, CancellationToken cancellationToken) =>
+        // 保留旧端口的历史语义（整包、保留结构、覆盖）；v0.15 UI 一律改走
+        // ExtractEntriesAsync 并在执行前向用户展示所选冲突策略，默认两者保留。
+        ExtractEntriesAsync(archivePath, destinationFolder,
+            new ArchiveExtractOptions(EntryFullNames: null, PreserveStructure: true, ConflictPolicy.Overwrite),
+            progress, cancellationToken);
+
+    public async Task<OperationOutcome> ExtractEntriesAsync(
+        string archivePath, string destinationFolder, ArchiveExtractOptions options,
         IProgress<OperationProgress>? progress, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(options);
         var errors = new List<OperationError>();
         var produced = new List<string>();
         try
@@ -96,19 +107,41 @@ public sealed class ArchiveService : IArchiveService
                 Directory.CreateDirectory(destinationFolder);
                 var destRoot = Path.GetFullPath(destinationFolder);
                 using var archive = ZipFile.OpenRead(archivePath);
-                var total = archive.Entries.Count;
+                var selectedEntries = archive.Entries
+                    .Where(entry => IsEntrySelected(entry.FullName, options.EntryFullNames))
+                    .ToArray();
+                var total = selectedEntries.Length;
                 var done = 0;
-                foreach (var entry in archive.Entries)
+
+                foreach (var entry in selectedEntries)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     done++;
-                    progress?.Report(new OperationProgress(total == 0 ? 1 : (double)done / total, entry.FullName, done, total));
+                    progress?.Report(new OperationProgress(
+                        total == 0 ? 1 : (double)done / total, entry.FullName, done, total));
 
-                    var target = Path.GetFullPath(Path.Combine(destRoot, entry.FullName));
-                    // Zip Slip：落点必须仍在目标子树内
-                    var prefix = destRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-                    var cmp = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-                    if (!target.StartsWith(prefix, cmp) && !string.Equals(target, destRoot, cmp))
+                    var isFolder = IsFolderEntry(entry.FullName);
+                    if (isFolder && !options.PreserveStructure)
+                        continue; // 扁平化解压只落文件，空文件夹没有可保留的层级语义。
+
+                    var relativeTarget = GetRelativeTarget(entry.FullName, isFolder, options.PreserveStructure);
+                    if (string.IsNullOrWhiteSpace(relativeTarget))
+                    {
+                        errors.Add(new OperationError(entry.FullName, "条目名为空或不安全，已跳过"));
+                        continue;
+                    }
+
+                    string target;
+                    try
+                    {
+                        target = Path.GetFullPath(Path.Combine(destRoot, relativeTarget));
+                    }
+                    catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException)
+                    {
+                        errors.Add(new OperationError(entry.FullName, $"文件名无法用于当前文件系统：{ex.Message}"));
+                        continue;
+                    }
+                    if (!IsInsideDirectory(target, destRoot) || (!isFolder && string.Equals(target, destRoot, PathComparison)))
                     {
                         errors.Add(new OperationError(entry.FullName, "不安全的路径（越出解压目录），已跳过"));
                         continue;
@@ -116,15 +149,35 @@ public sealed class ArchiveService : IArchiveService
 
                     try
                     {
-                        if (entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\'))
+                        if (isFolder)
                         {
+                            if (File.Exists(target))
+                                throw new IOException("同名文件已存在，无法创建文件夹");
                             Directory.CreateDirectory(target);
+                            produced.Add(target);
+                            continue;
                         }
-                        else
+
+                        var overwrite = false;
+                        if (File.Exists(target) || Directory.Exists(target))
                         {
-                            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                            entry.ExtractToFile(target, overwrite: true);
+                            switch (options.ConflictPolicy)
+                            {
+                                case ConflictPolicy.Skip:
+                                    continue;
+                                case ConflictPolicy.KeepBoth:
+                                    target = FindAvailableTarget(target);
+                                    break;
+                                case ConflictPolicy.Overwrite:
+                                    if (Directory.Exists(target))
+                                        throw new IOException("同名文件夹已存在，无法覆盖为文件");
+                                    overwrite = true;
+                                    break;
+                            }
                         }
+
+                        Directory.CreateDirectory(Path.GetDirectoryName(target) ?? destRoot);
+                        entry.ExtractToFile(target, overwrite);
                         produced.Add(target);
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
@@ -138,12 +191,101 @@ public sealed class ArchiveService : IArchiveService
         {
             return new OperationOutcome(0, errors, produced, Cancelled: true);
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException)
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
         {
-            errors.Add(new OperationError(Path.GetFileName(archivePath), $"无法打开压缩包：{ex.Message}"));
+            errors.Add(new OperationError(Path.GetFileName(archivePath), $"无法打开或解压压缩包：{ex.Message}"));
         }
 
         return new OperationOutcome(produced.Count, errors, produced);
+    }
+
+    public Task<byte[]?> ReadEntryBytesAsync(
+        string archivePath, string entryFullName, int maxBytes, CancellationToken cancellationToken) =>
+        Task.Run<byte[]?>(() =>
+        {
+            if (maxBytes <= 0 || IsFolderEntry(entryFullName))
+                return null;
+
+            var limit = Math.Min(maxBytes, 64 * 1024 * 1024);
+            var wanted = NormalizeEntryName(entryFullName);
+            using var archive = ZipFile.OpenRead(archivePath);
+            var entry = archive.Entries.FirstOrDefault(candidate =>
+                string.Equals(NormalizeEntryName(candidate.FullName), wanted, StringComparison.Ordinal));
+            if (entry is null || entry.Length > limit)
+                return null;
+
+            using var input = entry.Open();
+            using var output = new MemoryStream(entry.Length is > 0 and <= int.MaxValue ? (int)entry.Length : 0);
+            var buffer = new byte[81920];
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var read = input.Read(buffer, 0, buffer.Length);
+                if (read == 0) break;
+                if (output.Length + read > limit)
+                    return null; // 中央目录声明与实际流不一致时同样拒绝无界读取。
+                output.Write(buffer, 0, read);
+            }
+            return output.ToArray();
+        }, cancellationToken);
+
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    private static string NormalizeEntryName(string entryName) => entryName.Replace('\\', '/');
+
+    private static bool IsFolderEntry(string entryName)
+    {
+        var normalized = NormalizeEntryName(entryName);
+        return normalized.EndsWith('/');
+    }
+
+    private static bool IsEntrySelected(string entryFullName, IReadOnlySet<string>? selectedNames)
+    {
+        if (selectedNames is null) return true;
+        var entry = NormalizeEntryName(entryFullName);
+        foreach (var selected in selectedNames)
+        {
+            var wanted = NormalizeEntryName(selected);
+            if (string.Equals(entry, wanted, StringComparison.Ordinal))
+                return true;
+            if (wanted.EndsWith('/') && entry.StartsWith(wanted, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+    }
+
+    private static string GetRelativeTarget(string entryFullName, bool isFolder, bool preserveStructure)
+    {
+        var normalized = NormalizeEntryName(entryFullName).TrimEnd('/');
+        if (!preserveStructure && !isFolder)
+        {
+            var slash = normalized.LastIndexOf('/');
+            normalized = slash >= 0 ? normalized[(slash + 1)..] : normalized;
+        }
+        return normalized;
+    }
+
+    private static bool IsInsideDirectory(string target, string root)
+    {
+        if (string.Equals(target, root, PathComparison)) return true;
+        var trimmedRoot = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var prefix = trimmedRoot.Length == 0
+            ? Path.DirectorySeparatorChar.ToString()
+            : trimmedRoot + Path.DirectorySeparatorChar;
+        return target.StartsWith(prefix, PathComparison);
+    }
+
+    private static string FindAvailableTarget(string target)
+    {
+        var folder = Path.GetDirectoryName(target) ?? string.Empty;
+        var name = Path.GetFileName(target);
+        for (var i = 2; ; i++)
+        {
+            var candidate = Path.Combine(folder, PathText.KeepBothName(name, i));
+            if (!File.Exists(candidate) && !Directory.Exists(candidate))
+                return candidate;
+        }
     }
 
     public async Task<OperationOutcome> CompressToZipAsync(
