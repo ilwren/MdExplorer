@@ -39,6 +39,7 @@ const MAIN_NAV: NavItem[] = [
   { loc: { kind: 'category', cat: 'video' }, label: '视频', icon: 'movie' },
   { loc: { kind: 'category', cat: 'doc' }, label: '文档', icon: 'description' },
   { loc: { kind: 'trash' }, label: '回收站', icon: 'delete' },
+  { loc: { kind: 'searchcenter' }, label: '搜索中心', icon: 'manage_search' },
   { loc: { kind: 'insights' }, label: '存储洞察', icon: 'data_usage' },
 ];
 
@@ -312,18 +313,19 @@ export function Breadcrumb({ path, compact }: { path: string; compact?: boolean 
 
 /* ------------------------------ nav row ------------------------------ */
 
-export function NavRow() {
+export function NavRow({ tab }: { tab?: TabState } = {}) {
   const app = useApp();
   const wc = useWidthClass();
   const [overflow, setOverflow] = useState<{ x: number; y: number } | null>(null);
-  const loc = app.activeTab.location;
+  const t = tab ?? app.activeTab;
+  const loc = t.location;
   const dirPath = loc.kind === 'dir' ? loc.path : null;
 
   return (
     <div className="navrow">
       <div className="navrow__history">
-        <IconButton name="arrow_back" title="后退" onClick={app.back} disabled={app.activeTab.histIndex <= 0} />
-        <IconButton name="arrow_forward" title="前进" onClick={app.forward} disabled={app.activeTab.histIndex >= app.activeTab.history.length - 1} />
+        <IconButton name="arrow_back" title="后退" onClick={app.back} disabled={t.histIndex <= 0} />
+        <IconButton name="arrow_forward" title="前进" onClick={app.forward} disabled={t.histIndex >= t.history.length - 1} />
         <IconButton name="arrow_upward" title="上一级" onClick={app.up} disabled={loc.kind === 'home'} />
         <IconButton name="refresh" title="刷新" onClick={app.refresh} />
       </div>
@@ -431,6 +433,12 @@ export function Toolbar() {
           title="任务中心"
           onClick={() => app.setTaskPanelOpen(true)}
         />
+        <IconButton
+          name="vertical_split"
+          title="双窗格"
+          onClick={app.toggleDualPane}
+          className={app.dualPane ? 'is-active' : ''}
+        />
         <div className="toolbar__gap" />
         <IconButton
           name="sort" title="排序"
@@ -469,6 +477,12 @@ export function Toolbar() {
       <IconButton name="delete" title="删除" disabled={!sel.length} onClick={() => app.setDialog({ kind: 'confirm-delete', paths: sel })} />
       <IconButton name="edit_note" title="批量重命名" disabled={!sel.length} onClick={() => setBatchOpen(true)} />
       <IconButton name="fact_check" title="任务中心" onClick={() => app.setTaskPanelOpen(true)} />
+      <IconButton
+        name="vertical_split"
+        title="双窗格"
+        onClick={app.toggleDualPane}
+        className={app.dualPane ? 'is-active' : ''}
+      />
       <div className="toolbar__gap" />
       <IconButton
         name="sort" title="排序"

@@ -10,6 +10,8 @@ import { SearchPanel } from './views/SearchPanel';
 import { SettingsView, TrashView } from './views/MiscViews';
 import { InsightsView } from './views/InsightsView';
 import { ZipView } from './views/ZipView';
+import { SearchCenter } from './views/SearchCenter';
+import { DualPane } from './views/DualPane';
 import { DialogHost, Toasts } from './views/Dialogs';
 import { MiniTaskBar, TaskPanel } from './views/TaskCenter';
 import { IconButton, Menu, type MenuItem } from './ui/widgets';
@@ -18,11 +20,15 @@ import { Icon } from './ui/icons';
 function MainContent() {
   const app = useApp();
   const loc = app.activeTab.location;
+  if (app.dualPane && app.paneB && (loc.kind === 'dir' || loc.kind === 'zip')) {
+    return <DualPane />;
+  }
   switch (loc.kind) {
     case 'home': return <HomeView />;
     case 'settings': return <SettingsView />;
     case 'trash': return <TrashView />;
     case 'insights': return <InsightsView />;
+    case 'searchcenter': return <SearchCenter />;
     case 'zip': return <ZipView />;
     default: return <BrowserView />;
   }

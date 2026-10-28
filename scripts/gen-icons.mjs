@@ -28,6 +28,7 @@ const wanted = [
   'radio_button_unchecked', 'error_outline', 'block', 'folder_shared', 'logout',
   'preview', 'zoom_in', 'zoom_out', 'fit_screen', 'edit', 'mic', 'graphic_eq',
   'my_location', 'cancel', 'folder_zip', 'unarchive', 'create_new_folder', 'device_hub', 'fact_check',
+  'manage_search', 'filter_alt', 'swap_horiz', 'view_column', 'volume_up', 'policy', 'update', 'toc', 'vertical_split',
 ];
 
 const aliases = {

@@ -4,6 +4,7 @@ import { useApp } from '../state/app';
 import { Icon } from '../ui/icons';
 import { Button, Segmented, Toggle, IconWell } from '../ui/widgets';
 import { formatSize, formatTime, kindMeta } from '../ui/kinds';
+import { IndexAdmin } from './SearchCenter';
 
 /* ------------------------------ trash ------------------------------ */
 
@@ -121,6 +122,12 @@ export function SettingsView() {
         </div>
         <Toggle label="显示系统文件" desc="显示以点开头的隐藏文件" checked={s.showHidden} onChange={(b) => app.patchSettings({ showHidden: b })} />
         <Toggle label="删除前确认" desc="删除到回收站前显示影响范围" checked={s.confirmDelete} onChange={(b) => app.patchSettings({ confirmDelete: b })} />
+      </section>
+
+      <section className="setcard">
+        <h3 className="setcard__title">索引管理</h3>
+        <p className="confirm__hint">索引只保存在本机；Compact 下的索引管理入口。</p>
+        <IndexAdmin />
       </section>
 
       <section className="setcard">

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api, type FsEntry } from '../api';
-import { useApp } from '../state/app';
+import { useApp, type TabState } from '../state/app';
 import { Icon } from '../ui/icons';
 import { IconWell, Menu, type MenuItem } from '../ui/widgets';
 import { formatCount, formatSize, kindMeta } from '../ui/kinds';
@@ -20,15 +20,22 @@ function EntryVisual({ e, size, radius }: { e: FsEntry; size: number; radius: nu
   return <IconWell bg={meta.wellBg} fg={meta.wellFg} icon={meta.icon} size={size} radius={radius} />;
 }
 
-export function FileCard({ e }: { e: FsEntry }) {
+export function FileCard({ e, tab }: { e: FsEntry; tab?: TabState }) {
   const app = useApp();
-  const selected = app.activeTab.selection.includes(e.path);
+  const t = tab ?? app.activeTab;
+  const selected = t.selection.includes(e.path);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const metric = e.isDir ? formatCount(e.children) : formatSize(e.size);
 
   return (
     <article
       className={`filecard ${selected ? 'is-selected' : ''}`}
+      draggable
+      onDragStart={(ev) => {
+        const paths = t.selection.includes(e.path) ? t.selection : [e.path];
+        ev.dataTransfer.effectAllowed = 'copyMove';
+        ev.dataTransfer.setData('text/plain', JSON.stringify(paths));
+      }}
       onClick={(ev) => {
         if (ev.shiftKey) app.selectRange(e.path);
         else if (ev.ctrlKey || ev.metaKey) app.select(e.path, 'toggle');
@@ -37,7 +44,7 @@ export function FileCard({ e }: { e: FsEntry }) {
       onDoubleClick={() => app.openEntry(e)}
       onContextMenu={(ev) => {
         ev.preventDefault();
-        if (!app.activeTab.selection.includes(e.path)) app.select(e.path);
+        if (!t.selection.includes(e.path)) app.select(e.path);
         setMenu({ x: ev.clientX, y: ev.clientY });
       }}
     >
@@ -50,6 +57,7 @@ export function FileCard({ e }: { e: FsEntry }) {
       {menu && (
         <EntryMenu
           e={e}
+          tab={tab}
           x={menu.x} y={menu.y}
           onClose={() => setMenu(null)}
         />
@@ -58,14 +66,21 @@ export function FileCard({ e }: { e: FsEntry }) {
   );
 }
 
-export function FileRow({ e }: { e: FsEntry }) {
+export function FileRow({ e, tab }: { e: FsEntry; tab?: TabState }) {
   const app = useApp();
-  const selected = app.activeTab.selection.includes(e.path);
+  const t = tab ?? app.activeTab;
+  const selected = t.selection.includes(e.path);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const metric = e.isDir ? formatCount(e.children) : formatSize(e.size);
   return (
     <div
       className={`filerow ${selected ? 'is-selected' : ''}`}
+      draggable
+      onDragStart={(ev) => {
+        const paths = t.selection.includes(e.path) ? t.selection : [e.path];
+        ev.dataTransfer.effectAllowed = 'copyMove';
+        ev.dataTransfer.setData('text/plain', JSON.stringify(paths));
+      }}
       onClick={(ev) => {
         if (ev.shiftKey) app.selectRange(e.path);
         else if (ev.ctrlKey || ev.metaKey) app.select(e.path, 'toggle');
@@ -74,7 +89,7 @@ export function FileRow({ e }: { e: FsEntry }) {
       onDoubleClick={() => app.openEntry(e)}
       onContextMenu={(ev) => {
         ev.preventDefault();
-        if (!app.activeTab.selection.includes(e.path)) app.select(e.path);
+        if (!t.selection.includes(e.path)) app.select(e.path);
         setMenu({ x: ev.clientX, y: ev.clientY });
       }}
     >
@@ -96,13 +111,14 @@ export function FileRow({ e }: { e: FsEntry }) {
       >
         <Icon name="more_vert" size={18} />
       </button>
-      {menu && <EntryMenu e={e} x={menu.x} y={menu.y} onClose={() => setMenu(null)} />}
+      {menu && <EntryMenu e={e} tab={tab} x={menu.x} y={menu.y} onClose={() => setMenu(null)} />}
     </div>
   );
 }
 
-export function EntryMenu({ e, x, y, onClose }: { e: FsEntry; x: number; y: number; onClose: () => void }) {
+export function EntryMenu({ e, x, y, onClose, tab }: { e: FsEntry; x: number; y: number; onClose: () => void; tab?: TabState }) {
   const app = useApp();
+  const t = tab ?? app.activeTab;
 
   if (e.zipOf) {
     return (
@@ -110,7 +126,7 @@ export function EntryMenu({ e, x, y, onClose }: { e: FsEntry; x: number; y: numb
         x={x} y={y}
         onClose={onClose}
         onPick={(id) => {
-          const sel = app.activeTab.selection.includes(e.path) ? app.activeTab.selection : [e.path];
+          const sel = t.selection.includes(e.path) ? t.selection : [e.path];
           const selEntries = app.listing.filter((x) => sel.includes(x.path));
           const zipPath = e.zipOf!;
           if (id === 'open') app.openEntry(e);
@@ -132,7 +148,7 @@ export function EntryMenu({ e, x, y, onClose }: { e: FsEntry; x: number; y: numb
       x={x} y={y}
       onClose={onClose}
       onPick={(id) => {
-        const sel = app.activeTab.selection.includes(e.path) ? app.activeTab.selection : [e.path];
+        const sel = t.selection.includes(e.path) ? t.selection : [e.path];
         switch (id) {
           case 'open': app.openEntry(e); break;
           case 'preview': app.setPreviewTarget(e); break;

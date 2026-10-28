@@ -7,6 +7,9 @@ import { formatSize, formatTime, kindMeta } from '../ui/kinds';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/common';
+import { TextWorkbench } from './TextEditor';
+import { PdfWorkbench } from './PdfWorkbench';
+import { CrossPaneActions } from './DualPane';
 
 /* ------------------------------ preview body ------------------------------ */
 
@@ -53,17 +56,14 @@ export function PreviewBody({ e }: { e: FsEntry }) {
     );
   }
   if (e.kind === 'pdf') {
-    return (
-      <div className="pv-pdf">
-        <iframe src={api.entryUrl(e)} title={e.name} />
-      </div>
-    );
+    return <PdfWorkbench e={e} />;
   }
   if (e.kind === 'archive' && !e.zipOf) {
     return <ZipPreview e={e} />;
   }
   if (e.kind === 'markdown' || e.kind === 'code' || e.kind === 'text') {
-    return <TextPreview e={e} />;
+    // real files get the light-editing workbench (concept §5.2); zip members stay read-only
+    return e.zipOf ? <TextPreview e={e} /> : <TextWorkbench e={e} />;
   }
   return (
     <div className="pv-generic">
@@ -276,6 +276,7 @@ export function PreviewPane() {
   return (
     <aside className="pv-pane">
       <PreviewChrome e={e} />
+      <CrossPaneActions />
     </aside>
   );
 }

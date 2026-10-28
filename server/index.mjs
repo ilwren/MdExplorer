@@ -13,6 +13,9 @@ import {
 } from './fs.mjs';
 import { zipList, zipEntryBytes, zipEntries, uniqueTarget } from './zip.mjs';
 import {
+  indexStatus, rebuildIndex, clearIndex, setIndexSettings, addIndexRoot, removeIndexRoot, searchIndex,
+} from './indexstore.mjs';
+import {
   getSettings, saveSettings, getFavorites, toggleFavorite, pushRecent, getRecent,
   trashList, trashDelete, trashRestore, trashEmpty,
 } from './store.mjs';
@@ -72,6 +75,33 @@ app.get('/api/search', wrap(async (req) => {
 }));
 
 app.get('/api/insights', wrap(async () => scanInsights()));
+
+/* --------------------------- local search index --------------------------- */
+
+app.get('/api/index/status', wrap(async () => indexStatus()));
+app.post('/api/index/rebuild', wrap(async () => rebuildIndex()));
+app.post('/api/index/clear', wrap(async () => clearIndex()));
+app.post('/api/index/settings', wrap(async (req) => setIndexSettings(req.body || {})));
+app.post('/api/index/roots', wrap(async (req) => {
+  const { action, root } = req.body || {};
+  return action === 'add' ? addIndexRoot(root) : removeIndexRoot(root);
+}));
+app.get('/api/index/search', wrap(async (req) => searchIndex(String(req.query.q || ''), {
+  kind: String(req.query.kind || ''),
+  root: String(req.query.root || ''),
+  since: Number(req.query.since || 0),
+  content: req.query.content === '1' || req.query.content === 'true',
+})));
+
+/* ------------------------------- file write ------------------------------- */
+
+app.post('/api/fs/write', wrap(async (req) => {
+  const abs = safePath(req.body.path);
+  const content = String(req.body.content ?? '');
+  if (content.length > 8 * 1024 * 1024) throw apiError(400, '内容过大');
+  await fsp.writeFile(abs, content, 'utf8');
+  return { ok: true };
+}));
 
 app.get('/api/text', wrap(async (req) => {
   return readText(safePath(String(req.query.path)));

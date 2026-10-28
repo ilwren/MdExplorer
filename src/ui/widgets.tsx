@@ -37,10 +37,23 @@ export function Button(props: {
   );
 }
 
-export function Chip(props: { icon?: string; children: React.ReactNode; className?: string; title?: string }) {
+export function Chip(props: {
+  icon?: string; children: React.ReactNode; className?: string; title?: string;
+  active?: boolean; disabled?: boolean; onClick?: () => void;
+}) {
+  const cls = `chip ${props.active ? 'is-active' : ''} ${props.disabled ? 'is-disabled' : ''} ${props.className ?? ''}`;
+  const icon = props.icon && <Icon name={props.icon} size={15} />;
+  if (props.onClick) {
+    return (
+      <button type="button" className={cls} title={props.title} disabled={props.disabled} onClick={props.onClick}>
+        {icon}
+        {props.children}
+      </button>
+    );
+  }
   return (
-    <span className={`chip ${props.className ?? ''}`} title={props.title}>
-      {props.icon && <Icon name={props.icon} size={15} />}
+    <span className={cls} title={props.title}>
+      {icon}
       {props.children}
     </span>
   );

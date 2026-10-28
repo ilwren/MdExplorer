@@ -10,6 +10,7 @@ export type Location =
   | { kind: 'favorites' }
   | { kind: 'trash' }
   | { kind: 'insights' }
+  | { kind: 'searchcenter' }
   | { kind: 'settings' };
 
 export function locKey(l: Location): string {
@@ -29,6 +30,7 @@ export function locTitle(l: Location): string {
     case 'favorites': return '收藏';
     case 'trash': return '回收站';
     case 'insights': return '存储洞察';
+    case 'searchcenter': return '搜索中心';
     case 'settings': return '设置';
   }
 }
@@ -106,6 +108,11 @@ interface Ctx {
   recent: string[];
   tabs: TabState[];
   activeTab: TabState;
+  activeTabId: string;
+  dualPane: boolean;
+  paneA: string | null;
+  paneB: string | null;
+  setPaneA: (id: string) => void;
   listing: FsEntry[];
   listingBusy: boolean;
   listingPath: string;
@@ -153,6 +160,11 @@ interface Ctx {
   /** serial task runners (conflict-aware) */
   runTransfer: (move: boolean, paths: string[], dest: string) => Promise<void>;
   runExtract: (zipPath: string, entries: FsEntry[] | null, dest: string, keepStructure: boolean) => Promise<void>;
+  /** text-editor save goes through the task queue too (concept §5.2) */
+  runSave: (path: string, content: string) => Promise<void>;
+  /** dual pane (concept §5.1) */
+  toggleDualPane: () => void;
+  sendToOtherPane: (move: boolean) => Promise<void>;
 }
 
 const AppCtx = createContext<Ctx>(null as unknown as Ctx);
@@ -201,6 +213,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [previewPaneOpen, setPreviewPaneOpen] = useState(true);
   const [floatPreviewPos, setFloatPreviewPos] = useState<{ x: number; y: number } | null>(null);
   const [previewTarget, setPreviewTarget] = useState<FsEntry | null>(null);
+  const [dualPane, setDualPane] = useState(false);
+  const [paneA, setPaneA] = useState<string | null>(null);
+  const [paneB, setPaneB] = useState<string | null>(null);
   const lastSelected = useRef<string | null>(null);
   const cancelRef = useRef<Set<string>>(new Set());
 
@@ -360,6 +375,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const next = ts.filter((t) => t.id !== id);
       if (id === activeTabId) setActiveTabId(next[next.length - 1].id);
       return next;
+    });
+    setPaneB((b) => {
+      if (b !== id) return b;
+      setDualPane(false);
+      return null;
     });
   }, [activeTabId]);
 
@@ -575,9 +595,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     cancelRef.current.add(id);
   }, []);
 
+  const runSave = useCallback(async (path: string, content: string) => {
+    const name = path.split('/').pop() || path;
+    const taskId = addTask('save', `保存 ${name}`, [name]);
+    patchTaskItem(taskId, 0, { status: 'running' });
+    try {
+      await api.writeFile(path, content);
+      patchTaskItem(taskId, 0, { status: 'done' });
+      patchTask(taskId, (t) => ({ ...t, status: 'done' }));
+      refresh();
+      toast(`保存 ${name} 完成`);
+    } catch (ex) {
+      patchTaskItem(taskId, 0, { status: 'failed', detail: (ex as Error).message });
+      patchTask(taskId, (t) => ({ ...t, status: 'failed' }));
+      toast(`保存 ${name} 失败`);
+    }
+  }, [addTask, patchTask, patchTaskItem, refresh, toast]);
+
+  /* ------------------------------ dual pane ------------------------------ */
+  const toggleDualPane = useCallback(() => {
+    if (dualPane) {
+      setDualPane(false);
+      return;
+    }
+    let b = paneB && tabs.some((t) => t.id === paneB) ? paneB : null;
+    if (!b) {
+      const nb = makeTab(activeTab.location);
+      b = nb.id;
+      setTabs((ts) => [...ts, nb]);
+    }
+    setPaneA(activeTabId);
+    setPaneB(b);
+    setDualPane(true);
+  }, [dualPane, paneB, tabs, activeTab, activeTabId]);
+
+  const sendToOtherPane = useCallback(async (move: boolean) => {
+    // send from the active pane to the *other* pane of the pair
+    const otherId = activeTabId === paneB ? paneA : paneB;
+    const other = tabs.find((t) => t.id === otherId);
+    if (!other || other.id === activeTabId) return;
+    const dest = other.location.kind === 'dir'
+      ? other.location.path
+      : other.location.kind === 'zip'
+        ? other.location.path.split('/').slice(0, -1).join('/')
+        : null;
+    const paths = activeTab.selection;
+    if (!dest || !paths.length) return;
+    await runTransfer(move, paths, dest);
+  }, [tabs, paneA, paneB, activeTabId, activeTab, runTransfer]);
+
   const value: Ctx = {
     ready, settings, roots, favorites, recent,
-    tabs, activeTab, listing, listingBusy, listingPath, refreshTick,
+    tabs, activeTab, activeTabId, dualPane, paneA, paneB, setPaneA, listing, listingBusy, listingPath, refreshTick,
     clipboard, search, dialog, conflict, toasts, tasks, taskPanelOpen,
     previewPaneOpen, floatPreviewPos, previewTarget,
     navigate, back, forward, up, refresh,
@@ -586,7 +655,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     openEntry, setPreviewTarget, setPreviewPaneOpen, setFloatPreviewPos,
     setClipboard, setSearch, setDialog, setConflict, setTaskPanelOpen, clearFinishedTasks, cancelTask,
     toast, patchSettings, toggleFavorite, reloadMeta,
-    runTransfer, runExtract,
+    runTransfer, runExtract, runSave, toggleDualPane, sendToOtherPane,
   };
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

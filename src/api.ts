@@ -29,6 +29,24 @@ export interface AppSettings {
 
 export interface RootInfo { path: string; name: string; total: number; free: number; used: number }
 
+export interface IndexStatus {
+  roots: string[];
+  paused: boolean;
+  contentEnabled: boolean;
+  updatedAt: number;
+  fileCount: number;
+  sizeBytes: number;
+  staleCount?: number;
+}
+
+export interface IndexSearchResult {
+  results: FsEntry[];
+  contentUsed: boolean;
+  indexedAt: number;
+  paused: boolean;
+  contentEnabled: boolean;
+}
+
 export interface TrashItem {
   id: string; name: string; originalPath: string; deletedAt: number;
   isDir: boolean; size: number; kind: string;
@@ -53,6 +71,15 @@ export const api = {
   search: (path: string, q: string, kind = '', recursive = true, content = false) =>
     req<{ results: FsEntry[] }>(`/api/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(q)}&kind=${kind}&recursive=${recursive ? 1 : 0}&content=${content ? 1 : 0}`),
   text: (path: string) => req<{ text: string; truncated: boolean; size: number }>(`/api/text?path=${encodeURIComponent(path)}`),
+  writeFile: (path: string, content: string) => post<{ ok: boolean }>('/api/fs/write', { path, content }),
+  /* local search index (concept §4.1) */
+  indexStatus: () => req<IndexStatus>('/api/index/status'),
+  indexRebuild: () => post<IndexStatus & { truncated?: boolean }>('/api/index/rebuild', {}),
+  indexClear: () => post<IndexStatus>('/api/index/clear', {}),
+  indexSettings: (patch: { paused?: boolean; contentEnabled?: boolean }) => post<IndexStatus>('/api/index/settings', patch),
+  indexRoot: (action: 'add' | 'remove', root: string) => post<IndexStatus>('/api/index/roots', { action, root }),
+  indexSearch: (q: string, opts: { kind?: string; root?: string; since?: number; content?: boolean } = {}) =>
+    req<IndexSearchResult>(`/api/index/search?q=${encodeURIComponent(q)}&kind=${opts.kind ?? ''}&root=${encodeURIComponent(opts.root ?? '')}&since=${opts.since ?? 0}&content=${opts.content ? 1 : 0}`),
   /** List zip contents. `inner` omitted -> flat dump of all entries; `inner` (even '') -> children of that virtual folder. */
   zip: (path: string, inner?: string) => req<{ entries: FsEntry[] }>(`/api/zip?path=${encodeURIComponent(path)}${inner !== undefined ? `&inner=${encodeURIComponent(inner)}` : ''}`),
   zipEntryText: (path: string, entry: string) => req<{ text: string; size: number }>(`/api/zip/entry-text?path=${encodeURIComponent(path)}&entry=${encodeURIComponent(entry)}`),
