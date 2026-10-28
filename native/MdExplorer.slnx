@@ -12,5 +12,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/MdExplorer.Domain.Tests/MdExplorer.Domain.Tests.csproj" />
     <Project Path="tests/MdExplorer.Application.Tests/MdExplorer.Application.Tests.csproj" />
+    <Project Path="tests/MdExplorer.ArchitectureChecks/MdExplorer.ArchitectureChecks.csproj" />
   </Folder>
 </Solution>
