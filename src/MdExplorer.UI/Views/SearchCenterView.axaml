@@ -18,42 +18,42 @@
     <md:MdScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                        AllowMouseDrag="True">
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindAll}" Variant="Tonal"
+        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindAll}" Variant="Outlined"
                      Command="{Binding SetSearchCenterKindCommand}" CommandParameter="All"
                      ToolTip.Tip="全部类型" AutomationProperties.Name="全部类型">
           <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="20" />
         </md:MdButton>
-        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindFolder}" Variant="Tonal"
+        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindFolder}" Variant="Outlined"
                      Command="{Binding SetSearchCenterKindCommand}" CommandParameter="Folder"
                      ToolTip.Tip="文件夹" AutomationProperties.Name="文件夹">
           <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="20" />
         </md:MdButton>
-        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindImage}" Variant="Tonal"
+        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindImage}" Variant="Outlined"
                      Command="{Binding SetSearchCenterKindCommand}" CommandParameter="Image"
                      ToolTip.Tip="图片" AutomationProperties.Name="图片">
           <md:MdIcon Glyph="{x:Static md:MdSymbols.Image}" Size="20" />
         </md:MdButton>
-        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindVideo}" Variant="Tonal"
+        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindVideo}" Variant="Outlined"
                      Command="{Binding SetSearchCenterKindCommand}" CommandParameter="Video"
                      ToolTip.Tip="视频" AutomationProperties.Name="视频">
           <md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="20" />
         </md:MdButton>
-        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindAudio}" Variant="Tonal"
+        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindAudio}" Variant="Outlined"
                      Command="{Binding SetSearchCenterKindCommand}" CommandParameter="Audio"
                      ToolTip.Tip="音频" AutomationProperties.Name="音频">
           <md:MdIcon Glyph="{x:Static md:MdSymbols.MusicNote}" Size="20" />
         </md:MdButton>
-        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindDocument}" Variant="Tonal"
+        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindDocument}" Variant="Outlined"
                      Command="{Binding SetSearchCenterKindCommand}" CommandParameter="Document"
                      ToolTip.Tip="文档" AutomationProperties.Name="文档">
           <md:MdIcon Glyph="{x:Static md:MdSymbols.Description}" Size="20" />
         </md:MdButton>
-        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindArchive}" Variant="Tonal"
+        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindArchive}" Variant="Outlined"
                      Command="{Binding SetSearchCenterKindCommand}" CommandParameter="Archive"
                      ToolTip.Tip="压缩包" AutomationProperties.Name="压缩包">
           <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderZip}" Size="20" />
         </md:MdButton>
-        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindCode}" Variant="Tonal"
+        <md:MdButton Classes="search-kind" Classes.active="{Binding IsSearchKindCode}" Variant="Outlined"
                      Command="{Binding SetSearchCenterKindCommand}" CommandParameter="Code"
                      ToolTip.Tip="代码" AutomationProperties.Name="代码">
           <md:MdIcon Glyph="{x:Static md:MdSymbols.Code}" Size="20" />

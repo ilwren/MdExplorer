@@ -388,6 +388,21 @@ public sealed class ScreenshotTests
         shell.SearchCenterQuery = "IMG_";
         shell.SearchCenterKindFilter = "Image";
         await shell.RunSearchCenterSearchCommand.ExecuteAsync(null);
+        shell.DismissSnackbarCommand.Execute(null);
+        Assert.True(shell.SearchIndexIsCurrent);
+        Assert.NotEmpty(shell.SearchCenterResults);
+    });
+
+    [AvaloniaFact]
+    public async Task Compact_SearchCenter() => await CaptureAsync("26-compact-search-center.png", 390, 844, async shell =>
+    {
+        await shell.GoSearchCenterCommand.ExecuteAsync(null);
+        Assert.True(await shell.AddSearchIndexRootAsync(SampleRoot));
+        await shell.RebuildSearchIndexCommand.ExecuteAsync(null);
+        shell.SearchCenterQuery = "IMG_";
+        shell.SearchCenterKindFilter = "Image";
+        await shell.RunSearchCenterSearchCommand.ExecuteAsync(null);
+        shell.DismissSnackbarCommand.Execute(null);
         Assert.True(shell.SearchIndexIsCurrent);
         Assert.NotEmpty(shell.SearchCenterResults);
     });
