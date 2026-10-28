@@ -888,8 +888,9 @@ public partial class MainView : UserControl
                 browser.SelectedItems.Add(item);
             }
         }
-        if (Resources["ItemMenu"] is ContextMenu menu)
-            menu.Open(button);
+        // ContextMenu.Open 只允许以已挂载该菜单的控件为目标；⋮ 按钮在模板里同样挂载 ItemMenu，
+        // 这里必须从按钮自身取菜单，不能拿资源里的同一实例对未挂载控件强行 Open（会抛 ArgumentException）。
+        button.ContextMenu?.Open(button);
         e.Handled = true;
     }
 

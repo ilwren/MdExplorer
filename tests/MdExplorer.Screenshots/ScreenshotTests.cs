@@ -1,8 +1,11 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
+using Avalonia.VisualTree;
 using System.Security.Cryptography;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
@@ -297,6 +300,45 @@ public sealed class ScreenshotTests
             Assert.NotNull(frame);
             frame!.Save(Path.Combine(OutputDir, "09-large-contextmenu.png"));
             list.ContextMenu.Close();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>回归：文件行 ⋮ 按钮必须以自身挂载的 ContextMenu 打开菜单，不能对未挂载控件强行 Open。</summary>
+    [AvaloniaFact]
+    public async Task Large_ItemMoreButton_OpensContextMenu()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        var view = new MainView { DataContext = shell };
+        var window = new Window { Width = 1440, Height = 900, Content = view };
+        window.Show();
+        try
+        {
+            await Task.Delay(150);
+            window.CaptureRenderedFrame();
+            var list = view.FindControl<ListBox>("FileList");
+            Assert.NotNull(list);
+            var moreButton = list!.GetVisualDescendants()
+                .OfType<Button>()
+                .First(button => AutomationProperties.GetName(button) == "更多操作" && button.IsEffectivelyVisible);
+            var item = Assert.IsType<FileItemViewModel>(moreButton.DataContext);
+            var clickPoint = moreButton.TranslatePoint(
+                new Point(moreButton.Bounds.Width / 2, moreButton.Bounds.Height / 2), window);
+            Assert.NotNull(clickPoint);
+
+            window.MouseMove(clickPoint!.Value);
+            window.MouseDown(clickPoint.Value, MouseButton.Left);
+            window.MouseUp(clickPoint.Value, MouseButton.Left);
+            await Task.Delay(150);
+
+            Assert.NotNull(moreButton.ContextMenu);
+            Assert.True(moreButton.ContextMenu!.IsOpen);
+            Assert.Same(item, Assert.Single(shell.Browser.SelectedItems));
+            moreButton.ContextMenu.Close();
         }
         finally
         {

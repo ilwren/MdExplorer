@@ -64,6 +64,7 @@
             <md:MdIcon Glyph="{x:Static md:MdSymbols.Star}" Size="16" IsVisible="{Binding IsFavorite}"
                        Foreground="#E0A81C" VerticalAlignment="Center" />
             <md:MdIconButton Icon="{x:Static md:MdSymbols.MoreVert}" Click="OnItemMoreClick"
+                             ContextMenu="{StaticResource ItemMenu}"
                              AutomationProperties.Name="更多操作" />
           </StackPanel>
         </Grid>
