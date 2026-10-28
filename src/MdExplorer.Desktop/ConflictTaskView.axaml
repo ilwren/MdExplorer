@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MdExplorer.Desktop.ConflictTaskView">
+  <Grid RowDefinitions="Auto,*" Background="{DynamicResource SurfaceBrush}">
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="22,13" ColumnSpacing="8">
+      <Button Click="OnCloseClick" ToolTip.Tip="返回文件浏览" Padding="10"><TextBlock Text="←" FontSize="20"/></Button>
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0"><TextBlock Text="冲突与任务详情" FontSize="21" FontWeight="SemiBold"/><TextBlock Text="显式选择覆盖策略 · 任务状态可追溯" FontSize="12" Foreground="{DynamicResource MutedBrush}"/></StackPanel>
+      <Button Grid.Column="2" Click="OnArchivePreviewClick" ToolTip.Tip="返回 09 压缩包工作台" Padding="9,7"><TextBlock Text="09 压缩包" FontSize="11"/></Button>
+      <Border Grid.Column="3" Background="{DynamicResource PrimaryContainerBrush}" CornerRadius="14" Padding="11,7" VerticalAlignment="Center"><TextBlock Text="10 · 概念预演" Foreground="{DynamicResource PrimaryBrush}" FontSize="11" FontWeight="SemiBold"/></Border>
+    </Grid>
+
+    <Grid x:Name="ConflictColumns" Grid.Row="1" ColumnDefinitions="1.2*,*" Margin="18,0,18,18" ColumnSpacing="14">
+      <!-- Side-by-side conflict decision -->
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12">
+          <Border Background="{DynamicResource SurfaceLowBrush}" CornerRadius="20" Padding="16">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="3"><TextBlock Text="同名文件冲突" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="项目-assets / IMG_0098.jpg" FontSize="11" Foreground="{DynamicResource MutedBrush}"/></StackPanel><Border Grid.Column="1" Background="{DynamicResource PrimaryContainerBrush}" CornerRadius="12" Padding="10,6"><TextBlock Text="{Binding ConflictCounter}" Foreground="{DynamicResource PrimaryBrush}" FontSize="11" FontWeight="SemiBold"/></Border></Grid>
+              <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="8">
+                <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="17" Padding="12">
+                  <StackPanel Spacing="8"><Border Background="#FFE7D9C9" CornerRadius="12" Height="112"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4"><TextBlock Text="▧" FontSize="38" Foreground="#725B44" HorizontalAlignment="Center"/><TextBlock Text="来源文件" FontSize="10" Foreground="#594B3D"/></StackPanel></Border><TextBlock Text="IMG_0098.jpg" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="此电脑 / 下载" Foreground="{DynamicResource MutedBrush}" FontSize="10"/><TextBlock Text="3.1 MB · 今天 09:24" FontSize="10"/><TextBlock Text="SHA-256  6a8f…92c1" FontFamily="monospace" FontSize="10" Foreground="{DynamicResource MutedBrush}"/></StackPanel>
+                </Border>
+                <TextBlock Grid.Column="1" Text="VS" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center"/>
+                <Border Grid.Column="2" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="17" Padding="12">
+                  <StackPanel Spacing="8"><Border Background="#FFD5E4E2" CornerRadius="12" Height="112"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4"><TextBlock Text="▧" FontSize="38" Foreground="#326C68" HorizontalAlignment="Center"/><TextBlock Text="目标文件" FontSize="10" Foreground="#315C59"/></StackPanel></Border><TextBlock Text="IMG_0098.jpg" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="D: / 图片 / 相机" Foreground="{DynamicResource MutedBrush}" FontSize="10"/><TextBlock Text="2.8 MB · 昨天 18:10" FontSize="10"/><TextBlock Text="SHA-256  4d21…0bf7" FontFamily="monospace" FontSize="10" Foreground="{DynamicResource MutedBrush}"/></StackPanel>
+                </Border>
+              </Grid>
+              <Border Background="{DynamicResource PrimaryContainerBrush}" CornerRadius="12" Padding="11,8"><TextBlock Text="内容校验和不同：两份文件并非相同副本。默认推荐保留两者。" FontSize="11" TextWrapping="Wrap"/></Border>
+            </StackPanel>
+          </Border>
+
+          <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="20" Padding="16">
+            <StackPanel Spacing="10">
+              <TextBlock Text="选择处理方式" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="*,*,*" ColumnSpacing="7">
+                <Button Click="OnKeepBothClick" Background="{DynamicResource SelectedBrush}" Padding="9,12"><StackPanel Spacing="5"><TextBlock Text="▣" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="保留两者" FontSize="11" HorizontalAlignment="Center"/></StackPanel></Button>
+                <Button Grid.Column="1" Click="OnReplaceClick" Padding="9,12"><StackPanel Spacing="5"><TextBlock Text="↻" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="替换目标" FontSize="11" HorizontalAlignment="Center"/></StackPanel></Button>
+                <Button Grid.Column="2" Click="OnSkipClick" Padding="9,12"><StackPanel Spacing="5"><TextBlock Text="⊘" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="跳过此项" FontSize="11" HorizontalAlignment="Center"/></StackPanel></Button>
+              </Grid>
+              <CheckBox Content="将此选择应用到剩余同类冲突（默认不勾选）" IsChecked="{Binding ApplyToRemaining}"/>
+              <TextBlock Text="{Binding ResolutionSummary}" Foreground="{DynamicResource MutedBrush}" FontSize="10"/>
+              <Button Click="OnResolveClick" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}" HorizontalContentAlignment="Center" Padding="12,10">确认并继续（演示）</Button>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Four task states and task detail -->
+      <ScrollViewer x:Name="TaskColumn" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12">
+          <Border Background="{DynamicResource SurfaceLowBrush}" CornerRadius="20" Padding="16">
+            <StackPanel Spacing="11">
+              <Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="3"><TextBlock Text="任务中心" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="等待确认 · 排队 · 完成 · 失败" FontSize="11" Foreground="{DynamicResource MutedBrush}"/></StackPanel><TextBlock Grid.Column="1" Text="4 项" Foreground="{DynamicResource MutedBrush}" FontSize="11"/></Grid>
+              <ItemsControl ItemsSource="{Binding Tasks}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="7"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Background="{DynamicResource SurfaceCardBrush}" CornerRadius="14" Padding="11">
+                      <Grid ColumnDefinitions="28,*,Auto"><TextBlock Text="{Binding Glyph}" Foreground="{DynamicResource PrimaryBrush}" FontSize="16" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Spacing="3"><Grid ColumnDefinitions="*,Auto"><TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold"/><TextBlock Grid.Column="1" Text="{Binding State}" FontSize="10" Foreground="{DynamicResource MutedBrush}"/></Grid><TextBlock Text="{Binding Detail}" FontSize="10" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/></StackPanel></Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+          <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="20" Padding="16">
+            <StackPanel Spacing="9">
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="复制任务 · 正在演示" FontWeight="SemiBold"/><TextBlock Text="42%" Foreground="{DynamicResource PrimaryBrush}" FontSize="11"/></Grid>
+              <TextBlock Text="正在复制旅行素材  ·  18 / 42 个文件" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
+              <ProgressBar Minimum="0" Maximum="100" Value="42" Height="7" Foreground="{DynamicResource PrimaryBrush}"/>
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8"><TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/><Button Grid.Column="1" Click="OnPauseClick" Padding="8,5">暂停 / 继续</Button><Button Grid.Column="2" Click="OnCancelClick" Foreground="{DynamicResource DangerBrush}" Padding="8,5">取消</Button></Grid>
+              <Button Click="OnRetryClick" HorizontalAlignment="Left" Padding="8,5">重试失败项</Button>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>

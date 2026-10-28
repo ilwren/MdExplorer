@@ -32,6 +32,12 @@
           <Button Click="OnStorageInsightsClick" ToolTip.Tip="08 · 存储洞察概念预演" Padding="9,7">
             <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="▦" FontSize="16"/><TextBlock Text="存储 · 08" FontSize="11"/></StackPanel>
           </Button>
+          <Button Click="OnArchiveClick" ToolTip.Tip="09 · 压缩包工作台概念预演" Padding="9,7">
+            <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="▣"/><TextBlock Text="压缩包 · 09" FontSize="11"/></StackPanel>
+          </Button>
+          <Button Click="OnConflictClick" ToolTip.Tip="10 · 冲突与任务详情概念预演" Padding="9,7">
+            <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="⇄"/><TextBlock Text="冲突 · 10" FontSize="11"/></StackPanel>
+          </Button>
         </StackPanel>
         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
           <Button Command="{Binding ToggleThemeCommand}" ToolTip.Tip="切换浅色 / 深色主题">
@@ -259,6 +265,12 @@
     </Border>
     <Border x:Name="StorageInsightsHost" Grid.Row="2" IsVisible="False" Background="{DynamicResource SurfaceBrush}">
       <local:StorageInsightsView x:Name="StorageInsightsControl" />
+    </Border>
+    <Border x:Name="ArchiveWorkbenchHost" Grid.Row="2" IsVisible="False" Background="{DynamicResource SurfaceBrush}">
+      <local:ArchiveWorkbenchView x:Name="ArchiveWorkbenchControl" />
+    </Border>
+    <Border x:Name="ConflictTaskHost" Grid.Row="2" IsVisible="False" Background="{DynamicResource SurfaceBrush}">
+      <local:ConflictTaskView x:Name="ConflictTaskControl" />
     </Border>
 
     <!-- Compact / Medium floating preview, styled after concept 04 -->

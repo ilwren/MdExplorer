@@ -13,6 +13,8 @@ public partial class MainWindow : Window
     private bool _isCompact;
     private bool _isSearchCenterOpen;
     private bool _isStorageInsightsOpen;
+    private bool _isArchiveOpen;
+    private bool _isConflictOpen;
 
     public MainWindow()
     {
@@ -23,6 +25,10 @@ public partial class MainWindow : Window
         SearchIndexControl.StoragePreviewRequested += (_, _) => OpenStorageInsights();
         StorageInsightsControl.CloseRequested += (_, _) => CloseStorageInsights();
         StorageInsightsControl.SearchPreviewRequested += (_, _) => OpenSearchCenter();
+        ArchiveWorkbenchControl.CloseRequested += (_, _) => CloseArchiveWorkbench();
+        ArchiveWorkbenchControl.ConflictPreviewRequested += (_, _) => OpenConflictTasks();
+        ConflictTaskControl.CloseRequested += (_, _) => CloseConflictTasks();
+        ConflictTaskControl.ArchivePreviewRequested += (_, _) => OpenArchiveWorkbench();
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
         SizeChanged += OnWindowSizeChanged;
         KeyDown += OnWindowKeyDown;
@@ -42,9 +48,11 @@ public partial class MainWindow : Window
     private void ApplyResponsiveLayout(double width)
     {
         if (MainLayout.ColumnDefinitions.Count < 3) return;
-        MainLayout.IsVisible = !_isSearchCenterOpen && !_isStorageInsightsOpen;
+        MainLayout.IsVisible = !_isSearchCenterOpen && !_isStorageInsightsOpen && !_isArchiveOpen && !_isConflictOpen;
         SearchIndexPanel.IsVisible = _isSearchCenterOpen;
         StorageInsightsHost.IsVisible = _isStorageInsightsOpen;
+        ArchiveWorkbenchHost.IsVisible = _isArchiveOpen;
+        ConflictTaskHost.IsVisible = _isConflictOpen;
         _isCompact = width < 600;
         var isMedium = width >= 600 && width < 840;
         var isExpanded = width >= 840 && width < 1200;
@@ -141,6 +149,16 @@ public partial class MainWindow : Window
             CloseStorageInsights();
             e.Handled = true;
         }
+        else if (e.Key == Key.Escape && _isArchiveOpen)
+        {
+            CloseArchiveWorkbench();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape && _isConflictOpen)
+        {
+            CloseConflictTasks();
+            e.Handled = true;
+        }
         else if (e.Key == Key.Escape && _viewModel.IsPathEditing)
         {
             _viewModel.IsPathEditing = false;
@@ -234,6 +252,8 @@ public partial class MainWindow : Window
     {
         _isSearchCenterOpen = true;
         _isStorageInsightsOpen = false;
+        _isArchiveOpen = false;
+        _isConflictOpen = false;
         _viewModel.IsFloatingPreviewOpen = false;
         ApplyResponsiveLayout(Bounds.Width);
     }
@@ -250,6 +270,8 @@ public partial class MainWindow : Window
     {
         _isStorageInsightsOpen = true;
         _isSearchCenterOpen = false;
+        _isArchiveOpen = false;
+        _isConflictOpen = false;
         _viewModel.IsFloatingPreviewOpen = false;
         ApplyResponsiveLayout(Bounds.Width);
     }
@@ -257,6 +279,42 @@ public partial class MainWindow : Window
     private void CloseStorageInsights()
     {
         _isStorageInsightsOpen = false;
+        ApplyResponsiveLayout(Bounds.Width);
+    }
+
+    private void OnArchiveClick(object? sender, RoutedEventArgs e) => OpenArchiveWorkbench();
+
+    private void OpenArchiveWorkbench()
+    {
+        _isArchiveOpen = true;
+        _isSearchCenterOpen = false;
+        _isStorageInsightsOpen = false;
+        _isConflictOpen = false;
+        _viewModel.IsFloatingPreviewOpen = false;
+        ApplyResponsiveLayout(Bounds.Width);
+    }
+
+    private void CloseArchiveWorkbench()
+    {
+        _isArchiveOpen = false;
+        ApplyResponsiveLayout(Bounds.Width);
+    }
+
+    private void OnConflictClick(object? sender, RoutedEventArgs e) => OpenConflictTasks();
+
+    private void OpenConflictTasks()
+    {
+        _isConflictOpen = true;
+        _isSearchCenterOpen = false;
+        _isStorageInsightsOpen = false;
+        _isArchiveOpen = false;
+        _viewModel.IsFloatingPreviewOpen = false;
+        ApplyResponsiveLayout(Bounds.Width);
+    }
+
+    private void CloseConflictTasks()
+    {
+        _isConflictOpen = false;
         ApplyResponsiveLayout(Bounds.Width);
     }
 

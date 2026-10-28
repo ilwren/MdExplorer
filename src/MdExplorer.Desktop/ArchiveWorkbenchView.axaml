@@ -1,0 +1,81 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MdExplorer.Desktop.ArchiveWorkbenchView">
+  <Grid RowDefinitions="Auto,Auto,*" Background="{DynamicResource SurfaceBrush}">
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="22,12" ColumnSpacing="7">
+      <Button Click="OnCloseClick" ToolTip.Tip="返回文件浏览" Padding="10"><TextBlock Text="←" FontSize="20"/></Button>
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
+        <TextBlock Text="压缩包工作台" FontSize="21" FontWeight="SemiBold" />
+        <TextBlock Text="Project-assets.zip · 只读虚拟目录" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+      </StackPanel>
+      <Button Grid.Column="2" Click="OnConflictPreviewClick" ToolTip.Tip="前往 10 冲突与任务详情" Padding="9,7"><TextBlock Text="10 冲突任务" FontSize="11"/></Button>
+      <Border Grid.Column="3" Background="{DynamicResource PrimaryContainerBrush}" CornerRadius="14" Padding="11,7" VerticalAlignment="Center"><TextBlock Text="09 · 概念预演" Foreground="{DynamicResource PrimaryBrush}" FontSize="11" FontWeight="SemiBold"/></Border>
+      <Button Grid.Column="4" Click="OnExtractAllClick" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource OnPrimaryBrush}" Padding="12,8"><TextBlock Text="解压全部" FontWeight="SemiBold"/></Button>
+    </Grid>
+
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="18,0,18,12" ColumnSpacing="8">
+      <StackPanel Orientation="Horizontal" Spacing="3"><Button Click="OnArchiveBackClick" ToolTip.Tip="返回上级" Padding="8">↑</Button><Button Click="OnRefreshClick" ToolTip.Tip="刷新样例" Padding="8">↻</Button></StackPanel>
+      <Border Grid.Column="1" Background="{DynamicResource SurfaceLowBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="17" Padding="12,7"><TextBlock Text="{Binding ArchivePath}" TextTrimming="CharacterEllipsis"/></Border>
+      <TextBlock Grid.Column="2" Text="8 个条目 · 2.4 GB 压缩包" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="8,0" />
+    </Grid>
+
+    <Grid x:Name="ArchiveColumns" Grid.Row="2" ColumnDefinitions="190,*,310" Margin="18,0,18,18" ColumnSpacing="12">
+      <!-- Archive directory tree -->
+      <Border x:Name="ArchiveTree" Grid.Column="0" Background="{DynamicResource SurfaceLowBrush}" CornerRadius="18" Padding="13">
+        <StackPanel Spacing="7">
+          <TextBlock Text="压缩包目录" FontWeight="SemiBold" Margin="5,2,0,5" />
+          <Button Click="OnRootTreeClick" HorizontalContentAlignment="Left" Padding="9,7"><StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="▣"/><TextBlock Text="Project-assets.zip" TextTrimming="CharacterEllipsis"/></StackPanel></Button>
+          <Button Click="OnAssetsTreeClick" HorizontalContentAlignment="Left" Padding="9,7" Margin="10,0,0,0"><StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="▰"/><TextBlock Text="assets"/></StackPanel></Button>
+          <Button Click="OnDocsTreeClick" HorizontalContentAlignment="Left" Padding="9,7" Margin="10,0,0,0"><StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="▰"/><TextBlock Text="docs"/></StackPanel></Button>
+          <Border Background="{DynamicResource PrimaryContainerBrush}" CornerRadius="12" Padding="10" Margin="2,12,2,0"><TextBlock Text="此页面浏览的是虚拟目录，原始压缩包保持只读。" FontSize="10" TextWrapping="Wrap"/></Border>
+        </StackPanel>
+      </Border>
+
+      <!-- Archive entries -->
+      <Border Grid.Column="1" Background="{DynamicResource SurfaceLowBrush}" CornerRadius="18" Padding="14">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="*,100,100" Margin="4,0,8,9"><TextBlock Text="名称" Foreground="{DynamicResource MutedBrush}" FontSize="11"/><TextBlock Grid.Column="1" Text="原始大小" Foreground="{DynamicResource MutedBrush}" FontSize="11"/><TextBlock Grid.Column="2" Text="压缩后" Foreground="{DynamicResource MutedBrush}" FontSize="11"/></Grid>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding VisibleEntries}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Click="OnArchiveEntryClick" DoubleTapped="OnArchiveEntryDoubleTapped" HorizontalContentAlignment="Stretch" Padding="8,7" Tag="{Binding}">
+                    <Grid ColumnDefinitions="32,*,100,100"><TextBlock Text="{Binding Glyph}" Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Spacing="3"><TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Kind}" FontSize="10" Foreground="{DynamicResource MutedBrush}"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding OriginalSize}" FontSize="11" VerticalAlignment="Center"/><TextBlock Grid.Column="3" Text="{Binding PackedSize}" FontSize="11" VerticalAlignment="Center"/></Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
+      <!-- Selected entry preview and extraction options -->
+      <ScrollViewer x:Name="ArchivePreviewPanel" Grid.Column="2" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12">
+          <Border Background="{DynamicResource SurfaceLowBrush}" CornerRadius="18" Padding="16">
+            <StackPanel Spacing="10">
+              <TextBlock Text="条目预览" FontWeight="SemiBold"/>
+              <Border Background="#FFF7F1E9" CornerRadius="15" Height="128"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7"><TextBlock Text="{Binding PreviewGlyph}" FontSize="45" Foreground="#006A6A" HorizontalAlignment="Center"/><TextBlock Text="{Binding PreviewKind}" FontSize="11" Foreground="#414848"/></StackPanel></Border>
+              <TextBlock Text="{Binding PreviewName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+              <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="7"><TextBlock Text="原始大小" Foreground="{DynamicResource MutedBrush}" FontSize="11"/><TextBlock Grid.Column="1" Text="{Binding PreviewSize}" FontSize="11"/><TextBlock Grid.Row="1" Text="压缩后" Foreground="{DynamicResource MutedBrush}" FontSize="11"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PreviewPackedSize}" FontSize="11"/></Grid>
+              <Button Click="OnExtractSelectedClick" Background="{DynamicResource PrimaryContainerBrush}" HorizontalContentAlignment="Center">仅提取所选</Button>
+            </StackPanel>
+          </Border>
+          <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="18" Padding="15">
+            <StackPanel Spacing="8">
+              <TextBlock Text="解压选项" FontWeight="SemiBold"/>
+              <TextBox Text="{Binding TargetPath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="解压目标文件夹"/>
+              <CheckBox Content="保留目录结构" IsChecked="{Binding KeepStructure}"/>
+              <CheckBox Content="覆盖前询问" IsChecked="{Binding AskBeforeOverwrite}"/>
+              <CheckBox Content="完成后打开文件夹" IsChecked="{Binding OpenAfterDone}"/>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="解压演示进度" FontSize="10" Foreground="{DynamicResource MutedBrush}"/><TextBlock Grid.Column="1" Text="{Binding ProgressText}" FontSize="10"/></Grid>
+              <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}" Height="7" Foreground="{DynamicResource PrimaryBrush}"/>
+              <Border Background="{DynamicResource PrimaryContainerBrush}" CornerRadius="10" Padding="9,7"><TextBlock Text="{Binding StatusText}" FontSize="10" TextWrapping="Wrap"/></Border>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>
