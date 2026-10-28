@@ -1,10 +1,12 @@
 using MdExplorer.Application.Operations;
 using MdExplorer.Application.Search;
+using MdExplorer.Application.Settings;
 using MdExplorer.Infrastructure.Archives;
 using MdExplorer.Infrastructure.FileSystem;
 using MdExplorer.Infrastructure.Persistence;
 using MdExplorer.Infrastructure.PreviewProviders;
 using MdExplorer.Infrastructure.Shell;
+using MdExplorer.Infrastructure.Thumbnails;
 using MdExplorer.Platform.Abstractions.Archives;
 using MdExplorer.Platform.Abstractions.FileSystem;
 using MdExplorer.Platform.Abstractions.Preview;
