@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using MdExplorer.Domain.Errors;
 using MdExplorer.Domain.Files;
+using MdExplorer.Domain.Operations;
 using MdExplorer.Platform.Abstractions.Preview;
 
 namespace MdExplorer.Infrastructure.Archives;

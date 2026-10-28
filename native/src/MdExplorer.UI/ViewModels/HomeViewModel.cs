@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using MdExplorer.Application.Navigation;
 using MdExplorer.Domain.Files;
 using MdExplorer.UI.Services;
 

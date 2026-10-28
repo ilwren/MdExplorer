@@ -15,17 +15,35 @@ jobs:
         with:
           global-json-file: native/global.json
 
-      - name: Diagnostics
-        run: |
-          dotnet --info
-          dotnet package search Avalonia --exact-match --take 10 || true
-          dotnet package search CommunityToolkit.Mvvm --exact-match --take 5 || true
-
       - name: Restore
         run: dotnet restore native/MdExplorer.slnx
 
       - name: Build
-        run: dotnet build native/MdExplorer.slnx -c Release --no-restore
+        id: build
+        run: |
+          set -eo pipefail
+          dotnet build native/MdExplorer.slnx -c Release --no-restore 2>&1 | tee build.log || { echo "build_failed=true" >> "$GITHUB_OUTPUT"; exit 1; }
+
+      - name: Report errors (part 1)
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          grep -E "error (CS|NU|MSB)" build.log | sort -u | sed -n '1,8p' | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+
+      - name: Report errors (part 2)
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          grep -E "error (CS|NU|MSB)" build.log | sort -u | sed -n '9,16p' | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+
+      - name: Report errors (part 3)
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          grep -E "error (CS|NU|MSB)" build.log | sort -u | sed -n '17,40p' | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
 
       - name: Test
         run: |

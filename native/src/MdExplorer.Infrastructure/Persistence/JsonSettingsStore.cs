@@ -6,7 +6,7 @@ namespace MdExplorer.Infrastructure.Persistence;
 
 /// STJ 源生成上下文（P2：AOT/裁剪安全）。
 [JsonSourceGenerationOptions(
-    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(AppSettings))]
 public sealed partial class SettingsJsonContext : JsonSerializerContext
