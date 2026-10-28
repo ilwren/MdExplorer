@@ -26,6 +26,7 @@ public partial class MainView : UserControl
     private DragCandidate? _dragCandidate;
     private bool _dragInProgress;
     private bool _breadcrumbEndScrollPending;
+    private bool _secondaryBreadcrumbEndScrollPending;
     private const double DefaultDrawerPaneWidth = 288;
     private const double DefaultPreviewPaneWidth = 316;
     private const double DefaultDualPaneWidth = 560;
@@ -112,7 +113,9 @@ public partial class MainView : UserControl
             // DataGrid.SelectedItems 为只读 IList（不可绑定整集），选集与 VM 手动双向同步
             vm.Browser.SelectedItems.CollectionChanged += OnBrowserSelectionChanged;
             vm.Browser.Breadcrumbs.CollectionChanged += OnBreadcrumbsChanged;
+            vm.SecondaryBrowser.Breadcrumbs.CollectionChanged += OnSecondaryBreadcrumbsChanged;
             ScheduleBreadcrumbEndScroll();
+            ScheduleSecondaryBreadcrumbEndScroll();
             vm.Browser.PropertyChanged += OnBrowserPropertyChanged;
             _ = vm.Browser.RefreshExternalClipboardAsync();
         }
@@ -121,6 +124,8 @@ public partial class MainView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         BreadcrumbScroller.LayoutUpdated -= OnBreadcrumbScrollerLayoutUpdated;
+        SecondaryBreadcrumbScroller.LayoutUpdated -= OnSecondaryBreadcrumbScrollerLayoutUpdated;
+        _secondaryBreadcrumbEndScrollPending = false;
         _breadcrumbEndScrollPending = false;
         if (_clipboardWindow is not null)
         {
@@ -132,6 +137,7 @@ public partial class MainView : UserControl
             vm.PropertyChanged -= OnShellPropertyChanged;
             vm.Browser.SelectedItems.CollectionChanged -= OnBrowserSelectionChanged;
             vm.Browser.Breadcrumbs.CollectionChanged -= OnBreadcrumbsChanged;
+            vm.SecondaryBrowser.Breadcrumbs.CollectionChanged -= OnSecondaryBreadcrumbsChanged;
             vm.Browser.PropertyChanged -= OnBrowserPropertyChanged;
         }
         if (TopLevel.GetTopLevel(this) is { } topLevel)
@@ -145,6 +151,7 @@ public partial class MainView : UserControl
         Shell?.SetViewportSize(e.NewSize.Width, e.NewSize.Height);
         LayoutFloatingPreview(e.NewSize);
         ScheduleBreadcrumbEndScroll();
+        ScheduleSecondaryBreadcrumbEndScroll();
     }
 
     private void LayoutFloatingPreview(Size size)
@@ -383,6 +390,32 @@ public partial class MainView : UserControl
         BreadcrumbScroller.Offset = new Vector(maxOffset, 0);
     }
 
+    private void OnSecondaryBreadcrumbsChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        ScheduleSecondaryBreadcrumbEndScroll();
+
+    private void ScheduleSecondaryBreadcrumbEndScroll()
+    {
+        if (_secondaryBreadcrumbEndScrollPending)
+            return;
+        _secondaryBreadcrumbEndScrollPending = true;
+        SecondaryBreadcrumbScroller.LayoutUpdated += OnSecondaryBreadcrumbScrollerLayoutUpdated;
+    }
+
+    private void OnSecondaryBreadcrumbScrollerLayoutUpdated(object? sender, EventArgs e)
+    {
+        if (SecondaryBreadcrumbScroller.Viewport.Width <= 0)
+            return;
+        SecondaryBreadcrumbScroller.LayoutUpdated -= OnSecondaryBreadcrumbScrollerLayoutUpdated;
+        _secondaryBreadcrumbEndScrollPending = false;
+
+        var maxOffset = Math.Max(0, SecondaryBreadcrumbScroller.Extent.Width - SecondaryBreadcrumbScroller.Viewport.Width);
+        if (maxOffset <= 0)
+            return;
+        if (Shell?.SecondaryBrowser.Breadcrumbs.LastOrDefault() is { } last)
+            SecondaryBreadcrumbBar.ScrollIntoView(last);
+        SecondaryBreadcrumbScroller.Offset = new Vector(maxOffset, 0);
+    }
+
     private void OnBackRequested(object? sender, RoutedEventArgs e)
     {
         if (Shell is not { } shell)
@@ -421,7 +454,10 @@ public partial class MainView : UserControl
         if (e.PropertyName is nameof(ShellViewModel.ShowDualPane)
             or nameof(ShellViewModel.IsDualPaneEnabled)
             or nameof(ShellViewModel.CanUseDualPane))
+        {
             ApplyBrowserPaneWidths();
+            ScheduleSecondaryBreadcrumbEndScroll();
+        }
 
         if (e.PropertyName != nameof(ShellViewModel.Page))
             return;

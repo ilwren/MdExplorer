@@ -825,7 +825,11 @@
                   <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="12,10,8,4">
                     <md:MdIcon Glyph="{x:Static md:MdSymbols.VerticalSplit}" Size="20" VerticalAlignment="Center"
                                Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-                    <TextBlock Grid.Column="1" Classes="h3" Text="对照窗格" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                      <TextBlock Classes="h3" Text="对照窗格" VerticalAlignment="Center" />
+                      <TextBlock Classes="caption" Text="{Binding SecondaryBrowser.CurrentFolderName}" VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SecondaryBrowser.CurrentPath}" />
+                    </StackPanel>
                     <Border Grid.Column="2" CornerRadius="99" Padding="8,3" VerticalAlignment="Center"
                             Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
                       <TextBlock Classes="caption" Text="{Binding SecondaryPaneBadgeText}"
@@ -850,7 +854,7 @@
                                        Command="{Binding SecondaryBrowser.RefreshCommand}" AutomationProperties.Name="刷新对照窗格" />
                     </StackPanel>
                     <Border Grid.Column="1" Classes="path-pill" MinHeight="38" ClipToBounds="True">
-                      <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True">
+                      <md:MdScrollViewer x:Name="SecondaryBreadcrumbScroller" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True">
                         <ItemsControl x:Name="SecondaryBreadcrumbBar" ItemsSource="{Binding SecondaryBrowser.Breadcrumbs}" VerticalAlignment="Center">
                           <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
