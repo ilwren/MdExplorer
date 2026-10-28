@@ -94,7 +94,8 @@ public sealed class LayeringTests
                 continue;
             }
 
-            if (!allowedExternal.Any(p => name.StartsWith(p, StringComparison.Ordinal)))
+            // 前缀匹配：既接受完全相等（如 SkiaSharp），也接受带命名空间后缀（如 SkiaSharp.Skottie）。
+            if (!allowedExternal.Any(p => name == p.TrimEnd('.') || name.StartsWith(p, StringComparison.Ordinal)))
                 violations.Add($"未登记的第三方引用：{assemblyName} → {name}");
         }
 
