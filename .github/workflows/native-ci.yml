@@ -103,12 +103,23 @@ jobs:
             libfontconfig1 libx11-6 libxrandr2 libxi6 libice6 libsm6 libgl1 libglx-mesa0
 
       - name: Publish (linux-x64, PublishAot)
+        id: publish
         run: |
           set -eo pipefail
           dotnet publish native/src/MdExplorer.Desktop/MdExplorer.Desktop.csproj -c Release -r linux-x64 \
             2>&1 | sed -e 's/\x1b\[[0-9;]*m//g' | tee publish.log
           grep -cE "warning IL[0-9]+" publish.log > ilwarn.txt || echo 0 > ilwarn.txt
           echo "::notice::AOT/裁剪告警数：$(cat ilwarn.txt)"
+
+      - name: Report publish errors
+        if: failure() && steps.publish.outcome == 'failure'
+        run: |
+          grep -E ": (error|错误) " publish.log | sort -u | sed -n '1,10p' \
+            | while IFS= read -r line; do echo "::error::$line"; done || true
+          grep -iE "ILC|descriptor|descriptor file|LC0000" publish.log | sort -u | sed -n '1,6p' \
+            | while IFS= read -r line; do echo "::error::ILC|$line"; done || true
+          tail -n 15 publish.log | sed -n '1,10p' \
+            | while IFS= read -r line; do echo "::error::tail|$line"; done || true
 
       - name: Summarize AOT warnings — by code
         if: always()
@@ -206,7 +217,20 @@ jobs:
           global-json-file: native/global.json
 
       - name: Publish (win-x64, PublishAot)
-        run: dotnet publish native/src/MdExplorer.Desktop/MdExplorer.Desktop.csproj -c Release -r win-x64
+        id: publish
+        shell: pwsh
+        run: |
+          dotnet publish native/src/MdExplorer.Desktop/MdExplorer.Desktop.csproj -c Release -r win-x64 2>&1 |
+            Tee-Object -FilePath publish.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Report publish errors
+        if: failure() && steps.publish.outcome == 'failure'
+        shell: pwsh
+        run: |
+          $lines = Get-Content publish.log | Where-Object { $_ -match ": (error|错误) " } | Select-Object -Unique
+          $lines | Select-Object -First 10 | ForEach-Object { Write-Host "::error::$_" }
+          Get-Content publish.log -Tail 12 | ForEach-Object { Write-Host "::error::tail|$_" }
 
       - name: Verify output really is Native AOT
         shell: pwsh
