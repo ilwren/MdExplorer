@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
+using System.Security.Cryptography;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.Services;
@@ -486,6 +487,90 @@ public sealed class ScreenshotTests
     [AvaloniaFact]
     public async Task Compact_AndroidAppTrash() => await CaptureAsync(
         "32-compact-android-app-trash.png", 390, 844, ArrangeAndroidAppTrashAsync, androidAccess: true);
+
+    [AvaloniaFact]
+    public async Task Large_TransferConflictDialog() => await CaptureAsync(
+        "33-large-conflict-dialog.png", 1440, 900, ArrangeTransferConflictAsync);
+
+    [AvaloniaFact]
+    public async Task Compact_TransferConflictDialog() => await CaptureAsync(
+        "34-compact-conflict-dialog.png", 390, 844, ArrangeTransferConflictAsync);
+
+    [AvaloniaFact]
+    public async Task Large_TaskDetails() => await CaptureAsync(
+        "35-large-task-details.png", 1440, 900, ArrangeTaskDetailsAsync);
+
+    private static Task ArrangeTransferConflictAsync(ShellViewModel shell)
+    {
+        _ = shell.AskConflictAsync(CreateConflictPrompt());
+        Assert.True(shell.IsConflictDialog);
+        Assert.NotNull(shell.CurrentConflict);
+        Assert.True(shell.IsConflictKeepBoth);
+        Assert.False(shell.ConflictApplyToRemaining);
+        Assert.Equal(3, shell.PendingConflictCount);
+        return Task.CompletedTask;
+    }
+
+    private static TransferConflictPrompt CreateConflictPrompt()
+    {
+        var sourcePath = Path.Combine(PicturesDir, "IMG_20261001.jpg");
+        var targetPath = Path.Combine(PicturesDir, "Camera", "IMG_0001.png");
+        FileItem MakeItem(string path) => new(
+            FileLocator.FromPath(path),
+            "IMG_20261001.jpg",
+            FileKind.Image,
+            new FileInfo(path).Length,
+            new FileInfo(path).LastWriteTime,
+            IsHidden: false,
+            IsSymlink: false,
+            ".jpg");
+        string Hash(string path) => Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
+
+        var source = new ConflictItemSnapshot(
+            "来源",
+            MakeItem(sourcePath),
+            PicturesDir,
+            Hash(sourcePath),
+            new Bitmap(sourcePath));
+        var target = new ConflictItemSnapshot(
+            "目标已有",
+            MakeItem(targetPath),
+            Path.Combine(PicturesDir, "Camera"),
+            Hash(targetPath),
+            new Bitmap(targetPath));
+        return new TransferConflictPrompt(source, target, Index: 0, TotalCount: 3, IsMove: false);
+    }
+
+    private static async Task ArrangeTaskDetailsAsync(ShellViewModel shell)
+    {
+        await shell.RunOperationAsync("正在解压 backup-2026.zip…", (_, _) =>
+            Task.FromResult(new OperationOutcome(
+                12,
+                [],
+                [Path.Combine(PicturesDir, "README.md")],
+                SkippedCount: 1)));
+        await shell.RunOperationAsync(
+            "正在复制 4 个项目…",
+            (_, _) => Task.FromResult(new OperationOutcome(
+                2,
+                [new OperationError(
+                    "旅行视频.mp4",
+                    "目标文件夹暂时不可写",
+                    Path.Combine(PicturesDir, "旅行视频.mp4"))],
+                [
+                    Path.Combine(PicturesDir, "IMG_20261001.jpg"),
+                    Path.Combine(PicturesDir, "screenshot_ide.png"),
+                ],
+                SkippedCount: 1)),
+            _ => Task.CompletedTask);
+        shell.IsTaskCenterOpen = true;
+        shell.DismissSnackbarCommand.Execute(null);
+
+        var failed = Assert.Single(shell.OperationTasks, task => task.IsFailed);
+        Assert.True(failed.IsDetailsExpanded);
+        Assert.True(failed.CanRetry);
+        Assert.Equal(1, shell.FailedOperationTaskCount);
+    }
 
     private static Task ArrangeAndroidAccessAsync(ShellViewModel shell)
     {
