@@ -346,6 +346,59 @@ public sealed class ScreenshotTests
         }
     }
 
+    /// <summary>指针回归：横向拖动文件标签超过相邻标签中点后，模型顺序应真实交换。</summary>
+    [AvaloniaFact]
+    public async Task Large_TabDrag_ReordersTabs()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        await shell.Browser.OpenInNewTabAsync(Path.Combine(PicturesDir, "Camera"));
+        var originalOrder = shell.Browser.Tabs.Select(tab => tab.Path).ToArray();
+        Assert.Equal(2, originalOrder.Length);
+
+        var view = new MainView { DataContext = shell };
+        var window = new Window { Width = 1440, Height = 900, Content = view };
+        window.Show();
+        try
+        {
+            await Task.Delay(150);
+            window.CaptureRenderedFrame();
+            var strip = view.FindControl<ItemsControl>("TabStrip");
+            Assert.NotNull(strip);
+            var first = strip!.ContainerFromIndex(0);
+            var second = strip.ContainerFromIndex(1);
+            Assert.NotNull(first);
+            Assert.NotNull(second);
+            var firstCenter = first!.TranslatePoint(
+                new Point(first.Bounds.Width / 2, first.Bounds.Height / 2), window);
+            var secondCenter = second!.TranslatePoint(
+                new Point(second.Bounds.Width / 2, second.Bounds.Height / 2), window);
+            Assert.NotNull(firstCenter);
+            Assert.NotNull(secondCenter);
+
+            var start = firstCenter!.Value;
+            var end = new Point(secondCenter!.Value.X + 24, secondCenter.Value.Y);
+            window.MouseMove(start);
+            window.MouseDown(start, MouseButton.Left);
+            for (var step = 1; step <= 6; step++)
+            {
+                var point = new Point(
+                    start.X + (end.X - start.X) * step / 6,
+                    start.Y + (end.Y - start.Y) * step / 6);
+                window.MouseMove(point);
+                await Task.Delay(20);
+            }
+            window.MouseUp(end, MouseButton.Left);
+            await Task.Delay(150);
+
+            Assert.Equal(originalOrder.Reverse(), shell.Browser.Tabs.Select(tab => tab.Path));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     /// <summary>弹出层验证：窄屏 FAB 的新建菜单（Flyout 呈现）。</summary>
     [AvaloniaFact]
     public async Task Compact_FabFlyout_Open()

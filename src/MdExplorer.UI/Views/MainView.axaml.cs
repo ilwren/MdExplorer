@@ -47,6 +47,30 @@ public partial class MainView : UserControl
         IReadOnlyList<FileItemViewModel> Items,
         Point Origin);
 
+    private sealed class TabDragState(
+        IPointer pointer,
+        BrowserTabViewModel tab,
+        Panel panel,
+        IReadOnlyList<Control> containers,
+        IReadOnlyList<Rect> slots,
+        Point startPoint,
+        int startIndex)
+    {
+        public IPointer Pointer { get; } = pointer;
+        public BrowserTabViewModel Tab { get; } = tab;
+        public Panel Panel { get; } = panel;
+        public IReadOnlyList<Control> Containers { get; } = containers;
+        public IReadOnlyList<Rect> Slots { get; } = slots;
+        public Point StartPoint { get; } = startPoint;
+        public int StartIndex { get; } = startIndex;
+        public int TargetIndex { get; set; } = startIndex;
+        public bool IsDragging { get; set; }
+        public Control DraggedContainer => Containers[StartIndex];
+    }
+
+    private TabDragState? _tabDrag;
+    private bool _suppressNextTabTap;
+
     public MainView()
     {
         InitializeComponent();
@@ -907,6 +931,12 @@ public partial class MainView : UserControl
     // ---------- 标签页 ----------
     private void OnTabTapped(object? sender, TappedEventArgs e)
     {
+        if (_suppressNextTabTap)
+        {
+            _suppressNextTabTap = false;
+            e.Handled = true;
+            return;
+        }
         if (e.Source is Control source && source.FindAncestorOfType<Button>() is not null)
             return; // 关闭按钮自己处理
         if (sender is Control { DataContext: BrowserTabViewModel tab })
@@ -927,12 +957,152 @@ public partial class MainView : UserControl
 
     private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(this).Properties.IsMiddleButtonPressed)
+        if (sender is not Control control || Browser is not { } browser ||
+            control.DataContext is not BrowserTabViewModel tab)
             return;
-        if (sender is Control { DataContext: BrowserTabViewModel tab })
+
+        if (e.GetCurrentPoint(this).Properties.IsMiddleButtonPressed)
         {
-            Browser?.CloseTabCommand.Execute(tab);
+            Browser.CloseTabCommand.Execute(tab);
             e.Handled = true;
+            return;
+        }
+
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed || point.Properties.IsRightButtonPressed ||
+            e.Pointer.Type != PointerType.Mouse || browser.Tabs.Count < 2 ||
+            e.Source is Control source && source.FindAncestorOfType<Button>() is not null)
+            return;
+
+        var strip = control.FindAncestorOfType<ItemsControl>();
+        if (strip?.ItemsPanelRoot is not { } panel)
+            return;
+        var startIndex = browser.Tabs.IndexOf(tab);
+        if (startIndex < 0)
+            return;
+
+        var containers = new List<Control>(browser.Tabs.Count);
+        for (var i = 0; i < browser.Tabs.Count; i++)
+        {
+            if (strip.ContainerFromIndex(i) is not { } container)
+                return;
+            containers.Add(container);
+        }
+
+        _tabDrag = new TabDragState(
+            e.Pointer,
+            tab,
+            panel,
+            containers,
+            containers.Select(container => container.Bounds).ToArray(),
+            e.GetPosition(panel),
+            startIndex);
+    }
+
+    private void OnTabPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_tabDrag is not { } drag || !ReferenceEquals(e.Pointer, drag.Pointer) || Browser is not { } browser)
+            return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            CancelTabDrag();
+            return;
+        }
+
+        var current = e.GetPosition(drag.Panel);
+        var delta = current - drag.StartPoint;
+        if (!drag.IsDragging)
+        {
+            if (Math.Abs(delta.X) < 7 || Math.Abs(delta.Y) > Math.Abs(delta.X) * 1.5)
+                return;
+            drag.IsDragging = true;
+            if (sender is IInputElement senderElement)
+                e.Pointer.Capture(senderElement);
+            drag.DraggedContainer.ZIndex = 10;
+            drag.DraggedContainer.Opacity = 0.88;
+            if (!_reduceMotion && Shell?.ReduceMotion != true)
+            {
+                var transitions = new Transitions
+                {
+                    new TransformOperationsTransition
+                    {
+                        Property = Visual.RenderTransformProperty,
+                        Duration = TimeSpan.FromMilliseconds(140),
+                    },
+                };
+                foreach (var container in drag.Containers.Where(container => !ReferenceEquals(container, drag.DraggedContainer)))
+                    container.Transitions = transitions;
+            }
+        }
+
+        var startSlot = drag.Slots[drag.StartIndex];
+        var minDelta = -startSlot.X;
+        var maxDelta = drag.Slots[^1].Right - startSlot.Right;
+        var clampedDeltaX = Math.Clamp(delta.X, minDelta, maxDelta);
+        drag.DraggedContainer.RenderTransform = new TranslateTransform(clampedDeltaX, 0);
+
+        var draggedCenter = startSlot.Center.X + clampedDeltaX;
+        drag.TargetIndex = drag.Slots
+            .Where((_, index) => index != drag.StartIndex)
+            .Count(slot => slot.Center.X < draggedCenter);
+
+        var slotExtent = startSlot.Width + 4;
+        for (var i = 0; i < drag.Containers.Count; i++)
+        {
+            if (i == drag.StartIndex)
+                continue;
+            var shift = 0.0;
+            if (drag.TargetIndex < drag.StartIndex && i >= drag.TargetIndex && i < drag.StartIndex)
+                shift = slotExtent;
+            else if (drag.TargetIndex > drag.StartIndex && i > drag.StartIndex && i <= drag.TargetIndex)
+                shift = -slotExtent;
+            drag.Containers[i].RenderTransform = new TranslateTransform(shift, 0);
+        }
+        e.Handled = true;
+    }
+
+    private void OnTabPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_tabDrag is not { } drag || !ReferenceEquals(e.Pointer, drag.Pointer))
+            return;
+
+        var shouldMove = drag.IsDragging;
+        var tab = drag.Tab;
+        var targetIndex = drag.TargetIndex;
+        ClearTabDragVisuals(drag);
+        _tabDrag = null;
+        if (!shouldMove)
+            return;
+
+        _suppressNextTabTap = true;
+        Browser?.MoveTab(tab, targetIndex);
+        e.Handled = true;
+        // 若释放点已离开标签本体而没有后续 Tapped，也不能让抑制标志吞掉下一次正常点选。
+        Dispatcher.UIThread.Post(() => _suppressNextTabTap = false, DispatcherPriority.Loaded);
+    }
+
+    private void OnTabPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (_tabDrag is { } drag && ReferenceEquals(e.Pointer, drag.Pointer))
+            CancelTabDrag();
+    }
+
+    private void CancelTabDrag()
+    {
+        if (_tabDrag is not { } drag)
+            return;
+        ClearTabDragVisuals(drag);
+        _tabDrag = null;
+    }
+
+    private static void ClearTabDragVisuals(TabDragState drag)
+    {
+        foreach (var container in drag.Containers)
+        {
+            container.Transitions = null;
+            container.RenderTransform = new TranslateTransform(0, 0);
+            container.Opacity = 1;
+            container.ZIndex = 0;
         }
     }
 

@@ -988,6 +988,27 @@ public sealed partial class BrowserViewModel : ObservableObject
         await ActivateTabCoreAsync(copy, snapshotCurrent: false).ConfigureAwait(true);
     }
 
+    /// <summary>
+    /// 把一个标签移动到目标下标（拖拽重排的模型落点）。只调整顺序，不切换活动标签、
+    /// 不重载当前目录；活动标签对象保持不变，并把新顺序/活动下标一并持久化。
+    /// </summary>
+    public bool MoveTab(BrowserTabViewModel? tab, int targetIndex)
+    {
+        if (tab is null || Tabs.Count < 2)
+            return false;
+        var oldIndex = Tabs.IndexOf(tab);
+        if (oldIndex < 0)
+            return false;
+
+        targetIndex = Math.Clamp(targetIndex, 0, Tabs.Count - 1);
+        if (targetIndex == oldIndex)
+            return false;
+
+        Tabs.Move(oldIndex, targetIndex);
+        _ = PersistTabsAsync();
+        return true;
+    }
+
     [RelayCommand]
     private async Task CloseTabAsync(BrowserTabViewModel? tab)
     {

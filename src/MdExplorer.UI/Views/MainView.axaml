@@ -358,7 +358,7 @@
             <Border Grid.Row="0" Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
                     BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1"
                     CornerRadius="23,23,0,0" Padding="10,8,10,0" MinHeight="50" IsVisible="{Binding ShowBrowserTabs}">
-              <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True">
+              <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="False">
                 <StackPanel Orientation="Horizontal" Spacing="5">
                   <ItemsControl x:Name="TabStrip" ItemsSource="{Binding Browser.Tabs}">
                     <ItemsControl.ItemsPanel>
@@ -367,7 +367,9 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:BrowserTabViewModel">
                         <Border Height="42" MinWidth="126" MaxWidth="224" VerticalAlignment="Bottom"
-                                Tapped="OnTabTapped" PointerPressed="OnTabPointerPressed" Cursor="Hand"
+                                Tapped="OnTabTapped" PointerPressed="OnTabPointerPressed"
+                                PointerMoved="OnTabPointerMoved" PointerReleased="OnTabPointerReleased"
+                                PointerCaptureLost="OnTabPointerCaptureLost" Cursor="Hand"
                                 ToolTip.Tip="{Binding Path}">
                           <Border.ContextMenu>
                             <ContextMenu>

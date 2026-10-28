@@ -106,6 +106,38 @@ public sealed class BrowserTabsTests : IDisposable
     }
 
     [Fact]
+    public async Task MovingTabsPreservesActiveSessionAndRestoresOrder()
+    {
+        var firstShell = CreateShell();
+        var browser = firstShell.Browser;
+        await browser.NavigateToAsync(_alphaDir, pushHistory: false);
+        await browser.OpenInNewTabAsync(_betaDir);
+        await browser.OpenInNewTabAsync(_gammaDir);
+        var alpha = browser.Tabs[0];
+        var beta = browser.Tabs[1];
+        var gamma = browser.Tabs[2];
+
+        Assert.False(browser.MoveTab(beta, 1));
+        Assert.True(browser.MoveTab(beta, 0));
+        Assert.Equal([_betaDir, _alphaDir, _gammaDir], browser.Tabs.Select(tab => tab.Path));
+        Assert.Same(gamma, browser.ActiveTab);
+        Assert.Equal(_gammaDir, browser.CurrentPath);
+
+        Assert.True(browser.MoveTab(gamma, 0));
+        Assert.Equal([_gammaDir, _betaDir, _alphaDir], browser.Tabs.Select(tab => tab.Path));
+        Assert.Same(gamma, browser.ActiveTab);
+        Assert.Equal(_gammaDir, browser.CurrentPath);
+        Assert.False(browser.MoveTab(null, 0));
+        Assert.False(browser.MoveTab(alpha, 99)); // 已在末尾，钳制后无变化
+
+        await firstShell.SettingsStore.SaveSettingsAsync(CancellationToken.None);
+        var second = CreateShell().Browser;
+        await second.RestoreTabsAsync(_startDir);
+        Assert.Equal([_gammaDir, _betaDir, _alphaDir], second.Tabs.Select(tab => tab.Path));
+        Assert.Equal(_gammaDir, second.ActiveTab!.Path);
+    }
+
+    [Fact]
     public async Task OpenTabsAreRestoredFromSettings()
     {
         var firstShell = CreateShell();
