@@ -105,12 +105,14 @@ public sealed class FileNameIndexService : IFileNameIndexService
         if (!_settingsStore.Settings.UseSearchIndex || TryNormalizeLocalPath(rootPath) is not { } normalized)
             return false;
 
-        var snapshot = await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
-        UpdateWatchers(snapshot);
-        if (snapshot is null || _invalidated || !RootsEqual(snapshot.Roots, ConfiguredRoots()))
+        // 先用轻量根配置判覆盖，未命中时不加载整份快照，浏览器在普通目录搜索不付索引读取成本。
+        var roots = ConfiguredRoots();
+        if (!roots.Any(root => IsSameOrUnder(normalized, root)))
             return false;
 
-        return ConfiguredRoots().Any(root => IsSameOrUnder(normalized, root));
+        var snapshot = await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
+        UpdateWatchers(snapshot);
+        return snapshot is not null && !_invalidated && RootsEqual(snapshot.Roots, roots);
     }
 
     public async IAsyncEnumerable<FileItem> SearchAsync(
