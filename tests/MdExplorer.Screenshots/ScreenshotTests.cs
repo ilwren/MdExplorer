@@ -100,12 +100,14 @@ public sealed class ScreenshotTests
         if (arrange is not null)
             await arrange(shell);
 
-        var window = new Window
-        {
-            Width = width,
-            Height = height,
-            Content = new MainView { DataContext = shell },
-        };
+        Window window = !androidAccess && width >= 840
+            ? new MainWindow { Width = width, Height = height, DataContext = shell }
+            : new Window
+            {
+                Width = width,
+                Height = height,
+                Content = new MainView { DataContext = shell },
+            };
         window.Show();
         try
         {
@@ -375,8 +377,9 @@ public sealed class ScreenshotTests
                 new Point(second.Bounds.Width / 2, second.Bounds.Height / 2), window);
             Assert.NotNull(firstCenter);
             Assert.NotNull(secondCenter);
+            Assert.True(firstCenter!.Value.Y < 48, $"桌面标签应位于窗口顶部 48px Chrome 内，实际中心为 {firstCenter.Value}。");
 
-            var start = firstCenter!.Value;
+            var start = firstCenter.Value;
             var end = new Point(secondCenter!.Value.X + 24, secondCenter.Value.Y);
             window.MouseMove(start);
             window.MouseDown(start, MouseButton.Left);

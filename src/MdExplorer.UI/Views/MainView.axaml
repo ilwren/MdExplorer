@@ -6,6 +6,7 @@
              xmlns:controls="using:MdExplorer.UI.Controls"
              xmlns:eco="using:Md3.Avalonia.Extra.Controls"
              xmlns:themes="using:Md3.Avalonia.Themes"
+             xmlns:chrome="using:Avalonia.Controls.Chrome"
              x:Class="MdExplorer.UI.Views.MainView"
              x:DataType="vm:ShellViewModel"
              Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
@@ -154,6 +155,49 @@
         </Grid>
       </Border>
     </DataTemplate>
+    <DataTemplate x:Key="BrowserTabTemplate" x:DataType="vm:BrowserTabViewModel">
+      <Border chrome:WindowDecorationProperties.ElementRole="User" Height="42" MinWidth="126" MaxWidth="224" VerticalAlignment="Bottom"
+              Tapped="OnTabTapped" PointerPressed="OnTabPointerPressed" Cursor="Hand"
+              ToolTip.Tip="{Binding Path}">
+        <Border.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="复制标签页" Tag="{Binding}" Click="OnDuplicateTabClick" />
+            <MenuItem Header="关闭其他标签页" Tag="{Binding}" Click="OnCloseOtherTabsClick" />
+            <MenuItem Header="关闭标签页" Tag="{Binding}" Click="OnCloseTabMenuClick" />
+          </ContextMenu>
+        </Border.ContextMenu>
+        <Grid RowDefinitions="*,3">
+          <Border Grid.RowSpan="2" CornerRadius="13,13,0,0"
+                  Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
+                  IsVisible="{Binding IsActive}" />
+          <Border Grid.RowSpan="2" CornerRadius="13,13,0,0"
+                  Background="Transparent"
+                  IsVisible="{Binding IsInactive}" />
+          <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7" Margin="10,4,5,1">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="17" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}"
+                       IsVisible="{Binding IsActive}" />
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="16" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}"
+                       IsVisible="{Binding IsInactive}" />
+            <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource Md.Sys.Color.OnSurface.Brush}"
+                       IsVisible="{Binding IsActive}" />
+            <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}"
+                       IsVisible="{Binding IsInactive}" />
+            <md:MdIconButton Grid.Column="2" Width="25" Height="25" MinWidth="25" MinHeight="25"
+                             Icon="{x:Static md:MdSymbols.Close}" Click="OnTabCloseClick"
+                             IsVisible="{Binding CanClose}" AutomationProperties.Name="关闭标签页" />
+          </Grid>
+          <Border Grid.Row="1" Height="3" Margin="12,0" CornerRadius="2,2,0,0"
+                  Background="{DynamicResource Md.Sys.Color.Primary.Brush}"
+                  IsVisible="{Binding IsActive}" />
+        </Grid>
+      </Border>
+    </DataTemplate>
   </UserControl.Resources>
 
   <Grid>
@@ -162,13 +206,16 @@
       <!-- 顶栏（Compact/Medium） / 选择模式栏 -->
       <Grid Grid.Row="0">
         <md:MdTopAppBar Title="{Binding PageTitle}" Variant="Small"
-                        IsVisible="{Binding IsCompactOrMedium}">
+                        IsVisible="{Binding IsCompactOrMedium}"
+                        chrome:WindowDecorationProperties.ElementRole="TitleBar"
+                        PointerPressed="OnWindowChromePointerPressed">
           <md:MdTopAppBar.LeadingContent>
             <md:MdIconButton Icon="{x:Static md:MdSymbols.Menu}" Command="{Binding ToggleDrawerCommand}"
+                             chrome:WindowDecorationProperties.ElementRole="User"
                              IsVisible="{Binding IsCompact}" AutomationProperties.Name="打开导航" />
           </md:MdTopAppBar.LeadingContent>
           <md:MdTopAppBar.TrailingContent>
-            <StackPanel Orientation="Horizontal">
+            <StackPanel Orientation="Horizontal" chrome:WindowDecorationProperties.ElementRole="User">
               <md:MdButton x:Name="CompactTabsButton" Variant="Text" Width="42" Height="42" MinWidth="42" Padding="0"
                            IsVisible="{Binding IsBrowser}" ToolTip.Tip="标签页" AutomationProperties.Name="标签页">
                 <Grid Width="28" Height="28">
@@ -227,12 +274,28 @@
                                AutomationProperties.Name="任务中心" />
               <md:MdIconButton Icon="{x:Static md:MdSymbols.Settings}" Command="{Binding GoSettingsCommand}"
                                AutomationProperties.Name="设置" />
+              <StackPanel x:Name="CompactWindowControls" Orientation="Horizontal" IsVisible="False">
+                <md:MdIconButton Width="38" Height="36" MinWidth="38" MinHeight="36"
+                                 Icon="{x:Static md:MdSymbols.Remove}" Click="OnMinimizeWindowClick"
+                                 chrome:WindowDecorationProperties.ElementRole="MinimizeButton"
+                                 ToolTip.Tip="最小化" AutomationProperties.Name="最小化窗口" />
+                <md:MdIconButton x:Name="CompactWindowMaximizeButton" Width="38" Height="36" MinWidth="38" MinHeight="36"
+                                 Icon="{x:Static md:MdSymbols.CropSquare}" Click="OnToggleMaximizeWindowClick"
+                                 chrome:WindowDecorationProperties.ElementRole="MaximizeButton"
+                                 ToolTip.Tip="最大化" AutomationProperties.Name="最大化窗口" />
+                <md:MdIconButton Width="38" Height="36" MinWidth="38" MinHeight="36"
+                                 Icon="{x:Static md:MdSymbols.Close}" Click="OnCloseWindowClick"
+                                 chrome:WindowDecorationProperties.ElementRole="CloseButton"
+                                 ToolTip.Tip="关闭" AutomationProperties.Name="关闭窗口" />
+              </StackPanel>
             </StackPanel>
           </md:MdTopAppBar.TrailingContent>
         </md:MdTopAppBar>
 
-        <Border IsVisible="{Binding Browser.IsSelectionMode}"
-                Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" Padding="8,6">
+        <Border x:Name="SelectionModeBar" IsVisible="{Binding Browser.IsSelectionMode}"
+                Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" Padding="8,6"
+                chrome:WindowDecorationProperties.ElementRole="TitleBar"
+                PointerPressed="OnWindowChromePointerPressed">
           <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
             <md:MdIconButton Icon="{x:Static md:MdSymbols.Close}" Command="{Binding Browser.ExitSelectionModeCommand}" />
             <TextBlock Grid.Column="1" Classes="h3" VerticalAlignment="Center" Margin="6,0"
@@ -251,6 +314,10 @@
 
       <!-- 主区：导轨 / 抽屉 / 分隔条 / 内容 / 分隔条 / 预览栏（Expanded+ 可拖） -->
       <Grid x:Name="PaneGrid" Grid.Row="1">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="288" MinWidth="216" MaxWidth="440" />
@@ -259,7 +326,7 @@
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="316" MinWidth="260" MaxWidth="520" />
         </Grid.ColumnDefinitions>
-        <Border Grid.Column="0" IsVisible="{Binding ShowRail}" Width="84"
+        <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" IsVisible="{Binding ShowRail}" Width="84"
                 Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
           <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden" AllowMouseDrag="True">
           <StackPanel Margin="8,12" Spacing="6">
@@ -330,8 +397,8 @@
           </md:MdScrollViewer>
         </Border>
 
-        <views:DrawerContentView Grid.Column="1" IsVisible="{Binding ShowDrawerPane}" />
-        <controls:MaterialGridSplitter x:Name="DrawerSplitter" Grid.Column="2"
+        <views:DrawerContentView Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" IsVisible="{Binding ShowDrawerPane}" />
+        <controls:MaterialGridSplitter x:Name="DrawerSplitter" Grid.Row="1" Grid.Column="2"
                                        ReduceMotion="{Binding ReduceMotion}"
                                        IsVisible="{Binding ShowDrawerPane}"
                                        DragCompleted="OnDrawerSplitterDragCompleted"
@@ -339,7 +406,52 @@
                                        ToolTip.Tip="拖动调整侧栏宽度；双击或按 Home 恢复默认"
                                        AutomationProperties.Name="调整侧边栏宽度" />
 
-        <Grid x:Name="PageHost" Grid.Column="3">
+        <!-- 桌面无边框窗口顶栏：标签贴窗口顶缘，空白区拖窗，右侧是自有窗口按钮。 -->
+        <Border x:Name="DesktopWindowChrome" Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="3" Height="48"
+                Background="Transparent" IsVisible="False"
+                chrome:WindowDecorationProperties.ElementRole="TitleBar"
+                PointerPressed="OnWindowChromePointerPressed">
+          <Grid ColumnDefinitions="*,Auto">
+            <Grid>
+              <md:MdScrollViewer x:Name="DesktopTabScroller" HorizontalScrollBarVisibility="Hidden"
+                                 VerticalScrollBarVisibility="Disabled" AllowMouseDrag="False"
+                                 Background="Transparent"
+                                 chrome:WindowDecorationProperties.ElementRole="TitleBar">
+                <StackPanel Orientation="Horizontal" Spacing="5" Margin="10,6,8,0">
+                  <ItemsControl x:Name="DesktopTabStrip" ItemsSource="{Binding Browser.Tabs}"
+                                ItemTemplate="{StaticResource BrowserTabTemplate}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+                  <md:MdIconButton Width="32" Height="32" MinWidth="32" MinHeight="32" VerticalAlignment="Center"
+                                   Icon="{x:Static md:MdSymbols.Add}" Command="{Binding Browser.NewTabCommand}"
+                                   chrome:WindowDecorationProperties.ElementRole="User"
+                                   AutomationProperties.Name="新建标签页" />
+                </StackPanel>
+              </md:MdScrollViewer>
+              <TextBlock Text="{Binding PageTitle}" Classes="h3" VerticalAlignment="Center" Margin="14,0,8,0"
+                         TextTrimming="CharacterEllipsis" IsVisible="{Binding !IsBrowser}"
+                         chrome:WindowDecorationProperties.ElementRole="TitleBar" />
+            </Grid>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" Margin="6,4,6,0" VerticalAlignment="Top">
+              <md:MdIconButton Width="42" Height="36" MinWidth="42" MinHeight="36"
+                               Icon="{x:Static md:MdSymbols.Remove}" Click="OnMinimizeWindowClick"
+                               chrome:WindowDecorationProperties.ElementRole="MinimizeButton"
+                               ToolTip.Tip="最小化" AutomationProperties.Name="最小化窗口" />
+              <md:MdIconButton x:Name="WindowMaximizeButton" Width="42" Height="36" MinWidth="42" MinHeight="36"
+                               Icon="{x:Static md:MdSymbols.CropSquare}" Click="OnToggleMaximizeWindowClick"
+                               chrome:WindowDecorationProperties.ElementRole="MaximizeButton"
+                               ToolTip.Tip="最大化" AutomationProperties.Name="最大化窗口" />
+              <md:MdIconButton Width="42" Height="36" MinWidth="42" MinHeight="36"
+                               Icon="{x:Static md:MdSymbols.Close}" Click="OnCloseWindowClick"
+                               chrome:WindowDecorationProperties.ElementRole="CloseButton"
+                               ToolTip.Tip="关闭" AutomationProperties.Name="关闭窗口" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Grid x:Name="PageHost" Grid.Row="1" Grid.Column="3">
           <Grid.Transitions>
             <Transitions>
               <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
@@ -352,63 +464,19 @@
           <views:ArchiveWorkbenchView IsVisible="{Binding IsArchiveWorkbenchPage}" />
 
           <!-- 浏览器页：独立白色工作区浮在外层柔和底板上（预览亦同语言） -->
-          <Border IsVisible="{Binding IsBrowser}" Classes="workspace-surface" ClipToBounds="True" Margin="10">
+          <Border x:Name="BrowserWorkspace" IsVisible="{Binding IsBrowser}" Classes="workspace-surface" ClipToBounds="True" Margin="10">
           <Grid RowDefinitions="Auto,*">
-            <!-- 浏览器标签页：与下方白色工作区同面连接；活动页以图标井 + 底部指示线定向，不再排成一列灰卡片 -->
-            <Border Grid.Row="0" Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
+            <!-- 非桌面窗口宿主的回落标签条；桌面无边框窗口改由顶部 DesktopWindowChrome 承载同一模板 -->
+            <Border x:Name="WorkspaceTabStripHost" Grid.Row="0" Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
                     BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1"
-                    CornerRadius="23,23,0,0" Padding="10,8,10,0" MinHeight="50" IsVisible="{Binding ShowBrowserTabs}">
+                    CornerRadius="23,23,0,0" Padding="10,8,10,0" MinHeight="50">
               <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="False">
                 <StackPanel Orientation="Horizontal" Spacing="5">
-                  <ItemsControl x:Name="TabStrip" ItemsSource="{Binding Browser.Tabs}">
+                  <ItemsControl x:Name="TabStrip" ItemsSource="{Binding Browser.Tabs}" ItemTemplate="{StaticResource BrowserTabTemplate}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="vm:BrowserTabViewModel">
-                        <Border Height="42" MinWidth="126" MaxWidth="224" VerticalAlignment="Bottom"
-                                Tapped="OnTabTapped" PointerPressed="OnTabPointerPressed" Cursor="Hand"
-                                ToolTip.Tip="{Binding Path}">
-                          <Border.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="复制标签页" Tag="{Binding}" Click="OnDuplicateTabClick" />
-                              <MenuItem Header="关闭其他标签页" Tag="{Binding}" Click="OnCloseOtherTabsClick" />
-                              <MenuItem Header="关闭标签页" Tag="{Binding}" Click="OnCloseTabMenuClick" />
-                            </ContextMenu>
-                          </Border.ContextMenu>
-                          <Grid RowDefinitions="*,3">
-                            <Border Grid.RowSpan="2" CornerRadius="13,13,0,0"
-                                    Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
-                                    IsVisible="{Binding IsActive}" />
-                            <Border Grid.RowSpan="2" CornerRadius="13,13,0,0"
-                                    Background="Transparent"
-                                    IsVisible="{Binding IsInactive}" />
-                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7" Margin="10,4,5,1">
-                              <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="17" VerticalAlignment="Center"
-                                         Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}"
-                                         IsVisible="{Binding IsActive}" />
-                              <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="16" VerticalAlignment="Center"
-                                         Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}"
-                                         IsVisible="{Binding IsInactive}" />
-                              <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
-                                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                         Foreground="{DynamicResource Md.Sys.Color.OnSurface.Brush}"
-                                         IsVisible="{Binding IsActive}" />
-                              <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13"
-                                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                         Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}"
-                                         IsVisible="{Binding IsInactive}" />
-                              <md:MdIconButton Grid.Column="2" Width="25" Height="25" MinWidth="25" MinHeight="25"
-                                               Icon="{x:Static md:MdSymbols.Close}" Click="OnTabCloseClick"
-                                               IsVisible="{Binding CanClose}" AutomationProperties.Name="关闭标签页" />
-                            </Grid>
-                            <Border Grid.Row="1" Height="3" Margin="12,0" CornerRadius="2,2,0,0"
-                                    Background="{DynamicResource Md.Sys.Color.Primary.Brush}"
-                                    IsVisible="{Binding IsActive}" />
-                          </Grid>
-                        </Border>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
+
                   </ItemsControl>
                   <md:MdIconButton Width="32" Height="32" MinWidth="32" MinHeight="32" VerticalAlignment="Center"
                                    Icon="{x:Static md:MdSymbols.Add}" Command="{Binding Browser.NewTabCommand}"
@@ -1009,14 +1077,14 @@
           <views:SettingsView IsVisible="{Binding IsSettingsPage}" />
         </Grid>
 
-        <controls:MaterialGridSplitter x:Name="PreviewSplitter" Grid.Column="4"
+        <controls:MaterialGridSplitter x:Name="PreviewSplitter" Grid.Row="1" Grid.Column="4"
                                        ReduceMotion="{Binding ReduceMotion}"
                                        IsVisible="{Binding ShowPreviewPaneEffective}"
                                        DragCompleted="OnPreviewSplitterDragCompleted"
                                        ResetRequested="OnPreviewSplitterResetRequested"
                                        ToolTip.Tip="拖动调整预览栏宽度；双击或按 Home 恢复默认"
                                        AutomationProperties.Name="调整预览栏宽度" />
-        <Border x:Name="PreviewPane" Grid.Column="5" IsVisible="{Binding ShowPreviewPaneEffective}" Margin="0,10,10,10"
+        <Border x:Name="PreviewPane" Grid.Row="1" Grid.Column="5" IsVisible="{Binding ShowPreviewPaneEffective}" Margin="0,10,10,10"
                 Classes="workspace-surface" ClipToBounds="True">
           <Border.Transitions>
             <Transitions>
@@ -1360,6 +1428,35 @@
         </StackPanel>
         </md:MdScrollViewer>
       </Border>
+    </Grid>
+
+    <!-- 无边框窗口的边缘缩放热区（仅桌面 MainWindow 宿主启用） -->
+    <Grid x:Name="WindowResizeGrips" IsVisible="False"
+          RowDefinitions="8,*,8" ColumnDefinitions="8,*,8">
+      <Border Grid.Row="0" Grid.Column="0" Background="Transparent" Tag="NorthWest" Cursor="SizeAll"
+              chrome:WindowDecorationProperties.ElementRole="ResizeNW"
+              PointerPressed="OnWindowResizeGripPointerPressed" />
+      <Border Grid.Row="0" Grid.Column="1" Background="Transparent" Tag="North" Cursor="SizeNorthSouth"
+              chrome:WindowDecorationProperties.ElementRole="ResizeN"
+              PointerPressed="OnWindowResizeGripPointerPressed" />
+      <Border Grid.Row="0" Grid.Column="2" Background="Transparent" Tag="NorthEast" Cursor="SizeAll"
+              chrome:WindowDecorationProperties.ElementRole="ResizeNE"
+              PointerPressed="OnWindowResizeGripPointerPressed" />
+      <Border Grid.Row="1" Grid.Column="0" Background="Transparent" Tag="West" Cursor="SizeWestEast"
+              chrome:WindowDecorationProperties.ElementRole="ResizeW"
+              PointerPressed="OnWindowResizeGripPointerPressed" />
+      <Border Grid.Row="1" Grid.Column="2" Background="Transparent" Tag="East" Cursor="SizeWestEast"
+              chrome:WindowDecorationProperties.ElementRole="ResizeE"
+              PointerPressed="OnWindowResizeGripPointerPressed" />
+      <Border Grid.Row="2" Grid.Column="0" Background="Transparent" Tag="SouthWest" Cursor="SizeAll"
+              chrome:WindowDecorationProperties.ElementRole="ResizeSW"
+              PointerPressed="OnWindowResizeGripPointerPressed" />
+      <Border Grid.Row="2" Grid.Column="1" Background="Transparent" Tag="South" Cursor="SizeNorthSouth"
+              chrome:WindowDecorationProperties.ElementRole="ResizeS"
+              PointerPressed="OnWindowResizeGripPointerPressed" />
+      <Border Grid.Row="2" Grid.Column="2" Background="Transparent" Tag="SouthEast" Cursor="SizeAll"
+              chrome:WindowDecorationProperties.ElementRole="ResizeSE"
+              PointerPressed="OnWindowResizeGripPointerPressed" />
     </Grid>
 
     <!-- 浮层：Snackbar -->

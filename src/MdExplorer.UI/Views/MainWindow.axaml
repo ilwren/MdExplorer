@@ -7,6 +7,8 @@
         Width="1280" Height="840"
         MinWidth="360" MinHeight="520"
         Title="Eidoria"
+        WindowDecorations="BorderOnly" ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="48"
         Icon="/Assets/eidoria.ico"
         Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}">
   <views:MainView />

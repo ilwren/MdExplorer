@@ -92,6 +92,7 @@ public partial class MainView : UserControl
         }
 
         RegisterTabStripDrag(TabStrip);
+        RegisterTabStripDrag(DesktopTabStrip);
 
         // 投放目标：两个窗格的文件区（含条目与空白）与各自面包屑。
         foreach (var target in new Control[] { FileDropArea, BreadcrumbBar, SecondaryDropArea, SecondaryBreadcrumbBar })
@@ -143,6 +144,7 @@ public partial class MainView : UserControl
             ScheduleBreadcrumbEndScroll();
             ScheduleSecondaryBreadcrumbEndScroll();
             vm.Browser.PropertyChanged += OnBrowserPropertyChanged;
+            ApplyWindowChromeLayout();
             _ = vm.Browser.RefreshExternalClipboardAsync();
         }
     }
@@ -204,6 +206,123 @@ public partial class MainView : UserControl
         if (FloatingPreview.Y > size.Height - 64)
             FloatingPreview.Y = Math.Max(58, size.Height - 64);
     }
+
+    // ---------- 桌面无边框窗口 Chrome ----------
+    private bool UseDesktopWindowChrome =>
+        _hostWindow is MainWindow && Shell?.Capabilities.IsDesktop == true;
+
+    private void ApplyWindowChromeLayout()
+    {
+        if (Shell is not { } shell)
+        {
+            DesktopWindowChrome.IsVisible = false;
+            CompactWindowControls.IsVisible = false;
+            WindowResizeGrips.IsVisible = false;
+            WorkspaceTabStripHost.IsVisible = true;
+            return;
+        }
+
+        var useChrome = UseDesktopWindowChrome;
+        var showExpandedChrome = useChrome && shell.IsExpandedOrAbove;
+        DesktopWindowChrome.IsVisible = showExpandedChrome;
+        DesktopTabScroller.IsVisible = shell.IsBrowser && shell.ShowBrowserTabs;
+        WorkspaceTabStripHost.IsVisible = shell.ShowBrowserTabs && !showExpandedChrome;
+        CompactWindowControls.IsVisible = useChrome && shell.IsCompactOrMedium;
+        SelectionModeBar.Margin = CompactWindowControls.IsVisible
+            ? new Thickness(0, 0, 120, 0)
+            : default;
+        BrowserWorkspace.Margin = showExpandedChrome
+            ? new Thickness(10, 0, 10, 10)
+            : new Thickness(10);
+        WindowResizeGrips.IsVisible = useChrome && _hostWindow?.WindowState == WindowState.Normal;
+        UpdateMaximizeButtons();
+    }
+
+    private void UpdateMaximizeButtons()
+    {
+        var isMaximized = _hostWindow?.WindowState is WindowState.Maximized or WindowState.FullScreen;
+        foreach (var button in new[] { WindowMaximizeButton, CompactWindowMaximizeButton })
+        {
+            button.Icon = isMaximized ? MdSymbols.FilterNone : MdSymbols.CropSquare;
+            ToolTip.SetTip(button, isMaximized ? "还原" : "最大化");
+            AutomationProperties.SetName(button, isMaximized ? "还原窗口" : "最大化窗口");
+        }
+    }
+
+    private void OnHostWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == Window.WindowStateProperty)
+            ApplyWindowChromeLayout();
+    }
+
+    private void OnWindowChromePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!UseDesktopWindowChrome || _hostWindow is not { } window)
+            return;
+        if (!e.GetCurrentPoint(window).Properties.IsLeftButtonPressed)
+            return;
+        if (TabFromEvent(e) is not null)
+            return;
+        if (e.Source is Visual source
+            && source.GetSelfAndVisualAncestors().Any(static visual => visual is Button or TextBox))
+            return;
+
+        if (e.ClickCount == 2)
+        {
+            ToggleMaximizeWindow();
+            e.Handled = true;
+            return;
+        }
+        if (window.WindowState == WindowState.Normal)
+        {
+            window.BeginMoveDrag(e);
+            e.Handled = true;
+        }
+    }
+
+    private void OnWindowResizeGripPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!UseDesktopWindowChrome || _hostWindow is not { } window
+            || window.WindowState != WindowState.Normal
+            || sender is not Control { Tag: string tag }
+            || !e.GetCurrentPoint(window).Properties.IsLeftButtonPressed)
+            return;
+        var edge = tag switch
+        {
+            "NorthWest" => WindowEdge.NorthWest,
+            "North" => WindowEdge.North,
+            "NorthEast" => WindowEdge.NorthEast,
+            "West" => WindowEdge.West,
+            "East" => WindowEdge.East,
+            "SouthWest" => WindowEdge.SouthWest,
+            "South" => WindowEdge.South,
+            "SouthEast" => WindowEdge.SouthEast,
+            _ => (WindowEdge?)null,
+        };
+        if (edge is not { } value)
+            return;
+        window.BeginResizeDrag(value, e);
+        e.Handled = true;
+    }
+
+    private void OnMinimizeWindowClick(object? sender, RoutedEventArgs e)
+    {
+        if (_hostWindow is { } window)
+            window.WindowState = WindowState.Minimized;
+    }
+
+    private void OnToggleMaximizeWindowClick(object? sender, RoutedEventArgs e) => ToggleMaximizeWindow();
+
+    private void ToggleMaximizeWindow()
+    {
+        if (_hostWindow is not { } window)
+            return;
+        window.WindowState = window.WindowState == WindowState.Normal
+            ? WindowState.Maximized
+            : WindowState.Normal;
+    }
+
+    private void OnCloseWindowClick(object? sender, RoutedEventArgs e) => _hostWindow?.Close();
 
     // ---------- 三栏分隔条与入场动画 ----------
     // 本项目 XAML 编译器不为命名 ColumnDefinition 生成字段，按 PaneGrid 列索引取（列序见 MainView.axaml）。
@@ -1265,6 +1384,8 @@ public partial class MainView : UserControl
     {
         if (Shell?.Browser is not { } browser)
             return;
+        if (e.PropertyName is nameof(BrowserViewModel.HasMultipleTabs))
+            ApplyWindowChromeLayout();
         if (e.PropertyName is nameof(BrowserViewModel.CurrentPath))
         {
             var oldDepth = PathDepth(_lastBrowserPath);
