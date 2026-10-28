@@ -35,7 +35,7 @@ public sealed class FileOperationService : IFileOperationService
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                errors.Add(new OperationError(Path.GetFileName(source), ex.Message));
+                errors.Add(new OperationError(Path.GetFileName(source), ex.Message, source));
             }
 
             done++;
@@ -76,7 +76,7 @@ public sealed class FileOperationService : IFileOperationService
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                errors.Add(new OperationError(Path.GetFileName(source), ex.Message));
+                errors.Add(new OperationError(Path.GetFileName(source), ex.Message, source));
             }
 
             done++;
@@ -106,7 +106,7 @@ public sealed class FileOperationService : IFileOperationService
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                errors.Add(new OperationError(Path.GetFileName(source), ex.Message));
+                errors.Add(new OperationError(Path.GetFileName(source), ex.Message, source));
             }
 
             done++;

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Security.Cryptography;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -1411,8 +1412,20 @@ public sealed partial class BrowserViewModel : ObservableObject
         }
     }
 
+    private sealed class TransferPlanItem(string sourcePath, FileItem sourceItem)
+    {
+        public string SourcePath { get; } = sourcePath;
+        public FileItem SourceItem { get; } = sourceItem;
+        public string DisplayName => SourceItem.Name;
+        public ConflictPolicy Policy { get; set; } = ConflictPolicy.KeepBoth;
+    }
+
+    private sealed record TransferExecutionResult(
+        OperationOutcome Outcome,
+        IReadOnlyList<TransferPlanItem> Plan);
+
     /// <summary>
-    /// 通用文件传输：粘贴与拖放共用。含同源/后代目标防护、复制冲突询问、进度对话框与必要时刷新。
+    /// 通用文件传输：粘贴与拖放共用。含同源/后代目标防护、逐项冲突确认、任务中心进度与必要时刷新。
     /// 全程使用文件系统服务的名称/父链语义，本地路径与 storage URI 均不做 Path.* 拼接。
     /// </summary>
     public async Task<OperationOutcome?> TransferItemsAsync(
@@ -1430,38 +1443,357 @@ public sealed partial class BrowserViewModel : ObservableObject
             return null;
         }
 
-        var names = new List<string>(sources.Count);
-        foreach (var source in sources)
-            names.Add(await GetTransferDisplayNameAsync(source).ConfigureAwait(true));
+        var outcome = await RunTransferTaskAsync(
+            sources, destinationFolder, isMove, predeterminedPolicies: null, isRetry: false).ConfigureAwait(true);
+        await ReloadIfTransferAffectsCurrentAsync(sources, destinationFolder).ConfigureAwait(true);
+        return outcome;
+    }
 
-        var destinationNames = await GetDestinationNamesAsync(destinationFolder).ConfigureAwait(true);
-        var conflict = names.FirstOrDefault(destinationNames.Contains);
-        var policy = ConflictPolicy.KeepBoth;
-        var allFromDestination = sources.All(s =>
-            TransferPathsEqual(_fileSystem.GetParentPath(s), destinationFolder));
-        if (conflict is not null && !isMove && !allFromDestination)
+    private async Task<OperationOutcome> RunTransferTaskAsync(
+        IReadOnlyList<string> sources,
+        string destinationFolder,
+        bool isMove,
+        IReadOnlyDictionary<string, ConflictPolicy>? predeterminedPolicies,
+        bool isRetry)
+    {
+        IReadOnlyList<TransferPlanItem> executedPlan = [];
+        var title = (isMove, isRetry) switch
         {
-            var asked = await _dialogs.AskConflictAsync(conflict).ConfigureAwait(true);
-            if (asked is null) return null;
-            policy = asked.Value;
+            (true, true) => "正在重试移动失败项…",
+            (false, true) => "正在重试复制失败项…",
+            (true, false) => "正在移动…",
+            _ => "正在复制…",
+        };
+
+        return await _dialogs.RunOperationAsync(
+            title,
+            async (progress, ct) =>
+            {
+                var result = await ExecuteTransferAsync(
+                    sources, destinationFolder, isMove, predeterminedPolicies, progress, ct).ConfigureAwait(true);
+                executedPlan = result.Plan;
+                return result.Outcome;
+            },
+            previous => RetryFailedTransferAsync(executedPlan, destinationFolder, isMove, previous)).ConfigureAwait(true);
+    }
+
+    private async Task<TransferExecutionResult> ExecuteTransferAsync(
+        IReadOnlyList<string> sources,
+        string destinationFolder,
+        bool isMove,
+        IReadOnlyDictionary<string, ConflictPolicy>? predeterminedPolicies,
+        IProgress<OperationProgress> progress,
+        CancellationToken cancellationToken)
+    {
+        progress.Report(new OperationProgress(0, "正在检查目标…", 0, sources.Count));
+
+        var sourceItems = new List<FileItem>(sources.Count);
+        foreach (var source in sources)
+            sourceItems.Add(await GetTransferSourceItemAsync(source).ConfigureAwait(true));
+
+        var destinationItems = await GetDestinationItemsAsync(destinationFolder).ConfigureAwait(true);
+        var promptTotal = CountTransferConflictPrompts(
+            sources, sourceItems, destinationItems, destinationFolder, isMove, predeterminedPolicies);
+
+        var plannedTargets = new Dictionary<string, FileItem>(destinationItems, StringComparer.OrdinalIgnoreCase);
+        var plan = new List<TransferPlanItem>(sources.Count);
+        ConflictPolicy? blanketPolicy = null;
+        var promptIndex = 0;
+
+        for (var i = 0; i < sources.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var source = sources[i];
+            var sourceItem = sourceItems[i];
+            var itemPlan = new TransferPlanItem(source, sourceItem);
+            var predeterminedPolicy = ConflictPolicy.KeepBoth;
+            var hasPredeterminedPolicy = predeterminedPolicies is not null &&
+                                         predeterminedPolicies.TryGetValue(source, out predeterminedPolicy);
+            if (hasPredeterminedPolicy)
+                itemPlan.Policy = predeterminedPolicy;
+
+            var hasPlannedTarget = plannedTargets.TryGetValue(sourceItem.Name, out var plannedTarget);
+            var isSelfTransfer = hasPlannedTarget && IsSelfTransfer(source, plannedTarget!, destinationFolder, isMove);
+            if (hasPlannedTarget && !isSelfTransfer)
+            {
+                if (!hasPredeterminedPolicy)
+                {
+                    if (blanketPolicy is { } blanket)
+                    {
+                        itemPlan.Policy = blanket;
+                    }
+                    else
+                    {
+                        progress.Report(new OperationProgress(
+                            sources.Count == 0 ? 0 : (double)i / sources.Count,
+                            $"正在比对 {sourceItem.Name}",
+                            i,
+                            sources.Count));
+                        var targetHeading = destinationItems.Values.Any(item =>
+                            TransferPathsEqual(item.FullPath, plannedTarget!.FullPath))
+                            ? "目标已有"
+                            : "本批先写入";
+                        using var sourceSnapshot = await CreateConflictSnapshotAsync(
+                            sourceItem, "来源", cancellationToken).ConfigureAwait(true);
+                        using var targetSnapshot = await CreateConflictSnapshotAsync(
+                            plannedTarget!, targetHeading, cancellationToken).ConfigureAwait(true);
+                        var decision = await _dialogs.AskConflictAsync(new TransferConflictPrompt(
+                            sourceSnapshot,
+                            targetSnapshot,
+                            promptIndex,
+                            promptTotal,
+                            isMove)).ConfigureAwait(true);
+                        promptIndex++;
+                        if (decision is null)
+                        {
+                            return new TransferExecutionResult(
+                                new OperationOutcome(0, [], [], Cancelled: true),
+                                plan);
+                        }
+
+                        itemPlan.Policy = decision.Policy;
+                        if (decision.ApplyToRemaining)
+                            blanketPolicy = decision.Policy;
+                    }
+                }
+
+                if (itemPlan.Policy == ConflictPolicy.Overwrite)
+                    plannedTargets[sourceItem.Name] = sourceItem;
+            }
+            else if (!hasPlannedTarget)
+            {
+                plannedTargets[sourceItem.Name] = sourceItem;
+            }
+
+            plan.Add(itemPlan);
         }
 
-        var outcome = await _dialogs.RunOperationAsync(isMove ? "正在移动…" : "正在复制…", (progress, ct) =>
-            isMove
-                ? _operations.MoveAsync(sources, destinationFolder, policy, progress, ct)
-                : _operations.CopyAsync(sources, destinationFolder, policy, progress, ct)).ConfigureAwait(true);
+        var errors = new List<OperationError>();
+        var produced = new List<string>();
+        var succeeded = 0;
+        var skipped = 0;
+        for (var i = 0; i < plan.Count; i++)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return new TransferExecutionResult(
+                    new OperationOutcome(succeeded, errors, produced, Cancelled: true, SkippedCount: skipped),
+                    plan);
+            }
 
+            var itemPlan = plan[i];
+            var itemOutcome = isMove
+                ? await _operations.MoveAsync(
+                    [itemPlan.SourcePath], destinationFolder, itemPlan.Policy, null, cancellationToken).ConfigureAwait(true)
+                : await _operations.CopyAsync(
+                    [itemPlan.SourcePath], destinationFolder, itemPlan.Policy, null, cancellationToken).ConfigureAwait(true);
+
+            errors.AddRange(itemOutcome.Errors.Select(error =>
+                error.ItemPath is null ? error with { ItemPath = itemPlan.SourcePath } : error));
+            produced.AddRange(itemOutcome.ProducedPaths);
+            if (itemOutcome.Cancelled)
+            {
+                return new TransferExecutionResult(
+                    new OperationOutcome(succeeded, errors, produced, Cancelled: true, SkippedCount: skipped),
+                    plan);
+            }
+            if (itemOutcome.Errors.Count == 0)
+            {
+                if (itemOutcome.ProducedPaths.Count > 0)
+                    succeeded += itemOutcome.ProducedPaths.Count;
+                else
+                    skipped++;
+            }
+
+            progress.Report(new OperationProgress(
+                (double)(i + 1) / Math.Max(1, plan.Count),
+                itemPlan.DisplayName,
+                i + 1,
+                plan.Count));
+        }
+
+        return new TransferExecutionResult(
+            new OperationOutcome(succeeded, errors, produced, SkippedCount: skipped),
+            plan);
+    }
+
+    private int CountTransferConflictPrompts(
+        IReadOnlyList<string> sources,
+        IReadOnlyList<FileItem> sourceItems,
+        IReadOnlyDictionary<string, FileItem> destinationItems,
+        string destinationFolder,
+        bool isMove,
+        IReadOnlyDictionary<string, ConflictPolicy>? predeterminedPolicies)
+    {
+        var occupied = new Dictionary<string, FileItem>(destinationItems, StringComparer.OrdinalIgnoreCase);
+        var count = 0;
+        for (var i = 0; i < sources.Count; i++)
+        {
+            var name = sourceItems[i].Name;
+            if (occupied.TryGetValue(name, out var target))
+            {
+                if (!IsSelfTransfer(sources[i], target, destinationFolder, isMove) &&
+                    !(predeterminedPolicies?.ContainsKey(sources[i]) ?? false))
+                    count++;
+            }
+            else
+            {
+                occupied[name] = sourceItems[i];
+            }
+        }
+        return count;
+    }
+
+    private bool IsSelfTransfer(string source, FileItem plannedTarget, string destinationFolder, bool isMove)
+    {
+        if (!TransferPathsEqual(_fileSystem.GetParentPath(source), destinationFolder))
+            return false;
+        // 同夹移动是无操作；同夹复制的目标就是来源本身，服务层会安全地保留两者。
+        return isMove || TransferPathsEqual(source, plannedTarget.FullPath);
+    }
+
+    private async Task RetryFailedTransferAsync(
+        IReadOnlyList<TransferPlanItem> executedPlan,
+        string destinationFolder,
+        bool isMove,
+        OperationOutcome previous)
+    {
+        var failedPaths = previous.Errors
+            .Select(error => error.ItemPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Cast<string>()
+            .ToList();
+        IEnumerable<TransferPlanItem> failed;
+        if (failedPaths.Count > 0)
+        {
+            failed = executedPlan.Where(item =>
+                failedPaths.Any(path => TransferPathsEqual(path, item.SourcePath)));
+        }
+        else
+        {
+            // 旧服务或聚合错误没有定位串时，只在名称能唯一映射时重试，禁止整批重跑。
+            failed = previous.Errors.SelectMany(error =>
+            {
+                var matches = executedPlan
+                    .Where(item => string.Equals(item.DisplayName, error.ItemName, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                return matches.Count == 1 ? matches : [];
+            });
+        }
+
+        var retryPlan = failed
+            .DistinctBy(item => item.SourcePath, StringComparer.Ordinal)
+            .Where(item => _fileSystem.Exists(item.SourcePath))
+            .ToList();
+        if (retryPlan.Count == 0)
+        {
+            _dialogs.Notify("失败项的来源已不存在或无法精确对应，无法重试");
+            return;
+        }
+
+        var policies = retryPlan.ToDictionary(item => item.SourcePath, item => item.Policy, StringComparer.Ordinal);
+        var sources = retryPlan.Select(item => item.SourcePath).ToList();
+        _ = await RunTransferTaskAsync(
+            sources, destinationFolder, isMove, policies, isRetry: true).ConfigureAwait(true);
+        await ReloadIfTransferAffectsCurrentAsync(sources, destinationFolder).ConfigureAwait(true);
+    }
+
+    private async Task ReloadIfTransferAffectsCurrentAsync(
+        IReadOnlyList<string> sources, string destinationFolder)
+    {
         var affectsCurrentFolder = TransferPathsEqual(destinationFolder, CurrentPath)
             || sources.Any(s => TransferPathsEqual(_fileSystem.GetParentPath(s), CurrentPath));
         if (affectsCurrentFolder)
             await ReloadAfterOperationAsync().ConfigureAwait(true);
-        return outcome;
+    }
+
+    private async Task<ConflictItemSnapshot> CreateConflictSnapshotAsync(
+        FileItem item, string heading, CancellationToken cancellationToken)
+    {
+        string? sha256 = null;
+        Bitmap? thumbnail = null;
+        if (!item.IsFolder && item.Length is >= 0 and <= 64L * 1024 * 1024)
+        {
+            try { sha256 = await ComputeTransferSha256Async(item.FullPath, cancellationToken).ConfigureAwait(true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException) { }
+        }
+        if (item.Kind == FileKind.Image && item.Length is >= 0 and <= 32L * 1024 * 1024)
+        {
+            try { thumbnail = await LoadConflictThumbnailAsync(item.FullPath, cancellationToken).ConfigureAwait(true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException) { }
+        }
+        return new ConflictItemSnapshot(heading, item, GetConflictLocationText(item.FullPath), sha256, thumbnail);
+    }
+
+    private async Task<string> ComputeTransferSha256Async(string path, CancellationToken cancellationToken)
+    {
+        using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        await using var stream = await _fileSystem.OpenReadAsync(path, cancellationToken).ConfigureAwait(true);
+        var buffer = new byte[128 * 1024];
+        int read;
+        while ((read = await stream.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(true)) > 0)
+            hasher.AppendData(buffer, 0, read);
+        return Convert.ToHexStringLower(hasher.GetHashAndReset());
+    }
+
+    private async Task<Bitmap> LoadConflictThumbnailAsync(string path, CancellationToken cancellationToken)
+    {
+        await using var stream = await _fileSystem.OpenReadAsync(path, cancellationToken).ConfigureAwait(true);
+        return await Task.Run(() => Bitmap.DecodeToWidth(stream, 320), cancellationToken).ConfigureAwait(true);
+    }
+
+    private string GetConflictLocationText(string path)
+    {
+        var parent = _fileSystem.GetParentPath(path);
+        if (parent is null)
+            return FileLocator.IsStorageUri(path) ? "授权文件夹" : path;
+        if (!FileLocator.IsStorageUri(parent))
+            return parent;
+        return _fileSystem.GetBreadcrumbs(parent).LastOrDefault()?.Name ?? "授权文件夹";
     }
 
     /// <summary>拖放 DragOver 阶段的目标合法性预判（禁止落入来源自身或其子文件夹）。</summary>
     public bool CanTransferItems(IReadOnlyList<string> sourcePaths, string destinationFolder) =>
         sourcePaths.All(source => !FileTransferRules.IsSameOrDescendant(
             destinationFolder, source, _fileSystem.GetParentPath, static (a, b) => TransferPathsEqual(a, b)));
+
+    private async Task<FileItem> GetTransferSourceItemAsync(string source)
+    {
+        var known = _allItems.FirstOrDefault(i => TransferPathsEqual(i.FullPath, source));
+        if (known is not null)
+            return known;
+        if (await _fileSystem.StatAsync(source, CancellationToken.None).ConfigureAwait(true) is { } stat)
+            return stat;
+
+        var name = await GetTransferDisplayNameAsync(source).ConfigureAwait(true);
+        var isFolder = !FileLocator.IsStorageUri(source) && Directory.Exists(source);
+        long? length = null;
+        var modified = DateTimeOffset.UnixEpoch;
+        if (!FileLocator.IsStorageUri(source))
+        {
+            try
+            {
+                if (isFolder)
+                    modified = Directory.GetLastWriteTime(source);
+                else if (File.Exists(source))
+                {
+                    var info = new FileInfo(source);
+                    length = info.Length;
+                    modified = info.LastWriteTime;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+        return new FileItem(
+            FileLocator.IsStorageUri(source) ? FileLocator.FromStorage(source) : FileLocator.FromPath(source),
+            name,
+            isFolder ? FileKind.Folder : FileKindClassifier.Classify(name),
+            length,
+            modified,
+            IsHidden: false,
+            IsSymlink: false,
+            Path.GetExtension(name));
+    }
 
     private async Task<string> GetTransferDisplayNameAsync(string source)
     {
@@ -1477,19 +1809,19 @@ public sealed partial class BrowserViewModel : ObservableObject
         return stat?.Name ?? source;
     }
 
-    private async Task<HashSet<string>> GetDestinationNamesAsync(string destinationFolder)
+    private async Task<Dictionary<string, FileItem>> GetDestinationItemsAsync(string destinationFolder)
     {
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var items = new Dictionary<string, FileItem>(StringComparer.OrdinalIgnoreCase);
         try
         {
             await foreach (var item in _fileSystem.ListAsync(destinationFolder, includeHidden: true, CancellationToken.None).ConfigureAwait(true))
-                names.Add(item.Name);
+                items[item.Name] = item;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
         {
             // 冲突预检尽力而为；真正的打开/写入错误由操作管线汇总报告。
         }
-        return names;
+        return items;
     }
 
     internal static bool PathSetsEqual(IReadOnlyList<string> left, IReadOnlyList<string> right) =>

@@ -103,6 +103,34 @@
         </Grid>
       </Border>
     </DataTemplate>
+
+    <DataTemplate x:Key="ConflictCardTemplate" x:DataType="vm:ConflictItemSnapshot">
+      <Border Classes="card" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="caption" Text="{Binding Heading}" />
+          <Border Height="104" CornerRadius="14" ClipToBounds="True" Background="{Binding Display.GlyphBackgroundBrush}">
+            <Grid>
+              <Image Source="{Binding Display.Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding Display.HasThumbnail}" />
+              <md:MdIcon Glyph="{Binding Display.Glyph}" Size="42" Foreground="{Binding Display.GlyphBrush}"
+                         IsVisible="{Binding Display.ShowGlyph}" />
+            </Grid>
+          </Border>
+          <TextBlock Classes="body" Text="{Binding Name}" TextWrapping="Wrap" MaxLines="2"
+                     TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FullPath}" />
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="7" RowSpacing="4">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Storage}" Size="16" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding SizeText}" TextTrimming="CharacterEllipsis" />
+            <md:MdIcon Grid.Row="1" Glyph="{x:Static md:MdSymbols.PendingActions}" Size="16" VerticalAlignment="Center" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" />
+            <md:MdIcon Grid.Row="2" Glyph="{x:Static md:MdSymbols.Check}" Size="16" VerticalAlignment="Center" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Classes="caption" Text="{Binding HashText}" TextWrapping="Wrap" />
+            <md:MdIcon Grid.Row="3" Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="16" VerticalAlignment="Center" />
+            <TextBlock Grid.Row="3" Grid.Column="1" Classes="caption" Text="{Binding LocationText}"
+                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FullPath}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
   </UserControl.Resources>
 
   <Grid>
@@ -892,9 +920,12 @@
         </Border.Transitions>
         <Grid RowDefinitions="Auto,*">
           <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <md:MdIcon Glyph="{x:Static md:MdSymbols.PendingActions}" Size="22" VerticalAlignment="Center" />
-              <TextBlock Classes="h3" Text="任务中心" VerticalAlignment="Center" />
+            <StackPanel Spacing="2">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <md:MdIcon Glyph="{x:Static md:MdSymbols.PendingActions}" Size="22" VerticalAlignment="Center" />
+                <TextBlock Classes="h3" Text="任务中心" VerticalAlignment="Center" />
+              </StackPanel>
+              <TextBlock Classes="caption" Text="{Binding TaskCenterSummaryText}" />
             </StackPanel>
             <md:MdButton Grid.Column="1" Variant="Text" Content="清除已完成"
                          Command="{Binding ClearFinishedTasksCommand}" />
@@ -915,6 +946,8 @@
                                     VerticalAlignment="Center" ToolTip.Tip="{Binding StatusText}">
                           <md:MdIcon Glyph="{x:Static md:MdSymbols.PendingActions}" Size="18" IsVisible="{Binding IsQueued}"
                                      Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                          <md:MdIcon Glyph="{x:Static md:MdSymbols.Warning}" Size="19" IsVisible="{Binding IsWaitingConfirmation}"
+                                     Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
                           <md:MdCircularProgressIndicator IsVisible="{Binding IsRunning}" IsIndeterminate="True"
                                                           Width="18" Height="18" />
                           <md:MdIcon Glyph="{x:Static md:MdSymbols.CheckCircle}" Size="19" IsVisible="{Binding IsCompleted}"
@@ -925,6 +958,7 @@
                                      Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
                           <TextBlock Classes="caption" Text="{Binding ProgressPercentText}" IsVisible="{Binding IsActive}"
                                      VerticalAlignment="Center" />
+                          <TextBlock Classes="caption" Text="{Binding StatusText}" VerticalAlignment="Center" />
                         </StackPanel>
                         <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.Cancel}"
                                          Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"
@@ -932,10 +966,28 @@
                       </Grid>
                       <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding ProgressPercent}"
                                                     Height="5" IsVisible="{Binding IsActive}" />
-                      <TextBlock Classes="caption" Text="{Binding Detail}" TextWrapping="Wrap" IsVisible="{Binding IsActive}" />
+                      <TextBlock Classes="caption" Text="{Binding Detail}" TextWrapping="Wrap" />
+                      <TextBlock Classes="caption" Text="{Binding ResultSummaryText}" TextWrapping="Wrap"
+                                 IsVisible="{Binding HasResultSummary}" />
                       <TextBlock FontSize="11.5" Text="{Binding ErrorText}" TextWrapping="Wrap"
                                  IsVisible="{Binding HasErrors}"
                                  Foreground="{DynamicResource Md.Sys.Color.Error.Brush}" />
+                      <WrapPanel Orientation="Horizontal">
+                        <md:MdButton Variant="Text" Content="{Binding DetailsButtonText}" Margin="0,0,8,4"
+                                     Command="{Binding ToggleDetailsCommand}" IsVisible="{Binding HasDetails}" />
+                        <md:MdButton Variant="Tonal" Margin="0,0,8,4"
+                                     Command="{Binding RetryCommand}" IsVisible="{Binding CanRetry}">
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <md:MdIcon Glyph="{x:Static md:MdSymbols.Refresh}" Size="17" />
+                            <TextBlock Text="重试失败项" VerticalAlignment="Center" />
+                          </StackPanel>
+                        </md:MdButton>
+                      </WrapPanel>
+                      <StackPanel Spacing="4" IsVisible="{Binding IsDetailsExpanded}">
+                        <TextBlock Classes="caption" Text="{Binding TimeText}" />
+                        <TextBlock Classes="caption" Text="{Binding ProducedText}" TextWrapping="Wrap"
+                                   IsVisible="{Binding HasProducedPaths}" />
+                      </StackPanel>
                     </StackPanel>
                   </Border>
                 </DataTemplate>
@@ -949,7 +1001,7 @@
     <!-- 浮层：对话框 -->
     <Grid IsVisible="{Binding IsDialogOpen}">
       <Border Background="#66000000" />
-      <Border HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="320" MaxWidth="560" MaxHeight="720"
+      <Border HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="320" MaxWidth="{Binding DialogMaxWidth}" MaxHeight="720"
               Margin="20" CornerRadius="28" Padding="25"
               Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
               BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
@@ -1005,28 +1057,67 @@
             </md:MdScrollViewer>
           </StackPanel>
 
-          <StackPanel Spacing="6" IsVisible="{Binding IsConflictDialog}">
-            <md:MdButton Variant="Tonal" HorizontalContentAlignment="Left"
-                         Command="{Binding ConflictChoiceCommand}" CommandParameter="KeepBoth">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.ContentCopy}" Size="18" />
-                <TextBlock Text="保留两者" VerticalAlignment="Center" />
-              </StackPanel>
-            </md:MdButton>
-            <md:MdButton Variant="Tonal" HorizontalContentAlignment="Left"
-                         Command="{Binding ConflictChoiceCommand}" CommandParameter="Overwrite">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.Refresh}" Size="18" />
-                <TextBlock Text="覆盖" VerticalAlignment="Center" />
-              </StackPanel>
-            </md:MdButton>
-            <md:MdButton Variant="Tonal" HorizontalContentAlignment="Left"
-                         Command="{Binding ConflictChoiceCommand}" CommandParameter="Skip">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.ArrowForward}" Size="18" />
-                <TextBlock Text="跳过" VerticalAlignment="Center" />
-              </StackPanel>
-            </md:MdButton>
+          <StackPanel Spacing="12" IsVisible="{Binding IsConflictDialog}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+              <TextBlock Classes="caption" Text="{Binding CurrentConflict.CountText}" VerticalAlignment="Center" />
+              <Border Grid.Column="1" CornerRadius="99" Padding="8,3"
+                      Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}"
+                      IsVisible="{Binding CurrentConflict.HasComparisonText}">
+                <TextBlock Classes="caption" Text="{Binding CurrentConflict.ComparisonText}"
+                           Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="10" IsVisible="{Binding !IsCompact}">
+              <ContentControl Content="{Binding CurrentConflict.Source}"
+                              ContentTemplate="{StaticResource ConflictCardTemplate}" />
+              <md:MdIcon Grid.Column="1" Glyph="{x:Static md:MdSymbols.ArrowForward}" Size="22"
+                         VerticalAlignment="Center" Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+              <ContentControl Grid.Column="2" Content="{Binding CurrentConflict.Target}"
+                              ContentTemplate="{StaticResource ConflictCardTemplate}" />
+            </Grid>
+            <StackPanel Spacing="10" IsVisible="{Binding IsCompact}">
+              <ContentControl Content="{Binding CurrentConflict.Source}"
+                              ContentTemplate="{StaticResource ConflictCardTemplate}" />
+              <ContentControl Content="{Binding CurrentConflict.Target}"
+                              ContentTemplate="{StaticResource ConflictCardTemplate}" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+              <md:MdButton Classes="search-kind" Classes.active="{Binding IsConflictKeepBoth}" Variant="Outlined"
+                           Height="68" ContainerHeight="68" Padding="0"
+                           Command="{Binding SelectConflictPolicyCommand}" CommandParameter="KeepBoth"
+                           ToolTip.Tip="保留目标项目，来源项目以新名称写入">
+                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.ContentCopy}" Size="21" HorizontalAlignment="Center" />
+                  <TextBlock Text="保留两者" HorizontalAlignment="Center" />
+                </StackPanel>
+              </md:MdButton>
+              <md:MdButton Grid.Column="1" Classes="search-kind" Classes.active="{Binding IsConflictOverwrite}" Variant="Outlined"
+                           Height="68" ContainerHeight="68" Padding="0"
+                           Command="{Binding SelectConflictPolicyCommand}" CommandParameter="Overwrite"
+                           ToolTip.Tip="删除目标已有项目，再写入来源项目">
+                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Refresh}" Size="21" HorizontalAlignment="Center" />
+                  <TextBlock Text="替换" HorizontalAlignment="Center" />
+                </StackPanel>
+              </md:MdButton>
+              <md:MdButton Grid.Column="2" Classes="search-kind" Classes.active="{Binding IsConflictSkip}" Variant="Outlined"
+                           Height="68" ContainerHeight="68" Padding="0"
+                           Command="{Binding SelectConflictPolicyCommand}" CommandParameter="Skip"
+                           ToolTip.Tip="不写入此来源项目，移动时保留原来源">
+                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.ArrowForward}" Size="21" HorizontalAlignment="Center" />
+                  <TextBlock Text="跳过" HorizontalAlignment="Center" />
+                </StackPanel>
+              </md:MdButton>
+            </Grid>
+
+            <TextBlock Classes="caption" Text="{Binding ConflictPolicyDescription}" TextWrapping="Wrap" />
+            <md:MdCheckBox IsChecked="{Binding ConflictApplyToRemaining}"
+                           IsVisible="{Binding CurrentConflict.HasRemaining}">
+              <TextBlock Text="{Binding CurrentConflict.ApplyToRemainingText}" />
+            </md:MdCheckBox>
           </StackPanel>
 
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">

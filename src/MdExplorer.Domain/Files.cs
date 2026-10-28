@@ -85,13 +85,15 @@ public sealed record SearchSpec(
 /// <summary>写操作类型与冲突策略（任务队列语义见 DEVELOPMENT.md §5.5，v0.1 为串行执行器）。</summary>
 public enum ConflictPolicy { Overwrite, Skip, KeepBoth }
 
-public sealed record OperationError(string ItemName, string Message);
+/// <summary>单项操作失败。ItemPath 在服务能确定来源定位串时填写，供任务详情精确重试失败项。</summary>
+public sealed record OperationError(string ItemName, string Message, string? ItemPath = null);
 
 public sealed record OperationOutcome(
     int SucceededCount,
     IReadOnlyList<OperationError> Errors,
     IReadOnlyList<string> ProducedPaths,
-    bool Cancelled = false)
+    bool Cancelled = false,
+    int SkippedCount = 0)
 {
     public bool Success => Errors.Count == 0 && !Cancelled;
 }

@@ -534,7 +534,7 @@ public sealed class DelegatingFileOperationService(
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
             {
-                errors.Add(new OperationError(fileSystem.DisplayNameOf(source), ex.Message));
+                errors.Add(new OperationError(fileSystem.DisplayNameOf(source), ex.Message, source));
             }
             done++;
             progress?.Report(new OperationProgress((double)done / Math.Max(1, sources.Count),
@@ -615,7 +615,7 @@ public sealed class DelegatingFileOperationService(
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
             {
-                errors.Add(new OperationError(fileSystem.DisplayNameOf(source), ex.Message));
+                errors.Add(new OperationError(fileSystem.DisplayNameOf(source), ex.Message, source));
             }
             done++;
             progress?.Report(new OperationProgress((double)done / Math.Max(1, sources.Count),

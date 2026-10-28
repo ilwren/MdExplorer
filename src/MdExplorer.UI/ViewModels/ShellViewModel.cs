@@ -317,16 +317,34 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     public bool HasOperationTasks => OperationTasks.Count > 0;
     public int ActiveOperationTaskCount => OperationTasks.Count(task => task.IsActive);
+    public int WaitingConfirmationTaskCount => OperationTasks.Count(task => task.IsWaitingConfirmation);
+    public int FailedOperationTaskCount => OperationTasks.Count(task => task.IsFailed);
     public bool HasActiveOperationTasks => ActiveOperationTaskCount > 0;
     public string ActiveOperationTaskCountText => ActiveOperationTaskCount > 99
         ? "99+"
         : ActiveOperationTaskCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
-    public string TaskCenterText => ActiveOperationTaskCount switch
+    public string TaskCenterText => WaitingConfirmationTaskCount > 0
+        ? "任务 · 等待确认"
+        : ActiveOperationTaskCount switch
+        {
+            0 => "任务",
+            1 => "任务 · 运行中",
+            var count => $"任务 · {count} 个进行中",
+        };
+    public string TaskCenterSummaryText
     {
-        0 => "任务",
-        1 => "任务 · 运行中",
-        var count => $"任务 · {count} 个进行中",
-    };
+        get
+        {
+            if (OperationTasks.Count == 0) return "暂无任务";
+            var parts = new List<string>(4);
+            if (WaitingConfirmationTaskCount > 0) parts.Add($"等待确认 {WaitingConfirmationTaskCount}");
+            if (ActiveOperationTaskCount > 0) parts.Add($"进行中 {ActiveOperationTaskCount}");
+            if (FailedOperationTaskCount > 0) parts.Add($"失败 {FailedOperationTaskCount}");
+            var completed = OperationTasks.Count(task => task.IsCompleted);
+            if (completed > 0) parts.Add($"已完成 {completed}");
+            return parts.Count > 0 ? string.Join(" · ", parts) : $"{OperationTasks.Count} 个任务";
+        }
+    }
 
 
     private static readonly (KnownFolder Folder, string Title, Func<string?> Glyph)[] KnownPlaceDefs =
@@ -785,9 +803,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         OnPropertyChanged(nameof(HasOperationTasks));
         OnPropertyChanged(nameof(ActiveOperationTaskCount));
+        OnPropertyChanged(nameof(WaitingConfirmationTaskCount));
+        OnPropertyChanged(nameof(FailedOperationTaskCount));
         OnPropertyChanged(nameof(HasActiveOperationTasks));
         OnPropertyChanged(nameof(ActiveOperationTaskCountText));
         OnPropertyChanged(nameof(TaskCenterText));
+        OnPropertyChanged(nameof(TaskCenterSummaryText));
     }
 
     /// <summary>文件被点开时由视图调用：小断点进预览页，大断点预览窗格随选集变化即可。</summary>
@@ -2473,8 +2494,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _dialogDestructive;
     [ObservableProperty] private double _operationPercent;
     [ObservableProperty] private string _operationDetail = string.Empty;
+    [ObservableProperty] private TransferConflictPrompt? _currentConflict;
+    [ObservableProperty] private string _conflictPolicyName = nameof(ConflictPolicy.KeepBoth);
+    [ObservableProperty] private bool _conflictApplyToRemaining;
+    [ObservableProperty] private int _pendingConflictCount;
 
     private DialogKind _dialogKind = DialogKind.None;
+    private OperationTaskViewModel? _currentOperationTask;
     private TaskCompletionSource<object?>? _dialogTcs;
     private Func<string, string?>? _dialogValidate;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
@@ -2485,7 +2511,31 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsConflictDialog => IsDialogOpen && _dialogKind == DialogKind.Conflict;
     public bool IsBatchRenameDialog => IsDialogOpen && _dialogKind == DialogKind.BatchRename;
     public bool ShowDialogCancel => _dialogKind is DialogKind.Prompt or DialogKind.Confirm or DialogKind.Conflict or DialogKind.BatchRename;
-    public bool ShowDialogConfirm => _dialogKind is DialogKind.Prompt or DialogKind.Confirm or DialogKind.Message or DialogKind.BatchRename;
+    public bool ShowDialogConfirm => _dialogKind is DialogKind.Prompt or DialogKind.Confirm or DialogKind.Message or DialogKind.Conflict or DialogKind.BatchRename;
+    public double DialogMaxWidth => IsConflictDialog ? 720 : 560;
+    public bool HasPendingConflicts => PendingConflictCount > 0;
+    public ConflictPolicy SelectedConflictPolicy =>
+        Enum.TryParse<ConflictPolicy>(ConflictPolicyName, out var policy) ? policy : ConflictPolicy.KeepBoth;
+    public bool IsConflictKeepBoth => SelectedConflictPolicy == ConflictPolicy.KeepBoth;
+    public bool IsConflictOverwrite => SelectedConflictPolicy == ConflictPolicy.Overwrite;
+    public bool IsConflictSkip => SelectedConflictPolicy == ConflictPolicy.Skip;
+    public string ConflictPolicyDescription => SelectedConflictPolicy switch
+    {
+        ConflictPolicy.Overwrite => "替换将先删除目标已有项目，再写入来源项目。",
+        ConflictPolicy.Skip => "跳过此来源项目；移动时来源仍保留在原处。",
+        _ => "保留目标项目，来源项目将以新名称写入。",
+    };
+
+    partial void OnConflictPolicyNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(SelectedConflictPolicy));
+        OnPropertyChanged(nameof(IsConflictKeepBoth));
+        OnPropertyChanged(nameof(IsConflictOverwrite));
+        OnPropertyChanged(nameof(IsConflictSkip));
+        OnPropertyChanged(nameof(ConflictPolicyDescription));
+    }
+
+    partial void OnPendingConflictCountChanged(int value) => OnPropertyChanged(nameof(HasPendingConflicts));
 
     private void NotifyDialogKinds()
     {
@@ -2496,6 +2546,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsBatchRenameDialog));
         OnPropertyChanged(nameof(ShowDialogCancel));
         OnPropertyChanged(nameof(ShowDialogConfirm));
+        OnPropertyChanged(nameof(DialogMaxWidth));
     }
 
     public async Task<string?> PromptAsync(string title, string? initialText, string confirmLabel, Func<string, string?>? validate = null)
@@ -2534,15 +2585,37 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         await ShowDialogAsync().ConfigureAwait(true);
     }
 
-    public async Task<ConflictPolicy?> AskConflictAsync(string fileName)
+    public async Task<TransferConflictDecision?> AskConflictAsync(TransferConflictPrompt prompt)
     {
         _dialogKind = DialogKind.Conflict;
         _dialogValidate = null;
-        DialogTitle = "目标中已存在同名项目";
-        DialogMessage = $"「{fileName}」在目标文件夹中已存在。选择处理方式（将应用于本批全部冲突项）：";
+        CurrentConflict = prompt;
+        ConflictPolicyName = nameof(ConflictPolicy.KeepBoth);
+        ConflictApplyToRemaining = false;
+        PendingConflictCount = prompt.RemainingIncludingCurrent;
+        DialogTitle = "目标已有同名项目";
+        DialogMessage = prompt.IsMove
+            ? "移动前先比对来源与目标，再决定如何处理此项目。"
+            : "复制前先比对来源与目标，再决定如何处理此项目。";
+        DialogConfirmLabel = "继续";
         DialogDestructive = false;
-        var result = await ShowDialogAsync().ConfigureAwait(true);
-        return result as ConflictPolicy?;
+
+        var waitingTask = _currentOperationTask;
+        waitingTask?.MarkWaitingConfirmation(
+            $"等待确认：{prompt.Source.Name}（{prompt.Index + 1}/{Math.Max(1, prompt.TotalCount)}）");
+        RefreshTaskCenterSummary();
+        try
+        {
+            var result = await ShowDialogAsync().ConfigureAwait(true);
+            return result as TransferConflictDecision;
+        }
+        finally
+        {
+            PendingConflictCount = 0;
+            waitingTask?.ResumeAfterConfirmation();
+            CurrentConflict = null;
+            RefreshTaskCenterSummary();
+        }
     }
 
     // ---------- 批量重命名对话框 ----------
@@ -2620,6 +2693,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         {
             DialogKind.Prompt => ValidatePrompt() ? DialogInput : _sentinel,
             DialogKind.Confirm or DialogKind.Message => true,
+            DialogKind.Conflict => new TransferConflictDecision(
+                SelectedConflictPolicy,
+                CurrentConflict?.HasRemaining == true && ConflictApplyToRemaining),
             DialogKind.BatchRename => BatchHasErrors ? _sentinel : BatchRows.Select(r => r.Proposed).ToArray(),
             _ => null,
         };
@@ -2646,10 +2722,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _dialogTcs?.TrySetResult(_dialogKind == DialogKind.Confirm ? false : null);
 
     [RelayCommand]
-    private void ConflictChoice(string policy)
+    private void SelectConflictPolicy(string policy)
     {
         if (Enum.TryParse<ConflictPolicy>(policy, out var parsed))
-            _dialogTcs?.TrySetResult(parsed);
+            ConflictPolicyName = parsed.ToString();
     }
 
     // ---------- Snackbar ----------
@@ -2679,9 +2755,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     // ---------- 任务中心 ----------
     public async Task<OperationOutcome> RunOperationAsync(
         string title,
-        Func<IProgress<OperationProgress>, CancellationToken, Task<OperationOutcome>> operation)
+        Func<IProgress<OperationProgress>, CancellationToken, Task<OperationOutcome>> operation,
+        Func<OperationOutcome, Task>? retryFailed = null)
     {
         var task = new OperationTaskViewModel(title);
+        task.SetRetryHandler(retryFailed);
         task.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(OperationTaskViewModel.Status))
@@ -2702,6 +2780,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         {
             await _operationGate.WaitAsync(task.CancellationToken).ConfigureAwait(true);
             acquired = true;
+            _currentOperationTask = task;
             task.MarkRunning();
             var progress = new Progress<OperationProgress>(task.Report);
             outcome = await operation(progress, task.CancellationToken).ConfigureAwait(true);
@@ -2716,6 +2795,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         }
         finally
         {
+            if (ReferenceEquals(_currentOperationTask, task))
+                _currentOperationTask = null;
             if (acquired)
                 _operationGate.Release();
         }
