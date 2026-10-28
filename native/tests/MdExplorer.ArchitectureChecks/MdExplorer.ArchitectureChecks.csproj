@@ -2,6 +2,8 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <OutputType>Exe</OutputType>
+    <!-- GetReferencedAssemblies 带 RequiresUnreferencedCodeAttribute；测试进程不做裁剪，安全。 -->
+    <NoWarn>$(NoWarn);IL2026</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/MdExplorer.Domain/MdExplorer.Domain.csproj" />
