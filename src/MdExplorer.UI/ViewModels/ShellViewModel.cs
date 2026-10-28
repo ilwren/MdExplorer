@@ -1006,7 +1006,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             "导航",
             "· Ctrl+L：编辑路径    Ctrl+F / Ctrl+K：悬浮搜索面板（回车递归搜索）",
             "· Alt+← / Alt+→：后退 / 前进    Alt+↑：上一级",
-            "· F5 或 Ctrl+R：刷新",
+            "· F5 或 Ctrl+R：刷新    Ctrl+Shift+D：打开/关闭对照窗格（仅 1600+ dp）    F6：切换活动窗格",
             "",
             "标签页",
             "· Ctrl+T：复制当前标签    Ctrl+W：关闭标签",

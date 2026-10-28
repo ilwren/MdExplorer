@@ -629,9 +629,11 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 
 > **v0.17 逐项冲突确认 + 任务详情（第一切片，已落地）**：`OperationError` 新增可选 `ItemPath`，`OperationOutcome` 新增可选 `SkippedCount`；本地与委托/SAF 操作的逐项失败在可得时回填来源定位串。`IDialogs.AskConflictAsync` 改为接收 `TransferConflictPrompt` 并返回 `TransferConflictDecision`，`RunOperationAsync` 可登记一次性失败重试回调。`TransferItemsAsync` 先创建真实任务，再在任务内按目标占用名（磁盘已有项 + 已规划的批内来源）逐项预检全部顶层冲突；默认策略为保留两者，只有 `MdCheckBox` 明确勾选时才把当前策略应用到其余冲突，策略按钮只改变选择、由“继续”统一提交，替换不占默认焦点且说明目标会被来源取代。快照通过 `IFileSystemService.OpenReadAsync` 对非文件夹且不超过 64 MiB 的项目流式计算 SHA-256，并对不超过 32 MiB 的图片解码 320px 缩略图；过大、文件夹或读取失败均显示“未计算”而不是伪值。确认完成后按顶层项各自策略调用操作服务并聚合成功/跳过/失败/产物；同目录复制自身直接保留两者、同目录移动计为跳过，规划取消零写入。任务新增 `WaitingConfirmation` 状态与结果明细，传输失败只按错误来源定位回映射到已执行计划（旧错误无定位时仅容忍唯一同名映射），核对来源仍存在后以原策略新建重试任务。Compact 冲突改用横向紧凑比较卡确保策略与继续按钮首屏可达，任务中心在 Compact 为贴底 Sheet；独立右侧任务详情栏、递归到文件夹成员的逐项冲突与暂停仍未实现。
 
+> **v0.18 ExtraLarge 双窗格第一切片（已落地）**：Shell 在原 `Browser` 旁创建第二个 `BrowserViewModel` 作为对照窗格 B，两侧拥有独立的 `CurrentPath`、前进/后退栈、条目、选集、列表控件滚动、目录监视与内部剪贴板。B 以 `PersistSessionTabs=false` 防止覆盖 A 的 `OpenTabPaths`，以 `DrivesSharedPreview` 保证只有活动窗格发布或清空共享预览；`ShellViewModel.ActiveBrowser` 统一承接主工具栏、键盘、系统返回和预览语义。双窗格只在浏览器页且 `SizeClass=ExtraLarge` 时显示，A/B 以 `VerticalSplit` 开关、`Ctrl+Shift+D` 与 `F6` 操作，`DualPaneEnabled`、`DualPanePath` 与限制在 360–760 dp 的 `DualPaneWidth` 写入设置。B 支持独立面包屑、列表/网格、排序、新建与剪切/复制/粘贴/删除、上下文菜单、拖放来源与投放目标，并提供“复制/移动到 A/B”显式命令；所有跨窗格写入仍走来源会话的 `TransferItemsAsync`，继续经过 v0.17 任务中心与逐项冲突规划，完成后刷新另一窗格受影响目录。窗口跌出 ExtraLarge 时 B 不销毁：活动窗格切回 A，B 的当前路径去重加入 A 后台标签，B 会话继续保留在进程内，路径则可跨启动恢复。第一切片边界是全局文件标签、悬浮搜索、地址栏编辑与详细信息 DataGrid 仍只属于 A，B 在详细信息模式下回落列表，也没有独立标签条、搜索岛或跨启动的历史/选集恢复。
+
 ### 6.9 Phase 2 候选池（先定边界不排期）
 
-双窗格常开模式（ExtraLarge 已在布局稿中预留，MVP 可做「手动开第二窗格」的简单版列为 Stretch)、校验和计算与校验文件、批量重命名、文件夹大小常显、文本轻编辑保存、PDF 文搜、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
+双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文本轻编辑保存、PDF 文搜、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
 
 ### 6.10 不做清单（防止 PR 夹带）
 
@@ -653,7 +655,7 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 | **Medium** | `600 – 839` | 平板竖屏、折叠内屏竖握、大屏手机横屏 | 单栏加宽；侧边 `NavigationRail`；搜索停靠；详情全屏或大 Sheet |
 | **Expanded** | `840 – 1199` | 平板横屏、桌面小窗 | 导航抽屉/栏 + 内容双区；预览侧栏可开；详情侧栏或独立页 |
 | **Large** | `1200 – 1599` | 桌面主流窗口 | 永久导航抽屉 + 多标签 + 工具栏；预览侧栏常驻可关 |
-| **ExtraLarge** | `≥ 1600` | 大屏/超宽屏 | Large 之上允许详细信息宽列、可选双窗格（双目录并排） |
+| **ExtraLarge** | `≥ 1600` | 大屏/超宽屏 | Large 之上允许详细信息宽列；v0.18 起可手动打开第二浏览器会话形成 A/B 双窗格 |
 
 高度类（`Compact 高度 < 480`，如手机横屏）单独处理：顶栏压缩、FAB 降小、底栏改为侧 Rail 若宽度允许——规则在布局文档。**输入方式是与尺寸正交的第二维**：触控目标 ≥ 48 dp、指针密集模式行高可降与右键菜单常备、键盘模式保证可见焦点环与全键可达。尺寸类、高度类、输入方式三者的现状由单一 `WindowAdaptiveState` 对象发布（§7.3），View 只订阅它。
 
@@ -768,7 +770,7 @@ Md3 尚无或不够用时自写控件的清单（实现收在 `MdExplorer.UI/Con
 
 ### 10.2 设置（JSON，单文件，源生成）
 
-`settings.json` 经 `JsonSerializerContext` 读写；结构带 `schemaVersion`，读旧版走逐级迁移函数；写入走「临时文件 + 原子改名」防崩溃损坏；损坏时回落默认并备份坏文件为 `settings.json.bad`。字段域：外观（模式/种子色 ARGB/方案/对比度）、浏览器默认（视图/排序/隐藏）、搜索（索引根数组、内容索引开关）、操作（冲突默认、删除确认等级）、缩略图（启停、磁盘上限)、实验功能开关（双窗格等 Stretch 项藏此）。
+`settings.json` 经 `JsonSerializerContext` 读写；结构带 `schemaVersion`，读旧版走逐级迁移函数；写入走「临时文件 + 原子改名」防崩溃损坏；损坏时回落默认并备份坏文件为 `settings.json.bad`。字段域：外观（模式/种子色 ARGB/方案/对比度）、浏览器默认（视图/排序/隐藏）、搜索（索引根数组、内容索引开关）、操作（冲突默认、删除确认等级）、缩略图（启停、磁盘上限)、实验功能开关，以及 v0.18 的双窗格偏好（开启状态、B 当前路径、B 列宽）。
 
 ### 10.3 SQLite 结构（`state.db`，手写迁移 `PRAGMA user_version`）
 
@@ -969,7 +971,7 @@ dotnet publish src/MdExplorer.Android -c Release -p:PublishTrimmed=true -p:RunAO
 
 ### Phase 2 池（从 §6.9 取，不预承诺次序）
 
-双窗格正式化、批量重命名、校验和工具、文本轻编辑保存、PDF 文本搜、MSIX/系统集成深化、视频/音频内置播放（取决于 D-03）。
+双窗格第二切片（B 侧地址/搜索/详情 parity）、批量重命名、校验和工具、文本轻编辑保存、PDF 文本搜、MSIX/系统集成深化、视频/音频内置播放（取决于 D-03）。双窗格第一切片已随 v0.18 落地。
 
 ### 插件轨道（2026-10-26 立项，详见 `docs/PLUGIN-SYSTEM.md`）
 
@@ -1005,7 +1007,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | D-03 | 是否内置音视频播放（LibVLC，LGPL-2.1） | ✅ **已决定：后续再做**（2026-10-25）。第一版音视频为元数据卡 + 系统打开；引入时须满足 LGPL 动态链接与体积再预算条件 |
 | D-04 | 详细信息视图实现 | DataGrid 若 Trim 零警告则用之省两周工，否则自实现虚拟化表——**以 S-01 实测裁决**，自实现的骨架在 S-01 里顺带搭出作保底 |
 | D-05 | Linux 首发包形态 | AppImage（单文件易发、桌面集成弱）vs tar.gz+`.desktop` 安装脚本——**推荐先 tar.gz**（AOT 已是单 exe，附加集成文件即可)，AppImage 待用户呼声 |
-| D-06 | 双窗格进 MVP 的程度 | 推荐：布局稿预留、实现排 Phase 2 首位（信息架构已留 `BrowserSession` 双实例位，届时成本主要在焦点/拖拽语义） |
+| D-06 | 双窗格进 MVP 的程度 | ✅ **第一切片已落地（v0.18）**：双 `BrowserViewModel` 实例、活动窗格焦点/预览语义、跨窗格显式传输与拖放、XL 回落后保留 B 会话并收为后台标签；B 侧地址编辑、搜索、详细信息 parity 与跨启动历史/选集留在第二切片 |
 | D-07 | 插件机制形态 | **推荐采纳**`docs/PLUGIN-SYSTEM.md` 组合：声明式（先行）+ 进程外工作者（主力）+ 脚本（后置）；程序集插件与 AOT 冲突不进主线。待维护者确认 |
 | D-08 | 本地 AI 运行时与模型目录 | **推荐**运行时以 ONNX Runtime 为主线、sherpa-onnx 担语音、llama.cpp 备线；模型目录只收 Apache-2.0/MIT/BSD 权重（`docs/LOCAL-AI.md` §4），全部按需下载不打包。待维护者确认首发模型（建议 SigLIP 2 Base int8） |
 | D-09 | 向量检索存储实现 | **推荐**SQLite BLOB + 内存全扫起步（≤10 万张），ANN 引擎（sqlite-vec 等）待 D-08 首发模型维度锁定后 Spike 定 |
@@ -1080,3 +1082,4 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 本文档与配套两文（布局、提示词）同仓版本化；接口/断点/选型数值变更须在同一 PR 改文档 + 代码 + 相关基线图；每次改选型在 §3 表后增一行「变更纪要（日期 / 决策 / 依据）」。讨论中的临时结论先记 §17，不直接写成规范散入他章。
 | 2026-10-28 | **v0.16 Android 存储授权管理 + 应用内回收站**：扩展 `ITrashService`/`TrashedItem`/`TrashStats` 与 Linux 系统回收站大小、统计和清空；Android 新增默认 1.0 GB、30 天保留的 `AppTrashService`，以应用数据目录 payload + JSON 元数据覆盖本地与 SAF 文件/文件夹，配额、过期、同名冲突与父级不可用均保留可恢复副本或原项目。SAF 根模型新增 bookmark 与可用/持久状态，失效书签启动后保留为需重新授权，设置页顶部提供逐根打开、续授与仅移除应用入口，主页/抽屉同步状态；回收站页按概念稿显示配额进度、还原主动作、低权重永久删除与二次确认清空。桌面系统回收站语义不变；SAF 重启恢复与 OEM 行为仍待真机验收。 | push run `40659134605` 与 PR run `40659141476`（sha `5e36e53`）六 Job 全绿（127 单元测试 Ubuntu/Windows 双跑，新增应用回收站本地/SAF/配额/过期/冲突/父级失效/清空/根保护与注册表整树遗忘 11 例；33 截图测试/32 PNG，新增 Compact 授权管理与应用内回收站并目检；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |
 | 2026-10-28 | **v0.17 逐项冲突确认 + 任务详情/失败重试**：复制与移动改为任务内零写入规划，逐个比较顶层来源与目标后以保留两者（默认）、替换或跳过执行；“应用到其余冲突”默认未勾选，必须显式选择后由“继续”提交。比较卡按可得性呈现 320px 图片缩略图或类型字形、大小、修改时间、位置与 64 MiB 上限内流式 SHA-256，Compact 使用横向紧凑卡。占用名规划同时处理目标已有项与批内同名来源，同目录复制/移动的自冲突免询问，规划取消不写入。`OperationError.ItemPath` 与 `OperationOutcome.SkippedCount` 使任务中心可呈现等待确认、计数、逐项错误、产物路径与起止时间；传输失败按来源定位与原策略只重试失败顶层项，旧任务重试入口一次性消费，删除等不可安全重放任务不伪造重试。Compact 任务中心收敛为贴底 Sheet。 | push run `40663920938` 与 PR run `40663932863`（sha `7be3fef`）六 Job 全绿（134 单元测试 Ubuntu/Windows 双跑，新增逐项默认/显式批量应用/规划取消/批内同名/同目录免询问/仅失败项重试/任务明细 7 例；37 截图测试/36 PNG，新增 Large/Compact 冲突与 Large 任务详情、Compact 任务 Sheet 并目检；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |
+| 2026-10-28 | **v0.18 ExtraLarge 双窗格第一切片**：Shell 新增第二个完整 `BrowserViewModel` 会话；以 `PersistSessionTabs` 隔离 A 标签持久化、以 `DrivesSharedPreview` 与 `ActiveBrowser` 分配共享预览、键盘和系统返回权。B 支持独立面包屑/历史/选集/排序、列表与网格、本地文件动作、上下文菜单和拖放，并与 A 之间提供显式复制/移动和默认移动、Ctrl 复制的跨窗格拖放；传输复用 v0.17 冲突与任务管线。`DualPaneEnabled`、`DualPanePath` 与 `DualPaneWidth` 持久化，`Ctrl+Shift+D` 开关、`F6` 切换活动窗格；跌出 ExtraLarge 时 B 会话不销毁且其路径收为 A 后台标签。全局标签、搜索岛、地址编辑与详细信息 DataGrid 仍只在 A，B 的详细信息模式回落列表。 | push run `40669074778` 与 PR run `40669084743`（sha `6f62d9e`）六 Job 全绿（138 单元测试 Ubuntu/Windows 双跑，新增 XL 门控/双会话与预览隔离、A↔B 复制移动刷新、窄屏后台标签、主标签持久化隔离 4 例；38 截图测试/37 PNG，新增 ExtraLarge 双窗格实拍并目检；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |

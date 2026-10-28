@@ -1337,6 +1337,14 @@ public partial class MainView : UserControl
                 shell.ActiveBrowser.RefreshCommand.Execute(null);
                 e.Handled = true;
                 break;
+            case Key.F6 when shell.ShowDualPane:
+                if (shell.IsSecondaryPaneActive)
+                    shell.ActivatePrimaryPane();
+                else
+                    shell.ActivateSecondaryPane();
+                FocusActiveFileView();
+                e.Handled = true;
+                break;
             case Key.R when ctrl:
                 shell.ActiveBrowser.RefreshCommand.Execute(null);
                 e.Handled = true;
