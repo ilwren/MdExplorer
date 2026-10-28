@@ -28,8 +28,11 @@ public partial class MainView : UserControl
     private bool _breadcrumbEndScrollPending;
     private const double DefaultDrawerPaneWidth = 288;
     private const double DefaultPreviewPaneWidth = 316;
+    private const double DefaultDualPaneWidth = 560;
     private double _drawerPaneWidth = DefaultDrawerPaneWidth;
     private double _previewPaneWidth = DefaultPreviewPaneWidth;
+    private double _dualPaneWidth = DefaultDualPaneWidth;
+    private BrowserViewModel? _menuBrowser;
     private readonly Dictionary<Control, Transitions> _motionTransitions = [];
     private bool _reduceMotion;
     private bool _previewPaneVisible;
@@ -39,6 +42,7 @@ public partial class MainView : UserControl
 
     private sealed record DragCandidate(
         PointerPressedEventArgs Trigger,
+        BrowserViewModel SourceBrowser,
         IReadOnlyList<FileItemViewModel> Items,
         Point Origin);
 
@@ -50,9 +54,11 @@ public partial class MainView : UserControl
         FileList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         FileGrid.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         FileDetails.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
+        SecondaryFileList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
+        SecondaryFileGrid.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
 
-        // 拖拽源：三种视图共用阈值判定，避免普通点击被误判为拖动。
-        foreach (var control in new Control[] { FileList, FileGrid, FileDetails })
+        // 拖拽源：主/对照窗格共用阈值判定，避免普通点击被误判为拖动。
+        foreach (var control in new Control[] { FileList, FileGrid, FileDetails, SecondaryFileList, SecondaryFileGrid })
         {
             control.AddHandler(PointerPressedEvent, OnDragPointerPressed, RoutingStrategies.Tunnel);
             control.AddHandler(PointerMovedEvent, OnDragPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -60,8 +66,8 @@ public partial class MainView : UserControl
             control.AddHandler(PointerCaptureLostEvent, OnDragPointerCaptureLost, RoutingStrategies.Tunnel, handledEventsToo: true);
         }
 
-        // 投放目标：文件区（含条目与空白）与面包屑。
-        foreach (var target in new Control[] { FileDropArea, BreadcrumbBar })
+        // 投放目标：两个窗格的文件区（含条目与空白）与各自面包屑。
+        foreach (var target in new Control[] { FileDropArea, BreadcrumbBar, SecondaryDropArea, SecondaryBreadcrumbBar })
         {
             DragDrop.SetAllowDrop(target, true);
             target.AddHandler(DragDrop.DragEnterEvent, OnFileDragOver);
@@ -97,9 +103,11 @@ public partial class MainView : UserControl
         {
             _drawerPaneWidth = Math.Clamp(vm.SettingsStore.Settings.DrawerPaneWidth, 216, 440);
             _previewPaneWidth = Math.Clamp(vm.SettingsStore.Settings.PreviewPaneWidth, 260, 520);
+            _dualPaneWidth = Math.Clamp(vm.SettingsStore.Settings.DualPaneWidth, 360, 760);
             _lastBrowserPath = vm.Browser.CurrentPath;
             ApplyMotionPreference(vm.ReduceMotion);
             ApplyPaneColumnWidths();
+            ApplyBrowserPaneWidths();
             vm.PropertyChanged += OnShellPropertyChanged;
             // DataGrid.SelectedItems 为只读 IList（不可绑定整集），选集与 VM 手动双向同步
             vm.Browser.SelectedItems.CollectionChanged += OnBrowserSelectionChanged;
@@ -202,6 +210,48 @@ public partial class MainView : UserControl
             PreviewColumn.Width = new GridLength(0);
         }
         _previewPaneVisible = shell.ShowPreviewPaneEffective;
+    }
+
+    private ColumnDefinition SecondaryPaneColumn => BrowserPanesGrid.ColumnDefinitions[2];
+
+    private void ApplyBrowserPaneWidths()
+    {
+        if (Shell is not { } shell)
+            return;
+
+        if (shell.ShowDualPane)
+        {
+            SecondaryPaneColumn.MinWidth = 360;
+            SecondaryPaneColumn.MaxWidth = 760;
+            SecondaryPaneColumn.Width = new GridLength(_dualPaneWidth);
+        }
+        else
+        {
+            if (SecondaryPaneColumn.ActualWidth > 0)
+                _dualPaneWidth = Math.Clamp(SecondaryPaneColumn.ActualWidth, 360, 760);
+            SecondaryPaneColumn.MinWidth = 0;
+            SecondaryPaneColumn.MaxWidth = double.PositiveInfinity;
+            SecondaryPaneColumn.Width = new GridLength(0);
+        }
+    }
+
+    private void OnDualPaneSplitterDragCompleted(object? sender, VectorEventArgs e) =>
+        Dispatcher.UIThread.Post(() => PersistDualPaneWidth(SecondaryPaneColumn.ActualWidth), DispatcherPriority.Loaded);
+
+    private void OnDualPaneSplitterResetRequested(object? sender, EventArgs e)
+    {
+        _dualPaneWidth = DefaultDualPaneWidth;
+        ApplyBrowserPaneWidths();
+        PersistDualPaneWidth(DefaultDualPaneWidth);
+    }
+
+    private void PersistDualPaneWidth(double width)
+    {
+        if (Shell is not { } shell || width <= 0)
+            return;
+        _dualPaneWidth = Math.Clamp(width, 360, 760);
+        shell.SettingsStore.Settings.DualPaneWidth = _dualPaneWidth;
+        _ = shell.SettingsStore.SaveSettingsAsync(CancellationToken.None);
     }
 
     private void OnDrawerSplitterDragCompleted(object? sender, VectorEventArgs e) =>
@@ -368,10 +418,15 @@ public partial class MainView : UserControl
         }
         if (e.PropertyName is nameof(ShellViewModel.ReduceMotion))
             ApplyMotionPreference(shell.ReduceMotion);
+        if (e.PropertyName is nameof(ShellViewModel.ShowDualPane)
+            or nameof(ShellViewModel.IsDualPaneEnabled)
+            or nameof(ShellViewModel.CanUseDualPane))
+            ApplyBrowserPaneWidths();
 
         if (e.PropertyName != nameof(ShellViewModel.Page))
             return;
         ApplyPaneColumnWidths();
+        ApplyBrowserPaneWidths();
         AnimateIn(PageHost, 0, 7);
         var index = shell.Page switch
         {
@@ -407,6 +462,52 @@ public partial class MainView : UserControl
         }
     }
 
+    // ---------- 双窗格活动会话 ----------
+    private void OnPrimaryPanePointerPressed(object? sender, PointerPressedEventArgs e) => Shell?.ActivatePrimaryPane();
+
+    private void OnPrimaryPaneGotFocus(object? sender, GotFocusEventArgs e) => Shell?.ActivatePrimaryPane();
+
+    private void OnSecondaryPanePointerPressed(object? sender, PointerPressedEventArgs e) => Shell?.ActivateSecondaryPane();
+
+    private void OnSecondaryPaneGotFocus(object? sender, GotFocusEventArgs e) => Shell?.ActivateSecondaryPane();
+
+    private BrowserViewModel? BrowserForItem(FileItemViewModel? item)
+    {
+        if (Shell is not { } shell || item is null)
+            return Shell?.Browser;
+        return shell.SecondaryBrowser.Items.Contains(item) ? shell.SecondaryBrowser : shell.Browser;
+    }
+
+    private BrowserViewModel? BrowserForControl(object? sender)
+    {
+        if (Shell is not { } shell)
+            return null;
+        if (ReferenceEquals(sender, SecondaryFileList) || ReferenceEquals(sender, SecondaryFileGrid) ||
+            ReferenceEquals(sender, SecondaryDropArea) || ReferenceEquals(sender, SecondaryBreadcrumbBar))
+            return shell.SecondaryBrowser;
+        return shell.Browser;
+    }
+
+    private BrowserViewModel? BrowserForEvent(RoutedEventArgs e, FileItemViewModel? item = null)
+    {
+        if (Shell is not { } shell)
+            return null;
+        if (e.Source is Visual source && source.FindAncestorOfType<Border>() is { } border &&
+            ReferenceEquals(border, SecondaryPane))
+            return shell.SecondaryBrowser;
+        if (e.Source is Control control)
+        {
+            foreach (var ancestor in control.GetSelfAndVisualAncestors())
+            {
+                if (ReferenceEquals(ancestor, SecondaryPane))
+                    return shell.SecondaryBrowser;
+                if (ReferenceEquals(ancestor, PrimaryPane))
+                    return shell.Browser;
+            }
+        }
+        return item is null ? shell.ActiveBrowser : BrowserForItem(item);
+    }
+
     // ---------- 列表交互 ----------
     private async void OnListPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -418,11 +519,14 @@ public partial class MainView : UserControl
         }
         if (!e.Properties.IsRightButtonPressed)
             return;
-        if (ItemFromEvent(e) is { } item && Shell is { } shell &&
-            !shell.Browser.SelectedItems.Contains(item))
+        if (ItemFromEvent(e) is { } item && BrowserForEvent(e, item) is { } browser)
         {
-            shell.Browser.SelectedItems.Clear();
-            shell.Browser.SelectedItems.Add(item);
+            _menuBrowser = browser;
+            if (!browser.SelectedItems.Contains(item))
+            {
+                browser.SelectedItems.Clear();
+                browser.SelectedItems.Add(item);
+            }
         }
     }
 
@@ -436,7 +540,7 @@ public partial class MainView : UserControl
 
     private void OnDragPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (_dragInProgress || Shell is not { } shell || shell.Browser.IsSelectionMode)
+        if (_dragInProgress || Shell is not { } shell)
             return;
         if (e.Pointer.Type != PointerType.Mouse)
             return;
@@ -447,11 +551,14 @@ public partial class MainView : UserControl
             return;
         if (ItemFromEvent(e) is not { } item)
             return;
-        // Tunnel 阶段先拍选集快照：控件在随后的按下处理中可能把多选收敛为单选。
-        IReadOnlyList<FileItemViewModel> draggedItems = shell.Browser.SelectedItems.Contains(item)
-            ? shell.Browser.SelectedItems.ToList()
+        var sourceBrowser = BrowserForControl(sender) ?? BrowserForItem(item) ?? shell.Browser;
+        if (sourceBrowser.IsSelectionMode)
+            return;
+        // Tunnel 阶段先拍来源窗格的选集快照：控件在随后的按下处理中可能把多选收敛为单选。
+        IReadOnlyList<FileItemViewModel> draggedItems = sourceBrowser.SelectedItems.Contains(item)
+            ? sourceBrowser.SelectedItems.ToList()
             : [item];
-        _dragCandidate = new DragCandidate(e, draggedItems, e.GetPosition(this));
+        _dragCandidate = new DragCandidate(e, sourceBrowser, draggedItems, e.GetPosition(this));
     }
 
     private async void OnDragPointerMoved(object? sender, PointerEventArgs e)
@@ -473,7 +580,7 @@ public partial class MainView : UserControl
         e.Handled = true;
         try
         {
-            await StartItemDragAsync(candidate.Trigger, candidate.Items);
+            await StartItemDragAsync(candidate.Trigger, candidate.SourceBrowser, candidate.Items);
         }
         finally
         {
@@ -487,17 +594,17 @@ public partial class MainView : UserControl
     private void OnDragPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => _dragCandidate = null;
 
     private async Task StartItemDragAsync(
-        PointerPressedEventArgs trigger, IReadOnlyList<FileItemViewModel> draggedItems)
+        PointerPressedEventArgs trigger, BrowserViewModel sourceBrowser, IReadOnlyList<FileItemViewModel> draggedItems)
     {
         if (Shell is not { } shell || draggedItems.Count == 0)
             return;
 
-        // 恢复按下前快照，确保拖的是用户看到的多选集合。
-        if (!shell.Browser.SelectedItems.SequenceEqual(draggedItems))
+        // 恢复按下前快照，确保拖的是来源窗格中用户看到的多选集合。
+        if (!sourceBrowser.SelectedItems.SequenceEqual(draggedItems))
         {
-            shell.Browser.SelectedItems.Clear();
+            sourceBrowser.SelectedItems.Clear();
             foreach (var item in draggedItems)
-                shell.Browser.SelectedItems.Add(item);
+                sourceBrowser.SelectedItems.Add(item);
         }
 
         var paths = draggedItems.Select(i => i.FullPath).ToList();
@@ -521,7 +628,7 @@ public partial class MainView : UserControl
 
     private void OnFileDragOver(object? sender, DragEventArgs e)
     {
-        if (Shell is not { } shell || shell.Browser.CurrentPath is null)
+        if (Shell is not { } shell || DropBrowserForEvent(e) is not { } dropBrowser || dropBrowser.CurrentPath is null)
         {
             RejectDrop(e);
             return;
@@ -538,7 +645,7 @@ public partial class MainView : UserControl
         }
 
         var sources = ExtractDraggedPaths(e.DataTransfer);
-        if (sources.Count == 0 || !shell.Browser.CanTransferItems(sources, destination))
+        if (sources.Count == 0 || !dropBrowser.CanTransferItems(sources, destination))
         {
             RejectDrop(e);
             return;
@@ -549,10 +656,9 @@ public partial class MainView : UserControl
             (e.KeyModifiers & KeyModifiers.Control) != 0,
             (e.KeyModifiers & KeyModifiers.Shift) != 0);
         e.DragEffects = isMove ? DragDropEffects.Move : DragDropEffects.Copy;
-        DropHintText.Text = isMove
-            ? $"释放以移动到「{DropDestinationLabel(e)}」"
-            : $"释放以复制到「{DropDestinationLabel(e)}」";
-        DropHint.IsVisible = true;
+        ShowDropHint(dropBrowser, isMove
+            ? $"释放以移动到「{DropDestinationLabel(e)}」（Ctrl = 复制）"
+            : $"释放以复制到「{DropDestinationLabel(e)}」");
         e.Handled = true;
     }
 
@@ -561,14 +667,15 @@ public partial class MainView : UserControl
     private async void OnFileDrop(object? sender, DragEventArgs e)
     {
         HideDropHint();
-        if (Shell is not { } shell || ResolveDropDestination(e) is not { } destination)
+        if (Shell is not { } shell || DropBrowserForEvent(e) is not { } dropBrowser ||
+            ResolveDropDestination(e) is not { } destination)
         {
             e.DragEffects = DragDropEffects.None;
             return;
         }
 
         var sources = ExtractDraggedPaths(e.DataTransfer);
-        if (sources.Count == 0 || !shell.Browser.CanTransferItems(sources, destination))
+        if (sources.Count == 0 || !dropBrowser.CanTransferItems(sources, destination))
         {
             e.DragEffects = DragDropEffects.None;
             return;
@@ -580,7 +687,12 @@ public partial class MainView : UserControl
             (e.KeyModifiers & KeyModifiers.Shift) != 0);
         e.DragEffects = isMove ? DragDropEffects.Move : DragDropEffects.Copy;
         e.Handled = true;
-        await shell.Browser.TransferItemsAsync(sources, destination, isMove);
+        var outcome = await dropBrowser.TransferItemsAsync(sources, destination, isMove);
+        if (outcome is not null)
+        {
+            var other = ReferenceEquals(dropBrowser, shell.Browser) ? shell.SecondaryBrowser : shell.Browser;
+            await shell.RefreshBrowserAfterTransferAsync(other, sources, destination);
+        }
     }
 
     private void RejectDrop(DragEventArgs e)
@@ -590,7 +702,29 @@ public partial class MainView : UserControl
         e.Handled = true;
     }
 
-    private void HideDropHint() => DropHint.IsVisible = false;
+    private void HideDropHint()
+    {
+        DropHint.IsVisible = false;
+        SecondaryDropHint.IsVisible = false;
+    }
+
+    private void ShowDropHint(BrowserViewModel browser, string text)
+    {
+        var secondary = Shell is { } shell && ReferenceEquals(browser, shell.SecondaryBrowser);
+        DropHint.IsVisible = !secondary;
+        SecondaryDropHint.IsVisible = secondary;
+        if (secondary)
+            SecondaryDropHintText.Text = text;
+        else
+            DropHintText.Text = text;
+    }
+
+    private BrowserViewModel? DropBrowserForEvent(DragEventArgs e)
+    {
+        if (ItemFromEvent(e) is { } item)
+            return BrowserForEvent(e, item);
+        return BrowserForEvent(e);
+    }
 
     private string? ResolveDropDestination(DragEventArgs e)
     {
@@ -601,7 +735,8 @@ public partial class MainView : UserControl
         if (BreadcrumbFromEvent(e) is { } segment)
             return segment.FullPath;
         // 搜索结果的条目来自不同父目录：空格区域不猜当前目录，只允许明确投到某个文件夹条目。
-        return shell.Browser.IsSearchMode ? null : shell.Browser.CurrentPath;
+        var browser = DropBrowserForEvent(e) ?? shell.ActiveBrowser;
+        return browser.IsSearchMode ? null : browser.CurrentPath;
     }
 
     private string DropDestinationLabel(DragEventArgs e)
@@ -610,7 +745,7 @@ public partial class MainView : UserControl
             return folder.Name;
         if (BreadcrumbFromEvent(e) is { } segment)
             return segment.Name;
-        return Shell?.Browser.CurrentFolderName ?? "此处";
+        return DropBrowserForEvent(e)?.CurrentFolderName ?? Shell?.ActiveBrowser.CurrentFolderName ?? "此处";
     }
 
     private static BreadcrumbSegment? BreadcrumbFromEvent(RoutedEventArgs e)
@@ -650,24 +785,25 @@ public partial class MainView : UserControl
 
     private async void OnItemTapped(object? sender, TappedEventArgs e)
     {
-        if (Shell is not { } shell || ItemFromEvent(e) is not { } item)
+        if (Shell is not { } shell || ItemFromEvent(e) is not { } item ||
+            BrowserForEvent(e, item) is not { } browser)
             return;
         if (e.Source is Control source && source.FindAncestorOfType<Button>() is not null)
             return; // ⋮ 按钮自己处理
-        if (shell.Browser.IsSelectionMode)
+        if (browser.IsSelectionMode)
         {
-            shell.Browser.ToggleChecked(item);
+            browser.ToggleChecked(item);
         }
         else if (shell.IsCompactOrMedium)
         {
             if (item.IsFolder)
             {
-                await shell.Browser.OpenItemAsync(item);
+                await browser.OpenItemAsync(item);
             }
             else
             {
-                shell.Browser.SelectedItems.Clear();
-                shell.Browser.SelectedItems.Add(item);
+                browser.SelectedItems.Clear();
+                browser.SelectedItems.Add(item);
                 shell.OnFileOpened(item);
             }
         }
@@ -675,18 +811,19 @@ public partial class MainView : UserControl
 
     private async void OnItemDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (Shell is not { } shell || ItemFromEvent(e) is not { } item)
+        if (Shell is not { } shell || ItemFromEvent(e) is not { } item ||
+            BrowserForEvent(e, item) is not { } browser)
             return;
         if (item.IsFolder)
         {
-            if (!BrowserViewModel.PathsEqual(shell.Browser.CurrentPath, item.FullPath))
-                await shell.Browser.OpenItemAsync(item);
+            if (!BrowserViewModel.PathsEqual(browser.CurrentPath, item.FullPath))
+                await browser.OpenItemAsync(item);
         }
         else if (!shell.IsCompactOrMedium)
         {
-            shell.Browser.SelectedItems.Clear();
-            shell.Browser.SelectedItems.Add(item);
-            await shell.Browser.OpenItemExternalAsync(item);
+            browser.SelectedItems.Clear();
+            browser.SelectedItems.Add(item);
+            await browser.OpenItemExternalAsync(item);
         }
     }
 
@@ -704,10 +841,16 @@ public partial class MainView : UserControl
     {
         if (sender is not Control button || Shell is not { } shell)
             return;
-        if (button.DataContext is FileItemViewModel item && !shell.Browser.SelectedItems.Contains(item))
+        _menuBrowser = shell.Browser;
+        if (button.DataContext is FileItemViewModel item)
         {
-            shell.Browser.SelectedItems.Clear();
-            shell.Browser.SelectedItems.Add(item);
+            var browser = BrowserForEvent(e, item) ?? shell.Browser;
+            _menuBrowser = browser;
+            if (!browser.SelectedItems.Contains(item))
+            {
+                browser.SelectedItems.Clear();
+                browser.SelectedItems.Add(item);
+            }
         }
         if (Resources["ItemMenu"] is ContextMenu menu)
             menu.Open(button);
@@ -787,6 +930,15 @@ public partial class MainView : UserControl
             await shell.Browser.NavigateBreadcrumbAsync(segment);
     }
 
+    private async void OnSecondaryBreadcrumbClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: BreadcrumbSegment segment } && Shell is { } shell)
+        {
+            shell.ActivateSecondaryPane();
+            await shell.SecondaryBrowser.NavigateBreadcrumbAsync(segment);
+        }
+    }
+
     private void OnBreadcrumbSegmentTapped(object? sender, TappedEventArgs e)
     {
         // 分段（含其中的 chevron）只负责跳转，阻止事件继续落到路径胶囊的“点空白变输入框”逻辑。
@@ -836,6 +988,17 @@ public partial class MainView : UserControl
     {
         if (Browser is not { } browser)
             return;
+        var next = browser.CurrentSortDirection == SortDirection.Ascending
+            ? SortDirection.Descending
+            : SortDirection.Ascending;
+        browser.SetSort(browser.CurrentSortField, next);
+    }
+
+    private void OnSecondaryToggleSortDirection(object? sender, RoutedEventArgs e)
+    {
+        if (Shell is not { } shell)
+            return;
+        var browser = shell.SecondaryBrowser;
         var next = browser.CurrentSortDirection == SortDirection.Ascending
             ? SortDirection.Descending
             : SortDirection.Ascending;
@@ -975,54 +1138,70 @@ public partial class MainView : UserControl
 
     private void FocusActiveFileView()
     {
+        if (Shell is { ShowDualPane: true, IsSecondaryPaneActive: true } shell)
+        {
+            if (shell.SecondaryBrowser.IsGridView)
+                SecondaryFileGrid.Focus();
+            else
+                SecondaryFileList.Focus();
+            return;
+        }
         if (Shell?.Browser.IsDetailsView == true)
             FileDetails.Focus();
+        else if (Shell?.Browser.IsGridView == true)
+            FileGrid.Focus();
         else
             FileList.Focus();
     }
 
     // ---------- 菜单与工具栏 ----------
     private BrowserViewModel? Browser => Shell?.Browser;
+    private BrowserViewModel? MenuBrowser => _menuBrowser ?? Browser;
 
     private async void OnMenuOpen(object? sender, RoutedEventArgs e)
     {
-        if (Browser?.SelectedItems.FirstOrDefault() is not { } item || Shell is not { } shell)
+        if (MenuBrowser?.SelectedItems.FirstOrDefault() is not { } item || Shell is not { } shell)
             return;
         if (item.IsFolder)
-            await Browser.OpenItemAsync(item);
+            await MenuBrowser.OpenItemAsync(item);
         else
             shell.OnFileOpened(item);
     }
 
     private async void OnMenuOpenInNewTab(object? sender, RoutedEventArgs e)
     {
-        if (Browser is { } browser)
-            await browser.OpenItemInNewTabAsync(browser.SelectedItems.FirstOrDefault());
+        if (MenuBrowser is not { } browser || Browser is not { } primary)
+            return;
+        var item = browser.SelectedItems.FirstOrDefault();
+        if (ReferenceEquals(browser, primary))
+            await primary.OpenItemInNewTabAsync(item);
+        else if (item is { IsFolder: true })
+            await primary.OpenInNewTabAsync(item.FullPath);
     }
 
     private async void OnMenuOpenExternal(object? sender, RoutedEventArgs e)
     {
-        if (Browser is { } browser)
+        if (MenuBrowser is { } browser)
             await browser.OpenItemExternalAsync(browser.SelectedItems.FirstOrDefault());
     }
 
-    private void OnMenuCopy(object? sender, RoutedEventArgs e) => Browser?.CopySelectionCommand.Execute(null);
-    private void OnMenuCut(object? sender, RoutedEventArgs e) => Browser?.CutSelectionCommand.Execute(null);
-    private void OnMenuPaste(object? sender, RoutedEventArgs e) => Browser?.PasteCommand.Execute(null);
-    private void OnMenuRename(object? sender, RoutedEventArgs e) => Browser?.RenameCommand.Execute(Browser.SelectedItems.FirstOrDefault());
-    private void OnToolbarRename(object? sender, RoutedEventArgs e) => Browser?.RenameCommand.Execute(Browser.SelectedItems.FirstOrDefault());
-    private void OnMenuFavorite(object? sender, RoutedEventArgs e) => Browser?.ToggleFavoriteCommand.Execute(Browser.SelectedItems.FirstOrDefault());
-    private void OnMenuCompress(object? sender, RoutedEventArgs e) => Browser?.CompressSelectionCommand.Execute(null);
-    private void OnMenuOpenArchiveWorkbench(object? sender, RoutedEventArgs e) => Browser?.OpenArchiveWorkbenchCommand.Execute(Browser.SelectedItems.FirstOrDefault());
-    private void OnMenuExtract(object? sender, RoutedEventArgs e) => Browser?.ExtractSelectionCommand.Execute(Browser.SelectedItems.FirstOrDefault());
-    private void OnMenuSelectionMode(object? sender, RoutedEventArgs e) => Browser?.EnterSelectionModeCommand.Execute(null);
-    private void OnMenuBatchRename(object? sender, RoutedEventArgs e) => Browser?.BatchRenameSelectionCommand.Execute(null);
-    private void OnMenuChecksums(object? sender, RoutedEventArgs e) => Browser?.ComputeChecksumsCommand.Execute(Browser.SelectedItems.FirstOrDefault());
-    private void OnMenuProperties(object? sender, RoutedEventArgs e) => Browser?.ShowPropertiesCommand.Execute(Browser.SelectedItems.FirstOrDefault());
-    private void OnMenuCopyPath(object? sender, RoutedEventArgs e) => Browser?.CopyPathCommand.Execute(null);
-    private void OnMenuOpenContainingFolder(object? sender, RoutedEventArgs e) => Browser?.OpenContainingFolderCommand.Execute(Browser.SelectedItems.FirstOrDefault());
-    private void OnMenuRevealInSystemFileManager(object? sender, RoutedEventArgs e) => Browser?.RevealInSystemFileManagerCommand.Execute(Browser.SelectedItems.FirstOrDefault());
-    private void OnMenuDelete(object? sender, RoutedEventArgs e) => Browser?.DeleteSelectionCommand.Execute(null);
+    private void OnMenuCopy(object? sender, RoutedEventArgs e) => MenuBrowser?.CopySelectionCommand.Execute(null);
+    private void OnMenuCut(object? sender, RoutedEventArgs e) => MenuBrowser?.CutSelectionCommand.Execute(null);
+    private void OnMenuPaste(object? sender, RoutedEventArgs e) => MenuBrowser?.PasteCommand.Execute(null);
+    private void OnMenuRename(object? sender, RoutedEventArgs e) => MenuBrowser?.RenameCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
+    private void OnToolbarRename(object? sender, RoutedEventArgs e) => Browser?.RenameCommand.Execute(Browser?.SelectedItems.FirstOrDefault());
+    private void OnMenuFavorite(object? sender, RoutedEventArgs e) => MenuBrowser?.ToggleFavoriteCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
+    private void OnMenuCompress(object? sender, RoutedEventArgs e) => MenuBrowser?.CompressSelectionCommand.Execute(null);
+    private void OnMenuOpenArchiveWorkbench(object? sender, RoutedEventArgs e) => MenuBrowser?.OpenArchiveWorkbenchCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
+    private void OnMenuExtract(object? sender, RoutedEventArgs e) => MenuBrowser?.ExtractSelectionCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
+    private void OnMenuSelectionMode(object? sender, RoutedEventArgs e) => MenuBrowser?.EnterSelectionModeCommand.Execute(null);
+    private void OnMenuBatchRename(object? sender, RoutedEventArgs e) => MenuBrowser?.BatchRenameSelectionCommand.Execute(null);
+    private void OnMenuChecksums(object? sender, RoutedEventArgs e) => MenuBrowser?.ComputeChecksumsCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
+    private void OnMenuProperties(object? sender, RoutedEventArgs e) => MenuBrowser?.ShowPropertiesCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
+    private void OnMenuCopyPath(object? sender, RoutedEventArgs e) => MenuBrowser?.CopyPathCommand.Execute(null);
+    private void OnMenuOpenContainingFolder(object? sender, RoutedEventArgs e) => MenuBrowser?.OpenContainingFolderCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
+    private void OnMenuRevealInSystemFileManager(object? sender, RoutedEventArgs e) => MenuBrowser?.RevealInSystemFileManagerCommand.Execute(MenuBrowser?.SelectedItems.FirstOrDefault());
+    private void OnMenuDelete(object? sender, RoutedEventArgs e) => MenuBrowser?.DeleteSelectionCommand.Execute(null);
 
     private void OnScrimTapped(object? sender, TappedEventArgs e)
     {
@@ -1067,6 +1246,13 @@ public partial class MainView : UserControl
             e.Handled = true;
             return;
         }
+        if (shell.Page == ShellPage.Browser && !shell.IsDialogOpen && ctrl &&
+            (e.KeyModifiers & KeyModifiers.Shift) != 0 && e.Key == Key.D)
+        {
+            shell.ToggleDualPaneCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
 
         if (e.Source is TextBox)
         {
@@ -1083,17 +1269,17 @@ public partial class MainView : UserControl
                 break;
             case Key.Left when (e.KeyModifiers & KeyModifiers.Alt) != 0:
                 if (shell.Page == ShellPage.Browser)
-                    shell.Browser.GoBackCommand.Execute(null);
+                    shell.ActiveBrowser.GoBackCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.Right when (e.KeyModifiers & KeyModifiers.Alt) != 0:
                 if (shell.Page == ShellPage.Browser)
-                    shell.Browser.GoForwardCommand.Execute(null);
+                    shell.ActiveBrowser.GoForwardCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.Up when (e.KeyModifiers & KeyModifiers.Alt) != 0:
                 if (shell.Page == ShellPage.Browser)
-                    shell.Browser.GoUpCommand.Execute(null);
+                    shell.ActiveBrowser.GoUpCommand.Execute(null);
                 e.Handled = true;
                 break;
         }
@@ -1104,39 +1290,39 @@ public partial class MainView : UserControl
         switch (e.Key)
         {
             case Key.Delete:
-                shell.Browser.DeleteSelectionCommand.Execute(null);
+                shell.ActiveBrowser.DeleteSelectionCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.F2:
-                shell.Browser.RenameCommand.Execute(shell.Browser.SelectedItems.FirstOrDefault());
+                shell.ActiveBrowser.RenameCommand.Execute(shell.ActiveBrowser.SelectedItems.FirstOrDefault());
                 e.Handled = true;
                 break;
             case Key.F5:
-                shell.Browser.RefreshCommand.Execute(null);
+                shell.ActiveBrowser.RefreshCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.R when ctrl:
-                shell.Browser.RefreshCommand.Execute(null);
+                shell.ActiveBrowser.RefreshCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.C when ctrl && (e.KeyModifiers & KeyModifiers.Shift) != 0:
-                shell.Browser.CopyPathCommand.Execute(null);
+                shell.ActiveBrowser.CopyPathCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.C when ctrl:
-                shell.Browser.CopySelectionCommand.Execute(null);
+                shell.ActiveBrowser.CopySelectionCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.X when ctrl:
-                shell.Browser.CutSelectionCommand.Execute(null);
+                shell.ActiveBrowser.CutSelectionCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.V when ctrl:
-                shell.Browser.PasteCommand.Execute(null);
+                shell.ActiveBrowser.PasteCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.A when ctrl:
-                shell.Browser.SelectAllCommand.Execute(null);
+                shell.ActiveBrowser.SelectAllCommand.Execute(null);
                 e.Handled = true;
                 break;
             case Key.T when ctrl && (e.KeyModifiers & KeyModifiers.Shift) != 0:
@@ -1159,12 +1345,12 @@ public partial class MainView : UserControl
                 e.Handled = true;
                 break;
             case Key.Enter:
-                if (shell.Browser.SelectedItems.FirstOrDefault() is { } item)
+                if (shell.ActiveBrowser.SelectedItems.FirstOrDefault() is { } item)
                 {
                     if (item.IsFolder)
-                        await shell.Browser.OpenItemAsync(item);
+                        await shell.ActiveBrowser.OpenItemAsync(item);
                     else
-                        await shell.Browser.OpenItemExternalAsync(item);
+                        await shell.ActiveBrowser.OpenItemExternalAsync(item);
                     e.Handled = true;
                 }
                 break;

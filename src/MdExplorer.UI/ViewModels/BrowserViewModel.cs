@@ -45,6 +45,12 @@ public sealed partial class BrowserViewModel : ObservableObject
     private CancellationTokenSource? _thumbCts;
     private Task _idleTask = Task.CompletedTask;
 
+    /// <summary>对照窗格的第二会话不写主标签页持久化，避免两个 Browser 互相覆盖 OpenTabPaths。</summary>
+    internal bool PersistSessionTabs { get; set; } = true;
+
+    /// <summary>双窗格中只有活动会话可以驱动共享预览；非活动会话导航/改选集不得抢占预览。</summary>
+    internal bool DrivesSharedPreview { get; set; } = true;
+
     private IReadOnlyList<string> _clipboardPaths = [];
     private bool _clipboardCut;
     private IReadOnlyList<string> _externalClipboardBaseline = [];
@@ -458,7 +464,8 @@ public sealed partial class BrowserViewModel : ObservableObject
         IsLoading = true;
         Items.Clear();
         SelectedItems.Clear();
-        await _preview.LoadAsync(null).ConfigureAwait(true);
+        if (DrivesSharedPreview)
+            await _preview.LoadAsync(null).ConfigureAwait(true);
 
         _idleTask = LoadCoreAsync(path, ct);
         await _idleTask.ConfigureAwait(true);
@@ -873,6 +880,22 @@ public sealed partial class BrowserViewModel : ObservableObject
         await ActivateTabCoreAsync(tab, snapshotCurrent: false).ConfigureAwait(true);
     }
 
+    /// <summary>把一条会话路径收纳为后台标签（不切换当前标签）。双窗格在宽度跌出 XL 时用它保留 B 会话。</summary>
+    public bool EnsureBackgroundTab(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+        SnapshotActiveTab();
+        if (Tabs.Any(tab => PathsEqual(tab.Path, path)))
+            return false;
+
+        var tab = CreateTab(path);
+        tab.IsActive = false;
+        Tabs.Add(tab);
+        _ = PersistTabsAsync();
+        return true;
+    }
+
     public async Task OpenItemInNewTabAsync(FileItemViewModel? item)
     {
         if (item is null)
@@ -1061,6 +1084,8 @@ public sealed partial class BrowserViewModel : ObservableObject
 
     private async Task PersistTabsAsync()
     {
+        if (!PersistSessionTabs)
+            return;
         var settings = _settingsStore.Settings;
         settings.OpenTabPaths = Tabs
             .Where(tab => !string.IsNullOrWhiteSpace(tab.Path))
@@ -1104,8 +1129,19 @@ public sealed partial class BrowserViewModel : ObservableObject
     private void OnSelectionChanged()
     {
         SelectedCount = SelectedItems.Count;
+        if (!DrivesSharedPreview)
+            return;
         var single = SelectedItems.Count == 1 ? SelectedItems[0].Model : null;
         _ = _preview.LoadAsync(single);
+    }
+
+    /// <summary>Shell 切换活动窗格时，把本会话当前单选（或空选集）同步到共享预览。</summary>
+    internal Task PublishSelectionToPreviewAsync()
+    {
+        if (!DrivesSharedPreview)
+            return Task.CompletedTask;
+        var single = SelectedItems.Count == 1 ? SelectedItems[0].Model : null;
+        return _preview.LoadAsync(single);
     }
 
     [RelayCommand]

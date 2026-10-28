@@ -352,7 +352,7 @@
 
           <!-- 浏览器页：独立白色工作区浮在外层柔和底板上（预览亦同语言） -->
           <Border IsVisible="{Binding IsBrowser}" Classes="workspace-surface" ClipToBounds="True" Margin="10">
-          <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+          <Grid RowDefinitions="Auto,*">
             <!-- 浏览器标签页：与下方白色工作区同面连接；活动页以图标井 + 底部指示线定向，不再排成一列灰卡片 -->
             <Border Grid.Row="0" Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
                     BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1"
@@ -416,7 +416,17 @@
               </md:MdScrollViewer>
             </Border>
 
-            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="5" Margin="10,8,10,2">
+            <Grid x:Name="BrowserPanesGrid" Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="300" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="0" />
+              </Grid.ColumnDefinitions>
+              <Border x:Name="PrimaryPane" Classes="dual-pane" Classes.dual="{Binding ShowDualPane}"
+                      Classes.active="{Binding IsPrimaryPaneActive}" ClipToBounds="True"
+                      PointerPressed="OnPrimaryPanePointerPressed" GotFocus="OnPrimaryPaneGotFocus">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+<Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="5" Margin="10,8,10,2">
               <StackPanel Orientation="Horizontal" Spacing="1" VerticalAlignment="Center" IsVisible="{Binding ShowPathRowActions}">
                 <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.ArrowBack}" Command="{Binding Browser.GoBackCommand}"
                                  IsEnabled="{Binding Browser.CanGoBack}" AutomationProperties.Name="后退" />
@@ -513,6 +523,16 @@
                               <md:MdButton Classes="menu-action" Variant="Text" Content="新建文件夹" Command="{Binding Browser.NewFolderCommand}" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="新建文件" Command="{Binding Browser.NewFileCommand}" />
                               <md:MdButton Classes="menu-action" Variant="Text" Content="粘贴" Command="{Binding Browser.PasteCommand}" />
+                              <Border Height="1" Margin="6,5" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}"
+                                      IsVisible="{Binding IsExtraLarge}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="{Binding DualPaneToggleText}"
+                                           Command="{Binding ToggleDualPaneCommand}" IsVisible="{Binding IsExtraLarge}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="复制到对照窗格"
+                                           Command="{Binding CopyPrimaryToSecondaryCommand}"
+                                           IsEnabled="{Binding CanTransferPrimaryToSecondary}" IsVisible="{Binding ShowDualPane}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="移动到对照窗格"
+                                           Command="{Binding MovePrimaryToSecondaryCommand}"
+                                           IsEnabled="{Binding CanTransferPrimaryToSecondary}" IsVisible="{Binding ShowDualPane}" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="2">
                                                             <md:MdButton Classes="menu-action" Variant="Text" Content="名称" Click="OnSortByName" />
@@ -564,7 +584,7 @@
               </md:MdIconButton>
             </Grid>
 
-            <Border Grid.Row="2" Margin="8,2,8,0" Padding="4,3"
+            <Border Grid.Row="1" Margin="8,2,8,0" Padding="4,3"
                     BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1"
                     IsVisible="{Binding IsExpandedOrAbove}">
               <Grid ColumnDefinitions="*,Auto">
@@ -590,6 +610,9 @@
                 </StackPanel>
                 </md:MdScrollViewer>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="1">
+                  <md:MdIconButton Icon="{x:Static md:MdSymbols.VerticalSplit}" Command="{Binding ToggleDualPaneCommand}"
+                                   IsVisible="{Binding IsExtraLarge}" ToolTip.Tip="{Binding DualPaneToggleText}"
+                                   AutomationProperties.Name="{Binding DualPaneToggleText}" />
                   <md:MdIconButton Icon="{x:Static md:MdSymbols.SwapVert}" Click="OnToggleSortDirection"
                                    AutomationProperties.Name="切换升/降序" />
                   <md:MdIconButton Icon="{x:Static md:MdSymbols.GridView}" Command="{Binding Browser.ToggleViewModeCommand}"
@@ -598,7 +621,7 @@
               </Grid>
             </Border>
 
-            <Grid Grid.Row="3" Margin="8,4,8,0">
+            <Grid Grid.Row="2" Margin="8,4,8,0">
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -761,7 +784,7 @@
               </Grid>
             </Grid>
 
-            <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto" Margin="14,5,10,9">
+            <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="14,5,10,9">
               <TextBlock Classes="caption" Text="{Binding Browser.SelectionText}" VerticalAlignment="Center" />
               <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center" Margin="0,0,8,0">
                 <Run Text="排序：" /><Run Text="{Binding Browser.SortFieldLabel}" />
@@ -782,6 +805,182 @@
                   </Border>
                 </Grid>
               </md:MdButton>
+            </Grid>
+                </Grid>
+              </Border>
+
+              <controls:MaterialGridSplitter x:Name="DualPaneSplitter" Grid.Column="1"
+                                             ReduceMotion="{Binding ReduceMotion}"
+                                             IsVisible="{Binding ShowDualPane}"
+                                             DragCompleted="OnDualPaneSplitterDragCompleted"
+                                             ResetRequested="OnDualPaneSplitterResetRequested"
+                                             ToolTip.Tip="拖动调整对照窗格宽度；双击或按 Home 恢复默认"
+                                             AutomationProperties.Name="调整对照窗格宽度" />
+
+              <Border x:Name="SecondaryPane" Grid.Column="2" Classes="dual-pane" Classes.dual="{Binding ShowDualPane}"
+                      Classes.active="{Binding IsSecondaryPaneActive}" IsVisible="{Binding ShowDualPane}"
+                      Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" ClipToBounds="True"
+                      PointerPressed="OnSecondaryPanePointerPressed" GotFocus="OnSecondaryPaneGotFocus">
+                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+                  <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="12,10,8,4">
+                    <md:MdIcon Glyph="{x:Static md:MdSymbols.VerticalSplit}" Size="20" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                    <TextBlock Grid.Column="1" Classes="h3" Text="对照窗格" VerticalAlignment="Center" />
+                    <Border Grid.Column="2" CornerRadius="99" Padding="8,3" VerticalAlignment="Center"
+                            Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                      <TextBlock Classes="caption" Text="{Binding SecondaryPaneBadgeText}"
+                                 Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+                    </Border>
+                    <md:MdIconButton Grid.Column="3" Icon="{x:Static md:MdSymbols.Close}"
+                                     Command="{Binding ToggleDualPaneCommand}" AutomationProperties.Name="关闭对照窗格" />
+                  </Grid>
+
+                  <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="5" Margin="8,4,8,2">
+                    <StackPanel Orientation="Horizontal" Spacing="1" VerticalAlignment="Center">
+                      <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.ArrowBack}"
+                                       Command="{Binding SecondaryBrowser.GoBackCommand}" IsEnabled="{Binding SecondaryBrowser.CanGoBack}"
+                                       AutomationProperties.Name="对照窗格后退" />
+                      <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.ArrowForward}"
+                                       Command="{Binding SecondaryBrowser.GoForwardCommand}" IsEnabled="{Binding SecondaryBrowser.CanGoForward}"
+                                       AutomationProperties.Name="对照窗格前进" />
+                      <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.ArrowUpward}"
+                                       Command="{Binding SecondaryBrowser.GoUpCommand}" IsEnabled="{Binding SecondaryBrowser.CanGoUp}"
+                                       AutomationProperties.Name="对照窗格上一级" />
+                      <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.Refresh}"
+                                       Command="{Binding SecondaryBrowser.RefreshCommand}" AutomationProperties.Name="刷新对照窗格" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Classes="path-pill" MinHeight="38" ClipToBounds="True">
+                      <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True">
+                        <ItemsControl x:Name="SecondaryBreadcrumbBar" ItemsSource="{Binding SecondaryBrowser.Breadcrumbs}" VerticalAlignment="Center">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BreadcrumbSegment">
+                              <md:MdButton Classes="breadcrumb-segment" Variant="Text" Click="OnSecondaryBreadcrumbClick"
+                                           Tapped="OnBreadcrumbSegmentTapped" ToolTip.Tip="{Binding FullPath}">
+                                <StackPanel Orientation="Horizontal" Spacing="1">
+                                  <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                  <md:MdIcon Glyph="{x:Static md:MdSymbols.ChevronRight}" Size="14" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                                </StackPanel>
+                              </md:MdButton>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </md:MdScrollViewer>
+                    </Border>
+                  </Grid>
+
+                  <Border Grid.Row="2" Margin="8,2,8,0" Padding="4,3"
+                          BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1">
+                    <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True">
+                      <StackPanel Orientation="Horizontal" Spacing="1">
+                        <md:MdButton Variant="Tonal" Width="38" MinWidth="38" Height="38" Padding="0"
+                                     Command="{Binding SecondaryBrowser.NewFolderCommand}" ToolTip.Tip="新建文件夹"
+                                     AutomationProperties.Name="在对照窗格新建文件夹">
+                          <md:MdIcon Glyph="{x:Static md:MdSymbols.CreateNewFolder}" Size="18" />
+                        </md:MdButton>
+                        <md:MdIconButton Icon="{x:Static md:MdSymbols.Description}" Command="{Binding SecondaryBrowser.NewFileCommand}"
+                                         ToolTip.Tip="新建文件" AutomationProperties.Name="在对照窗格新建文件" />
+                        <md:MdIconButton Icon="{x:Static md:MdSymbols.ContentCut}" Command="{Binding SecondaryBrowser.CutSelectionCommand}"
+                                         IsEnabled="{Binding SecondaryBrowser.HasSelection}" ToolTip.Tip="剪切" AutomationProperties.Name="剪切对照窗格选集" />
+                        <md:MdIconButton Icon="{x:Static md:MdSymbols.ContentCopy}" Command="{Binding SecondaryBrowser.CopySelectionCommand}"
+                                         IsEnabled="{Binding SecondaryBrowser.HasSelection}" ToolTip.Tip="复制" AutomationProperties.Name="复制对照窗格选集" />
+                        <md:MdIconButton Icon="{x:Static md:MdSymbols.ContentPaste}" Command="{Binding SecondaryBrowser.PasteCommand}"
+                                         IsEnabled="{Binding SecondaryBrowser.HasClipboard}" ToolTip.Tip="粘贴" AutomationProperties.Name="粘贴到对照窗格" />
+                        <md:MdIconButton Icon="{x:Static md:MdSymbols.Delete}" Command="{Binding SecondaryBrowser.DeleteSelectionCommand}"
+                                         IsEnabled="{Binding SecondaryBrowser.HasSelection}" ToolTip.Tip="删除" AutomationProperties.Name="删除对照窗格选集" />
+                        <Border Width="1" Margin="6,6" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
+                        <md:MdButton Variant="Tonal" Height="38" Padding="10,0" Command="{Binding CopySecondaryToPrimaryCommand}"
+                                     IsEnabled="{Binding CanTransferSecondaryToPrimary}" ToolTip.Tip="复制所选项到主窗格"
+                                     AutomationProperties.Name="复制所选项到主窗格">
+                          <StackPanel Orientation="Horizontal" Spacing="5">
+                            <md:MdIcon Glyph="{x:Static md:MdSymbols.ContentCopy}" Size="17" />
+                            <TextBlock Text="复制到 A" VerticalAlignment="Center" />
+                          </StackPanel>
+                        </md:MdButton>
+                        <md:MdButton Variant="Text" Height="38" Padding="10,0" Command="{Binding MoveSecondaryToPrimaryCommand}"
+                                     IsEnabled="{Binding CanTransferSecondaryToPrimary}" ToolTip.Tip="移动所选项到主窗格"
+                                     AutomationProperties.Name="移动所选项到主窗格">
+                          <StackPanel Orientation="Horizontal" Spacing="5">
+                            <md:MdIcon Glyph="{x:Static md:MdSymbols.DriveFileMove}" Size="17" />
+                            <TextBlock Text="移动到 A" VerticalAlignment="Center" />
+                          </StackPanel>
+                        </md:MdButton>
+                        <md:MdIconButton Icon="{x:Static md:MdSymbols.SwapVert}" Click="OnSecondaryToggleSortDirection"
+                                         AutomationProperties.Name="切换对照窗格排序方向" />
+                        <md:MdIconButton Icon="{x:Static md:MdSymbols.GridView}" Command="{Binding SecondaryBrowser.ToggleViewModeCommand}"
+                                         AutomationProperties.Name="切换对照窗格视图" />
+                      </StackPanel>
+                    </md:MdScrollViewer>
+                  </Border>
+
+                  <Grid Grid.Row="3" Margin="8,4,8,0" RowDefinitions="Auto,*">
+                    <md:MdLinearProgressIndicator Grid.Row="0" IsIndeterminate="True" Height="3"
+                                                  IsVisible="{Binding SecondaryBrowser.IsLoading}" />
+                    <Grid x:Name="SecondaryDropArea" Grid.Row="1">
+                      <md:MdList x:Name="SecondaryFileList" Classes="file-list" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
+                                 ItemsSource="{Binding SecondaryBrowser.Items}"
+                                 SelectedItems="{Binding SecondaryBrowser.SelectedItems}"
+                                 ItemTemplate="{StaticResource FileRowTemplate}"
+                                 IsVisible="{Binding !SecondaryBrowser.IsGridView}"
+                                 ContextMenu="{StaticResource ItemMenu}"
+                                 Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped" />
+                      <md:MdList x:Name="SecondaryFileGrid" Classes="file-list file-grid" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="6"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ItemsSource="{Binding SecondaryBrowser.Items}"
+                                 SelectedItems="{Binding SecondaryBrowser.SelectedItems}"
+                                 ItemTemplate="{StaticResource FileCardTemplate}"
+                                 IsVisible="{Binding SecondaryBrowser.IsGridView}"
+                                 ContextMenu="{StaticResource ItemMenu}"
+                                 Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
+                        <md:MdList.ItemsPanel>
+                          <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </md:MdList.ItemsPanel>
+                      </md:MdList>
+
+                      <StackPanel IsVisible="{Binding SecondaryBrowser.IsEmpty}" HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" Spacing="10" Margin="16">
+                        <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="52" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                        <TextBlock Classes="body" Text="这里还没有文件" HorizontalAlignment="Center" />
+                        <md:MdButton Variant="Tonal" Content="新建文件夹" HorizontalAlignment="Center"
+                                     Command="{Binding SecondaryBrowser.NewFolderCommand}" />
+                      </StackPanel>
+
+                      <StackPanel IsVisible="{Binding SecondaryBrowser.HasError}" HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" Spacing="10" MaxWidth="420" Margin="20">
+                        <md:MdIcon Glyph="{x:Static md:MdSymbols.Warning}" Size="52" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource Md.Sys.Color.Error.Brush}" />
+                        <TextBlock Classes="body" Text="{Binding SecondaryBrowser.LoadError}" TextWrapping="Wrap" TextAlignment="Center" />
+                        <md:MdButton Variant="Tonal" Content="重试" HorizontalAlignment="Center"
+                                     Command="{Binding SecondaryBrowser.RefreshCommand}" />
+                      </StackPanel>
+
+                      <Border x:Name="SecondaryDropHint" IsVisible="False" IsHitTestVisible="False"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Padding="16,10" CornerRadius="18"
+                              Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}"
+                              BorderBrush="{DynamicResource Md.Sys.Color.Primary.Brush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <md:MdIcon Glyph="{x:Static md:MdSymbols.DriveFileMove}" Size="22"
+                                     Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                          <TextBlock x:Name="SecondaryDropHintText" Text="释放以移动到对照窗格" VerticalAlignment="Center"
+                                     Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                        </StackPanel>
+                      </Border>
+                    </Grid>
+                  </Grid>
+
+                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="14,5,12,9">
+                    <TextBlock Classes="caption" Text="{Binding SecondaryBrowser.SelectionText}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center">
+                      <Run Text="排序：" /><Run Text="{Binding SecondaryBrowser.SortFieldLabel}" />
+                    </TextBlock>
+                  </Grid>
+                </Grid>
+              </Border>
             </Grid>
           </Grid>
           </Border>

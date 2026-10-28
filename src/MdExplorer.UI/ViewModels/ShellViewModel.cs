@@ -40,6 +40,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private IFileLauncherService Launcher => _launcher();
 
     public BrowserViewModel Browser { get; }
+
+    /// <summary>XL 对照窗格 B 的完整第二浏览会话；与主 Browser 分开保存路径、历史与选集。</summary>
+    public BrowserViewModel SecondaryBrowser { get; }
+
+    [ObservableProperty] private bool _isDualPaneEnabled;
+    [ObservableProperty] private bool _isSecondaryPaneActive;
+    private bool _secondaryBrowserInitialized;
+
     public PreviewViewModel Preview { get; }
     public PlatformCapabilities Capabilities => _services.Capabilities;
     public ISettingsStore SettingsStore => _services.SettingsStore;
@@ -73,30 +81,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             OnPropertyChanged(nameof(HasUnavailableAuthorizedRoots));
             OnPropertyChanged(nameof(AuthorizedRootsSummaryText));
         };
-        Browser = new BrowserViewModel(
-            services.FileSystem, services.Operations, services.Trash,
-            services.Archive, services.Search, services.SettingsStore,
-            services.Inspector, services.FolderWatch, services.SystemClipboard,
-            this, Preview, () => Launcher);
-        Browser.FavoritesChanged += async (_, _) => await RefreshFavoritesAsync().ConfigureAwait(true);
-        Browser.RecentsChanged += async (_, _) => await RefreshRecentsAsync().ConfigureAwait(true);
-        Browser.ArchiveWorkbenchRequested += async (_, path) => await OpenArchiveWorkbenchAsync(path).ConfigureAwait(true);
+        Browser = CreateBrowserSession(services);
+        SecondaryBrowser = CreateBrowserSession(services);
+        SecondaryBrowser.PersistSessionTabs = false;
+        SecondaryBrowser.DrivesSharedPreview = false;
+        SubscribeBrowserSession(Browser, isPrimary: true);
+        SubscribeBrowserSession(SecondaryBrowser, isPrimary: false);
         Preview.ArchiveWorkbenchRequested += async (_, path) => await OpenArchiveWorkbenchAsync(path).ConfigureAwait(true);
-        Browser.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(BrowserViewModel.CurrentFolderName))
-                OnPropertyChanged(nameof(PageTitle));
-            if (e.PropertyName is nameof(BrowserViewModel.IsSearchMode))
-                OnPropertyChanged(nameof(PageTitle));
-            if (e.PropertyName is nameof(BrowserViewModel.HasMultipleTabs))
-                OnPropertyChanged(nameof(ShowBrowserTabs));
-            if (e.PropertyName is nameof(BrowserViewModel.IsAddressEditing))
-            {
-                OnPropertyChanged(nameof(ShowBreadcrumbBar));
-                OnPropertyChanged(nameof(ShowCompactPath));
-                OnPropertyChanged(nameof(ShowPathRowActions));
-            }
-        };
         FavoriteItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFavorites));
         RecentFolders.CollectionChanged += (_, _) =>
         {
@@ -155,6 +146,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _rememberFolderView = s.RememberFolderView;
         _watchFolderChanges = s.WatchFolderChanges;
         _useSearchIndex = s.UseSearchIndex;
+        _isDualPaneEnabled = s.DualPaneEnabled;
         RefreshSearchIndexRoots();
     }
 
@@ -166,6 +158,221 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         if (_services.SystemClipboard is AvaloniaSystemClipboardService clipboard)
             clipboard.TopLevelProvider = topLevelProvider;
+    }
+
+    private BrowserViewModel CreateBrowserSession(AppHost.AppServices services) => new(
+        services.FileSystem, services.Operations, services.Trash,
+        services.Archive, services.Search, services.SettingsStore,
+        services.Inspector, services.FolderWatch, services.SystemClipboard,
+        this, Preview, () => Launcher);
+
+    private void SubscribeBrowserSession(BrowserViewModel browser, bool isPrimary)
+    {
+        browser.FavoritesChanged += async (_, _) => await RefreshFavoritesAsync().ConfigureAwait(true);
+        browser.RecentsChanged += async (_, _) => await RefreshRecentsAsync().ConfigureAwait(true);
+        browser.ArchiveWorkbenchRequested += async (_, path) => await OpenArchiveWorkbenchAsync(path).ConfigureAwait(true);
+        browser.PropertyChanged += (sender, e) =>
+        {
+            if (sender is not BrowserViewModel session)
+                return;
+            if ((e.PropertyName is nameof(BrowserViewModel.CurrentFolderName) or nameof(BrowserViewModel.IsSearchMode)) &&
+                ReferenceEquals(session, ActiveBrowser))
+                OnPropertyChanged(nameof(PageTitle));
+
+            if (isPrimary)
+            {
+                if (e.PropertyName is nameof(BrowserViewModel.HasMultipleTabs))
+                    OnPropertyChanged(nameof(ShowBrowserTabs));
+                if (e.PropertyName is nameof(BrowserViewModel.IsAddressEditing))
+                {
+                    OnPropertyChanged(nameof(ShowBreadcrumbBar));
+                    OnPropertyChanged(nameof(ShowCompactPath));
+                    OnPropertyChanged(nameof(ShowPathRowActions));
+                }
+            }
+            else if (e.PropertyName is nameof(BrowserViewModel.CurrentPath))
+            {
+                _services.SettingsStore.Settings.DualPanePath = SecondaryBrowser.CurrentPath;
+                _ = SaveAsync();
+            }
+
+            if (e.PropertyName is nameof(BrowserViewModel.SelectedCount)
+                or nameof(BrowserViewModel.HasSelection)
+                or nameof(BrowserViewModel.CurrentPath)
+                or nameof(BrowserViewModel.IsSearchMode))
+                NotifyDualPaneState();
+        };
+    }
+
+    // ---------- XL 双窗格（对照窗格 B） ----------
+    public bool IsExtraLarge => SizeClass == SizeClass.ExtraLarge;
+    public bool CanUseDualPane => IsExtraLarge;
+    public bool ShowDualPane => IsBrowser && IsDualPaneEnabled && CanUseDualPane;
+    public bool IsPrimaryPaneActive => !ShowDualPane || !IsSecondaryPaneActive;
+    public BrowserViewModel ActiveBrowser => ShowDualPane && IsSecondaryPaneActive ? SecondaryBrowser : Browser;
+    public string DualPaneToggleText => ShowDualPane ? "关闭对照窗格" : "打开对照窗格";
+    public string PrimaryPaneBadgeText => IsPrimaryPaneActive ? "A · 活动" : "A";
+    public string SecondaryPaneBadgeText => IsSecondaryPaneActive && ShowDualPane ? "B · 活动" : "B";
+    public bool CanTransferPrimaryToSecondary =>
+        ShowDualPane && Browser.HasSelection && !SecondaryBrowser.IsSearchMode &&
+        !string.IsNullOrWhiteSpace(SecondaryBrowser.CurrentPath);
+    public bool CanTransferSecondaryToPrimary =>
+        ShowDualPane && SecondaryBrowser.HasSelection && !Browser.IsSearchMode &&
+        !string.IsNullOrWhiteSpace(Browser.CurrentPath);
+
+    partial void OnIsDualPaneEnabledChanged(bool value)
+    {
+        _services.SettingsStore.Settings.DualPaneEnabled = value;
+        _ = SaveAsync();
+        if (!value)
+            IsSecondaryPaneActive = false;
+        NotifyDualPaneState();
+        ApplyActivePanePreviewSource();
+    }
+
+    partial void OnIsSecondaryPaneActiveChanged(bool value)
+    {
+        NotifyDualPaneState();
+        OnPropertyChanged(nameof(PageTitle));
+        ApplyActivePanePreviewSource();
+    }
+
+    private void NotifyDualPaneState()
+    {
+        OnPropertyChanged(nameof(IsExtraLarge));
+        OnPropertyChanged(nameof(CanUseDualPane));
+        OnPropertyChanged(nameof(ShowDualPane));
+        OnPropertyChanged(nameof(IsPrimaryPaneActive));
+        OnPropertyChanged(nameof(ActiveBrowser));
+        OnPropertyChanged(nameof(DualPaneToggleText));
+        OnPropertyChanged(nameof(PrimaryPaneBadgeText));
+        OnPropertyChanged(nameof(SecondaryPaneBadgeText));
+        OnPropertyChanged(nameof(CanTransferPrimaryToSecondary));
+        OnPropertyChanged(nameof(CanTransferSecondaryToPrimary));
+    }
+
+    private void ApplyActivePanePreviewSource()
+    {
+        var useSecondary = ShowDualPane && IsSecondaryPaneActive;
+        Browser.DrivesSharedPreview = !useSecondary;
+        SecondaryBrowser.DrivesSharedPreview = useSecondary;
+        _ = ActiveBrowser.PublishSelectionToPreviewAsync();
+    }
+
+    public void ActivatePrimaryPane()
+    {
+        if (IsSecondaryPaneActive)
+            IsSecondaryPaneActive = false;
+        else
+            ApplyActivePanePreviewSource();
+    }
+
+    public void ActivateSecondaryPane()
+    {
+        if (!ShowDualPane)
+            return;
+        if (!IsSecondaryPaneActive)
+            IsSecondaryPaneActive = true;
+        else
+            ApplyActivePanePreviewSource();
+    }
+
+    private async Task EnsureSecondaryBrowserAsync()
+    {
+        if (_secondaryBrowserInitialized && !string.IsNullOrWhiteSpace(SecondaryBrowser.CurrentPath))
+            return;
+
+        var candidate = _services.SettingsStore.Settings.DualPanePath;
+        if (string.IsNullOrWhiteSpace(candidate) || !_services.FileSystem.Exists(candidate))
+            candidate = Browser.CurrentPath ?? _services.StartFolder;
+        await SecondaryBrowser.NavigateToAsync(candidate, pushHistory: false).ConfigureAwait(true);
+        _secondaryBrowserInitialized = true;
+    }
+
+    [RelayCommand]
+    private async Task ToggleDualPaneAsync()
+    {
+        if (IsDualPaneEnabled)
+        {
+            IsDualPaneEnabled = false;
+            ActivatePrimaryPane();
+            return;
+        }
+
+        if (!CanUseDualPane)
+        {
+            Notify("对照窗格需要至少 1600 dp 宽的窗口");
+            return;
+        }
+
+        Page = ShellPage.Browser;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        await EnsureSecondaryBrowserAsync().ConfigureAwait(true);
+        IsDualPaneEnabled = true;
+        ActivateSecondaryPane();
+    }
+
+    [RelayCommand]
+    private async Task CopyPrimaryToSecondaryAsync() =>
+        await TransferBetweenPanesAsync(Browser, SecondaryBrowser, isMove: false).ConfigureAwait(true);
+
+    [RelayCommand]
+    private async Task MovePrimaryToSecondaryAsync() =>
+        await TransferBetweenPanesAsync(Browser, SecondaryBrowser, isMove: true).ConfigureAwait(true);
+
+    [RelayCommand]
+    private async Task CopySecondaryToPrimaryAsync() =>
+        await TransferBetweenPanesAsync(SecondaryBrowser, Browser, isMove: false).ConfigureAwait(true);
+
+    [RelayCommand]
+    private async Task MoveSecondaryToPrimaryAsync() =>
+        await TransferBetweenPanesAsync(SecondaryBrowser, Browser, isMove: true).ConfigureAwait(true);
+
+    private async Task TransferBetweenPanesAsync(
+        BrowserViewModel sourceBrowser, BrowserViewModel destinationBrowser, bool isMove)
+    {
+        if (!ShowDualPane)
+            return;
+        var sources = sourceBrowser.SelectedItems.Select(item => item.FullPath).ToArray();
+        if (sources.Length == 0)
+        {
+            Notify("请先在来源窗格中选择项目");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(destinationBrowser.CurrentPath) || destinationBrowser.IsSearchMode)
+        {
+            Notify("目标窗格当前不能接收文件");
+            return;
+        }
+
+        var destination = destinationBrowser.CurrentPath;
+        var outcome = await sourceBrowser.TransferItemsAsync(sources, destination, isMove).ConfigureAwait(true);
+        if (outcome is not null)
+            await RefreshBrowserAfterTransferAsync(destinationBrowser, sources, destination).ConfigureAwait(true);
+    }
+
+    /// <summary>一个窗格完成传输后，刷新另一个正显示来源父目录或目标目录的窗格（SAF 无文件夹监视时尤其需要）。</summary>
+    internal async Task RefreshBrowserAfterTransferAsync(
+        BrowserViewModel browser, IReadOnlyList<string> sources, string destinationFolder)
+    {
+        if (string.IsNullOrWhiteSpace(browser.CurrentPath) || browser.IsSearchMode)
+            return;
+        var affected = BrowserViewModel.PathsEqual(browser.CurrentPath, destinationFolder) ||
+                         sources.Any(source => BrowserViewModel.PathsEqual(
+                             _services.FileSystem.GetParentPath(source), browser.CurrentPath));
+        if (affected)
+            await browser.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
+    }
+
+    private void CollapseDualPaneForSize()
+    {
+        if (!IsDualPaneEnabled || CanUseDualPane)
+            return;
+        IsSecondaryPaneActive = false;
+        if (!string.IsNullOrWhiteSpace(SecondaryBrowser.CurrentPath))
+            Browser.EnsureBackgroundTab(SecondaryBrowser.CurrentPath);
+        ApplyActivePanePreviewSource();
     }
 
     // ---------- 页面与断点 ----------
@@ -200,7 +407,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         ShellPage.SearchCenter => "搜索中心",
         ShellPage.StorageInsights => "存储洞察",
         ShellPage.ArchiveWorkbench => string.IsNullOrWhiteSpace(ArchiveName) ? "压缩包" : ArchiveName,
-        _ => Browser.IsSearchMode ? "搜索结果" : Browser.CurrentFolderName,
+        _ => ActiveBrowser.IsSearchMode ? "搜索结果" : ActiveBrowser.CurrentFolderName,
     };
 
     public bool HasFavorites => FavoriteItems.Count > 0;
@@ -243,7 +450,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     partial void OnPageChanged(ShellPage value)
     {
         if (value != ShellPage.Browser)
+        {
             Browser.IsSearchPanelOpen = false;
+            SecondaryBrowser.IsSearchPanelOpen = false;
+            IsSecondaryPaneActive = false;
+        }
         OnPropertyChanged(nameof(PageTitle));
         OnPropertyChanged(nameof(IsHome));
         OnPropertyChanged(nameof(IsBrowser));
@@ -254,6 +465,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsStorageInsightsPage));
         OnPropertyChanged(nameof(IsArchiveWorkbenchPage));
         OnPropertyChanged(nameof(ShowPreviewPaneEffective));
+        NotifyDualPaneState();
+        ApplyActivePanePreviewSource();
     }
 
     partial void OnSizeClassChanged(SizeClass value)
@@ -266,6 +479,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                      nameof(ShowPreviewPaneNow), nameof(ShowPreviewPageNow), nameof(ShowPreviewPaneEffective),
                  })
             OnPropertyChanged(name);
+        NotifyDualPaneState();
+        if (!CanUseDualPane)
+            CollapseDualPaneForSize();
+        else
+            ApplyActivePanePreviewSource();
         if (IsExpandedOrAbove)
         {
             IsDrawerOpen = false;
@@ -362,6 +580,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         await RefreshHomeAsync().ConfigureAwait(true);
         await Browser.RestoreTabsAsync(_services.StartFolder).ConfigureAwait(true);
+        if (IsDualPaneEnabled)
+            await EnsureSecondaryBrowserAsync().ConfigureAwait(true);
     }
 
     public async Task RefreshHomeAsync()
@@ -475,6 +695,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public async Task OpenRecentFileAsync(FileItemViewModel item)
     {
         Page = ShellPage.Browser;
+        ActivatePrimaryPane();
         IsDrawerOpen = false;
         IsPreviewPageOpen = false;
         await Browser.NavigateToFileLocationAsync(item.FullPath).ConfigureAwait(true);
@@ -549,6 +770,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public async Task OpenFolderAsync(string path)
     {
         Page = ShellPage.Browser;
+        ActivatePrimaryPane();
         IsDrawerOpen = false;
         IsPreviewPageOpen = false;
         await Browser.NavigateToAsync(path).ConfigureAwait(true);
@@ -847,7 +1069,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool WouldHandleBack =>
         IsDialogOpen || IsTaskCenterOpen || IsDrawerOpen || IsPreviewPageOpen || Browser.IsSearchPanelOpen ||
         Page != ShellPage.Home ||
-        Browser.CanConsumeBack;
+        ActiveBrowser.CanConsumeBack;
 
     /// <summary>顶级返回处理（Android 返回键/桌面 Alt+← 的兜底序）。返回是否已消费。</summary>
     public async Task<bool> TryGoBackAsync()
@@ -869,7 +1091,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             }
             return true;
         }
-        if (Page == ShellPage.Browser && await Browser.TryGoBackAsync().ConfigureAwait(true)) return true;
+        if (Page == ShellPage.Browser && await ActiveBrowser.TryGoBackAsync().ConfigureAwait(true)) return true;
         if (Page != ShellPage.Home) { GoHome(); return true; }
         return false;
     }
@@ -2424,6 +2646,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _services.SettingsStore.Settings.ShowHidden = value;
         _ = SaveAsync();
         _ = Browser.RefreshCommand.ExecuteAsync(null);
+        if (!string.IsNullOrWhiteSpace(SecondaryBrowser.CurrentPath))
+            _ = SecondaryBrowser.RefreshCommand.ExecuteAsync(null);
     }
 
     partial void OnFoldersFirstChanged(bool value)
@@ -2431,6 +2655,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _services.SettingsStore.Settings.FoldersFirst = value;
         _ = SaveAsync();
         Browser.RefilterAndSort();
+        SecondaryBrowser.RefilterAndSort();
     }
 
     partial void OnShowPreviewPaneChanged(bool value)
@@ -2464,6 +2689,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _services.SettingsStore.Settings.WatchFolderChanges = value;
         _ = SaveAsync();
         Browser.SetWatchEnabled(value);
+        SecondaryBrowser.SetWatchEnabled(value);
     }
 
     [RelayCommand]

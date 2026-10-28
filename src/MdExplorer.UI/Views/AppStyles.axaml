@@ -456,4 +456,17 @@
     <Setter Property="MaxHeight" Value="560" />
   </Style>
 
+  <!-- 双窗格：活动会话只用主色细描边定向，非活动窗格保持完整文字对比度。 -->
+  <Style Selector="Border.dual-pane">
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1.5" />
+    <Setter Property="CornerRadius" Value="18" />
+  </Style>
+  <Style Selector="Border.dual-pane.dual">
+    <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
+  </Style>
+  <Style Selector="Border.dual-pane.dual.active">
+    <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+  </Style>
+
 </Styles>

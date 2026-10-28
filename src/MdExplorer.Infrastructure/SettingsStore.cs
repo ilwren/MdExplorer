@@ -93,6 +93,8 @@ public sealed class SettingsStore : ISettingsStore
         settings.RecentFilePaths ??= [];
         settings.SearchIndexRootPaths ??= [];
         settings.SearchIndexRootPaths.RemoveAll(string.IsNullOrWhiteSpace);
+        if (double.IsNaN(settings.DualPaneWidth) || double.IsInfinity(settings.DualPaneWidth) || settings.DualPaneWidth <= 0)
+            settings.DualPaneWidth = 560;
         settings.FolderViewStates ??= [];
         foreach (var key in settings.FolderViewStates
                      .Where(pair => pair.Value is null)

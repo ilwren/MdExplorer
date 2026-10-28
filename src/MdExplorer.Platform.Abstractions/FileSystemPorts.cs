@@ -315,6 +315,9 @@ public sealed class AppSettings
     public Dictionary<string, FolderViewPreferences> FolderViewStates { get; set; } = [];
     public double DrawerPaneWidth { get; set; } = 288;    // Expanded+ 永久抽屉宽度（MaterialGridSplitter 拖后回写）
     public double PreviewPaneWidth { get; set; } = 316;   // Expanded+ 预览卡宽度（同上）
+    public bool DualPaneEnabled { get; set; }             // XL 双窗格偏好；窄于 XL 时仅保留 B 会话而不显示
+    public string? DualPanePath { get; set; }             // 对照窗格 B 上次所在文件夹（本地路径或 storage URI）
+    public double DualPaneWidth { get; set; } = 560;      // 对照窗格 B 宽度（MaterialGridSplitter 拖后回写）
     public bool ConfirmPermanentDelete { get; set; } = true;
     public bool WatchFolderChanges { get; set; } = true;   // 外部增删改时自动刷新当前文件夹
     public List<string> OpenTabPaths { get; set; } = [];   // 上次会话的浏览器标签页（按显示顺序）
