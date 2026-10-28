@@ -130,6 +130,7 @@ public sealed class DualPaneBrowserTests : IDisposable
         await shell.SecondaryBrowser.NavigateToAsync(rightDir, pushHistory: false);
 
         _ = Select(shell.Browser, "cut.txt");
+        await WaitForAsync(() => !shell.Preview.IsLoading && shell.Preview.TextContent == "cut-me");
         await shell.Browser.CutSelectionCommand.ExecuteAsync(null);
         Assert.True(shell.Browser.HasClipboard);
         Assert.True(shell.SecondaryBrowser.HasClipboard);
