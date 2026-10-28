@@ -245,7 +245,7 @@
     </Grid>
 
     <!-- Compact / Medium floating preview, styled after concept 04 -->
-    <Border x:Name="FloatingPreviewLayer" Grid.Row="2" Background="#66000000" IsVisible="{Binding IsFloatingPreviewOpen}" Panel.ZIndex="10" Padding="16">
+    <Border x:Name="FloatingPreviewLayer" Grid.Row="2" Background="#66000000" IsVisible="{Binding IsFloatingPreviewOpen}" Padding="16">
       <Border x:Name="FloatingPreviewCard" Width="560" MaxWidth="760" Height="680" MaxHeight="900" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource OutlineBrush}" BorderThickness="1" CornerRadius="28" Padding="18">
         <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" RowSpacing="12">
           <Grid ColumnDefinitions="*,Auto"><TextBlock Text="文件预览" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"><Button Click="OnFloatExpandClick" ToolTip.Tip="展开 / 还原" Padding="8"><TextBlock Text="⛶" FontSize="17"/></Button><Button Click="OnFloatCloseClick" ToolTip.Tip="关闭预览" Padding="8"><TextBlock Text="×" FontSize="19"/></Button></StackPanel></Grid>
