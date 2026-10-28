@@ -433,6 +433,33 @@ public sealed class ScreenshotTests
         Assert.NotEmpty(shell.StorageLargestFiles);
     });
 
+    [AvaloniaFact]
+    public async Task Large_ArchiveWorkbench() => await CaptureAsync(
+        "29-large-archive-workbench.png", 1440, 900, ArrangeArchiveWorkbenchAsync);
+
+    [AvaloniaFact]
+    public async Task Compact_ArchiveWorkbench() => await CaptureAsync(
+        "30-compact-archive-workbench.png", 390, 844, ArrangeArchiveWorkbenchAsync);
+
+    private static async Task ArrangeArchiveWorkbenchAsync(ShellViewModel shell)
+    {
+        var archivePath = Path.Combine(PicturesDir, "backup-2026.zip");
+        await shell.OpenArchiveWorkbenchAsync(archivePath);
+        var docs = Assert.Single(shell.ArchiveVisibleEntries, row => row.Name == "docs");
+        shell.NavigateArchiveFolder(docs.VirtualPath);
+
+        var readme = Assert.Single(shell.ArchiveVisibleEntries, row => row.Name == "readme.txt");
+        await shell.SelectArchiveEntryAsync(readme);
+        var config = Assert.Single(shell.ArchiveVisibleEntries, row => row.Name == "config.json");
+        config.IsChecked = true;
+        shell.DismissSnackbarCommand.Execute(null);
+
+        Assert.True(shell.HasArchive);
+        Assert.Equal("docs/", shell.ArchiveCurrentFolder);
+        Assert.Contains("ZIP 工作台样例", shell.ArchivePreviewText, StringComparison.Ordinal);
+        Assert.Equal(1, shell.ArchiveSelectedCount);
+    }
+
     /// <summary>桌面溢出菜单：三列分组 + 限高滚动的呈现冒烟。</summary>
     [AvaloniaFact]
     public async Task Large_OverflowMenu_Open()

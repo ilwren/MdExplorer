@@ -48,12 +48,22 @@ internal static class SampleData
             using (var stream = File.Create(Path.Combine(pictures, "backup-2026.zip")))
             using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
             {
-                foreach (var (entryName, content) in new[] { ("notes/readme.txt", "backup notes"), ("config.json", "{\"theme\":\"teal\"}"), ("photo-list.txt", "IMG_20261001.jpg") })
+                void AddText(string entryName, string content)
                 {
-                    var entry = zip.CreateEntry(entryName);
+                    var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
                     using var writer = entry.Open();
                     writer.Write(Encoding.UTF8.GetBytes(content));
                 }
+
+                AddText("docs/readme.txt", string.Join("\n", Enumerable.Repeat("Eidoria backup notes · ZIP 工作台样例 · 免整包解压预览", 24)));
+                AddText("docs/config.json", "{\n  \"theme\": \"teal\",\n  \"view\": \"grid\",\n  \"archive\": true\n}\n");
+                AddText("photos/photo-list.txt", "IMG_20261001.jpg\n海边日落.png\nscreenshot_ide.png\n");
+                AddText("notes/readme.txt", "backup notes\n- 保留目录结构\n- 同名文件两者保留\n");
+                zip.CreateEntry("empty/");
+
+                var photoEntry = zip.CreateEntry("photos/IMG_20261001.jpg", CompressionLevel.Optimal);
+                using var photoWriter = photoEntry.Open();
+                photoWriter.Write(File.ReadAllBytes(Path.Combine(pictures, "IMG_20261001.jpg")));
             }
 
             var baseTime = new DateTime(2026, 10, 1, 14, 22, 0, DateTimeKind.Local);

@@ -39,8 +39,8 @@ public sealed class ArchiveWorkbenchTests : IDisposable
             CancellationToken.None);
 
         Assert.True(folderOutcome.Success);
-        Assert.Equal("hello", await File.ReadAllTextAsync(Path.Combine(folderDest, "docs", "readme.txt")));
-        Assert.Equal("{}", await File.ReadAllTextAsync(Path.Combine(folderDest, "docs", "config.json")));
+        Assert.Equal("hello", File.ReadAllText(Path.Combine(folderDest, "docs", "readme.txt")));
+        Assert.Equal("{}", File.ReadAllText(Path.Combine(folderDest, "docs", "config.json")));
         Assert.False(File.Exists(Path.Combine(folderDest, "photos", "readme.txt")));
         Assert.False(File.Exists(Path.Combine(folderDest, "root.txt")));
 
@@ -55,7 +55,7 @@ public sealed class ArchiveWorkbenchTests : IDisposable
             CancellationToken.None);
 
         Assert.True(fileOutcome.Success);
-        Assert.Equal("world", await File.ReadAllTextAsync(Path.Combine(fileDest, "readme.txt")));
+        Assert.Equal("world", File.ReadAllText(Path.Combine(fileDest, "readme.txt")));
         Assert.False(Directory.Exists(Path.Combine(fileDest, "photos")));
     }
 
@@ -94,7 +94,7 @@ public sealed class ArchiveWorkbenchTests : IDisposable
         var service = new ArchiveService();
 
         var skipDest = NewDestination("skip");
-        await File.WriteAllTextAsync(Path.Combine(skipDest, "root.txt"), "old");
+        File.WriteAllText(Path.Combine(skipDest, "root.txt"), "old");
         var skipOutcome = await service.ExtractEntriesAsync(
             archivePath,
             skipDest,
@@ -102,10 +102,10 @@ public sealed class ArchiveWorkbenchTests : IDisposable
             progress: null,
             CancellationToken.None);
         Assert.True(skipOutcome.Success);
-        Assert.Equal("old", await File.ReadAllTextAsync(Path.Combine(skipDest, "root.txt")));
+        Assert.Equal("old", File.ReadAllText(Path.Combine(skipDest, "root.txt")));
 
         var overwriteDest = NewDestination("overwrite");
-        await File.WriteAllTextAsync(Path.Combine(overwriteDest, "root.txt"), "old");
+        File.WriteAllText(Path.Combine(overwriteDest, "root.txt"), "old");
         var overwriteOutcome = await service.ExtractEntriesAsync(
             archivePath,
             overwriteDest,
@@ -113,7 +113,7 @@ public sealed class ArchiveWorkbenchTests : IDisposable
             progress: null,
             CancellationToken.None);
         Assert.True(overwriteOutcome.Success);
-        Assert.Equal("new", await File.ReadAllTextAsync(Path.Combine(overwriteDest, "root.txt")));
+        Assert.Equal("new", File.ReadAllText(Path.Combine(overwriteDest, "root.txt")));
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class ArchiveWorkbenchTests : IDisposable
 
         Assert.False(outcome.Success);
         Assert.Single(outcome.Errors);
-        Assert.Equal("safe", await File.ReadAllTextAsync(Path.Combine(destination, "safe.txt")));
+        Assert.Equal("safe", File.ReadAllText(Path.Combine(destination, "safe.txt")));
         Assert.False(File.Exists(Path.Combine(_root, "evil.txt")));
     }
 
@@ -194,7 +194,7 @@ public sealed class ArchiveWorkbenchTests : IDisposable
         shell.ArchiveDestinationPath = destination;
         await shell.ExtractArchiveSelectedCommand.ExecuteAsync(null);
 
-        Assert.Equal("{\"theme\":\"teal\"}", await File.ReadAllTextAsync(Path.Combine(destination, "docs", "config.json")));
+        Assert.Equal("{\"theme\":\"teal\"}", File.ReadAllText(Path.Combine(destination, "docs", "config.json")));
         Assert.False(File.Exists(Path.Combine(destination, "docs", "readme.txt")));
 
         Assert.True(await shell.TryGoBackAsync());
