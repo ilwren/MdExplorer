@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using System.Security.Cryptography;
@@ -378,6 +379,17 @@ public sealed class ScreenshotTests
 
             var start = firstCenter!.Value;
             var end = new Point(secondCenter!.Value.X + 24, secondCenter.Value.Y);
+            var hitElement = window.InputHitTest(start);
+            var pointerLog = new List<string>();
+            strip.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+                pointerLog.Add($"P:{e.Source?.GetType().Name}:{e.Pointer.Type}:L={e.GetCurrentPoint(window).Properties.IsLeftButtonPressed}:C={e.Pointer.Captured?.GetType().Name}"),
+                RoutingStrategies.Tunnel, handledEventsToo: true);
+            strip.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
+                pointerLog.Add($"M:{e.Source?.GetType().Name}:L={e.GetCurrentPoint(window).Properties.IsLeftButtonPressed}:C={e.Pointer.Captured?.GetType().Name}"),
+                RoutingStrategies.Tunnel, handledEventsToo: true);
+            strip.AddHandler(InputElement.PointerCaptureLostEvent, (_, e) =>
+                pointerLog.Add($"X:{e.Source?.GetType().Name}:C={e.Pointer.Captured?.GetType().Name}"),
+                RoutingStrategies.Tunnel, handledEventsToo: true);
             window.MouseMove(start);
             window.MouseDown(start, MouseButton.Left);
             for (var step = 1; step <= 6; step++)
@@ -390,7 +402,7 @@ public sealed class ScreenshotTests
             }
             var dragTransform = first.RenderTransform as Avalonia.Media.TranslateTransform;
             Assert.True(dragTransform is { X: > 50 },
-                $"拖拽中首个标签应有横向位移；Bounds={first.Bounds}，Transform={first.RenderTransform}，Start={start}，End={end}。");
+                $"拖拽中首个标签应有横向位移；Bounds={first.Bounds}，Transform={first.RenderTransform}，Start={start}，End={end}，Hit={hitElement?.GetType().FullName}，Panel={strip.ItemsPanelRoot?.GetType().Name}，Log={string.Join(" | ", pointerLog)}。");
             window.MouseUp(end, MouseButton.Left);
             await Task.Delay(150);
 
