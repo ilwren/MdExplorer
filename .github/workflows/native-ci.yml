@@ -16,7 +16,15 @@ jobs:
           global-json-file: native/global.json
 
       - name: Restore
+        id: restore
         run: dotnet restore native/MdExplorer.slnx
+
+      - name: Probe nuget versions (on restore failure)
+        if: failure() && steps.restore.outcome == 'failure'
+        run: |
+          for pkg in sqlitepclraw.lib.e_sqlite3 sqlitepclraw.bundle_e_sqlite3 microsoft.data.sqlite; do
+            echo "::error::versions of ${pkg}: $(curl -s "https://api.nuget.org/v3-flatcontainer/${pkg}/index.json" | tr -d '[]{}"' | tr ',' ' ' | tail -c 600)"
+          done
 
       - name: Build
         id: build
