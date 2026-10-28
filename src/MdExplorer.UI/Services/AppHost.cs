@@ -24,7 +24,8 @@ public static class AppHost
         IFolderWatchService FolderWatch,
         DelegatingFileSystemService StorageFileSystem,
         IReadOnlyList<AuthorizedRoot> PersistedRoots,
-        ISystemClipboardService SystemClipboard);
+        ISystemClipboardService SystemClipboard,
+        IFileNameIndexService SearchIndex);
 
     /// <param name="dataDirectory">设置/收藏落点；为空时按平台默认（LocalApplicationData/MdExplorer）。</param>
     /// <param name="startFolder">初始文件夹；为空时桌面=用户主目录，Android=个人目录。</param>
@@ -44,6 +45,8 @@ public static class AppHost
         var knownFolders = new KnownFoldersService();
         var trash = new TrashService();
         var store = SettingsStore.LoadOrDefault(dataDir);
+        var searchIndex = new FileNameIndexService(dataDir, store);
+        var search = new IndexedSearchService(searchIndex, new SearchService(), store);
 
         var start = startFolder
                     ?? knownFolders.Get(KnownFolder.Home)
@@ -64,7 +67,7 @@ public static class AppHost
             new VolumeService(),
             knownFolders,
             new ArchiveService(),
-            new SearchService(),
+            search,
             store,
             launcher ?? new ProcessFileLauncher(),
             capabilities,
@@ -74,7 +77,8 @@ public static class AppHost
             new FolderWatchService(),
             fileSystem,
             AuthorizedRootsStore.Load(dataDir),
-            systemClipboard ?? new AvaloniaSystemClipboardService());
+            systemClipboard ?? new AvaloniaSystemClipboardService(),
+            searchIndex);
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);

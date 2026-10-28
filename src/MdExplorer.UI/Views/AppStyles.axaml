@@ -387,6 +387,24 @@
     <Setter Property="Opacity" Value="1" />
   </Style>
 
+  <!-- 搜索中心类型芯片：图标承担识别，选中态回到 MD3 SecondaryContainer。 -->
+  <Style Selector="md|MdButton.search-kind">
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" />
+    <Setter Property="MinWidth" Value="44" />
+    <Setter Property="Padding" Value="10,0" />
+  </Style>
+  <Style Selector="md|MdButton.search-kind md|MdIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+  </Style>
+  <Style Selector="md|MdButton.search-kind.active">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+  </Style>
+  <Style Selector="md|MdButton.search-kind.active md|MdIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+  </Style>
+
   <!-- 图标事实条与紧凑菜单：只给数值/动作留位置，完整名称走 ToolTip 与无障碍名。 -->
   <Style Selector="Border.fact-chip">
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" />

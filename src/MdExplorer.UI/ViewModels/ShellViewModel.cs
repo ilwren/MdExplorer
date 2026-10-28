@@ -13,7 +13,7 @@ using MdExplorer.UI.Preview;
 
 namespace MdExplorer.UI.ViewModels;
 
-public enum ShellPage { Home, Browser, Favorites, Trash, Settings }
+public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter }
 public enum SizeClass { Compact, Medium, Expanded, Large, ExtraLarge }
 internal enum DialogKind { None, Prompt, Confirm, Conflict, Message, Progress, BatchRename }
 
@@ -25,6 +25,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private readonly SemaphoreSlim _recentsRefreshGate = new(1, 1);
     private int _favoritesRefreshGeneration;
     private int _recentsRefreshGeneration;
+    private CancellationTokenSource? _searchCenterCts;
     private Func<IFileLauncherService> _launcher;
     private IFileLauncherService Launcher => _launcher();
 
@@ -81,6 +82,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             OnPropertyChanged(nameof(HasRecents));
         };
         TrashItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowTrashEmpty));
+        SearchIndexRoots.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasSearchIndexRoots));
+            OnPropertyChanged(nameof(SearchIndexRootCountText));
+            OnPropertyChanged(nameof(SearchIndexStateText));
+        };
+        SearchCenterResults.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasSearchCenterResults));
+            OnPropertyChanged(nameof(ShowSearchCenterEmpty));
+        };
         OperationTasks.CollectionChanged += (_, _) => RefreshTaskCenterSummary();
         Preview.PropertyChanged += (_, e) =>
         {
@@ -100,6 +112,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _reduceMotion = s.ReduceMotion;
         _rememberFolderView = s.RememberFolderView;
         _watchFolderChanges = s.WatchFolderChanges;
+        _useSearchIndex = s.UseSearchIndex;
+        RefreshSearchIndexRoots();
     }
 
     /// <summary>Android 挂载后将打开方式切换为 Avalonia Launcher 实现。</summary>
@@ -141,6 +155,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         ShellPage.Favorites => "收藏",
         ShellPage.Trash => "回收站",
         ShellPage.Settings => "设置",
+        ShellPage.SearchCenter => "搜索中心",
         _ => Browser.IsSearchMode ? "搜索结果" : Browser.CurrentFolderName,
     };
 
@@ -156,6 +171,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsFavoritesPage => Page == ShellPage.Favorites;
     public bool IsTrashPage => Page == ShellPage.Trash;
     public bool IsSettingsPage => Page == ShellPage.Settings;
+    public bool IsSearchCenterPage => Page == ShellPage.SearchCenter;
 
     public bool IsCompact => SizeClass == SizeClass.Compact;
     public bool IsMedium => SizeClass == SizeClass.Medium;
@@ -186,6 +202,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsFavoritesPage));
         OnPropertyChanged(nameof(IsTrashPage));
         OnPropertyChanged(nameof(IsSettingsPage));
+        OnPropertyChanged(nameof(IsSearchCenterPage));
         OnPropertyChanged(nameof(ShowPreviewPaneEffective));
     }
 
@@ -236,6 +253,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public ObservableCollection<NavEntry> RecentFolders { get; } = [];
     public ObservableCollection<FileItemViewModel> RecentFiles { get; } = [];
     public ObservableCollection<TrashItemModel> TrashItems { get; } = [];
+    public ObservableCollection<SearchIndexRootModel> SearchIndexRoots { get; } = [];
+    public ObservableCollection<FileItemViewModel> SearchCenterResults { get; } = [];
     public ObservableCollection<OperationTaskViewModel> OperationTasks { get; } = [];
 
     [ObservableProperty] private bool _isTaskCenterOpen;
@@ -421,6 +440,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         Page = ShellPage.Settings;
         IsDrawerOpen = false;
         IsPreviewPageOpen = false;
+        _ = RefreshSearchIndexAsync();
+    }
+
+    [RelayCommand]
+    private async Task GoSearchCenterAsync()
+    {
+        Page = ShellPage.SearchCenter;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        await RefreshSearchIndexAsync().ConfigureAwait(true);
     }
 
     public async Task OpenFolderAsync(string path)
@@ -665,6 +694,334 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             await ConfirmAsync("删除失败", ex.Message, "知道了").ConfigureAwait(true);
         }
         await RefreshTrashAsync().ConfigureAwait(true);
+    }
+
+    // ---------- 搜索中心 / 文件名索引 ----------
+    [ObservableProperty] private bool _useSearchIndex = true;
+    [ObservableProperty] private string _searchCenterQuery = string.Empty;
+    [ObservableProperty] private string _searchCenterKindFilter = "All";
+    [ObservableProperty] private bool _isSearchCenterBusy;
+    [ObservableProperty] private string _searchCenterStatusText = "输入关键词开始搜索";
+    [ObservableProperty] private int _searchIndexEntryCount;
+    [ObservableProperty] private long _searchIndexBytes;
+    [ObservableProperty] private string _searchIndexUpdatedText = "尚未建立";
+    [ObservableProperty] private bool _searchIndexIsCurrent;
+    [ObservableProperty] private bool _searchIndexIsPartial;
+
+    public bool HasSearchIndexRoots => SearchIndexRoots.Count > 0;
+    public bool HasSearchCenterResults => SearchCenterResults.Count > 0;
+    public bool ShowSearchCenterEmpty => !IsSearchCenterBusy && SearchCenterResults.Count == 0;
+    public string SearchIndexRootCountText => SearchIndexRoots.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    public string SearchIndexEntryCountText => SearchIndexEntryCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+    public string SearchIndexSizeText => Formatting.Bytes(SearchIndexBytes);
+    public string SearchIndexStateText =>
+        !UseSearchIndex ? "已暂停" :
+        SearchIndexRoots.Count == 0 ? "未配置" :
+        SearchIndexIsCurrent ? (SearchIndexIsPartial ? "已更新 · 部分" : "已更新") :
+        SearchIndexEntryCount > 0 ? "需重建" : "未建立";
+
+    public bool IsSearchKindAll => SearchCenterKindFilter == "All";
+    public bool IsSearchKindFolder => SearchCenterKindFilter == nameof(FileKind.Folder);
+    public bool IsSearchKindImage => SearchCenterKindFilter == nameof(FileKind.Image);
+    public bool IsSearchKindVideo => SearchCenterKindFilter == nameof(FileKind.Video);
+    public bool IsSearchKindAudio => SearchCenterKindFilter == nameof(FileKind.Audio);
+    public bool IsSearchKindDocument => SearchCenterKindFilter == nameof(FileKind.Document);
+    public bool IsSearchKindArchive => SearchCenterKindFilter == nameof(FileKind.Archive);
+    public bool IsSearchKindCode => SearchCenterKindFilter == nameof(FileKind.Code);
+
+    partial void OnUseSearchIndexChanged(bool value)
+    {
+        _services.SettingsStore.Settings.UseSearchIndex = value;
+        OnPropertyChanged(nameof(SearchIndexStateText));
+        _ = SaveAsync();
+    }
+
+    partial void OnSearchCenterKindFilterChanged(string value)
+    {
+        foreach (var name in new[]
+                 {
+                     nameof(IsSearchKindAll), nameof(IsSearchKindFolder), nameof(IsSearchKindImage),
+                     nameof(IsSearchKindVideo), nameof(IsSearchKindAudio), nameof(IsSearchKindDocument),
+                     nameof(IsSearchKindArchive), nameof(IsSearchKindCode),
+                 })
+            OnPropertyChanged(name);
+    }
+
+    partial void OnIsSearchCenterBusyChanged(bool value) => OnPropertyChanged(nameof(ShowSearchCenterEmpty));
+
+    public async Task RefreshSearchIndexAsync()
+    {
+        RefreshSearchIndexRoots();
+        try
+        {
+            var stats = await _services.SearchIndex.GetStatsAsync(CancellationToken.None).ConfigureAwait(true);
+            SearchIndexEntryCount = stats.EntryCount;
+            SearchIndexBytes = stats.IndexBytes;
+            SearchIndexIsCurrent = stats.IsCurrent;
+            SearchIndexIsPartial = stats.IsPartial;
+            SearchIndexUpdatedText = stats.UpdatedAt is { } updated
+                ? Formatting.FullDateTime(updated)
+                : "尚未建立";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SearchIndexUpdatedText = "不可读取";
+        }
+
+        OnPropertyChanged(nameof(SearchIndexEntryCountText));
+        OnPropertyChanged(nameof(SearchIndexSizeText));
+        OnPropertyChanged(nameof(SearchIndexStateText));
+    }
+
+    private void RefreshSearchIndexRoots()
+    {
+        SearchIndexRoots.Clear();
+        var seen = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        foreach (var path in _services.SettingsStore.Settings.SearchIndexRootPaths ?? [])
+        {
+            if (TryNormalizeSearchIndexRoot(path) is not { } normalized || !seen.Add(normalized))
+                continue;
+            var trimmed = normalized.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var name = Path.GetFileName(trimmed);
+            SearchIndexRoots.Add(new SearchIndexRootModel(
+                string.IsNullOrWhiteSpace(name) ? normalized : name, normalized));
+        }
+    }
+
+    [RelayCommand]
+    private void SetSearchCenterKind(string kind) => SearchCenterKindFilter = kind;
+
+    [RelayCommand]
+    private async Task RunSearchCenterSearchAsync()
+    {
+        _searchCenterCts?.Cancel();
+        _searchCenterCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _searchCenterCts = cts;
+
+        SearchCenterResults.Clear();
+        await RefreshSearchIndexAsync().ConfigureAwait(true);
+        if (!UseSearchIndex)
+        {
+            SearchCenterStatusText = "文件名索引已暂停";
+            return;
+        }
+        if (!HasSearchIndexRoots)
+        {
+            SearchCenterStatusText = "先加入一个索引根";
+            return;
+        }
+        if (!SearchIndexIsCurrent)
+        {
+            SearchCenterStatusText = "索引需要重建";
+            return;
+        }
+
+        var query = SearchCenterQuery.Trim();
+        var kinds = SearchCenterKinds();
+        if (query.Length == 0 && kinds is null)
+        {
+            SearchCenterStatusText = "输入关键词或选择类型";
+            return;
+        }
+
+        IsSearchCenterBusy = true;
+        SearchCenterStatusText = "正在搜索本地索引…";
+        var batch = new List<FileItemViewModel>(50);
+        try
+        {
+            var spec = new SearchSpec(query, string.Empty, kinds, ShowHidden, MaxResults: 5000);
+            await foreach (var item in _services.SearchIndex.SearchAsync(spec, cts.Token).ConfigureAwait(true))
+            {
+                batch.Add(new FileItemViewModel(item)
+                {
+                    IsFavorite = _services.SettingsStore.IsFavorite(item.FullPath),
+                });
+                if (batch.Count < 50)
+                    continue;
+                foreach (var result in batch)
+                    SearchCenterResults.Add(result);
+                batch.Clear();
+            }
+
+            foreach (var result in batch)
+                SearchCenterResults.Add(result);
+            SearchCenterStatusText = SearchCenterResults.Count == 0
+                ? "没有匹配结果"
+                : $"{SearchCenterResults.Count} 项 · 本地索引{(SearchIndexIsPartial ? " · 部分" : string.Empty)}";
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            SearchCenterStatusText = "搜索已取消";
+        }
+        finally
+        {
+            if (ReferenceEquals(_searchCenterCts, cts))
+                IsSearchCenterBusy = false;
+        }
+    }
+
+    private IReadOnlySet<FileKind>? SearchCenterKinds() => SearchCenterKindFilter switch
+    {
+        nameof(FileKind.Folder) => new HashSet<FileKind> { FileKind.Folder },
+        nameof(FileKind.Image) => new HashSet<FileKind> { FileKind.Image },
+        nameof(FileKind.Video) => new HashSet<FileKind> { FileKind.Video },
+        nameof(FileKind.Audio) => new HashSet<FileKind> { FileKind.Audio },
+        nameof(FileKind.Document) => new HashSet<FileKind> { FileKind.Document },
+        nameof(FileKind.Archive) => new HashSet<FileKind> { FileKind.Archive },
+        nameof(FileKind.Code) => new HashSet<FileKind> { FileKind.Code },
+        _ => null,
+    };
+
+    public async Task OpenSearchCenterResultAsync(FileItemViewModel item)
+    {
+        if (item.IsFolder)
+        {
+            await OpenFolderAsync(item.FullPath).ConfigureAwait(true);
+            return;
+        }
+
+        Page = ShellPage.Browser;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        await Browser.NavigateToFileLocationAsync(item.FullPath).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task AddCurrentFolderToSearchIndexAsync()
+    {
+        var path = Browser.CurrentPath;
+        if (string.IsNullOrWhiteSpace(path) || FileLocator.IsStorageUri(path) || !Directory.Exists(path))
+        {
+            Notify("当前文件夹不能加入本地索引");
+            return;
+        }
+
+        await AddSearchIndexRootAsync(path).ConfigureAwait(true);
+    }
+
+    /// <summary>加入本地索引根；已被父根覆盖时不重复加入，加入父根时收拢其子根。</summary>
+    public async Task<bool> AddSearchIndexRootAsync(string path)
+    {
+        if (TryNormalizeSearchIndexRoot(path) is not { } normalized || !Directory.Exists(normalized))
+        {
+            Notify("只能加入现有的本地文件夹");
+            return false;
+        }
+
+        var roots = new List<string>();
+        foreach (var existingPath in _services.SettingsStore.Settings.SearchIndexRootPaths ?? [])
+        {
+            if (TryNormalizeSearchIndexRoot(existingPath) is { } existing &&
+                !roots.Contains(existing, OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal))
+                roots.Add(existing);
+        }
+
+        if (roots.Any(existing => IsSameOrUnderSearchRoot(normalized, existing)))
+        {
+            Notify("该文件夹已在索引范围内");
+            return false;
+        }
+
+        roots.RemoveAll(existing => IsSameOrUnderSearchRoot(existing, normalized));
+        roots.Add(normalized);
+        _services.SettingsStore.Settings.SearchIndexRootPaths = roots;
+        await SaveAsync().ConfigureAwait(true);
+        await RefreshSearchIndexAsync().ConfigureAwait(true);
+        SearchCenterStatusText = "索引根已更新，重建后生效";
+        Notify("已加入文件名索引");
+        return true;
+    }
+
+    [RelayCommand]
+    private async Task RemoveSearchIndexRootAsync(SearchIndexRootModel? root)
+    {
+        if (root is null)
+            return;
+
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        _services.SettingsStore.Settings.SearchIndexRootPaths.RemoveAll(path =>
+            TryNormalizeSearchIndexRoot(path) is { } normalized &&
+            string.Equals(normalized, root.Path, comparison));
+        await SaveAsync().ConfigureAwait(true);
+        SearchCenterResults.Clear();
+        await RefreshSearchIndexAsync().ConfigureAwait(true);
+        SearchCenterStatusText = "索引根已更新，重建后生效";
+        Notify($"已移除索引根：{root.Name}");
+    }
+
+    [RelayCommand]
+    private async Task RebuildSearchIndexAsync()
+    {
+        if (!UseSearchIndex)
+        {
+            Notify("文件名索引已暂停");
+            return;
+        }
+        if (!HasSearchIndexRoots)
+        {
+            Notify("先加入一个索引根");
+            return;
+        }
+
+        var outcome = await RunOperationAsync("正在重建文件名索引…", async (progress, ct) =>
+        {
+            var stats = await _services.SearchIndex.RebuildAsync(progress, ct).ConfigureAwait(true);
+            return new OperationOutcome(stats.EntryCount, [], []);
+        }).ConfigureAwait(true);
+
+        await RefreshSearchIndexAsync().ConfigureAwait(true);
+        if (outcome.Success)
+            SearchCenterStatusText = $"索引已更新 · {SearchIndexEntryCountText} 项";
+    }
+
+    [RelayCommand]
+    private async Task ClearSearchIndexAsync()
+    {
+        if (!await ConfirmAsync(
+                "清除文件名索引？",
+                "只删除保存在本机应用数据目录中的索引快照，不会删除任何文件。索引根配置会保留。",
+                "清除索引",
+                destructive: true).ConfigureAwait(true))
+            return;
+
+        _searchCenterCts?.Cancel();
+        await _services.SearchIndex.ClearAsync(CancellationToken.None).ConfigureAwait(true);
+        SearchCenterResults.Clear();
+        await RefreshSearchIndexAsync().ConfigureAwait(true);
+        SearchCenterStatusText = "索引已清除";
+        Notify("已清除文件名索引");
+    }
+
+    private static string? TryNormalizeSearchIndexRoot(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || FileLocator.IsStorageUri(path))
+            return null;
+
+        try
+        {
+            if (!Path.IsPathFullyQualified(path))
+                return null;
+            var full = Path.GetFullPath(path);
+            var root = Path.GetPathRoot(full) ?? string.Empty;
+            while (full.Length > root.Length &&
+                   (full[^1] == Path.DirectorySeparatorChar || full[^1] == Path.AltDirectorySeparatorChar))
+                full = full[..^1];
+            return full;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsSameOrUnderSearchRoot(string path, string root)
+    {
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var prefix = root.EndsWith(Path.DirectorySeparatorChar) || root.EndsWith(Path.AltDirectorySeparatorChar)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        return string.Equals(path, root, comparison) || path.StartsWith(prefix, comparison);
     }
 
     // ---------- 设置 ----------

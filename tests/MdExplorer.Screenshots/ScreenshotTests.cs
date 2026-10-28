@@ -379,6 +379,19 @@ public sealed class ScreenshotTests
         Assert.Equal("IMG_", shell.Browser.SearchIslandText);
     });
 
+    [AvaloniaFact]
+    public async Task Large_SearchCenter() => await CaptureAsync("25-large-search-center.png", 1440, 900, async shell =>
+    {
+        await shell.GoSearchCenterCommand.ExecuteAsync(null);
+        Assert.True(await shell.AddSearchIndexRootAsync(SampleRoot));
+        await shell.RebuildSearchIndexCommand.ExecuteAsync(null);
+        shell.SearchCenterQuery = "IMG_";
+        shell.SearchCenterKindFilter = "Image";
+        await shell.RunSearchCenterSearchCommand.ExecuteAsync(null);
+        Assert.True(shell.SearchIndexIsCurrent);
+        Assert.NotEmpty(shell.SearchCenterResults);
+    });
+
     /// <summary>桌面溢出菜单：三列分组 + 限高滚动的呈现冒烟。</summary>
     [AvaloniaFact]
     public async Task Large_OverflowMenu_Open()

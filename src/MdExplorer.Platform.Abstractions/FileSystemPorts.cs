@@ -125,6 +125,35 @@ public interface ISearchService
     IAsyncEnumerable<FileItem> SearchByNameAsync(SearchSpec spec, CancellationToken cancellationToken);
 }
 
+/// <summary>本地文件名索引的健康快照（根数取当前设置，条目数取已落盘快照）。</summary>
+public sealed record FileNameIndexStats(
+    int RootCount,
+    int EntryCount,
+    long IndexBytes,
+    DateTimeOffset? UpdatedAt,
+    bool IsCurrent,
+    bool IsPartial);
+
+/// <summary>
+/// 本地文件名索引（开发文档 §6.4）：只索引用户显式配置的本地文件夹，数据只保存在应用数据目录。
+/// RootPath 为空的 SearchSpec 表示跨全部索引根查询；查询命中在返回前复核真实文件，失效条目不外泄。
+/// </summary>
+public interface IFileNameIndexService
+{
+    Task<FileNameIndexStats> GetStatsAsync(CancellationToken cancellationToken);
+
+    /// <summary>按当前设置中的索引根全量重建。取消时旧快照保持不变。</summary>
+    Task<FileNameIndexStats> RebuildAsync(IProgress<OperationProgress>? progress, CancellationToken cancellationToken);
+
+    /// <summary>删除索引快照；索引根配置保留。</summary>
+    Task ClearAsync(CancellationToken cancellationToken);
+
+    /// <summary>指定文件夹是否被一份与当前根配置一致的索引快照覆盖。</summary>
+    Task<bool> CoversAsync(string rootPath, CancellationToken cancellationToken);
+
+    IAsyncEnumerable<FileItem> SearchAsync(SearchSpec spec, CancellationToken cancellationToken);
+}
+
 /// <summary>单个文件夹被记住的呈现方式（与全局默认 ViewMode/Sort* 分开保存）。</summary>
 public sealed class FolderViewPreferences
 {
@@ -156,6 +185,8 @@ public sealed class AppSettings
     public int ActiveTabIndex { get; set; }                // OpenTabPaths 中上次活动标签的下标
     public List<string> RecentFolderPaths { get; set; } = []; // 最近访问文件夹（最新优先，仅本地路径）
     public List<string> RecentFilePaths { get; set; } = [];   // 最近打开文件（最新优先，仅本地路径）
+    public bool UseSearchIndex { get; set; } = true;          // 文件名索引总开关；关闭时递归搜索回落实时扫描
+    public List<string> SearchIndexRootPaths { get; set; } = []; // 用户显式加入的本地索引根（不预置任何目录）
 }
 
 /// <summary>设置与收藏的持久化端口。</summary>

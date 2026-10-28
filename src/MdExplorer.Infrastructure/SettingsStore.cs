@@ -91,6 +91,8 @@ public sealed class SettingsStore : ISettingsStore
         settings.OpenTabPaths ??= [];
         settings.RecentFolderPaths ??= [];
         settings.RecentFilePaths ??= [];
+        settings.SearchIndexRootPaths ??= [];
+        settings.SearchIndexRootPaths.RemoveAll(string.IsNullOrWhiteSpace);
         settings.FolderViewStates ??= [];
         foreach (var key in settings.FolderViewStates
                      .Where(pair => pair.Value is null)

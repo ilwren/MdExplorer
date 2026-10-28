@@ -9,6 +9,9 @@ public sealed record VolumeItemModel(string Name, string Path, string UsageText,
 /// <summary>已授权文件夹（Android SAF）入口行模型。Path 为 content:// 定位串。</summary>
 public sealed record AuthorizedRootModel(string Name, string Path);
 
+/// <summary>文件名索引根行（仅本地文件夹）。</summary>
+public sealed record SearchIndexRootModel(string Name, string Path);
+
 /// <summary>回收站行。</summary>
 public sealed record TrashItemModel(string Id, string Name, string OriginalPath, string DeletedText, bool IsFolder);
 

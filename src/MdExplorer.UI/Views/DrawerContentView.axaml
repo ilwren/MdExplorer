@@ -47,6 +47,13 @@
         </StackPanel>
       </md:MdButton>
 
+      <md:MdButton Classes="nav-entry" Classes.active="{Binding IsSearchCenterPage}" Variant="Text" Command="{Binding GoSearchCenterCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.Search}" Size="22" />
+          <TextBlock Text="搜索中心" FontSize="14.5" VerticalAlignment="Center" />
+        </StackPanel>
+      </md:MdButton>
+
       <Border Height="10" />
       <ItemsControl ItemsSource="{Binding Places}">
         <ItemsControl.ItemTemplate>

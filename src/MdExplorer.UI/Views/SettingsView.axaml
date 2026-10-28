@@ -78,6 +78,30 @@
       </Border>
 
       <Border Classes="card">
+      <StackPanel Spacing="12">
+        <TextBlock Classes="h3" Text="搜索" />
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="文件名索引" />
+            <TextBlock Classes="caption" Text="只索引显式加入的本地文件夹；关闭后递归搜索改走实时扫描" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding UseSearchIndex}" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Classes="caption">
+          <Run Text="{Binding SearchIndexStateText}" /><Run Text=" · " /><Run Text="{Binding SearchIndexEntryCountText}" /><Run Text=" 项 · " /><Run Text="{Binding SearchIndexSizeText}" />
+        </TextBlock>
+        <TextBlock Classes="caption">
+          <Run Text="更新：" /><Run Text="{Binding SearchIndexUpdatedText}" />
+        </TextBlock>
+        <WrapPanel Orientation="Horizontal">
+          <md:MdButton Variant="Tonal" Content="搜索中心" Margin="0,0,8,8" Command="{Binding GoSearchCenterCommand}" />
+          <md:MdButton Variant="Outlined" Content="重建索引" Margin="0,0,8,8" Command="{Binding RebuildSearchIndexCommand}" />
+          <md:MdButton Variant="Outlined" Content="清除索引" Margin="0,0,8,8" Command="{Binding ClearSearchIndexCommand}" />
+        </WrapPanel>
+      </StackPanel>
+      </Border>
+
+      <Border Classes="card">
       <StackPanel Spacing="8">
         <TextBlock Classes="h3" Text="关于" />
         <TextBlock Classes="body">
