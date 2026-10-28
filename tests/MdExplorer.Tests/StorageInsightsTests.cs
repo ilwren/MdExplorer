@@ -58,7 +58,7 @@ public sealed class StorageInsightsTests : IDisposable
         Assert.False(result.WasTruncated);
 
         Assert.Equal(120, result.KindUsages.Single(usage => usage.Kind == FileKind.Image).TotalBytes);
-        Assert.Equal(100, result.KindUsages.Single(usage => usage.Kind == FileKind.Unknown).TotalBytes);
+        Assert.Equal(100, result.KindUsages.Single(usage => usage.Kind == FileKind.Executable).TotalBytes);
         Assert.Equal(15, result.KindUsages.Single(usage => usage.Kind == FileKind.Text).TotalBytes);
 
         var folderA = result.TopFolders.Single(folder => folder.Name == "a");
