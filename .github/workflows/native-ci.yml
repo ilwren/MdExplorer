@@ -170,8 +170,10 @@ jobs:
           fi
           if [ "$CODE" -ne 0 ]; then
             echo "::error::AOT 自检失败，退出码 $CODE"
-            grep -E "^\[selftest\]" "$CLEAN" | tail -12 \
+            grep -E "^\[selftest\] (❌|FAIL|   - )" "$CLEAN" | head -10 \
               | while IFS= read -r line; do echo "::error::$line"; done
+            grep -E "^\[selftest\]" "$CLEAN" | tail -6 \
+              | while IFS= read -r line; do echo "::error::tail|$line"; done
             exit 1
           fi
           echo "✅ Native AOT 运行时自检全部通过（DI / SQLite / JSON / XAML / 反射绑定）"
