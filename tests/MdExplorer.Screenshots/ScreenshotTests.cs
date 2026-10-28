@@ -504,6 +504,30 @@ public sealed class ScreenshotTests
     public async Task Compact_TaskDetailsSheet() => await CaptureAsync(
         "36-compact-task-sheet.png", 390, 844, ArrangeTaskDetailsAsync);
 
+    [AvaloniaFact]
+    public async Task ExtraLarge_DualPane() => await CaptureAsync(
+        "37-xlarge-dual-pane.png", 1920, 1080, ArrangeDualPaneAsync);
+
+    private static async Task ArrangeDualPaneAsync(ShellViewModel shell)
+    {
+        var cameraDir = Path.Combine(PicturesDir, "Camera");
+        shell.SettingsStore.Settings.DualPanePath = cameraDir;
+        await shell.ToggleDualPaneCommand.ExecuteAsync(null);
+        await shell.SecondaryBrowser.WhenIdleAsync();
+
+        Assert.True(shell.ShowDualPane);
+        Assert.Equal(cameraDir, shell.SecondaryBrowser.CurrentPath);
+        Assert.Same(shell.SecondaryBrowser, shell.ActiveBrowser);
+
+        var photo = shell.SecondaryBrowser.Items.First(
+            item => item.Name.StartsWith("IMG_", StringComparison.Ordinal));
+        shell.SecondaryBrowser.SelectedItems.Clear();
+        shell.SecondaryBrowser.SelectedItems.Add(photo);
+        for (var i = 0; i < 60 && shell.Preview.Image is null; i++)
+            await Task.Delay(50);
+        Assert.Equal(photo.FullPath, shell.Preview.CurrentItem?.FullPath);
+    }
+
     private static Task ArrangeTransferConflictAsync(ShellViewModel shell)
     {
         _ = shell.AskConflictAsync(CreateConflictPrompt());
