@@ -56,7 +56,7 @@ public partial class DocumentWorkbenchView : UserControl
             _vm.IsCompactLayout = compact;
         DocumentRoot.Margin = compact ? new Thickness(10, 8, 10, 12) : new Thickness(20, 12, 20, 20);
         PdfThumbnailRail.IsVisible = !compact;
-        PdfWorkbenchGrid.ColumnDefinitions[0].Width = new GridLength(compact ? 0 : 120);
+        PdfWorkbenchGrid.ColumnDefinitions[0].Width = new GridLength(compact ? 0 : 140);
         PdfWorkbenchGrid.ColumnDefinitions[1].Width = new GridLength(compact ? 0 : 12);
     }
 

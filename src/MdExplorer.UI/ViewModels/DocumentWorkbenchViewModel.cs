@@ -107,11 +107,14 @@ public sealed partial class DocumentWorkbenchViewModel(
     };
     public string TextFactsText => _textSnapshot is null
         ? string.Empty
-        : $"{EncodingText} · {LineEndingText} · {LineCount:N0} 行 · {CharacterCount:N0} 字符 · {Formatting.Bytes(EstimatedEditorBytes)}";
+        : IsCompactLayout
+            ? $"{EncodingName(_textSnapshot.Encoding)} · {LineCount:N0} 行 · {Formatting.Bytes(EstimatedEditorBytes)}"
+            : $"{EncodingText} · {LineEndingText} · {LineCount:N0} 行 · {CharacterCount:N0} 字符 · {Formatting.Bytes(EstimatedEditorBytes)}";
     public string DirtyText => IsDirty ? "已修改" : IsEditing ? "正在编辑" : "只读预览";
 
     public bool HasPdf => IsPdfDocument && PdfPageCount > 0;
     public string PdfPageText => HasPdf ? $"第 {PdfPageIndex + 1} / {PdfPageCount} 页" : string.Empty;
+    public string PdfPageCountText => HasPdf ? $"/ {PdfPageCount:N0}" : string.Empty;
     public bool CanPreviousPdfPage => HasPdf && PdfPageIndex > 0;
     public bool CanNextPdfPage => HasPdf && PdfPageIndex < PdfPageCount - 1;
     public double PdfDisplayWidth => (IsCompactLayout ? 340 : 780) * ZoomPercent / 100.0;
@@ -139,7 +142,11 @@ public sealed partial class DocumentWorkbenchViewModel(
 
     partial void OnFailureTextChanged(string? value) => OnPropertyChanged(nameof(HasFailure));
 
-    partial void OnIsCompactLayoutChanged(bool value) => OnPropertyChanged(nameof(PdfDisplayWidth));
+    partial void OnIsCompactLayoutChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PdfDisplayWidth));
+        OnPropertyChanged(nameof(TextFactsText));
+    }
 
     partial void OnEditorTextChanged(string value)
     {
@@ -310,7 +317,7 @@ public sealed partial class DocumentWorkbenchViewModel(
         if (!CanEditDocument)
             return;
         IsEditing = true;
-        StatusText = "正在编辑；保存会进入任务中心，并在写入前复核磁盘版本";
+        StatusText = "正在编辑 · 保存将进入任务中心";
     }
 
     [RelayCommand]
@@ -719,6 +726,7 @@ public sealed partial class DocumentWorkbenchViewModel(
     {
         OnPropertyChanged(nameof(HasPdf));
         OnPropertyChanged(nameof(PdfPageText));
+        OnPropertyChanged(nameof(PdfPageCountText));
         OnPropertyChanged(nameof(CanPreviousPdfPage));
         OnPropertyChanged(nameof(CanNextPdfPage));
         OnPropertyChanged(nameof(PdfDisplayWidth));
@@ -836,7 +844,8 @@ public sealed partial class DocumentWorkbenchViewModel(
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
             document.RootElement.WriteTo(writer);
-        return Encoding.UTF8.GetString(stream.ToArray()) + "\n";
+        // 编辑器内部统一使用 LF；落盘时再由快照恢复原文件的主导换行，避免 Windows 格式化混入 CRLF。
+        return Canonical(Encoding.UTF8.GetString(stream.ToArray())) + "\n";
     }
 
     private static string FormatXml(string text)
@@ -851,7 +860,7 @@ public sealed partial class DocumentWorkbenchViewModel(
         using var reader = XmlReader.Create(stringReader, settings);
         var document = XDocument.Load(reader, LoadOptions.PreserveWhitespace);
         var declaration = document.Declaration?.ToString();
-        var body = document.ToString(SaveOptions.None);
+        var body = Canonical(document.ToString(SaveOptions.None));
         return (string.IsNullOrEmpty(declaration) ? body : declaration + "\n" + body) + "\n";
     }
 }

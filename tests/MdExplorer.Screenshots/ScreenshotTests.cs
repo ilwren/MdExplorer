@@ -185,8 +185,10 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
-    public async Task Large_DocumentWorkbenchPdf() => await CaptureAsync("39-large-pdf-workbench.png", 1440, 900, async shell =>
+    public async Task Large_DocumentWorkbenchPdf()
     {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
         await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
         var workbench = shell.DocumentWorkbench;
         Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
@@ -200,7 +202,52 @@ public sealed class ScreenshotTests
         Assert.Equal(1, workbench.PdfPageIndex);
         Assert.Equal(125, workbench.ZoomPercent);
         Assert.NotNull(workbench.PdfImage);
-    });
+
+        var window = new MainWindow { Width = 1440, Height = 900, DataContext = shell };
+        var view = Assert.IsType<MainView>(window.Content);
+        window.Show();
+        try
+        {
+            ListBox? pageList = null;
+            Control? firstPage = null;
+            Control? secondPage = null;
+            for (int i = 0; i < 100; i++)
+            {
+                window.CaptureRenderedFrame();
+                pageList = view.FindControl<ListBox>("PdfPageList");
+                firstPage = pageList?.ContainerFromIndex(0);
+                secondPage = pageList?.ContainerFromIndex(1);
+                if (firstPage is not null && secondPage is not null &&
+                    workbench.PdfPages.All(page => page.Thumbnail is not null))
+                    break;
+                await Task.Delay(50);
+            }
+
+            Assert.NotNull(pageList);
+            Assert.Equal(2, pageList!.ItemCount);
+            Assert.True(pageList.Bounds.Width > 100 && pageList.Bounds.Height > 300,
+                $"PDF 缩略图轨应有真实布局尺寸，实际 {pageList.Bounds}。");
+            Assert.NotNull(firstPage);
+            Assert.NotNull(secondPage);
+            Assert.Same(workbench.PdfPages[0], firstPage!.DataContext);
+            Assert.Same(workbench.PdfPages[1], secondPage!.DataContext);
+            Assert.True(firstPage.Bounds.Width > 80 && firstPage.Bounds.Height > 100,
+                $"第一页缩略图容器应已实现，实际 {firstPage.Bounds}。");
+            Assert.All(workbench.PdfPages, page => Assert.NotNull(page.Thumbnail));
+            Assert.Contains(firstPage.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "1");
+            Assert.Contains(secondPage.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "2");
+            Assert.Contains(firstPage.GetVisualDescendants().OfType<Image>(), image => image.Source is not null);
+            Assert.Contains(secondPage.GetVisualDescendants().OfType<Image>(), image => image.Source is not null);
+
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            frame!.Save(Path.Combine(OutputDir, "39-large-pdf-workbench.png"));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 
     [AvaloniaFact]
     public async Task Compact_DocumentWorkbenchText() => await CaptureAsync("40-compact-document-editor.png", 390, 844, async shell =>

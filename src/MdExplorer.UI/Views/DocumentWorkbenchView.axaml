@@ -78,35 +78,37 @@
           </md:MdButton>
         </WrapPanel>
 
-        <Grid IsVisible="{Binding IsPdfDocument}" ColumnDefinitions="Auto,Auto,Auto,64,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*">
+        <Grid IsVisible="{Binding IsPdfDocument}" ColumnDefinitions="Auto,Auto,72,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*" ColumnSpacing="2" MinHeight="48">
           <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.FirstPage}" Command="{Binding FirstPdfPageCommand}"
                            IsEnabled="{Binding CanPreviousPdfPage}" AutomationProperties.Name="PDF 第一页" />
           <md:MdIconButton Grid.Column="1" Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.ChevronLeft}" Command="{Binding PreviousPdfPageCommand}"
                            IsEnabled="{Binding CanPreviousPdfPage}" AutomationProperties.Name="PDF 上一页" />
-          <TextBlock Grid.Column="2" Text="页" VerticalAlignment="Center" Margin="4,0" />
-          <md:MdTextBox Grid.Column="3" x:Name="PdfPageInputBox" Text="{Binding PdfPageInput}" Variant="Outlined"
-                        Height="40" AutomationProperties.Name="PDF 页码" />
-          <TextBlock Grid.Column="4" Classes="caption" Text="{Binding PdfPageText}" VerticalAlignment="Center" Margin="6,0" />
-          <md:MdIconButton Grid.Column="5" Width="40" Height="40" MinWidth="40" MinHeight="40"
+          <md:MdTextBox Grid.Column="2" x:Name="PdfPageInputBox" Text="{Binding PdfPageInput}" Variant="Outlined"
+                        Width="64" MinWidth="0" Height="44" MinHeight="0" Padding="6,0"
+                        TextAlignment="Center" VerticalAlignment="Center"
+                        ToolTip.Tip="输入页码后按 Enter" AutomationProperties.Name="PDF 页码" />
+          <TextBlock Grid.Column="3" Classes="caption" Text="{Binding PdfPageCountText}" VerticalAlignment="Center"
+                     Margin="2,0,4,0" ToolTip.Tip="{Binding PdfPageText}" />
+          <md:MdIconButton Grid.Column="4" Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.ChevronRight}" Command="{Binding NextPdfPageCommand}"
                            IsEnabled="{Binding CanNextPdfPage}" AutomationProperties.Name="PDF 下一页" />
-          <md:MdIconButton Grid.Column="6" Width="40" Height="40" MinWidth="40" MinHeight="40"
+          <md:MdIconButton Grid.Column="5" Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.LastPage}" Command="{Binding LastPdfPageCommand}"
                            IsEnabled="{Binding CanNextPdfPage}" AutomationProperties.Name="PDF 最后一页" />
-          <md:MdIconButton Grid.Column="7" Width="40" Height="40" MinWidth="40" MinHeight="40"
+          <md:MdIconButton Grid.Column="6" Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.ZoomOut}" Command="{Binding ZoomOutCommand}"
                            AutomationProperties.Name="缩小 PDF" />
-          <TextBlock Grid.Column="8" Classes="caption" Text="{Binding ZoomText}" MinWidth="42"
+          <TextBlock Grid.Column="7" Classes="caption" Text="{Binding ZoomText}" MinWidth="42"
                      TextAlignment="Center" VerticalAlignment="Center" />
-          <md:MdIconButton Grid.Column="9" Width="40" Height="40" MinWidth="40" MinHeight="40"
+          <md:MdIconButton Grid.Column="8" Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.ZoomIn}" Command="{Binding ZoomInCommand}"
                            AutomationProperties.Name="放大 PDF" />
-          <md:MdIconButton Grid.Column="10" Width="40" Height="40" MinWidth="40" MinHeight="40"
+          <md:MdIconButton Grid.Column="9" Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.RotateRight}" Command="{Binding RotateRightCommand}"
                            AutomationProperties.Name="旋转 PDF" />
-          <md:MdButton Grid.Column="11" Variant="Text" Height="40" HorizontalAlignment="Right"
+          <md:MdButton Grid.Column="10" Variant="Text" Height="40" HorizontalAlignment="Right"
                        Command="{Binding OpenExternalCommand}">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <md:MdIcon Glyph="{x:Static md:MdSymbols.OpenInNew}" Size="17" />
@@ -122,7 +124,7 @@
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
         <StackPanel Spacing="2" VerticalAlignment="Center">
           <TextBlock Classes="body" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" />
-          <TextBlock Classes="caption" Text="{Binding TextFactsText}" />
+          <TextBlock Classes="caption" Text="{Binding TextFactsText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TextFactsText}" />
         </StackPanel>
         <md:MdTabs x:Name="DocumentTextTabs" Grid.Column="1" IsVisible="{Binding IsMarkdown}" Variant="Secondary"
                    SelectedIndex="{Binding TextViewIndex, Mode=TwoWay}">
@@ -161,16 +163,15 @@
     </Grid>
 
     <!-- PDF 工作面 -->
-    <Grid x:Name="PdfWorkbenchGrid" Grid.Row="2" IsVisible="{Binding IsPdfDocument}" ColumnDefinitions="120,12,*">
-      <Border x:Name="PdfThumbnailRail" Classes="card" Padding="6">
-        <ListBox x:Name="PdfPageList" ItemsSource="{Binding PdfPages}" SelectedIndex="{Binding PdfPageIndex, Mode=TwoWay}"
-                 Background="Transparent" BorderThickness="0"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                 AutomationProperties.Name="PDF 页面">
-          <ListBox.ItemTemplate>
+    <Grid x:Name="PdfWorkbenchGrid" Grid.Row="2" IsVisible="{Binding IsPdfDocument}" ColumnDefinitions="140,12,*">
+      <Border x:Name="PdfThumbnailRail" Classes="card" Padding="4">
+        <!-- Md3 主题没有原生 ListBox 模板；必须使用 MdList，容器生成与虚拟化才有完整呈现。 -->
+        <md:MdList x:Name="PdfPageList" ItemsSource="{Binding PdfPages}" SelectedIndex="{Binding PdfPageIndex, Mode=TwoWay}"
+                   Variant="Segmented" ItemSpacing="4" Background="Transparent" BorderThickness="0"
+                   AutomationProperties.Name="PDF 页面">
+          <md:MdList.ItemTemplate>
             <DataTemplate x:DataType="vm:PdfPageViewModel">
-              <Grid Width="92" RowDefinitions="Auto,Auto" Margin="2,4">
+              <Grid Width="88" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" Margin="0,4">
                 <Border Width="76" Height="{Binding PaperHeight}" CornerRadius="4" ClipToBounds="True"
                         Background="#FFFDF8" BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
                         HorizontalAlignment="Center">
@@ -185,8 +186,8 @@
                 <TextBlock Grid.Row="1" Classes="caption" Text="{Binding PageText}" HorizontalAlignment="Center" Margin="0,3,0,0" />
               </Grid>
             </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
+          </md:MdList.ItemTemplate>
+        </md:MdList>
       </Border>
 
       <Border x:Name="PdfReaderCard" Grid.Column="2" Classes="card" Padding="8">
