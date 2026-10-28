@@ -26,7 +26,7 @@ internal static class SelfTest
         try
         {
             Program.BuildAvaloniaApp().SetupWithoutStarting();
-            Pass("avalonia-setup", $"初始化成功（{Application.Current?.GetType().Name}）");
+            Pass("avalonia-setup", $"初始化成功（{Avalonia.Application.Current?.GetType().Name}）");
         }
         catch (Exception ex)
         {
@@ -165,12 +165,13 @@ internal static class SelfTest
                 host.Measure(new Size(800, 600));
                 host.Arrange(new Rect(0, 0, 800, 600));
                 Dispatcher.UIThread.RunJobs();
-                var descendants = CountVisuals(page);
+                var size = page.DesiredSize;
                 host.Close();
-                if (descendants > 3)
-                    Pass($"xaml-{name}", $"加载成功（可视元素 {descendants}）");
+                // XAML 未加载时根控件没有内容，期望尺寸为 0；布局出尺寸说明可视树已构建。
+                if (size.Width > 0 && size.Height > 0)
+                    Pass($"xaml-{name}", $"加载成功（期望尺寸 {size.Width:0}x{size.Height:0}）");
                 else
-                    Failures.Add($"xaml-{name}: 可视树仅 {descendants} 个元素，疑似 XAML 未加载");
+                    Failures.Add($"xaml-{name}: 布局尺寸为 {size.Width:0}x{size.Height:0}，疑似 XAML 未加载");
             }
             catch (Exception ex)
             {
@@ -180,14 +181,6 @@ internal static class SelfTest
 
         window?.Close();
         return Report();
-    }
-
-    private static int CountVisuals(Visual v)
-    {
-        var count = 1;
-        foreach (var child in v.GetVisualChildren())
-            count += CountVisuals(child);
-        return count;
     }
 
     private static void Pass(string name, string detail)
