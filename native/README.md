@@ -4,10 +4,11 @@
 对应概念图 **Material Design 3 · ai-v3 稿**（主题令牌映射 `src/MdExplorer.UI/Themes/Md3.axaml`，
 与 Web 版 `tokens.css` 同一色板与几何）。
 
-> ⚠️ **重要声明：本目录为纯源码交付，尚未经过编译验证。**
-> 生成环境没有 .NET SDK（也无法安装），因此 `dotnet build` / `dotnet test` / `dotnet publish`
-> 均未运行过。代码严格按 DEVELOPMENT.md 的接口签名逐条落地，但首次本地构建时
-> 可能出现少量编译错误需修正（尤其 Avalonia XAML 与第三方包版本适配）。
+> ✅ **验证状态：已通过 GitHub Actions 持续集成验证**（工作流 `.github/workflows/native-ci.yml`）。
+> Ubuntu + .NET SDK 10.0.100（`global.json`）：`dotnet restore` / `dotnet build -c Release` /
+> `dotnet test`（Domain.Tests + Application.Tests）**全部通过**，无编译错误、无测试失败、
+> 无 NuGet 高危告警（SQLitePCLRaw 已钉 2.1.12）。生成环境本身没有 .NET SDK，
+> 编译验证由 CI 完成；`dotnet publish`（AOT 产物）尚未在 CI 中执行。
 
 ## 结构（§4.2 分层，CI 引用规则锁死）
 
@@ -66,4 +67,5 @@ dotnet publish src/MdExplorer.Desktop -c Release -r linux-x64   # Linux
 - PDF 页面渲染、音视频内嵌播放：降级策略（§6.5），外部打开兜底。
 - 7z/RAR：仅元数据；ZIP 全功能（`ZipArchiveService`，无外部工具依赖）。
 - Android 宿主（Platform.Android/SAF）：按 Spike 推进，本仓库暂未包含。
-- 首次编译验证需在有 SDK 的环境执行；如 Avalonia 12.1.4 细节 API 有出入，属预期内微调。
+- AOT 发布产物（`dotnet publish`）未纳入 CI；本地发布时如遇 AOT 裁剪告警，按 §11 白名单登记。
+- CI 状态：`native-ci` 工作流（push 触发）= restore/build/test 三阶段全绿。
