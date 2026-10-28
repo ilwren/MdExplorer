@@ -1,7 +1,7 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:00.73]     MdExplorer.Tests.BrowserViewModeAndSortTests.MotionAndFolderMemorySettingsUpdateModelAndVersionIsDynamic [FAIL]
-  Failed MdExplorer.Tests.BrowserViewModeAndSortTests.MotionAndFolderMemorySettingsUpdateModelAndVersionIsDynamic [3 ms]
+[xUnit.net 00:00:01.37]     MdExplorer.Tests.BrowserViewModeAndSortTests.MotionAndFolderMemorySettingsUpdateModelAndVersionIsDynamic [FAIL]
+  Failed MdExplorer.Tests.BrowserViewModeAndSortTests.MotionAndFolderMemorySettingsUpdateModelAndVersionIsDynamic [4 ms]
   Error Message:
    Assert.StartsWith() Failure: String start does not match
 String:         "0.13.0"
@@ -11,4 +11,4 @@ Expected start: "0.12.0"
    at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
    at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
 
-Failed!  - Failed:     1, Passed:   104, Skipped:     0, Total:   105, Duration: 586 ms - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:   104, Skipped:     0, Total:   105, Duration: 1 s - MdExplorer.Tests.dll (net10.0)
