@@ -5,7 +5,7 @@
              x:Class="MdExplorer.UI.Views.ArchiveWorkbenchView"
              x:DataType="vm:ShellViewModel">
   <Grid Margin="20,12,20,20" RowDefinitions="Auto,Auto,*" RowSpacing="12">
-    <Border Classes="card">
+    <Border x:Name="ArchiveHeaderCard" Classes="card">
       <Grid RowDefinitions="Auto,Auto" RowSpacing="12">
         <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
           <md:MdIconButton Width="42" Height="42" MinWidth="42" MinHeight="42"
@@ -54,12 +54,16 @@
 
     <Grid x:Name="ArchiveToolbarGrid" Grid.Row="1" ColumnDefinitions="*,12,320" RowDefinitions="Auto">
       <Border x:Name="ArchiveBreadcrumbBar" Classes="path-pill" MinHeight="48">
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4">
-          <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40"
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="4">
+          <md:MdIconButton x:Name="ArchiveCompactBackButton" Width="40" Height="40" MinWidth="40" MinHeight="40"
+                           Icon="{x:Static md:MdSymbols.ArrowBack}" IsVisible="False"
+                           Command="{Binding CloseArchiveWorkbenchCommand}"
+                           ToolTip.Tip="返回文件列表" AutomationProperties.Name="返回文件列表" />
+          <md:MdIconButton Grid.Column="1" Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.ArrowUpward}"
                            Command="{Binding ArchiveGoUpCommand}" IsEnabled="{Binding CanArchiveGoUp}"
                            ToolTip.Tip="上一级" AutomationProperties.Name="返回上一级虚拟文件夹" />
-          <md:MdScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Hidden"
+          <md:MdScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Hidden"
                              VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True"
                              VerticalAlignment="Center">
             <ItemsControl ItemsSource="{Binding ArchiveBreadcrumbs}">
@@ -71,17 +75,15 @@
                   <md:MdButton Variant="Text" Height="38" Padding="8,0" Click="OnArchiveBreadcrumbClick"
                                ToolTip.Tip="{Binding Path}" AutomationProperties.Name="{Binding Name}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                      <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderZip}" Size="17" VerticalAlignment="Center" />
+                      <md:MdIcon Glyph="{Binding Glyph}" Size="17" VerticalAlignment="Center" />
                       <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                      <md:MdIcon Glyph="{x:Static md:MdSymbols.ChevronRight}" Size="15" VerticalAlignment="Center"
-                                 Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
                     </StackPanel>
                   </md:MdButton>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </md:MdScrollViewer>
-          <md:MdIconButton Grid.Column="2" Width="40" Height="40" MinWidth="40" MinHeight="40"
+          <md:MdIconButton Grid.Column="3" Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.Close}"
                            Command="{Binding ClearArchiveFilterCommand}" IsVisible="{Binding IsArchiveFiltering}"
                            ToolTip.Tip="清除筛选" AutomationProperties.Name="清除条目筛选" />
@@ -133,7 +135,7 @@
                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Classes="caption" Text="{Binding MetaText}" TextTrimming="CharacterEllipsis" />
                       </StackPanel>
-                      <StackPanel Grid.Column="3" Spacing="1" VerticalAlignment="Center">
+                      <StackPanel Grid.Column="3" Spacing="1" VerticalAlignment="Center" Margin="0,0,10,0">
                         <TextBlock Text="{Binding SizeText}" HorizontalAlignment="Right" />
                         <TextBlock Classes="caption" Text="{Binding CompressedSizeText}" HorizontalAlignment="Right" />
                       </StackPanel>
@@ -158,9 +160,9 @@
       </Border>
 
       <Border x:Name="ArchiveDetailCard" Grid.Column="2" Classes="card">
-        <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+        <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden"
                            AllowMouseDrag="True">
-          <StackPanel Spacing="14" Margin="0,0,2,2">
+          <StackPanel Spacing="14" Margin="0,0,8,2">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
               <Border Width="42" Height="42" CornerRadius="13" VerticalAlignment="Center"
                       Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
@@ -204,7 +206,7 @@
               <Border IsVisible="{Binding HasArchivePreviewText}" CornerRadius="12" ClipToBounds="True"
                       Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" Padding="10"
                       MaxHeight="260">
-                <md:MdScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"
                                    AllowMouseDrag="True">
                   <SelectableTextBlock Classes="mono" Text="{Binding ArchivePreviewText}" />
                 </md:MdScrollViewer>

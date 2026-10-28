@@ -69,7 +69,11 @@ public partial class ArchiveWorkbenchView : UserControl
         if (_isWideLayout == wide)
             return;
         _isWideLayout = wide;
+        // 窄屏顶栏已经给出压缩包名，页眉卡会重复占高；收起它并把高度还给条目列表，
+        // 返回动作则并入面包屑胶囊，避免只能依赖系统返回键。
+        ArchiveHeaderCard.IsVisible = wide;
         ArchiveFactsPanel.IsVisible = wide;
+        ArchiveCompactBackButton.IsVisible = !wide;
 
         ArchiveToolbarGrid.ColumnDefinitions.Clear();
         ArchiveToolbarGrid.RowDefinitions.Clear();
@@ -110,7 +114,7 @@ public partial class ArchiveWorkbenchView : UserControl
             ArchiveContentGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
             ArchiveContentGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
             ArchiveContentGrid.RowDefinitions.Add(new RowDefinition(new GridLength(12)));
-            ArchiveContentGrid.RowDefinitions.Add(new RowDefinition(new GridLength(288)));
+            ArchiveContentGrid.RowDefinitions.Add(new RowDefinition(new GridLength(256)));
             Grid.SetRow(ArchiveEntriesCard, 0);
             Grid.SetColumn(ArchiveEntriesCard, 0);
             Grid.SetRow(ArchiveDetailCard, 2);

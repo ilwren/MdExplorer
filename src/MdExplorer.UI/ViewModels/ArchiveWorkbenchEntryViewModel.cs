@@ -150,4 +150,8 @@ public sealed partial class ArchiveWorkbenchEntryViewModel : ObservableObject
 }
 
 /// <summary>压缩包虚拟目录面包屑。压缩包本身是第一段，Path 为空表示包内根目录。</summary>
-public sealed record ArchiveBreadcrumbModel(string Name, string Path);
+public sealed record ArchiveBreadcrumbModel(string Name, string Path)
+{
+    public bool IsArchiveRoot => Path.Length == 0;
+    public string? Glyph => IsArchiveRoot ? MdSymbols.FolderZip : MdSymbols.Folder;
+}
