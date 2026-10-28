@@ -155,8 +155,7 @@
                            TextWrapping="{TemplateBinding TextWrapping}"
                            PasswordChar="{TemplateBinding PasswordChar}"
                            SelectionBrush="{TemplateBinding SelectionBrush}"
-                           CaretBrush="{TemplateBinding CaretBrush}"
-                           Foreground="{TemplateBinding Foreground}" />
+                           CaretBrush="{TemplateBinding CaretBrush}" />
           </ScrollViewer>
         </Border>
       </ControlTemplate>

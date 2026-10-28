@@ -222,7 +222,7 @@ public sealed class DialogService : IDialogService, ISystemPickerService
             ok.Click += (_, _) => window.Close(true);
             cancel.Click += (_, _) => window.Close(false);
             var confirmed = _owner is not null && await window.ShowDialog<bool?>(_owner) == true;
-            tcs.TrySetResult(confirmed && box.Text.Length > 0 ? FileLocator.FromPath(box.Text.Trim()) : null);
+            tcs.TrySetResult(confirmed && !string.IsNullOrWhiteSpace(box.Text) ? FileLocator.FromPath(box.Text.Trim()) : null);
         });
         return new ValueTask<FileLocator?>(tcs.Task);
     }

@@ -50,7 +50,7 @@ public sealed partial class ArchiveViewModel : ObservableObject
             IsLoaded = false;
             return;
         }
-        foreach (var e in result.Value)
+        foreach (var e in result.GetValueOrThrow())
             Entries.Add(new ArchiveEntryRow(
                 e.Name,
                 e.IsDirectory ? "文件夹" : e.Length is { } l ? Formatters.Size(l) : "",

@@ -385,7 +385,7 @@ public sealed partial class BrowserViewModel : ObservableObject
                 var listing = _svc.Zip.ListAll(a.Locator.ToLocalPath());
                 if (listing.IsSuccess)
                 {
-                    foreach (var entry in listing.Value)
+                    foreach (var entry in listing.GetValueOrThrow())
                     {
                         ct.ThrowIfCancellationRequested();
                         yield return new FileItem(

@@ -36,7 +36,9 @@ public sealed class LocalPathService : IPathService
 /// 卷与已知目录（§5.2）：UI 永不自己推导目录在哪。
 public sealed class LocalVolumeService : IVolumeService
 {
+#pragma warning disable CS0067 // 接口要求的事件；平台热插拔发布为后续 Spike
     public event EventHandler? VolumesChanged;
+#pragma warning restore CS0067
 
     public ValueTask<IReadOnlyList<StorageVolume>> GetVolumesAsync(CancellationToken ct)
     {
