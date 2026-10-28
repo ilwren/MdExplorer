@@ -214,7 +214,10 @@ public sealed class ScreenshotTests
             for (int i = 0; i < 100; i++)
             {
                 window.CaptureRenderedFrame();
-                pageList = view.FindControl<ListBox>("PdfPageList");
+                // DocumentWorkbenchView 有独立 NameScope，MainView.FindControl 跨不过去；按视觉树与控件名定位。
+                pageList = view.GetVisualDescendants()
+                    .OfType<ListBox>()
+                    .FirstOrDefault(control => control.Name == "PdfPageList");
                 firstPage = pageList?.ContainerFromIndex(0);
                 secondPage = pageList?.ContainerFromIndex(1);
                 if (firstPage is not null && secondPage is not null &&
