@@ -90,8 +90,10 @@ public sealed class LocalFileSystemService : IFileSystemService
     public Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        // 预览/缩略图/校验和都是只读旁路：Windows 下必须同时共享 Delete，
+        // 否则用户刚选中文件（预览尚在读）就移动/删除时会被自己的预览句柄挡住。
         return Task.FromResult<Stream>(new FileStream(
-            path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite,
+            path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete,
             bufferSize: 81920, useAsync: true));
     }
 
