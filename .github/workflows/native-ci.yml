@@ -110,6 +110,16 @@ jobs:
           grep -cE "warning IL[0-9]+" publish.log > ilwarn.txt || echo 0 > ilwarn.txt
           echo "::notice::AOT/裁剪告警数：$(cat ilwarn.txt)"
 
+      - name: Upload AOT logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aot-logs
+          path: |
+            publish.log
+            app.log
+          if-no-files-found: warn
+
       - name: Summarize AOT warnings — by code
         if: always()
         run: |
