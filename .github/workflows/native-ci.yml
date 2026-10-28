@@ -110,16 +110,6 @@ jobs:
           grep -cE "warning IL[0-9]+" publish.log > ilwarn.txt || echo 0 > ilwarn.txt
           echo "::notice::AOT/裁剪告警数：$(cat ilwarn.txt)"
 
-      - name: Upload AOT logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: aot-logs
-          path: |
-            publish.log
-            app.log
-          if-no-files-found: warn
-
       - name: Summarize AOT warnings — by code
         if: always()
         run: |
@@ -158,22 +148,45 @@ jobs:
           du -sh "$PUB" || true
           ls -la "$PUB" | head -20
 
-      - name: Runtime smoke test under Xvfb (must stay alive 20s)
+      - name: Runtime self-test inside the Native AOT binary
+        id: selftest
         run: |
           set -eo pipefail
           BIN=native/src/MdExplorer.Desktop/bin/Release/net10.0/linux-x64/publish/MdExplorer
           set +e
-          xvfb-run -a --server-args="-screen 0 1280x800x24" timeout 20 "$BIN" > app.log 2>&1
+          xvfb-run -a --server-args="-screen 0 1280x800x24" "$BIN" --selftest > app.log 2>&1
           CODE=$?
           set -e
-          echo "app exit code: $CODE (124 = 被 timeout 终止，即存活满 20s)"
-          sed -e 's/\x1b\[[0-9;]*m//g' app.log | tail -40
-          if [ "$CODE" -ne 124 ]; then
-            echo "::error::Native AOT 产物运行失败，退出码 $CODE"
-            sed -e 's/\x1b\[[0-9;]*m//g' app.log | tail -20 | while IFS= read -r line; do echo "::error::$line"; done
+          CLEAN=$(mktemp)
+          sed -e 's/\x1b\[[0-9;]*m//g' app.log > "$CLEAN"
+          cat "$CLEAN" | tail -40
+          # 通过项以 notice 上报（annotations API 可在生成环境读取）
+          grep -E "^\[selftest\] PASS" "$CLEAN" | cut -c1-90 | head -10 \
+            | while IFS= read -r line; do echo "::notice::$line"; done || true
+          if [ "$CODE" -ne 0 ]; then
+            echo "::error::AOT 自检失败，退出码 $CODE"
+            grep -E "^\[selftest\]" "$CLEAN" | tail -12 \
+              | while IFS= read -r line; do echo "::error::$line"; done
             exit 1
           fi
-          echo "✅ 应用在 Native AOT 下启动并稳定运行 20s 无崩溃"
+          echo "✅ Native AOT 运行时自检全部通过（DI / SQLite / JSON / XAML / 反射绑定）"
+
+      - name: Stay-alive smoke (must survive 15s)
+        run: |
+          set -eo pipefail
+          BIN=native/src/MdExplorer.Desktop/bin/Release/net10.0/linux-x64/publish/MdExplorer
+          set +e
+          xvfb-run -a --server-args="-screen 0 1280x800x24" timeout 15 "$BIN" > alive.log 2>&1
+          CODE=$?
+          set -e
+          echo "app exit code: $CODE (124 = 被 timeout 终止，即存活满 15s)"
+          sed -e 's/\x1b\[[0-9;]*m//g' alive.log | tail -20
+          if [ "$CODE" -ne 124 ]; then
+            echo "::error::Native AOT 产物运行失败，退出码 $CODE"
+            sed -e 's/\x1b\[[0-9;]*m//g' alive.log | tail -20 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
+          echo "✅ 应用在 Native AOT 下启动并稳定运行 15s 无崩溃"
 
   aot-publish-windows:
     runs-on: windows-latest

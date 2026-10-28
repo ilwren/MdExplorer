@@ -176,7 +176,8 @@
     <Border Grid.Row="3" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,64"
             IsVisible="{Binding IsSnackbarOpen}"
             Background="{DynamicResource MdOnSurface}" CornerRadius="10" Padding="16,10">
-      <TextBlock Text="{Binding SnackbarText}" Foreground="{DynamicResource MdSurface}" />
+      <TextBlock x:Name="SnackbarTextBlock" Text="{Binding SnackbarText}"
+                 Foreground="{DynamicResource MdSurface}" />
     </Border>
   </Grid>
 </Window>
