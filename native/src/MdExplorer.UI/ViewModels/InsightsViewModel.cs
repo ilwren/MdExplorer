@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MdExplorer.Domain.Files;
+using MdExplorer.Platform.Abstractions.FileSystem;
 using MdExplorer.UI.Services;
 
 namespace MdExplorer.UI.ViewModels;

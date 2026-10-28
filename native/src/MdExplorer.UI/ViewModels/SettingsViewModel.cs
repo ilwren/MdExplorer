@@ -66,7 +66,7 @@ public sealed partial class TrashViewModel : ObservableObject
     [RelayCommand]
     private async Task RestoreAsync(TrashRow row)
     {
-        var r = await _svc.Trash.RestoreAsync(row.Id);
+        var r = await _svc.Trash.RestoreAsync(row.Id, CancellationToken.None);
         if (r.IsSuccess)
             _svc.Notify.ShowTransient($"已还原「{row.Name}」");
         else

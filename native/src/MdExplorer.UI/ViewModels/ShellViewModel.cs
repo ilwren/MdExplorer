@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -85,7 +86,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Home = new HomeViewModel(services);
         Archive = new ArchiveViewModel(services) { CurrentContext = this };
         ThemeMode = services.Settings.Current.Theme == "light" ? "light" : "dark";
-        Jobs.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(HasJobs));
+        Jobs.CollectionChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasJobs)));
         OpenTab(new Destination.Home());
     }
 
@@ -128,7 +129,7 @@ public sealed partial class ShellViewModel : ObservableObject
             NavTitle = value.Title;
             _ = OnPreviewChangedAsync(value);
         }
-        RaisePropertyChanged(nameof(HasActiveTab));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasActiveTab)));
     }
 
     public bool HasActiveTab => ActiveTab is not null;
@@ -382,9 +383,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     partial void OnBreakpointChanged(string value)
     {
-        RaisePropertyChanged(nameof(IsRailVisible));
-        RaisePropertyChanged(nameof(IsBottomNavVisible));
-        RaisePropertyChanged(nameof(IsCompact));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsRailVisible)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsBottomNavVisible)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsCompact)));
     }
 
     partial void OnIsSnackbarOpenChanged(bool value)

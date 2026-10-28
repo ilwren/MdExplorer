@@ -28,19 +28,12 @@ public sealed class AppTrashService : ITrashService
 
     public bool IsSupported => true;
 
-    private sealed record ManifestEntry(string Id, string OriginalPath, string Name, bool IsDir, long Size, long DeletedAt);
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
-
     private List<ManifestEntry> Load()
     {
         try
         {
-            return JsonSerializer.Deserialize<List<ManifestEntry>>(File.ReadAllText(_manifestPath), JsonOptions) ?? [];
+            return JsonSerializer.Deserialize(
+                       File.ReadAllText(_manifestPath), TrashJsonContext.Default.ListManifestEntry) ?? [];
         }
         catch
         {
@@ -49,7 +42,8 @@ public sealed class AppTrashService : ITrashService
     }
 
     private void Save(List<ManifestEntry> entries)
-        => File.WriteAllText(_manifestPath, JsonSerializer.Serialize(entries, JsonOptions));
+        => File.WriteAllText(_manifestPath,
+            JsonSerializer.Serialize(entries, TrashJsonContext.Default.ListManifestEntry));
 
     public async ValueTask<Result> MoveToTrashAsync(FileLocator item, CancellationToken ct)
     {
@@ -164,4 +158,15 @@ public sealed class AppTrashService : ITrashService
         var stem = Path.GetFileNameWithoutExtension(name);
         return $"{stem} (restored){ext}";
     }
+}
+
+/// 回收站清单条目（JSON 源生成，AOT 安全）。
+internal sealed record ManifestEntry(string Id, string OriginalPath, string Name, bool IsDir, long Size, long DeletedAt);
+
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(List<ManifestEntry>))]
+internal sealed partial class TrashJsonContext : JsonSerializerContext
+{
 }

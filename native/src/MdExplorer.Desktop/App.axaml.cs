@@ -6,7 +6,7 @@ using MdExplorer.UI.Views;
 
 namespace MdExplorer.Desktop;
 
-public sealed class App : Application
+public sealed class App : Avalonia.Application
 {
     public override void Initialize()
     {

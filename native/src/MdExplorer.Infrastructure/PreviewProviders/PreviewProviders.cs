@@ -46,7 +46,7 @@ public sealed class ArchivePreviewProvider : IPreviewProvider
     {
         var entries = _zip.ListAll(item.Locator.ToLocalPath());
         IReadOnlyList<ArchiveEntry> list = entries.IsSuccess
-            ? entries.Value
+            ? entries.Value ?? []
             : [];
         return ValueTask.FromResult<PreviewContent>(new ArchiveContent(list));
     }

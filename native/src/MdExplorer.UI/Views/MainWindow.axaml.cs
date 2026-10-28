@@ -41,12 +41,12 @@ public sealed partial class MainWindow : Window
             }
             else if (e.PropertyName == nameof(ShellViewModel.ThemeMode))
             {
-                Application.Current!.RequestedThemeVariant =
+                Avalonia.Application.Current!.RequestedThemeVariant =
                     shell.ThemeMode == "light" ? ThemeVariant.Light : ThemeVariant.Dark;
             }
         };
         shell.SetWidth(Bounds.Width);
-        Application.Current!.RequestedThemeVariant =
+        Avalonia.Application.Current!.RequestedThemeVariant =
             shell.ThemeMode == "light" ? ThemeVariant.Light : ThemeVariant.Dark;
         if (shell.CurrentPage is { } initial)
         {

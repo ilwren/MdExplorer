@@ -84,7 +84,7 @@ public sealed partial class ArchiveViewModel : ObservableObject
             _svc.Notify.ShowTransient("先在浏览页选中要压缩的文件");
             return;
         }
-        var dest = tab!.Session.Current is Destination.Folder f ? f.Locator : null;
+        FileLocator? dest = tab!.Session.Current is Destination.Folder f ? f.Locator : null;
         if (dest is null) return;
         _svc.Queue.Enqueue(new FileOperationJob(
             FileJobKind.Compress,
