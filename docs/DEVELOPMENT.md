@@ -591,9 +591,9 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 | 类型 | 提供者与上限 | MVP | 备注 |
 |---|---|---|---|
 | 图片 jpg/png/gif/webp/bmp/svg* | Skia 解码下采样；动图仅首帧+徽标（播放 P2）；SVG 以 Avalonia `Svg` 能力评估（Spike，Svg.Skia 系许可为 MIT）或位图化 | ✔ | 支持缩放手势（双击/捏合）与 EXIF 方向；超大图（>8000px 边）只解预览尺寸 |
-| 文本/代码/日志 | AvaloniaEdit 只读高亮；>2 MB 或 >2 万行 → 纯文本窗（前后片段 + 跳转行）；编码探测 UTF-8 优先（BOM/回退到系统代码页需标注） | ✔ | 小文件「编辑」按钮（保存走队列、UTF-8 写回）为 P2 |
+| 文本/代码/日志 | 预览为 AvaloniaEdit 只读高亮并只截取前 512 KiB；独立文档工作台完整读取 ≤2 MiB 的本地文本，严格识别 UTF-8/16/32 与 BOM | ✔（v0.20 轻编辑第一切片） | 默认只读、显式进入编辑；保存保留编码、BOM 与主导换行，旧代码页不猜测解码；完整 IDE、SAF 写回与超限分片编辑仍未实现 |
 | Markdown | 渲染阅读视图（§3.2 路线）；本地相对图片允许加载、外链图片禁止自动加载（隐私） | ✔ | 不执行 HTML/脚本内嵌 |
-| PDF | 分页位图（缩放按需重渲）；密码文档输密解锁（内存驻留、页面关即弃）；页码跳转、旋转感知 | ✔ | 连续滚动 + 页虚拟化；文字层提取/全文搜 PDF 内文为 P2 |
+| PDF | 预览为单页分页；工作台为单页纸面 + 懒加载缩略图轨，缩放/90° 旋转按需重渲，密码仅驻内存、页码可跳转 | ✔（v0.20 阅读第一切片） | 连续滚动、目录/书签与文字层/文档内搜索仍为 P2；PDFtoImage/PDFium 5.2.1 公开 API 无文本提取、命中位置或目录接口 |
 | 音频 | 封面 + 标签 + 时长 + 「用系统播放」；（内置播放见 D-03）迷你播放为 P2 候选 | ✔（信息卡） | — |
 | 视频 | 海报帧（平台层：Android `MediaMetadataRetriever`、Windows Shell 缩略可选、Linux 无则类型卡）+ 元信息 | ✔（信息卡） | 内置播放默认不交付（§3.2） |
 | 压缩包 | 条目树（名/原大小/压后大小/日期）、单文件提取到内存预览（上限 10 MB)、整包解压入口 | ✔ | 嵌套压缩包只开一层 |
@@ -633,9 +633,15 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 
 > **v0.19 文件行菜单修复、标签拖拽重排与桌面无边框窗口（已落地）**：文件行/卡片的 `MoreVert` 按钮在模板内挂载同一 `ItemMenu`，点击时只允许 `button.ContextMenu?.Open(button)`；不得再对未登记的控件调用共享 `ContextMenu.Open`，否则 Avalonia 12.1.2 会以目标未挂载该菜单抛错。`BrowserViewModel.MoveTab` 钳制目标下标并以 `Tabs.Move` 移动同一标签对象，不改变活动会话、历史、筛选与选集，复用既有标签持久化恢复顺序。视图把标签抽为共享 `BrowserTabTemplate`，由标签条 Tunnel 阶段处理按下/移动/释放/捕获丢失：7px 后进入拖拽、被拖标签平移且同级让位、中心到达目标槽位即视为跨过、释放才提交，取消则清变换并抑制紧随的误触激活。桌面 `MainWindow` 使用 `WindowDecorations=BorderOnly` 与扩展客户区 48px 高度提示；Expanded+ 在 `PaneGrid` 顶行显示与抽屉品牌对齐的窗口 Chrome，浏览器页承载同一标签模板，非浏览器页显示 `PageTitle`，右侧最小化/最大化或还原/关闭使用 Avalonia Chrome 角色并保留 `BeginMoveDrag`/`BeginResizeDrag` 回退。最大化/全屏关闭 8 向缩放热区且同步还原图标与无障碍名；Compact/Medium 的桌面宿主在顶栏保留窗口按钮，选择模式栏预留 120px，Android/普通单视图宿主继续使用工作区回落标签条且不显示桌面按钮。真实指针覆盖三个点按钮、窗口顶部标签拖拽与尺寸/最大化状态切换；Windows/Linux 的原生非客户区、Snap 与 Wayland 差异仍须真机或桌面会话验收，不能由无头截图冒充。
 
+> **v0.20 文档工作台（编辑/PDF 第一切片，已落地）**：新增独立 `ShellPage.DocumentWorkbench`、`DocumentWorkbenchViewModel` 与 `DocumentWorkbenchView`，从文件上下文菜单或只读预览进入；Shell 打开前以 `StatAsync` 刷新元数据，同一路径重复打开回到已有脏文档，打开另一文档或从工作台返回时先确认放弃。保存成功会刷新浏览器并重载同路径预览。经全局导航直切页面只令工作台 VM 驻留而不销毁，窗口关闭的统一脏文档守卫仍待后续补齐。
+>
+> 文本资格由 `FileKind.Text/Code` 加 `.json/.jsonc/.xml/.yaml/.yml/.toml/.ini/.cfg/.conf/.csv/.tsv/.reg` 等明确文本型 Data 扩展共同限定，`.db/.sqlite/.sqlite3` 等二进制 Data 不开放。平台抽象新增 `ITextFileService`/`TextFileSnapshot`/`TextFileChangedException`，本地实现先识别 UTF-32 BOM 再识别 UTF-16、无 BOM 时严格 UTF-8，非法字节或解码后含 NUL 即拒绝；文件、编码后新内容均以打开快照的 2 MiB 为硬顶，只读文件与符号链接拒绝编辑。编辑默认只读，显式进入后提供 AvaloniaEdit 查找、撤销/重做、Markdown 源稿/渲染、JSON/XML 安全格式化（XML 禁 DTD 与外部解析）和有界增删行摘要。保存经 `IDialogs.RunOperationAsync` 进入串行任务队列，以 SHA-256 快照在同目录临时文件写入并刷盘、替换前再次验指纹后 `File.Replace`/移动，保留原编码、BOM、主导换行并尽量复制 Unix 模式；冲突只允许重载磁盘版或用户明确覆盖。
+>
+> PDF 仍由串行栅格化收口层调用 PDFtoImage/PDFium，新密码、宽度与旋转参数追加在既有 `CancellationToken` 之后；原始字节和密码只在当前文档驻内存。页面模型用 `MdList.ContainerPrepared` 按视口懒生成约 180px 缩略图，最多缓存 36 张并释放远离当前页者（原生 `ListBox` 在 Md3 主题下无无键模板，继续遵守全仓 `MdList` 不变量）。缩放档为 50%–300%，可 90° 旋转与输入页码；Compact 隐藏缩略图轨及首末页/旋转/系统打开等次级动作，只留翻页、跳页与缩放。第一切片明确不含 PDF 连续滚动、目录/书签、文本层搜索与命中高亮，也不含 Android SAF 文本写回——现有 SAF 删除同名再写的复制原语不得冒充原子保存。
+
 ### 6.9 Phase 2 候选池（先定边界不排期）
 
-双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文本轻编辑保存、PDF 文搜、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
+双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文档工作台第二切片（PDF 连续滚动/目录/文搜、SAF 文本安全写回与关闭守卫）、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
 
 ### 6.10 不做清单（防止 PR 夹带）
 
@@ -973,7 +979,7 @@ dotnet publish src/MdExplorer.Android -c Release -p:PublishTrimmed=true -p:RunAO
 
 ### Phase 2 池（从 §6.9 取，不预承诺次序）
 
-双窗格第二切片（B 侧地址/搜索/详情 parity）、批量重命名、校验和工具、文本轻编辑保存、PDF 文本搜、MSIX/系统集成深化、视频/音频内置播放（取决于 D-03）。双窗格第一切片已随 v0.18 落地。
+双窗格第二切片（B 侧地址/搜索/详情 parity）、批量重命名、校验和工具、文档工作台第二切片（PDF 连续滚动/目录/文搜与 SAF 写回）、MSIX/系统集成深化、视频/音频内置播放（取决于 D-03）。双窗格第一切片已随 v0.18 落地。
 
 ### 插件轨道（2026-10-26 立项，详见 `docs/PLUGIN-SYSTEM.md`）
 
@@ -1086,3 +1092,4 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | 2026-10-28 | **v0.17 逐项冲突确认 + 任务详情/失败重试**：复制与移动改为任务内零写入规划，逐个比较顶层来源与目标后以保留两者（默认）、替换或跳过执行；“应用到其余冲突”默认未勾选，必须显式选择后由“继续”提交。比较卡按可得性呈现 320px 图片缩略图或类型字形、大小、修改时间、位置与 64 MiB 上限内流式 SHA-256，Compact 使用横向紧凑卡。占用名规划同时处理目标已有项与批内同名来源，同目录复制/移动的自冲突免询问，规划取消不写入。`OperationError.ItemPath` 与 `OperationOutcome.SkippedCount` 使任务中心可呈现等待确认、计数、逐项错误、产物路径与起止时间；传输失败按来源定位与原策略只重试失败顶层项，旧任务重试入口一次性消费，删除等不可安全重放任务不伪造重试。Compact 任务中心收敛为贴底 Sheet。 | push run `40663920938` 与 PR run `40663932863`（sha `7be3fef`）六 Job 全绿（134 单元测试 Ubuntu/Windows 双跑，新增逐项默认/显式批量应用/规划取消/批内同名/同目录免询问/仅失败项重试/任务明细 7 例；37 截图测试/36 PNG，新增 Large/Compact 冲突与 Large 任务详情、Compact 任务 Sheet 并目检；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |
 | 2026-10-28 | **v0.18 ExtraLarge 双窗格第一切片**：Shell 新增第二个完整 `BrowserViewModel` 会话；以 `PersistSessionTabs` 隔离 A 标签持久化、以 `DrivesSharedPreview` 与 `ActiveBrowser` 分配共享预览、键盘和系统返回权，并以 `BrowserClipboardState` 共享剪贴板。B 支持独立面包屑/历史/选集/排序、列表与网格、本地文件动作、上下文菜单和拖放，并与 A 之间提供显式复制/移动和默认移动、Ctrl 复制的跨窗格拖放；传输复用 v0.17 冲突与任务管线。`DualPaneEnabled`、`DualPanePath` 与 `DualPaneWidth` 持久化，`Ctrl+Shift+D` 开关、`F6` 切换活动窗格；跌出 ExtraLarge 时 B 会话不销毁且其路径收为 A 后台标签。全局标签、搜索岛、地址编辑与详细信息 DataGrid 仍只在 A，B 的详细信息模式回落列表。 | push run `40670964518` 与 PR run `40670974235`（sha `ab4c12d`）六 Job 全绿（139 单元测试 Ubuntu/Windows 双跑，新增 XL 门控/双会话与预览隔离、A↔B 复制移动刷新、A 剪切/B 粘贴、窄屏后台标签、主标签持久化隔离 5 例；38 截图测试/37 PNG，新增 ExtraLarge 双窗格实拍并目检；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |
 | 2026-10-28 | **v0.19 文件行菜单修复、标签拖拽与无边框窗口 Chrome**：`MoreVert` 改为打开按钮自身挂载的同一上下文菜单，结束共享菜单目标未登记造成的崩溃；`MoveTab` 与共用 `BrowserTabTemplate` 实现带 7px 阈值、同级让位、释放提交与顺序持久化的真实指针重排。桌面 `MainWindow` 改为 `BorderOnly` 扩展客户区，Expanded+ 标签移到 48px 窗口顶行并与品牌、窗口按钮同线，非浏览器页改为页标题；Chrome 空白拖窗、双击最大化切换、8 向缩放、最大化还原语义、Compact/Medium 桌面窄窗及选择模式按钮保留均有回退实现，Android 不显示桌面窗口控件。 | push run `40699827021` 与 PR run `40699835958`（sha `8b18b0b`）六 Job 全绿（140 单元测试，新增标签移动/活动会话/顺序恢复；41 截图测试/37 PNG，新增文件行三个点真实点击、MainWindow 顶部标签拖拽、Chrome 尺寸与最大化状态回归并目检 Expanded/Large/设置/XL 双窗格；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |
+| 2026-10-28 | **v0.20 文档工作台第一切片（文本轻编辑 + PDF 阅读）**：新增独立 `DocumentWorkbench` 页面、VM 与视图，以及平台无关 `ITextFileService` 本地安全保存实现。本地 ≤2 MiB 文本/代码/Markdown/明确文本型数据默认只读，显式编辑后可查找、撤销/重做、格式化 JSON/XML 并查看有界差异；保存经任务中心保留 Unicode/BOM/换行，以 SHA-256、同目录临时文件刷盘、二次验指纹和原子替换处理外部冲突。PDF 增加页尺寸、密码、缩放/旋转重渲染，工作台以 `MdList` 懒加载最多 36 张缩略图、页码跳转与单页纸面阅读；Compact 隐藏缩略图轨与次级动作。PDF 连续滚动/目录/文搜、SAF 文本写回和窗口关闭统一脏文档守卫仍未实现。 | push run `40708824967` 与 PR run `40708836591`（sha `a36f80e`）六 Job 全绿（151 单元测试 Ubuntu/Windows 双跑，新增编码/BOM、UTF-32 优先、冲突覆盖、二进制/超限拒绝与任务队列保存；45 截图测试/41 PNG，新增 Large 文本、Large PDF、Compact 文本/PDF，真实窗口断言缩略图容器/位图并逐张目检；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |
