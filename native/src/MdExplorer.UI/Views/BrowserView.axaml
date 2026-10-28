@@ -25,7 +25,7 @@
           <ctrl:MdIcon IconName="check" />
         </Button>
       </StackPanel>
-      <TextBox Classes="md" Watermark="过滤当前列表…" Text="{Binding FilterText, Mode=TwoWay}"
+      <TextBox Classes="md" PlaceholderText="过滤当前列表…" Text="{Binding FilterText, Mode=TwoWay}"
                MaxWidth="320" HorizontalAlignment="Left" />
     </DockPanel>
 

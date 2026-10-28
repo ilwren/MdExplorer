@@ -24,24 +24,30 @@ jobs:
           set -eo pipefail
           dotnet build native/MdExplorer.slnx -c Release --no-restore 2>&1 | tee build.log || { echo "build_failed=true" >> "$GITHUB_OUTPUT"; exit 1; }
 
+      - name: Error count
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          echo "total error lines: $(grep -c ": error " build.log || true)" >> "$GITHUB_STEP_SUMMARY"
+          grep -E ": error " build.log | sort -u | head -40 >> "$GITHUB_STEP_SUMMARY" || true
+
       - name: Report errors (part 1)
         if: failure() && steps.build.outcome == 'failure'
         run: |
-          grep -E "error (CS|NU|MSB)" build.log | sort -u | sed -n '1,8p' | while IFS= read -r line; do
+          grep -E ": error " build.log | sort -u | sed -n '1,8p' || true | while IFS= read -r line; do
             echo "::error::${line}"
           done
 
       - name: Report errors (part 2)
         if: failure() && steps.build.outcome == 'failure'
         run: |
-          grep -E "error (CS|NU|MSB)" build.log | sort -u | sed -n '9,16p' | while IFS= read -r line; do
+          grep -E ": error " build.log | sort -u | sed -n '9,16p' || true | while IFS= read -r line; do
             echo "::error::${line}"
           done
 
       - name: Report errors (part 3)
         if: failure() && steps.build.outcome == 'failure'
         run: |
-          grep -E "error (CS|NU|MSB)" build.log | sort -u | sed -n '17,40p' | while IFS= read -r line; do
+          grep -E ": error " build.log | sort -u | sed -n '17,40p' || true | while IFS= read -r line; do
             echo "::error::${line}"
           done
 

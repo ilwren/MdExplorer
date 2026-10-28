@@ -12,13 +12,13 @@
       <DockPanel>
         <Button DockPanel.Dock="Right" Classes="md tonal" Content="加载"
                 Command="{Binding LoadCommand}" Margin="8,0,0,0" />
-        <TextBox Classes="md" Watermark="zip 文件路径…"
+        <TextBox Classes="md" PlaceholderText="zip 文件路径…"
                  Text="{Binding ArchivePathText, Mode=TwoWay}" />
       </DockPanel>
       <DockPanel>
         <Button DockPanel.Dock="Right" Classes="md filled" Content="解压到"
                 Command="{Binding ExtractHereCommand}" Margin="8,0,0,0" />
-        <TextBox Classes="md" Watermark="解压目标目录…"
+        <TextBox Classes="md" PlaceholderText="解压目标目录…"
                  Text="{Binding DestDirText, Mode=TwoWay}" />
       </DockPanel>
       <Button Classes="md" Content="压缩浏览页所选文件" Command="{Binding CompressSelectionCommand}"

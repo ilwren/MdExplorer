@@ -7,7 +7,7 @@
     <DockPanel Grid.Row="0" Margin="12,12,12,4">
       <Button DockPanel.Dock="Right" Classes="md tonal" Content="搜索"
               Command="{Binding SearchCommand}" Margin="8,0,0,0" />
-      <TextBox Classes="md" Watermark="搜索文件名（v1 本地实时遍历）…"
+      <TextBox Classes="md" PlaceholderText="搜索文件名（v1 本地实时遍历）…"
                Text="{Binding QueryText, Mode=TwoWay}" FontSize="16" />
     </DockPanel>
 

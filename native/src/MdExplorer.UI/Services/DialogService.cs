@@ -63,7 +63,7 @@ public sealed class DialogService : IDialogService, ISystemPickerService
         var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         _ = RunOnUiAsync(async () =>
         {
-            var box = new TextBox { Text = initial ?? "", Width = 360, Watermark = hint };
+            var box = new TextBox { Text = initial ?? "", Width = 360, PlaceholderText = hint };
             var window = CreateShell(title, box, null);
             var ok = new Button { Content = "确定", MinWidth = 88 };
             var cancel = new Button { Content = "取消", MinWidth = 88 };
@@ -212,7 +212,7 @@ public sealed class DialogService : IDialogService, ISystemPickerService
         var tcs = new TaskCompletionSource<FileLocator?>(TaskCreationOptions.RunContinuationsAsynchronously);
         _ = RunOnUiAsync(async () =>
         {
-            var box = new TextBox { Width = 360, Watermark = "输入或粘贴目录路径" };
+            var box = new TextBox { Width = 360, PlaceholderText = "输入或粘贴目录路径" };
             var window = CreateShell(title, box, null);
             var footer = (StackPanel)((StackPanel)window.Content!).Children[2];
             var ok = new Button { Content = "选择", MinWidth = 88 };
