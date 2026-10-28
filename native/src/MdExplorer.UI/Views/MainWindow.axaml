@@ -25,7 +25,7 @@
           <ctrl:MdIcon IconName="refresh" />
         </Button>
         <Border Classes="md-pill" Margin="10,0" VerticalAlignment="Center" MaxWidth="420">
-          <TextBlock Text="{Binding ActiveTab.LocationText}"
+          <TextBlock x:Name="LocationTextBlock" Text="{Binding ActiveTab.LocationText}"
                      Classes="md-sub" TextTrimming="CharacterEllipsis"
                      ToolTip.Tip="{Binding ActiveTab.LocationText}" />
         </Border>
