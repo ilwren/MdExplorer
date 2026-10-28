@@ -265,6 +265,22 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task Compact_DocumentWorkbenchPdf() => await CaptureAsync("41-compact-pdf-workbench.png", 390, 844, async shell =>
+    {
+        await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
+        var workbench = shell.DocumentWorkbench;
+        Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
+        Assert.True(workbench.IsCompactLayout);
+        Assert.Equal(2, workbench.PdfPageCount);
+        Assert.NotNull(workbench.PdfImage);
+        workbench.NextPdfPageCommand.Execute(null);
+        for (int i = 0; i < 80 && workbench.IsLoading; i++)
+            await Task.Delay(50);
+        Assert.Equal(1, workbench.PdfPageIndex);
+        Assert.NotNull(workbench.PdfImage);
+    });
+
+    [AvaloniaFact]
     public async Task Large_AddressBar() => await CaptureAsync("19-large-address.png", 1440, 900, shell =>
     {
         shell.Browser.BeginEditAddressCommand.Execute(null);

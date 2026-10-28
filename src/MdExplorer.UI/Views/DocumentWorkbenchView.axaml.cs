@@ -56,6 +56,12 @@ public partial class DocumentWorkbenchView : UserControl
             _vm.IsCompactLayout = compact;
         DocumentRoot.Margin = compact ? new Thickness(10, 8, 10, 12) : new Thickness(20, 12, 20, 20);
         PdfThumbnailRail.IsVisible = !compact;
+        // 窄屏只保留翻页、跳页与缩放；首末页、旋转和系统打开收起，避免固定列工具栏横向溢出。
+        var showPdfSecondaryActions = e.NewSize.Width >= 640;
+        PdfFirstPageButton.IsVisible = showPdfSecondaryActions;
+        PdfLastPageButton.IsVisible = showPdfSecondaryActions;
+        PdfRotateButton.IsVisible = showPdfSecondaryActions;
+        PdfOpenExternalButton.IsVisible = showPdfSecondaryActions;
         PdfWorkbenchGrid.ColumnDefinitions[0].Width = new GridLength(compact ? 0 : 140);
         PdfWorkbenchGrid.ColumnDefinitions[1].Width = new GridLength(compact ? 0 : 12);
     }

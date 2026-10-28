@@ -317,7 +317,7 @@ public sealed partial class DocumentWorkbenchViewModel(
         if (!CanEditDocument)
             return;
         IsEditing = true;
-        StatusText = "正在编辑 · 保存将进入任务中心";
+        StatusText = IsCompactLayout ? "正在编辑" : "正在编辑 · 保存将进入任务中心";
     }
 
     [RelayCommand]
