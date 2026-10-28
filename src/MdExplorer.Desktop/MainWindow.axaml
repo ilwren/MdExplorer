@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:MdExplorer.Desktop"
         x:Class="MdExplorer.Desktop.MainWindow"
         Title="Eidoria · 万象屿"
         Width="1440" Height="900" MinWidth="360" MinHeight="520"
@@ -23,7 +24,12 @@
             <TextBlock Text="万象屿" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
           </StackPanel>
         </StackPanel>
-        <TextBlock Grid.Column="2" Text="本地文件" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="12,0" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10" Margin="12,0">
+          <TextBlock Text="本地文件" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+          <Button Click="OnSearchIndexClick" ToolTip.Tip="06 · 搜索与索引中心概念预演" Padding="10,7">
+            <StackPanel Orientation="Horizontal" Spacing="7"><TextBlock Text="⌕" FontSize="17"/><TextBlock Text="搜索与索引 · 06" FontSize="12"/></StackPanel>
+          </Button>
+        </StackPanel>
         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
           <Button Command="{Binding ToggleThemeCommand}" ToolTip.Tip="切换浅色 / 深色主题">
             <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="◐"/><TextBlock Text="主题"/></StackPanel>
@@ -243,6 +249,11 @@
         </Grid>
       </Border>
     </Grid>
+
+    <!-- Planning preview stays outside formal navigation until its index service exists. -->
+    <Border x:Name="SearchIndexPanel" Grid.Row="2" IsVisible="False" Background="{DynamicResource SurfaceBrush}">
+      <local:SearchIndexView x:Name="SearchIndexControl" />
+    </Border>
 
     <!-- Compact / Medium floating preview, styled after concept 04 -->
     <Border x:Name="FloatingPreviewLayer" Grid.Row="2" Background="#66000000" IsVisible="{Binding IsFloatingPreviewOpen}" Padding="16">

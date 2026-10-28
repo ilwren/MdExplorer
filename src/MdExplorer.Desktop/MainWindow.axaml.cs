@@ -11,12 +11,14 @@ public partial class MainWindow : Window
     private readonly MainWindowViewModel _viewModel;
     private bool _previewOpen = true;
     private bool _isCompact;
+    private bool _isSearchCenterOpen;
 
     public MainWindow()
     {
         InitializeComponent();
         _viewModel = new MainWindowViewModel();
         DataContext = _viewModel;
+        SearchIndexControl.CloseRequested += (_, _) => CloseSearchCenter();
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
         SizeChanged += OnWindowSizeChanged;
         KeyDown += OnWindowKeyDown;
@@ -36,6 +38,8 @@ public partial class MainWindow : Window
     private void ApplyResponsiveLayout(double width)
     {
         if (MainLayout.ColumnDefinitions.Count < 3) return;
+        MainLayout.IsVisible = !_isSearchCenterOpen;
+        SearchIndexPanel.IsVisible = _isSearchCenterOpen;
         _isCompact = width < 600;
         var isMedium = width >= 600 && width < 840;
         var isExpanded = width >= 840 && width < 1200;
@@ -95,8 +99,8 @@ public partial class MainWindow : Window
         }
         else if (control && e.Key == Key.F)
         {
-            SearchBox.Focus();
-            SearchBox.SelectAll();
+            if (_isSearchCenterOpen) SearchIndexControl.FocusSearchInput();
+            else { SearchBox.Focus(); SearchBox.SelectAll(); }
             e.Handled = true;
         }
         else if (e.KeyModifiers.HasFlag(KeyModifiers.Alt) && e.Key == Key.Left)
@@ -122,6 +126,11 @@ public partial class MainWindow : Window
         else if (control && e.Key == Key.D1) { _viewModel.SetView("grid"); e.Handled = true; }
         else if (control && e.Key == Key.D2) { _viewModel.SetView("list"); e.Handled = true; }
         else if (control && e.Key == Key.D3) { _viewModel.SetView("details"); e.Handled = true; }
+        else if (e.Key == Key.Escape && _isSearchCenterOpen)
+        {
+            CloseSearchCenter();
+            e.Handled = true;
+        }
         else if (e.Key == Key.Escape && _viewModel.IsPathEditing)
         {
             _viewModel.IsPathEditing = false;
@@ -207,6 +216,19 @@ public partial class MainWindow : Window
     {
         if (sender is Button { DataContext: NavigationItem item })
             _viewModel.NavigateShortcutCommand.Execute(item);
+    }
+
+    private void OnSearchIndexClick(object? sender, RoutedEventArgs e)
+    {
+        _isSearchCenterOpen = true;
+        _viewModel.IsFloatingPreviewOpen = false;
+        ApplyResponsiveLayout(Bounds.Width);
+    }
+
+    private void CloseSearchCenter()
+    {
+        _isSearchCenterOpen = false;
+        ApplyResponsiveLayout(Bounds.Width);
     }
 
     private void OnCreateFolderClick(object? sender, RoutedEventArgs e) => _viewModel.CreateFolderCommand.Execute(null);
