@@ -1,3 +1,4 @@
+using System.Reflection;
 using MdExplorer.Domain;
 using MdExplorer.UI.Services;
 using MdExplorer.UI.ViewModels;
@@ -101,7 +102,10 @@ public sealed class BrowserViewModeAndSortTests : IDisposable
 
         Assert.True(shell.SettingsStore.Settings.ReduceMotion);
         Assert.True(shell.SettingsStore.Settings.RememberFolderView);
-        Assert.StartsWith("0.19.0", shell.AppVersionText);
+        var informationalVersion = typeof(ShellViewModel).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        Assert.False(string.IsNullOrWhiteSpace(informationalVersion));
+        Assert.Equal(informationalVersion.Split('+', 2)[0], shell.AppVersionText);
     }
 
     [Fact]
