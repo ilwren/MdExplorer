@@ -154,7 +154,7 @@ jobs:
           set -eo pipefail
           BIN=native/src/MdExplorer.Desktop/bin/Release/net10.0/linux-x64/publish/MdExplorer
           set +e
-          xvfb-run -a --server-args="-screen 0 1280x800x24" "$BIN" --selftest > app.log 2>&1
+          xvfb-run -a --server-args="-screen 0 1280x800x24" timeout 180 "$BIN" --selftest > app.log 2>&1
           CODE=$?
           set -e
           CLEAN=$(mktemp)
@@ -163,6 +163,11 @@ jobs:
           # 通过项以 notice 上报（annotations API 可在生成环境读取）
           grep -E "^\[selftest\] PASS" "$CLEAN" | cut -c1-90 | head -10 \
             | while IFS= read -r line; do echo "::notice::$line"; done || true
+          if [ "$CODE" -eq 124 ]; then
+            echo "::error::AOT 自检超时（180s），疑似死锁"
+            sed -e 's/\x1b\[[0-9;]*m//g' app.log | tail -20 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
           if [ "$CODE" -ne 0 ]; then
             echo "::error::AOT 自检失败，退出码 $CODE"
             grep -E "^\[selftest\]" "$CLEAN" | tail -12 \
@@ -176,7 +181,7 @@ jobs:
           set -eo pipefail
           BIN=native/src/MdExplorer.Desktop/bin/Release/net10.0/linux-x64/publish/MdExplorer
           set +e
-          xvfb-run -a --server-args="-screen 0 1280x800x24" timeout 15 "$BIN" > alive.log 2>&1
+          xvfb-run -a --server-args="-screen 0 1280x800x24" timeout -k 5 15 "$BIN" > alive.log 2>&1
           CODE=$?
           set -e
           echo "app exit code: $CODE (124 = 被 timeout 终止，即存活满 15s)"

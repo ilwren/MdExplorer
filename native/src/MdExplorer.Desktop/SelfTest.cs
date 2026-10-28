@@ -22,19 +22,11 @@ internal static class SelfTest
     {
         Console.WriteLine("[selftest] Native AOT 运行时自检开始");
 
-        // 1) Avalonia 平台初始化（AOT 下 Skia/平台后端必须可用）
-        try
-        {
-            Program.BuildAvaloniaApp().SetupWithoutStarting();
-            Pass("avalonia-setup", $"初始化成功（{Avalonia.Application.Current?.GetType().Name}）");
-        }
-        catch (Exception ex)
-        {
-            Fail("avalonia-setup", ex);
-            return Report();
-        }
+        // 注意：Avalonia 初始化会安装 AvaloniaSynchronizationContext，之后在主线程上阻塞等待
+        // 异步结果会死锁（续体被投递回 UI 线程）。因此所有异步检查都在初始化之前执行，
+        // 且跑在线程池上（Task.Run）以确保续体不捕获任何上下文。
 
-        // 2) 组合根：显式 DI 装配（§4.3）
+        // 1) 组合根：显式 DI 装配（§4.3）
         ShellViewModel shell;
         try
         {
@@ -54,7 +46,8 @@ internal static class SelfTest
         // 3) SQLite 索引（Native AOT 下 SQLitePCLRaw 原生库能否加载 + 建表）
         try
         {
-            var status = shell.Services.Index.GetStatusAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
+            var status = Task.Run(() => shell.Services.Index
+                .GetStatusAsync(CancellationToken.None).AsTask()).GetAwaiter().GetResult();
             Pass("sqlite-index", $"GetStatusAsync 成功（roots={status.Roots.Count}, files={status.FileCount}）");
         }
         catch (Exception ex)
@@ -67,7 +60,7 @@ internal static class SelfTest
         {
             var s = shell.Services.Settings;
             var before = s.Current.Theme;
-            s.SaveAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
+            Task.Run(() => s.SaveAsync(CancellationToken.None).AsTask()).GetAwaiter().GetResult();
             Pass("json-settings", $"SaveAsync 成功（theme={before}）");
         }
         catch (Exception ex)
@@ -81,18 +74,17 @@ internal static class SelfTest
             var dir = Path.Combine(Path.GetTempPath(), "mdexplorer-selftest-" + Guid.NewGuid().ToString("N")[..8]);
             Directory.CreateDirectory(dir);
             File.WriteAllText(Path.Combine(dir, "selftest-needle.txt"), "needle");
-            var hitCount = 0;
             var query = new SearchQuery("selftest-needle", FileLocator.FromPath(dir));
-            var e = shell.Services.Search.SearchAsync(query, CancellationToken.None).GetAsyncEnumerator();
-            try
+            var hitCount = Task.Run(async () =>
             {
-                while (e.MoveNextAsync().AsTask().GetAwaiter().GetResult() && hitCount < 50)
-                    hitCount++;
-            }
-            finally
-            {
-                e.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            }
+                var n = 0;
+                await foreach (var _ in shell.Services.Search
+                    .SearchAsync(query, CancellationToken.None).ConfigureAwait(false))
+                {
+                    if (++n >= 50) break;
+                }
+                return n;
+            }).GetAwaiter().GetResult();
             Directory.Delete(dir, recursive: true);
             if (hitCount >= 1)
                 Pass("search", $"SearchAsync 命中 {hitCount} 项");
@@ -104,7 +96,19 @@ internal static class SelfTest
             Fail("search", ex);
         }
 
-        // 6) 主窗口 XAML 加载（Avalonia XamlX 编译产物 + 主题资源）
+        // 6) Avalonia 平台初始化（AOT 下 Skia/平台后端必须可用）
+        try
+        {
+            Program.BuildAvaloniaApp().SetupWithoutStarting();
+            Pass("avalonia-setup", $"初始化成功（{Avalonia.Application.Current?.GetType().Name}）");
+        }
+        catch (Exception ex)
+        {
+            Fail("avalonia-setup", ex);
+            return Report();
+        }
+
+        // 7) 主窗口 XAML 加载（Avalonia XamlX 编译产物 + 主题资源）
         MainWindow? window = null;
         try
         {
@@ -122,7 +126,7 @@ internal static class SelfTest
             Fail("xaml-mainwindow", ex);
         }
 
-        // 7) 反射绑定（关键：AOT 裁剪后 Binding 仍能读到属性）
+        // 8) 反射绑定（关键：AOT 裁剪后 Binding 仍能读到属性）
         if (window is not null)
         {
             try
@@ -142,7 +146,7 @@ internal static class SelfTest
             }
         }
 
-        // 8) 全部页面视图 XAML 加载（§4.3 显式 ViewFactory）
+        // 9) 全部页面视图 XAML 加载（§4.3 显式 ViewFactory）
         var pages = new (string Name, Func<Control> Create)[]
         {
             ("BrowserView", () => new BrowserView()),
