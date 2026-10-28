@@ -463,7 +463,9 @@
           <views:SearchCenterView IsVisible="{Binding IsSearchCenterPage}" />
           <views:StorageInsightsView IsVisible="{Binding IsStorageInsightsPage}" />
           <views:ArchiveWorkbenchView IsVisible="{Binding IsArchiveWorkbenchPage}" />
-          <views:DocumentWorkbenchView DataContext="{Binding DocumentWorkbench}" IsVisible="{Binding IsDocumentWorkbenchPage}" />
+          <Border IsVisible="{Binding IsDocumentWorkbenchPage}" Background="Transparent">
+            <views:DocumentWorkbenchView DataContext="{Binding DocumentWorkbench}" />
+          </Border>
 
           <!-- 浏览器页：独立白色工作区浮在外层柔和底板上（预览亦同语言） -->
           <Border x:Name="BrowserWorkspace" IsVisible="{Binding IsBrowser}" Classes="workspace-surface" ClipToBounds="True" Margin="10">
