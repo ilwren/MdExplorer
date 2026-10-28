@@ -8,8 +8,34 @@
 > Ubuntu + .NET SDK 10.0.100（`global.json`）：`dotnet restore` / `dotnet build -c Release` /
 > `dotnet test`（Domain.Tests + Application.Tests + ArchitectureChecks）**全部通过**，
 > 无编译错误、无测试失败、无 NuGet 高危告警（SQLitePCLRaw 已钉 2.1.12）。
-> CI 覆盖三项：**编译+测试**（Domain / Application / ArchitectureChecks）、**AOT 发布 linux-x64**（含原生工具链与产物检查）、
-> **AOT 发布 win-x64**。分层引用规则（§4.2）由 `tests/MdExplorer.ArchitectureChecks` 在 CI 中锁死。
+> CI 覆盖：**编译+测试**（Domain / Application / ArchitectureChecks）、**AOT 发布 linux-x64 + 产物断言 + 运行时自检**、
+> **AOT 发布 win-x64 + 产物断言**。分层引用规则（§4.2）由 `tests/MdExplorer.ArchitectureChecks` 锁死；
+> AOT 运行时行为由 `MdExplorer --selftest` 在真实 AOT 可执行文件内验证（见下）。
+
+### AOT 运行时自检（`--selftest`）
+
+`src/MdExplorer.Desktop/SelfTest.cs` 在 Native AOT 产物内跑真实启动路径，任一项失败即返回码 1、CI 红：
+
+| 检查项 | 验证内容 |
+|---|---|
+| `avalonia-setup` | Skia/平台后端在 AOT 下可用 |
+| `composition-root` | 组合根显式 DI 装配（§4.3） |
+| `sqlite-index` | SQLitePCLRaw 原生库加载 + 建表（AOT 下 NativeLibrary 解析） |
+| `json-settings` | System.Text.Json 源生成序列化往返 |
+| `search` | 用例层递归搜索（临时目录命中 ≥1） |
+| `xaml-mainwindow` / `xaml-*View` | 9 个 XAML 视图真实加载并布局出尺寸 |
+| `binding-reflection` | **反射绑定在裁剪后仍生值**（回归门槛） |
+
+> 两条线程模型约束（改动时务必保留）：Avalonia 必须在主线程先 `SetupWithoutStarting()`，否则 Dispatcher
+> 被线程池线程占用后报 "The calling thread cannot access this object"；初始化后主线程不能直接阻塞等待异步结果，
+> 需边 `Dispatcher.UIThread.RunJobs()` 边等，否则 Avalonia 同步上下文死锁。
+
+### AOT 与反射绑定
+
+UI 采用 Avalonia 经典反射绑定，**Native AOT 默认会裁掉只被反射访问的属性元数据，导致绑定静默失效**
+（界面能加载、值为空）。因此 `src/MdExplorer.Desktop/ILLink.Descriptors.xml` 以裁剪根描述符保留
+ViewModels / Views / Application / Domain 的类型成员——该缺陷正是由 `binding-reflection` 自检发现并修复的。
+后续若迁移到编译绑定（`x:DataType` + `AvaloniaUseCompiledBindingsByDefault`），该描述符可整体删除。
 
 ## 结构（§4.2 分层，CI 引用规则锁死）
 
@@ -68,6 +94,8 @@ dotnet publish src/MdExplorer.Desktop -c Release -r linux-x64   # Linux
 - PDF 页面渲染、音视频内嵌播放：降级策略（§6.5），外部打开兜底。
 - 7z/RAR：仅元数据；ZIP 全功能（`ZipArchiveService`，无外部工具依赖）。
 - Android 宿主（Platform.Android/SAF）：按 Spike 推进，本仓库暂未包含。
-- AOT 发布（`dotnet publish -r linux-x64/win-x64`）已在 CI 中通过；如本地新增代码遇到裁剪告警，按 §11 白名单登记。
+- AOT 发布与运行时自检均已在 CI 通过；发布期有 302 条 `IL2026`/`IL3050` 告警，全部来自 Avalonia 反射绑定
+  相关调用（自有源码命中集中在 `BrowserView.axaml` / `TrashView.axaml` 的绑定表达式），属框架侧不可消除项；
+  实际行为已由 `binding-reflection` 自检与 15s 存活冒烟兜住。迁移到编译绑定可同时消除这些告警。
 - CI 未覆盖 Android/macOS 目标；Avalonia 绑定为反射式（非 compiled bindings，便于渐进迁移）。
 - CI 状态：`native-ci` 工作流（push 触发）= restore/build/test 三阶段全绿。
