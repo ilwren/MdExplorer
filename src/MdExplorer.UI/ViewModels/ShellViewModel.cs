@@ -38,6 +38,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private int _archivePreviewGeneration;
     private Func<IFileLauncherService> _launcher;
     private IFileLauncherService Launcher => _launcher();
+    private readonly BrowserClipboardState _browserClipboard = new();
 
     public BrowserViewModel Browser { get; }
 
@@ -160,11 +161,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             clipboard.TopLevelProvider = topLevelProvider;
     }
 
-    private BrowserViewModel CreateBrowserSession(AppHost.AppServices services) => new(
-        services.FileSystem, services.Operations, services.Trash,
-        services.Archive, services.Search, services.SettingsStore,
-        services.Inspector, services.FolderWatch, services.SystemClipboard,
-        this, Preview, () => Launcher);
+    private BrowserViewModel CreateBrowserSession(AppHost.AppServices services)
+    {
+        var browser = new BrowserViewModel(
+            services.FileSystem, services.Operations, services.Trash,
+            services.Archive, services.Search, services.SettingsStore,
+            services.Inspector, services.FolderWatch, services.SystemClipboard,
+            this, Preview, () => Launcher);
+        browser.ClipboardState = _browserClipboard;
+        return browser;
+    }
 
     private void SubscribeBrowserSession(BrowserViewModel browser, bool isPrimary)
     {

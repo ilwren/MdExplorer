@@ -119,6 +119,32 @@ public sealed class DualPaneBrowserTests : IDisposable
     }
 
     [Fact]
+    public async Task CutInPrimaryCanPasteInSecondary()
+    {
+        var shell = CreateShell();
+        var source = CreateFile("clip-left", "cut.txt", "cut-me");
+        var rightFile = CreateFile("clip-right", "keep.txt", "keep");
+        var leftDir = Path.GetDirectoryName(source)!;
+        var rightDir = Path.GetDirectoryName(rightFile)!;
+        await shell.Browser.NavigateToAsync(leftDir);
+        await shell.SecondaryBrowser.NavigateToAsync(rightDir, pushHistory: false);
+
+        _ = Select(shell.Browser, "cut.txt");
+        await shell.Browser.CutSelectionCommand.ExecuteAsync(null);
+        Assert.True(shell.Browser.HasClipboard);
+        Assert.True(shell.SecondaryBrowser.HasClipboard);
+
+        await shell.SecondaryBrowser.PasteCommand.ExecuteAsync(null);
+
+        Assert.False(File.Exists(source));
+        Assert.Equal("cut-me", await File.ReadAllTextAsync(
+            Path.Combine(rightDir, "cut.txt"), TestContext.Current.CancellationToken));
+        Assert.Contains(shell.SecondaryBrowser.Items, item => item.Name == "cut.txt");
+        Assert.False(shell.Browser.HasClipboard);
+        Assert.False(shell.SecondaryBrowser.HasClipboard);
+    }
+
+    [Fact]
     public async Task LeavingExtraLargeRetainsSecondarySessionAsBackgroundTab()
     {
         var shell = CreateShell();

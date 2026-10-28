@@ -15,6 +15,47 @@ namespace MdExplorer.UI.ViewModels;
 /// <summary>文件区呈现模式（与 AppSettings.ViewMode 字符串一一对应）。</summary>
 public enum BrowserViewMode { List, Grid, Details }
 
+/// <summary>可在双窗格两个浏览会话之间共享的应用内/系统文件剪贴板状态。</summary>
+internal sealed class BrowserClipboardState
+{
+    public event EventHandler? Changed;
+
+    public IReadOnlyList<string> Paths { get; private set; } = [];
+    public bool IsCut { get; private set; }
+    public bool IsOwnedByApp { get; private set; }
+    public IReadOnlyList<string> ExternalBaseline { get; private set; } = [];
+
+    public void SetApplicationClipboard(IReadOnlyList<string> paths, bool cut, IReadOnlyList<string> externalBaseline)
+    {
+        Paths = paths.ToList();
+        IsCut = cut;
+        IsOwnedByApp = true;
+        ExternalBaseline = externalBaseline.ToList();
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SetExternalClipboard(IReadOnlyList<string> paths)
+    {
+        Paths = paths.ToList();
+        IsCut = false;
+        IsOwnedByApp = false;
+        ExternalBaseline = paths.ToList();
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SetExternalBaseline(IReadOnlyList<string> paths) =>
+        ExternalBaseline = paths.ToList();
+
+    public void Clear()
+    {
+        Paths = [];
+        IsCut = false;
+        IsOwnedByApp = false;
+        ExternalBaseline = [];
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+}
+
 public sealed partial class BrowserViewModel : ObservableObject
 {
     private readonly IFileSystemService _fileSystem;
@@ -51,10 +92,25 @@ public sealed partial class BrowserViewModel : ObservableObject
     /// <summary>双窗格中只有活动会话可以驱动共享预览；非活动会话导航/改选集不得抢占预览。</summary>
     internal bool DrivesSharedPreview { get; set; } = true;
 
-    private IReadOnlyList<string> _clipboardPaths = [];
-    private bool _clipboardCut;
-    private IReadOnlyList<string> _externalClipboardBaseline = [];
-    private bool _clipboardOwnedByApp;
+    private BrowserClipboardState _clipboard = new();
+
+    /// <summary>Shell 让 A/B 两个窗格共享同一剪贴板状态，保证一侧剪切后可在另一侧粘贴。</summary>
+    internal BrowserClipboardState ClipboardState
+    {
+        get => _clipboard;
+        set
+        {
+            if (ReferenceEquals(_clipboard, value))
+                return;
+            _clipboard.Changed -= OnClipboardStateChanged;
+            _clipboard = value;
+            _clipboard.Changed += OnClipboardStateChanged;
+            OnPropertyChanged(nameof(HasClipboard));
+        }
+    }
+
+    private void OnClipboardStateChanged(object? sender, EventArgs e) =>
+        OnPropertyChanged(nameof(HasClipboard));
     private readonly Stack<ClosedTabSnapshot> _closedTabs = [];
 
     private sealed record ClosedTabSnapshot(
@@ -85,6 +141,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         _dialogs = dialogs;
         _preview = preview;
         _launcher = launcher;
+        _clipboard.Changed += OnClipboardStateChanged;
 
         var s = settingsStore.Settings;
         _watchEnabled = s.WatchFolderChanges;
@@ -159,7 +216,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     public bool IsGridView => ViewMode == BrowserViewMode.Grid;
     public bool IsDetailsView => ViewMode == BrowserViewMode.Details;
     public bool HasSelection => SelectedCount > 0;
-    public bool HasClipboard => _clipboardPaths.Count > 0;
+    public bool HasClipboard => _clipboard.Paths.Count > 0;
     public string SelectionText => SelectedCount == 0 ? StatusText : $"已选 {SelectedCount} 项";
 
     /// <summary>迷你搜索岛是否应显示清除入口。</summary>
@@ -778,11 +835,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         await _systemClipboard.SetTextAsync(string.Join(Environment.NewLine, paths), CancellationToken.None).ConfigureAwait(true);
 
         // 文本写入会替换系统文件剪贴板；同步清掉应用内待粘贴集合，避免 Ctrl+V 仍粘贴旧文件。
-        _clipboardPaths = [];
-        _clipboardCut = false;
-        _clipboardOwnedByApp = false;
-        _externalClipboardBaseline = [];
-        OnPropertyChanged(nameof(HasClipboard));
+        _clipboard.Clear();
         _dialogs.Notify(paths.Count == 1 ? "已复制路径" : $"已复制 {paths.Count} 条路径");
     }
 
@@ -1388,18 +1441,15 @@ public sealed partial class BrowserViewModel : ObservableObject
 
         // 先记住操作前系统剪贴板的文件集合：粘贴/窗口激活时据此判断外部内容是否
         // 在本应用复制/剪切之后又被另一个应用更新，避免旧外部内容覆盖应用内剪切状态。
-        _externalClipboardBaseline = await _systemClipboard.TryGetFilesAsync(CancellationToken.None).ConfigureAwait(true);
-        _clipboardPaths = paths;
-        _clipboardCut = cut;
-        _clipboardOwnedByApp = true;
-        OnPropertyChanged(nameof(HasClipboard));
+        var externalBaseline = await _systemClipboard.TryGetFilesAsync(CancellationToken.None).ConfigureAwait(true);
+        _clipboard.SetApplicationClipboard(paths, cut, externalBaseline);
 
         if (!cut)
         {
             // Avalonia 高层文件格式没有跨应用的统一“剪切效果”编码：复制与系统同步，
             // 剪切保留在应用内，避免把用户预期为移动的动作在外部悄悄变成复制。
             await _systemClipboard.SetFilesAsync(paths, CancellationToken.None).ConfigureAwait(true);
-            _externalClipboardBaseline = paths.Where(p => !FileLocator.IsStorageUri(p)).ToList();
+            _clipboard.SetExternalBaseline(paths.Where(p => !FileLocator.IsStorageUri(p)).ToList());
         }
 
         _dialogs.Notify(cut ? $"已剪切 {paths.Count} 项" : $"已复制 {paths.Count} 项");
@@ -1414,19 +1464,15 @@ public sealed partial class BrowserViewModel : ObservableObject
         var external = await _systemClipboard.TryGetFilesAsync(CancellationToken.None).ConfigureAwait(true);
         if (external.Count == 0)
             return;
-        if (_clipboardOwnedByApp && PathSetsEqual(external, _externalClipboardBaseline))
+        if (_clipboard.IsOwnedByApp && PathSetsEqual(external, _clipboard.ExternalBaseline))
             return;
-        if (PathSetsEqual(external, _clipboardPaths))
+        if (PathSetsEqual(external, _clipboard.Paths))
         {
-            _externalClipboardBaseline = external;
+            _clipboard.SetExternalBaseline(external);
             return;
         }
 
-        _clipboardPaths = external.ToList();
-        _clipboardCut = false;
-        _clipboardOwnedByApp = false;
-        _externalClipboardBaseline = external;
-        OnPropertyChanged(nameof(HasClipboard));
+        _clipboard.SetExternalClipboard(external);
     }
 
     [RelayCommand]
@@ -1434,18 +1480,13 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         if (CurrentPath is null) return;
         await ImportExternalClipboardAsync().ConfigureAwait(true);
-        if (_clipboardPaths.Count == 0) return;
+        if (_clipboard.Paths.Count == 0) return;
 
-        var sources = _clipboardPaths.ToList();
-        var cut = _clipboardCut;
+        var sources = _clipboard.Paths.ToList();
+        var cut = _clipboard.IsCut;
         var outcome = await TransferItemsAsync(sources, CurrentPath, cut).ConfigureAwait(true);
         if (cut && outcome?.Success == true)
-        {
-            _clipboardPaths = [];
-            _clipboardOwnedByApp = false;
-            _externalClipboardBaseline = [];
-            OnPropertyChanged(nameof(HasClipboard));
-        }
+            _clipboard.Clear();
     }
 
     private sealed class TransferPlanItem(string sourcePath, FileItem sourceItem)
