@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Animation;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -12,6 +13,7 @@ using Avalonia.VisualTree;
 using MdExplorer.Application;
 using MdExplorer.Domain;
 using MdExplorer.UI.ViewModels;
+using Md3.Avalonia.Controls;
 
 namespace MdExplorer.UI.Views;
 
@@ -23,6 +25,7 @@ public partial class MainView : UserControl
 
     private bool _suppressBottomNavEcho;
     private WindowBase? _clipboardWindow;
+    private Window? _hostWindow;
     private DragCandidate? _dragCandidate;
     private bool _dragInProgress;
     private bool _breadcrumbEndScrollPending;
@@ -119,6 +122,11 @@ public partial class MainView : UserControl
                 _clipboardWindow = window;
                 window.Activated += OnTopLevelActivated;
             }
+            if (topLevel is Window hostWindow)
+            {
+                _hostWindow = hostWindow;
+                hostWindow.PropertyChanged += OnHostWindowPropertyChanged;
+            }
             // Android 的打开方式走 Avalonia Launcher；桌面沿用进程实现
             if (Shell is { Capabilities.IsAndroid: true } shell)
             {
@@ -160,6 +168,11 @@ public partial class MainView : UserControl
             _clipboardWindow.Activated -= OnTopLevelActivated;
             _clipboardWindow = null;
         }
+        if (_hostWindow is not null)
+        {
+            _hostWindow.PropertyChanged -= OnHostWindowPropertyChanged;
+            _hostWindow = null;
+        }
         if (Shell is { } vm)
         {
             vm.PropertyChanged -= OnShellPropertyChanged;
@@ -177,6 +190,7 @@ public partial class MainView : UserControl
     {
         base.OnSizeChanged(e);
         Shell?.SetViewportSize(e.NewSize.Width, e.NewSize.Height);
+        ApplyWindowChromeLayout();
         LayoutFloatingPreview(e.NewSize);
         ScheduleBreadcrumbEndScroll();
         ScheduleSecondaryBreadcrumbEndScroll();
@@ -576,6 +590,14 @@ public partial class MainView : UserControl
     {
         if (Shell is not { } shell)
             return;
+
+        if (e.PropertyName is nameof(ShellViewModel.SizeClass)
+            or nameof(ShellViewModel.IsExpandedOrAbove)
+            or nameof(ShellViewModel.IsCompactOrMedium)
+            or nameof(ShellViewModel.ShowBrowserTabs)
+            or nameof(ShellViewModel.Page)
+            or nameof(ShellViewModel.IsBrowser))
+            ApplyWindowChromeLayout();
 
         if (e.PropertyName is nameof(ShellViewModel.ShowDrawerPane)
             or nameof(ShellViewModel.ShowPreviewPaneEffective))
