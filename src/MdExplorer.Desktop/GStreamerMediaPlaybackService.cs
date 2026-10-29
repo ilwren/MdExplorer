@@ -15,7 +15,6 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
     private const string Library = "libgstreamer-1.0.so.0";
 
     // GstState / GstFormat / GstSeekFlags 的数值来自 gst/gstelement.h 与 gst/gstformat.h。
-    private const int StateVoidPending = 0;
     private const int StateNull = 1;
     private const int StatePaused = 3;
     private const int StatePlaying = 4;
@@ -32,7 +31,6 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
     private bool _prepared;
     private bool _ended;
     private bool _disposed;
-    private string? _path;
 
     public GStreamerMediaPlaybackService()
     {
@@ -114,7 +112,6 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
 
                 _prepared = true;
                 _ended = false;
-                _path = path;
                 LastError = null;
                 State = MediaPlaybackState.Paused;
             }

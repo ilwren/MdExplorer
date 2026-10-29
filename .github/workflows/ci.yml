@@ -25,7 +25,10 @@ jobs:
       - name: Restore
         run: dotnet restore MdExplorer.slnx
       - name: Build
-        run: dotnet build MdExplorer.slnx -c Release --no-restore
+        run: |
+          set -o pipefail
+          # 构建失败时 Actions 日志在沙箱里取不到，落盘一份随 ci-artifacts 回传。
+          dotnet build MdExplorer.slnx -c Release --no-restore 2>&1 | tee build-output.txt
       - name: Unit tests
         run: |
           set -o pipefail
@@ -35,7 +38,7 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash .github/publish-artifacts.sh logs test-output.txt
+        run: bash .github/publish-artifacts.sh logs build-output.txt test-output.txt
 
   ui-screenshots:
     name: UI screenshots (headless)
