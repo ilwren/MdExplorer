@@ -647,7 +647,7 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 >
 > 自动化定义以 Domain 的 `AutomationWorkflowDefinition` 类型化嵌入 `AppSettings`，经既有源生成 JSON 与原子写持久化。Application 校验器只接受恰好一个 `CurrentFolder`、零或多个 `KindFilter`/`NameContains`、恰好一个 `TransferToSubfolder`、至多一个终点 `SystemNotification` 的单链，并拒绝重复 ID、多入多出、环、未连节点、文件夹类型筛选、路径型目标名与未知通知占位符。执行器只读取运行瞬间主浏览器的本地当前文件夹顶层文件（拒绝 `content:` SAF 定位串），先过滤、仅有匹配时建一级目标夹，再以 `ConflictPolicy.KeepBoth` 复用 `IFileOperationService`；整体经 Shell 任务队列运行，文件结果与流程内通知结果分开呈现。NodifyM 画布只在自动化页局部注册 Md3 主题，节点 VM 对连线再做单入单出与终点限制，并禁用连接分裂/Knot；默认示例为图片复制到“图片整理”后通知。分支、条件、循环、多工作流、定时/监听触发、递归、任意目标路径和 SAF 自动化仍未实现。
 
-> **v0.22 文档工作台第二切片（PDF 连续阅读 + 关闭守卫，已落地到代码与无头验证）**：`DocumentWorkbenchViewModel` 新增单页/连续阅读模式。连续面继续遵守 Md3-only 主题下的 `MdList` 不变量，以每页已知宽高比预留纸面尺寸，容器进入视口后才通过既有串行 PDFium 收口层按当前缩放与旋转渲染整页；当前页附近会预取相邻页，滚动锚点反向同步 `PdfPageIndex`、缩略图轨、页码输入与翻页命令。缩放或旋转会以视觉代次废弃旧渲染，整页位图同时受最多 10 页与约 96 MiB 未压缩像素估算双预算约束，优先释放远离当前页者；单页模式、密码仅驻内存与 64/128 MiB 输入上限不变。桌面 `MainWindow.OnClosing` 统一拦截脏文本与正在保存状态：前者必须明确选择放弃并关闭，后者直接阻止关闭，避免窗口自绘关闭按钮和系统关闭路径出现不同语义。目录/书签、文本层提取、文档内搜索/命中高亮与 Android SAF 安全写回仍未实现。
+> **v0.22 文档工作台第二切片（PDF 连续阅读 + 关闭守卫，已落地到代码与无头验证）**：`DocumentWorkbenchViewModel` 新增单页/连续阅读模式。连续面继续遵守 Md3-only 主题下的 `MdList` 不变量，以每页已知宽高比预留纸面尺寸，容器进入视口后才通过既有串行 PDFium 收口层按当前缩放与旋转渲染整页；当前页附近会预取相邻页，滚动锚点反向同步 `PdfPageIndex`、缩略图轨、页码输入与翻页命令。缩放或旋转会以视觉代次废弃旧渲染，整页位图同时受最多 10 页与约 96 MiB 未压缩像素估算双预算约束，优先释放远离当前页者；单页模式、密码仅驻内存与 64/128 MiB 输入上限不变。桌面 `MainWindow.OnClosing` 统一拦截脏文本与正在保存状态：前者必须明确选择放弃并关闭，后者直接阻止关闭，避免窗口自绘关闭按钮和系统关闭路径出现不同语义。本版 CI 证据包括 Ubuntu/Windows 单元测试各 165/165、无头 UI 测试 52/52、正式截图 47 张，以及 Windows/Linux 自包含、Linux Native AOT 与 Android trimming/AOT 发布覆盖。目录/书签、文本层提取、文档内搜索/命中高亮与 Android SAF 安全写回仍未实现。
 
 ### 6.9 Phase 2 候选池（先定边界不排期）
 
