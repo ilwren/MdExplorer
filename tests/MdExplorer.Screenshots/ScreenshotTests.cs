@@ -121,8 +121,9 @@ public sealed class ScreenshotTests
         }
         finally
         {
-            // 截图夹具的收尾关闭不走用户确认；真实关闭守卫由专门用例覆盖。
-            shell.DocumentWorkbench.Clear();
+            // 只有脏文本会触发关闭守卫；PDF 位图不要在窗口仍可见时提前释放。
+            if (shell.DocumentWorkbench.NeedsCloseConfirmation)
+                shell.DocumentWorkbench.Clear();
             window.Close();
         }
     }
@@ -386,7 +387,6 @@ public sealed class ScreenshotTests
         }
         finally
         {
-            workbench.Clear();
             window.Close();
         }
     }
