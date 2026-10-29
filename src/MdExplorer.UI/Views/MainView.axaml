@@ -1077,6 +1077,7 @@
                                              IsVisible="{Binding SecondaryBrowser.IsDetailsView}"
                                              AutomationProperties.Name="对照窗格文件详情，下拉刷新">
                         <DataGrid x:Name="SecondaryFileDetails" Classes="file-details" Classes.dense="{Binding IsCompactDensity}"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                   ItemsSource="{Binding SecondaryBrowser.Items}"
                                   SelectionMode="Extended"
                                   SelectionChanged="OnSecondaryDetailsSelectionChanged"
@@ -1091,7 +1092,7 @@
                                   Sorting="OnSecondaryDetailsSorting"
                                   Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
                           <DataGrid.Columns>
-                            <DataGridTemplateColumn Width="*" MinWidth="140" SortMemberPath="Name" CanUserSort="True">
+                            <DataGridTemplateColumn Width="*" MinWidth="110" SortMemberPath="Name" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="名称" VerticalAlignment="Center" />
@@ -1110,7 +1111,7 @@
                                 </DataTemplate>
                               </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="96" SortMemberPath="Size" CanUserSort="True">
+                            <DataGridTemplateColumn Width="88" SortMemberPath="Size" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="大小" VerticalAlignment="Center" />
@@ -1123,7 +1124,7 @@
                                 </DataTemplate>
                               </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="96" SortMemberPath="Kind" CanUserSort="True">
+                            <DataGridTemplateColumn Width="84" SortMemberPath="Kind" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="类型" VerticalAlignment="Center" />
@@ -1137,7 +1138,7 @@
                                 </DataTemplate>
                               </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="138" SortMemberPath="LastWriteTime" CanUserSort="True">
+                            <DataGridTemplateColumn Width="130" MinWidth="118" SortMemberPath="LastWriteTime" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="修改时间" VerticalAlignment="Center" />
@@ -1146,7 +1147,8 @@
                               </DataGridTemplateColumn.Header>
                               <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate x:DataType="vm:FileItemViewModel">
-                                  <TextBlock Text="{Binding ModifiedText}" Margin="6,0" VerticalAlignment="Center" />
+                                  <TextBlock Text="{Binding ModifiedText}" Margin="6,0" VerticalAlignment="Center"
+                                             TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ModifiedText}" />
                                 </DataTemplate>
                               </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
