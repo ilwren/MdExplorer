@@ -1013,22 +1013,15 @@
                         <md:MdIconButton Icon="{x:Static md:MdSymbols.Delete}" Command="{Binding SecondaryBrowser.DeleteSelectionCommand}"
                                          IsEnabled="{Binding SecondaryBrowser.HasSelection}" ToolTip.Tip="删除" AutomationProperties.Name="删除对照窗格选集" />
                         <Border Width="1" Margin="6,6" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
-                        <md:MdButton Variant="Tonal" Height="38" Padding="10,0" Command="{Binding CopySecondaryToPrimaryCommand}"
-                                     IsEnabled="{Binding CanTransferSecondaryToPrimary}" ToolTip.Tip="复制所选项到主窗格"
-                                     AutomationProperties.Name="复制所选项到主窗格">
-                          <StackPanel Orientation="Horizontal" Spacing="5">
-                            <md:MdIcon Glyph="{x:Static md:MdSymbols.ContentCopy}" Size="17" />
-                            <TextBlock Text="复制到 A" VerticalAlignment="Center" />
-                          </StackPanel>
-                        </md:MdButton>
-                        <md:MdButton Variant="Text" Height="38" Padding="10,0" Command="{Binding MoveSecondaryToPrimaryCommand}"
-                                     IsEnabled="{Binding CanTransferSecondaryToPrimary}" ToolTip.Tip="移动所选项到主窗格"
-                                     AutomationProperties.Name="移动所选项到主窗格">
-                          <StackPanel Orientation="Horizontal" Spacing="5">
-                            <md:MdIcon Glyph="{x:Static md:MdSymbols.DriveFileMove}" Size="17" />
-                            <TextBlock Text="移动到 A" VerticalAlignment="Center" />
-                          </StackPanel>
-                        </md:MdButton>
+                        <!-- 560dp 默认宽度下，带文字的传输按钮会把排序/视图挤出可视区；
+                             改为图标按钮并保留 ToolTip 与自动化名称，保证导航类控件始终完整可见。 -->
+                        <md:MdIconButton Icon="{x:Static md:MdSymbols.ContentCopy}" Command="{Binding CopySecondaryToPrimaryCommand}"
+                                         IsEnabled="{Binding CanTransferSecondaryToPrimary}" ToolTip.Tip="复制所选项到主窗格（A）"
+                                         AutomationProperties.Name="复制所选项到主窗格" />
+                        <md:MdIconButton Icon="{x:Static md:MdSymbols.DriveFileMove}" Command="{Binding MoveSecondaryToPrimaryCommand}"
+                                         IsEnabled="{Binding CanTransferSecondaryToPrimary}" ToolTip.Tip="移动所选项到主窗格（A）"
+                                         AutomationProperties.Name="移动所选项到主窗格" />
+                        <Border Width="1" Margin="6,6" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
                         <md:MdIconButton Icon="{x:Static md:MdSymbols.SwapVert}" Click="OnSecondaryToggleSortDirection"
                                          AutomationProperties.Name="切换对照窗格排序方向" />
                         <md:MdIconButton Icon="{x:Static md:MdSymbols.GridView}" Command="{Binding SecondaryBrowser.ToggleViewModeCommand}"
@@ -1130,7 +1123,7 @@
                                 </DataTemplate>
                               </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="120" SortMemberPath="Kind" CanUserSort="True">
+                            <DataGridTemplateColumn Width="96" SortMemberPath="Kind" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="类型" VerticalAlignment="Center" />
@@ -1144,7 +1137,7 @@
                                 </DataTemplate>
                               </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="150" SortMemberPath="LastWriteTime" CanUserSort="True">
+                            <DataGridTemplateColumn Width="138" SortMemberPath="LastWriteTime" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="修改时间" VerticalAlignment="Center" />
