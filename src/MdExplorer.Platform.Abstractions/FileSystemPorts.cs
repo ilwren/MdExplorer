@@ -16,6 +16,12 @@ public interface IFileSystemService
     /// <summary>打开文件读流（本地=FileStream；存储形态=提供者流，后者 Length 可能不可用，调用方勿依赖）。</summary>
     Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// 打开覆盖写入流（本地=FileStream；存储形态=提供者写入流）。
+    /// 存储形态没有原子替换，调用方必须自行复核写入结果；不支持写入时抛 NotSupportedException。
+    /// </summary>
+    Task<Stream> OpenWriteAsync(string path, CancellationToken cancellationToken);
+
     /// <summary>父文件夹定位串；已在根时为 null（存储形态以注册表父链/提供者为准）。</summary>
     string? GetParentPath(string path);
 

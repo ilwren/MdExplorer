@@ -78,7 +78,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         _services = services;
         _launcher = () => services.Launcher;
-        Preview = new PreviewViewModel(MdExplorer.UI.Preview.BuiltInPreviewProviders.Create(services.Archive, services.FileSystem), () => Launcher);
+        Preview = new PreviewViewModel(MdExplorer.UI.Preview.BuiltInPreviewProviders.Create(services.Archive, services.FileSystem), () => Launcher, services.MediaPlayback);
         DocumentWorkbench = new DocumentWorkbenchViewModel(services.FileSystem, services.TextFiles, this, () => Launcher);
         DocumentWorkbench.CloseRequested += async (_, _) => await CloseDocumentWorkbenchAsync().ConfigureAwait(true);
         DocumentWorkbench.DocumentSaved += async (_, path) => await OnDocumentSavedAsync(path).ConfigureAwait(true);
@@ -239,6 +239,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                     OnPropertyChanged(nameof(ShowPathRowActions));
                 }
             }
+            else if (e.PropertyName is nameof(BrowserViewModel.HasMultipleTabs))
+            {
+                OnPropertyChanged(nameof(ShowSecondaryTabs));
+            }
             else if (e.PropertyName is nameof(BrowserViewModel.CurrentPath))
             {
                 _services.SettingsStore.Settings.DualPanePath = SecondaryBrowser.CurrentPath;
@@ -275,6 +279,26 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool CanTransferSecondaryToPrimary =>
         ShowDualPane && SecondaryBrowser.HasSelection && !Browser.IsSearchMode &&
         !string.IsNullOrWhiteSpace(Browser.CurrentPath);
+    /// <summary>B 的标签轨只在出现第二个标签时展开，单标签时把高度让给文件区。</summary>
+    public bool ShowSecondaryTabs => ShowDualPane && SecondaryBrowser.HasMultipleTabs;
+
+    /// <summary>交换两个窗格的目录（双窗格整理时的常见动作），各自保留历史栈。</summary>
+    [RelayCommand]
+    private async Task SwapPanesAsync()
+    {
+        if (!ShowDualPane)
+            return;
+        var primaryPath = Browser.CurrentPath;
+        var secondaryPath = SecondaryBrowser.CurrentPath;
+        if (string.IsNullOrWhiteSpace(primaryPath) || string.IsNullOrWhiteSpace(secondaryPath))
+            return;
+        if (string.Equals(primaryPath, secondaryPath, StringComparison.Ordinal))
+            return;
+        await SecondaryBrowser.NavigateToAsync(primaryPath).ConfigureAwait(true);
+        await Browser.NavigateToAsync(secondaryPath).ConfigureAwait(true);
+        NotifyDualPaneState();
+    }
+
     /// <summary>B 的路径胶囊在编辑地址时让位给输入框；B 只出现在 ExtraLarge，不需要 Compact 折叠分支。</summary>
     public bool ShowSecondaryBreadcrumbBar => !SecondaryBrowser.IsAddressEditing;
     /// <summary>B 搜索面板里“清除”按钮的可见性；编译绑定的取反只写到一层属性，这里显式给个镜像。</summary>
@@ -311,6 +335,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(CanTransferPrimaryToSecondary));
         OnPropertyChanged(nameof(CanTransferSecondaryToPrimary));
         OnPropertyChanged(nameof(IsSecondaryNotSearching));
+        OnPropertyChanged(nameof(ShowSecondaryTabs));
     }
 
     private void ApplyActivePanePreviewSource()

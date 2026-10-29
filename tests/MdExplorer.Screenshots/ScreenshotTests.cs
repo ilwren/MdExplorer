@@ -284,6 +284,24 @@ public sealed class ScreenshotTests
         Assert.Contains(shell.Browser.Items, item => !item.Name.Contains("IMG"));
     });
 
+    /// <summary>v0.30：B 的标签轨只在第二个标签出现后展开，标签切换留在 B 会话内。</summary>
+    [AvaloniaFact]
+    public async Task ExtraLarge_DualPaneTabs() => await CaptureAsync(
+        "73-xlarge-dual-pane-tabs.png", 1920, 1080, async shell =>
+    {
+        await ArrangeDualPaneForDetailsTestAsync(shell);
+        await shell.SecondaryBrowser.OpenInNewTabAsync(DocumentsDir);
+        await shell.SecondaryBrowser.WhenIdleAsync();
+        Assert.True(shell.SecondaryBrowser.HasMultipleTabs);
+        Assert.True(shell.ShowSecondaryTabs);
+        Assert.False(shell.Browser.HasMultipleTabs); // A 只有一个标签，全局标签轨不受 B 影响
+        var primaryPath = shell.Browser.CurrentPath;
+        await shell.SwapPanesCommand.ExecuteAsync(null);
+        Assert.Equal(DocumentsDir, shell.Browser.CurrentPath);
+        Assert.Equal(primaryPath, shell.SecondaryBrowser.CurrentPath);
+        Assert.True(shell.ShowDualPane);
+    });
+
     [AvaloniaFact]
     public async Task Large_SettingsPreferences() => await CaptureAsync(
         "58-large-settings.png", 1440, 900, shell =>
@@ -1377,6 +1395,44 @@ public sealed class ScreenshotTests
     [AvaloniaFact]
     public async Task Large_CodePreview() => await CaptureAsync("13-large-code.png", 1440, 900,
         shell => SelectByNameAsync(shell, "Program.cs", () => shell.Preview.ShowSource));
+
+    // 播放后端是平台能力：截图时换成假后端，才能把“播放中”的控件与进度条拍进来。
+    [AvaloniaFact]
+    public async Task Large_AudioPlayback() => await WithStubMediaAsync(async () =>
+        await CaptureAsync("71-large-audio-playback.png", 1440, 900, async shell =>
+        {
+            await SelectByNameAsync(shell, "录音 001.m4a", () => shell.Preview.CanPlayMediaInApp);
+            Assert.True(shell.Preview.IsAudioMedia);
+            Assert.False(shell.Preview.IsVideoMedia);
+            await shell.Preview.ToggleMediaPlaybackCommand.ExecuteAsync(null);
+            Assert.True(shell.Preview.IsMediaPlaying);
+            Assert.Equal("正在播放", shell.Preview.MediaStateText);
+            Assert.Equal("00:42", shell.Preview.MediaPositionText);
+            Assert.Equal("03:12", shell.Preview.MediaDurationText);
+        }));
+
+    [AvaloniaFact]
+    public async Task Compact_AudioPlayback() => await WithStubMediaAsync(async () =>
+        await CaptureAsync("72-compact-audio-playback.png", 390, 844, async shell =>
+        {
+            shell.IsPreviewPageOpen = true;
+            await SelectByNameAsync(shell, "录音 001.m4a", () => shell.Preview.CanPlayMediaInApp);
+            await shell.Preview.ToggleMediaPlaybackCommand.ExecuteAsync(null);
+            Assert.True(shell.Preview.IsMediaPlaying);
+        }));
+
+    private static async Task WithStubMediaAsync(Func<Task> body)
+    {
+        AppHost.MediaPlaybackFactory = static () => new StubMediaPlayback();
+        try
+        {
+            await body();
+        }
+        finally
+        {
+            AppHost.MediaPlaybackFactory = null;
+        }
+    }
 
     [AvaloniaFact]
     public async Task Expanded_BatchRenameDialog() => await CaptureAsync("14-expanded-batch-rename.png", 1100, 760, async shell =>

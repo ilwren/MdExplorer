@@ -15,8 +15,13 @@ namespace MdExplorer.UI.ViewModels;
 /// </summary>
 public sealed partial class PreviewViewModel(
     PreviewProviderRegistry previews,
-    Func<IFileLauncherService> launcherRefresh) : ObservableObject
+    Func<IFileLauncherService> launcherRefresh,
+    IMediaPlaybackService? mediaPlayback = null) : ObservableObject
 {
+    private readonly IMediaPlaybackService? _media = mediaPlayback;
+    private Avalonia.Threading.DispatcherTimer? _mediaTimer;
+    private string? _mediaPath;
+    private bool _mediaSubscribed;
     private int _generation;
     private int _pdfRenderGeneration;
     private byte[]? _pdfData;
@@ -57,6 +62,184 @@ public sealed partial class PreviewViewModel(
         CurrentItem is { IsFolder: false, Kind: FileKind.Archive } item &&
         !FileLocator.IsStorageUri(item.FullPath);
     public bool HasFailure => FailureText is not null;
+
+    // ---------- 内嵌音视频（v0.30 第一切片） ----------
+    /// <summary>当前选中项是音频或视频。</summary>
+    public bool IsMedia => CurrentItem is { IsFolder: false, Kind: FileKind.Audio or FileKind.Video };
+    public bool IsAudioMedia => CurrentItem is { IsFolder: false, Kind: FileKind.Audio };
+    public bool IsVideoMedia => CurrentItem is { IsFolder: false, Kind: FileKind.Video };
+    /// <summary>当前后端能否在应用内播放这个媒体（音频看 CanPlayAudio，视频看 CanPlayVideo）。</summary>
+    public bool CanPlayMediaInApp =>
+        _media is { } media && IsMedia &&
+        (IsAudioMedia ? media.Capabilities.CanPlayAudio : media.Capabilities.CanPlayVideo);
+    public bool IsMediaPlaying => _media?.State == MediaPlaybackState.Playing;
+    public string MediaBackendName => _media?.Capabilities.BackendName ?? "none";
+    public string MediaBackendDiagnostic => _media?.Capabilities.Diagnostic ?? "未配置播放后端。";
+    public string MediaStateText => _media?.State switch
+    {
+        MediaPlaybackState.Opening => "正在打开…",
+        MediaPlaybackState.Playing => "正在播放",
+        MediaPlaybackState.Paused => "已暂停",
+        MediaPlaybackState.Stopped => "已停止",
+        MediaPlaybackState.Ended => "播放结束",
+        MediaPlaybackState.Failed => _media.LastError ?? "播放失败",
+        _ => CanPlayMediaInApp ? "可以播放" : "此平台暂不支持内嵌播放",
+    };
+    public string MediaPositionText => FormatTime(_media?.Position ?? TimeSpan.Zero);
+    public string MediaDurationText => FormatTime(_media?.Duration ?? TimeSpan.Zero);
+    public double MediaProgressPercent
+    {
+        get
+        {
+            if (_media is not { Duration.TotalMilliseconds: > 0 } media)
+                return 0;
+            return Math.Clamp(media.Position.TotalMilliseconds * 100 / media.Duration.TotalMilliseconds, 0, 100);
+        }
+    }
+    public int MediaVolumePercent
+    {
+        get => _media?.VolumePercent ?? 100;
+        set
+        {
+            _media?.SetVolume(value);
+            OnPropertyChanged();
+        }
+    }
+
+    private static string FormatTime(TimeSpan value) =>
+        value.TotalHours >= 1
+            ? $"{(int)value.TotalHours}:{value.Minutes:00}:{value.Seconds:00}"
+            : $"{value.Minutes:00}:{value.Seconds:00}";
+
+    [RelayCommand]
+    private async Task ToggleMediaPlaybackAsync()
+    {
+        if (_media is not { } media || !CanPlayMediaInApp)
+            return;
+        if (CurrentItem is not { } item)
+            return;
+        if (_mediaPath is null || !string.Equals(_mediaPath, item.FullPath, StringComparison.Ordinal))
+        {
+            if (!await media.OpenAsync(item.FullPath, CancellationToken.None).ConfigureAwait(true))
+            {
+                RaiseMediaState();
+                return;
+            }
+            _mediaPath = item.FullPath;
+        }
+
+        if (media.State == MediaPlaybackState.Playing)
+            await media.PauseAsync().ConfigureAwait(true);
+        else
+            await media.PlayAsync(CancellationToken.None).ConfigureAwait(true);
+        RaiseMediaState();
+        UpdateMediaTimer();
+    }
+
+    [RelayCommand]
+    private async Task StopMediaPlaybackAsync()
+    {
+        if (_media is not { } media)
+            return;
+        await media.StopAsync().ConfigureAwait(true);
+        RaiseMediaState();
+        UpdateMediaTimer();
+    }
+
+    [RelayCommand]
+    private async Task SeekMediaForwardAsync()
+    {
+        if (_media is not { } media)
+            return;
+        await media.SeekAsync(media.Position + TimeSpan.FromSeconds(10)).ConfigureAwait(true);
+        RaiseMediaState();
+    }
+
+    [RelayCommand]
+    private async Task SeekMediaBackwardAsync()
+    {
+        if (_media is not { } media)
+            return;
+        var target = media.Position - TimeSpan.FromSeconds(10);
+        await media.SeekAsync(target < TimeSpan.Zero ? TimeSpan.Zero : target).ConfigureAwait(true);
+        RaiseMediaState();
+    }
+
+    private void RaiseMediaState()
+    {
+        OnPropertyChanged(nameof(IsMedia));
+        OnPropertyChanged(nameof(IsAudioMedia));
+        OnPropertyChanged(nameof(IsVideoMedia));
+        OnPropertyChanged(nameof(CanPlayMediaInApp));
+        OnPropertyChanged(nameof(IsMediaPlaying));
+        OnPropertyChanged(nameof(MediaStateText));
+        OnPropertyChanged(nameof(MediaPositionText));
+        OnPropertyChanged(nameof(MediaDurationText));
+        OnPropertyChanged(nameof(MediaProgressPercent));
+        OnPropertyChanged(nameof(MediaVolumePercent));
+        OnPropertyChanged(nameof(MediaBackendName));
+        OnPropertyChanged(nameof(MediaBackendDiagnostic));
+    }
+
+    private void SubscribeMedia()
+    {
+        if (_media is null || _mediaSubscribed)
+            return;
+        _media.PlaybackChanged += OnMediaPlaybackChanged;
+        _mediaSubscribed = true;
+    }
+
+    private void OnMediaPlaybackChanged(object? sender, EventArgs e)
+    {
+        // 后端可能从任意线程回调：有 Avalonia 应用时切回 UI 线程，测试环境直接刷新。
+        if (global::Avalonia.Application.Current is not null && !Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(RaiseMediaState);
+            return;
+        }
+        RaiseMediaState();
+    }
+
+    /// <summary>播放中每 500 ms 刷新一次进度；没有 Avalonia 消息泵（普通单元测试）时不建定时器。</summary>
+    private void UpdateMediaTimer()
+    {
+        if (_media is null || global::Avalonia.Application.Current is null)
+            return;
+        if (IsMediaPlaying)
+        {
+            if (_mediaTimer is not null)
+                return;
+            _mediaTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _mediaTimer.Tick += (_, _) =>
+            {
+                if (_media is IMediaPlaybackPoller poll)
+                    poll.PollPosition();
+                RaiseMediaState();
+            };
+            _mediaTimer.Start();
+            return;
+        }
+        StopMediaTimer();
+    }
+
+    private void StopMediaTimer()
+    {
+        if (_mediaTimer is null)
+            return;
+        _mediaTimer.Stop();
+        _mediaTimer = null;
+    }
+
+    private async Task StopMediaIfAnyAsync()
+    {
+        StopMediaTimer();
+        _mediaPath = null;
+        if (_media is { } media && media.State is MediaPlaybackState.Playing or MediaPlaybackState.Paused
+            or MediaPlaybackState.Opening or MediaPlaybackState.Stopped)
+        {
+            await media.StopAsync().ConfigureAwait(true);
+        }
+    }
     public bool HasPdf => PdfPageCount > 0;
     public bool HasOfficeDocument => OfficeDocument is not null;
     public bool IsOfficeExcel => OfficeDocument?.Format == OfficePreviewFormat.Xlsx;
@@ -194,6 +377,8 @@ public sealed partial class PreviewViewModel(
     public async Task LoadAsync(FileItem? item)
     {
         var generation = ++_generation;
+        await StopMediaIfAnyAsync().ConfigureAwait(true);
+        SubscribeMedia();
         CurrentItem = item;
         OnPropertyChanged(nameof(CanOpenArchiveWorkbench));
         OnPropertyChanged(nameof(CanOpenDocumentWorkbench));
@@ -228,6 +413,7 @@ public sealed partial class PreviewViewModel(
 
         HasItem = true;
         CanOpen = !item.IsFolder;
+        RaiseMediaState();
         SelectedTabIndex = item.IsFolder ? 1 : 0;
         Title = item.Name;
         Subtitle = FileKindClassifier.Describe(item);
@@ -281,7 +467,8 @@ public sealed partial class PreviewViewModel(
                 if (office.Facts.SheetNames.Count > 0)
                     MetadataRows.Add(new MetadataRowModel("工作表", string.Join("、", office.Facts.SheetNames)));
             }
-            FailureText = content.Message;
+            // 媒体项的可用性/失败原因由媒体面板逐条说明；再叠一句兜底文案只会自相矛盾。
+            FailureText = IsMedia ? null : content.Message;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException or ArgumentException)
         {

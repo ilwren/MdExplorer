@@ -1658,6 +1658,36 @@ public partial class MainView : UserControl
         FocusActiveFileView();
     }
 
+    // ---------- 对照窗格标签 ----------
+    private async void OnSecondaryTabTapped(object? sender, TappedEventArgs e)
+    {
+        if (Shell is { } shell && sender is Control { DataContext: BrowserTabViewModel tab })
+        {
+            shell.ActivateSecondaryPane();
+            await shell.SecondaryBrowser.ActivateTabCommand.ExecuteAsync(tab);
+        }
+        e.Handled = true;
+    }
+
+    private async void OnSecondaryTabCloseClick(object? sender, RoutedEventArgs e)
+    {
+        if (Shell is { } shell && sender is Control { DataContext: BrowserTabViewModel tab })
+            await shell.SecondaryBrowser.CloseTabCommand.ExecuteAsync(tab);
+        e.Handled = true;
+    }
+
+    private async void OnSecondaryDuplicateTabClick(object? sender, RoutedEventArgs e)
+    {
+        if (Shell is { } shell && sender is Control { Tag: BrowserTabViewModel tab })
+            await shell.SecondaryBrowser.DuplicateTabCommand.ExecuteAsync(tab);
+    }
+
+    private async void OnSecondaryCloseTabClick(object? sender, RoutedEventArgs e)
+    {
+        if (Shell is { } shell && sender is Control { Tag: BrowserTabViewModel tab })
+            await shell.SecondaryBrowser.CloseTabCommand.ExecuteAsync(tab);
+    }
+
     private void OnSecondarySearchScrimTapped(object? sender, TappedEventArgs e)
     {
         if (Shell is { } shell)

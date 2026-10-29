@@ -97,6 +97,15 @@ public sealed class LocalFileSystemService : IFileSystemService
             bufferSize: 81920, useAsync: true));
     }
 
+    public Task<Stream> OpenWriteAsync(string path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Stream stream = new FileStream(
+            path, FileMode.Create, FileAccess.Write, FileShare.None,
+            bufferSize: 81920, useAsync: true);
+        return Task.FromResult(stream);
+    }
+
     public string? GetParentPath(string path) =>
         Path.GetDirectoryName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) is { Length: > 0 } parent
             ? parent

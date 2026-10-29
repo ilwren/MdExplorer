@@ -183,7 +183,8 @@ public sealed partial class DocumentWorkbenchViewModel(
             return false;
         if (FileKindClassifier.IsPdf(item) || FileKindClassifier.IsOfficeDocument(item))
             return true;
-        return IsSupportedText(item) && !FileLocator.IsStorageUri(item.FullPath);
+        // 授权夹文本已可读写：写回走就地覆盖 + 写后复核，不再按路径形态拒绝进入工作台。
+        return IsSupportedText(item);
     }
 
     public static bool IsSupportedText(FileItem item)
@@ -364,23 +365,15 @@ public sealed partial class DocumentWorkbenchViewModel(
             }
             else if (IsTextDocument)
             {
-                if (FileLocator.IsStorageUri(item.FullPath))
-                {
-                    FailureText = "授权文件夹中的文本在第一切片仅支持只读预览，暂不在 Eidoria 内写回。";
-                    StatusText = "只读预览";
-                }
-                else
-                {
-                    var snapshot = await textFiles.ReadAsync(item.FullPath, MaxTextBytes, CancellationToken.None)
-                        .ConfigureAwait(true);
-                    if (generation != _loadGeneration)
-                        return;
-                    _textSnapshot = snapshot;
-                    _originalText = snapshot.Text;
-                    HighlightLanguage = SourceLanguages.ForExtension(item.Extension) ?? string.Empty;
-                    EditorText = snapshot.Text;
-                    StatusText = snapshot.IsReadOnly ? "文件为只读，只能预览" : "只读预览";
-                }
+                var snapshot = await textFiles.ReadAsync(item.FullPath, MaxTextBytes, CancellationToken.None)
+                    .ConfigureAwait(true);
+                if (generation != _loadGeneration)
+                    return;
+                _textSnapshot = snapshot;
+                _originalText = snapshot.Text;
+                HighlightLanguage = SourceLanguages.ForExtension(item.Extension) ?? string.Empty;
+                EditorText = snapshot.Text;
+                StatusText = snapshot.IsReadOnly ? "文件为只读，只能预览" : "只读预览";
             }
             else
             {

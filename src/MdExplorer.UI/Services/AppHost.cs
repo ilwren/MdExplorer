@@ -28,7 +28,17 @@ public static class AppHost
         IFileNameIndexService SearchIndex,
         IStorageInsightsService StorageInsights,
         ITextFileService TextFiles,
-        ISystemNotificationService SystemNotifications);
+        ISystemNotificationService SystemNotifications,
+        IMediaPlaybackService MediaPlayback);
+
+    /// <summary>
+    /// 平台内嵌播放后端的注入点。Android 宿主在 Activity 创建时注册 MediaPlayer 实现；
+    /// 未注册时（桌面、测试）退回明确自述“无后端”的实现，UI 据此只给系统打开入口。
+    /// </summary>
+    public static Func<IMediaPlaybackService>? MediaPlaybackFactory { get; set; }
+
+    private const string DefaultMediaDiagnostic =
+        "桌面端暂无内嵌解码后端：Windows 需 Media Foundation、Linux 需系统 FFmpeg，接入前不做静默降级。可用系统应用打开。";
 
     /// <param name="dataDirectory">设置/收藏落点；为空时按平台默认（LocalApplicationData/MdExplorer）。</param>
     /// <param name="startFolder">初始文件夹；为空时桌面=用户主目录，Android=个人目录。</param>
@@ -92,8 +102,9 @@ public static class AppHost
             systemClipboard ?? new AvaloniaSystemClipboardService(),
             searchIndex,
             new StorageInsightsService(),
-            new LocalTextFileService(),
-            systemNotifications ?? new MdSystemNotificationServiceAdapter());
+            new DelegatingTextFileService(new LocalTextFileService(), new StorageTextFileService(fileSystem)),
+            systemNotifications ?? new MdSystemNotificationServiceAdapter(),
+            MediaPlaybackFactory?.Invoke() ?? new UnsupportedMediaPlaybackService(DefaultMediaDiagnostic));
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);

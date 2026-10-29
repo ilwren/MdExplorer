@@ -350,6 +350,20 @@ public sealed class DelegatingFileSystemService(IFileSystemService local, Storag
         return await file.OpenReadAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 存储形态的覆盖写入。提供者没有原子替换语义：写入即就地截断，
+    /// 调用方（文本写回）必须自行复核结果并准备好恢复原内容。
+    /// </summary>
+    public async Task<Stream> OpenWriteAsync(string path, CancellationToken cancellationToken)
+    {
+        if (!IsStorage(path))
+            return await local.OpenWriteAsync(path, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (ResolveItem(path) is not IStorageEntryFile file)
+            throw new NotSupportedException("授权夹内只有文件可以写回；文件夹与未登记条目不受支持。");
+        return await file.OpenWriteAsync().ConfigureAwait(false);
+    }
+
     public string? GetParentPath(string path) =>
         IsStorage(path) ? registry.ParentOf(path) : local.GetParentPath(path);
 

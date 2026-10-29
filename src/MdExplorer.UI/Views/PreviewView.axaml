@@ -111,6 +111,52 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </md:MdScrollViewer>
+          <!-- 内嵌音视频：能力位为真才出现播放控件，否则只留后端诊断与“系统应用打开”。 -->
+          <Border IsVisible="{Binding IsMedia}" VerticalAlignment="Top"
+                  Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
+                  BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
+                  CornerRadius="16" Padding="14">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Width="44" Height="44" CornerRadius="12"
+                        Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.MusicNote}" Size="22" IsVisible="{Binding IsAudioMedia}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="22" IsVisible="{Binding IsVideoMedia}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                </Border>
+                <StackPanel VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Classes="body" Text="{Binding MediaStateText}" TextWrapping="Wrap" />
+                  <TextBlock Classes="caption" Text="{Binding MediaBackendName}" />
+                </StackPanel>
+              </StackPanel>
+
+              <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding MediaProgressPercent}" Height="4"
+                                            IsVisible="{Binding CanPlayMediaInApp}" />
+              <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding CanPlayMediaInApp}">
+                <TextBlock Classes="caption" Text="{Binding MediaPositionText}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="caption" Text="{Binding MediaDurationText}" VerticalAlignment="Center" />
+              </Grid>
+
+              <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding CanPlayMediaInApp}" HorizontalAlignment="Center">
+                <md:MdIconButton Icon="{x:Static md:MdSymbols.Replay10}" Command="{Binding SeekMediaBackwardCommand}"
+                                 AutomationProperties.Name="后退 10 秒" />
+                <md:MdIconButton Icon="{x:Static md:MdSymbols.PlayArrow}" Command="{Binding ToggleMediaPlaybackCommand}"
+                                 IsVisible="{Binding !IsMediaPlaying}" AutomationProperties.Name="播放" />
+                <md:MdIconButton Icon="{x:Static md:MdSymbols.Pause}" Command="{Binding ToggleMediaPlaybackCommand}"
+                                 IsVisible="{Binding IsMediaPlaying}" AutomationProperties.Name="暂停" />
+                <md:MdIconButton Icon="{x:Static md:MdSymbols.Forward10}" Command="{Binding SeekMediaForwardCommand}"
+                                 AutomationProperties.Name="前进 10 秒" />
+                <md:MdIconButton Icon="{x:Static md:MdSymbols.Stop}" Command="{Binding StopMediaPlaybackCommand}"
+                                 AutomationProperties.Name="停止" />
+              </StackPanel>
+
+              <TextBlock Classes="caption" Text="{Binding MediaBackendDiagnostic}" TextWrapping="Wrap"
+                         Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+            </StackPanel>
+          </Border>
           <TextBlock Classes="caption" Text="{Binding FailureText}" IsVisible="{Binding HasFailure}"
                      HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
         </Grid>

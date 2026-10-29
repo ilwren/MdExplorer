@@ -408,7 +408,7 @@ internal sealed class FallbackPreviewProvider : IPreviewProvider
         Task.FromResult(new PreviewContent(Message: item.Kind switch
         {
             FileKind.Document when FileKindClassifier.IsPdf(item) => "PDF 内置预览当前不可用，可先用系统应用打开。",
-            FileKind.Video or FileKind.Audio => "内置播放将在后续版本提供，可先用系统应用打开。",
+            FileKind.Video or FileKind.Audio => "媒体文件不在预览区内解码，播放控件见预览页上方；也可右键用系统应用打开。",
             _ => "此类型暂不支持内置预览，可先用系统应用打开。",
         }));
 }

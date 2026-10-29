@@ -199,6 +199,37 @@
         </Grid>
       </Border>
     </DataTemplate>
+    <!-- 对照窗格自己的紧凑标签：B 不进入窗口顶部全局标签轨，只在本窗格头部横向排布。 -->
+    <DataTemplate x:Key="SecondaryTabTemplate" x:DataType="vm:BrowserTabViewModel">
+      <Border Height="30" MinWidth="96" MaxWidth="180" Padding="9,0,4,0" CornerRadius="10"
+              Tapped="OnSecondaryTabTapped" Cursor="Hand" ToolTip.Tip="{Binding Path}"
+              Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}">
+        <Border.Classes>
+          <Classes>secondary-tab</Classes>
+        </Border.Classes>
+        <Border.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="复制标签页" Tag="{Binding}" Click="OnSecondaryDuplicateTabClick" />
+            <MenuItem Header="关闭标签页" Tag="{Binding}" Click="OnSecondaryCloseTabClick" />
+          </ContextMenu>
+        </Border.ContextMenu>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="14" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}"
+                       IsVisible="{Binding IsActive}" />
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Folder}" Size="14" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}"
+                       IsVisible="{Binding IsInactive}" />
+            <TextBlock Text="{Binding Title}" FontSize="12.5" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" MaxWidth="120" />
+          </StackPanel>
+          <md:MdIconButton Grid.Column="1" Width="22" Height="22" MinWidth="22" MinHeight="22"
+                           Icon="{x:Static md:MdSymbols.Close}" Click="OnSecondaryTabCloseClick"
+                           IsVisible="{Binding CanClose}" AutomationProperties.Name="关闭对照窗格标签页" />
+        </Grid>
+      </Border>
+    </DataTemplate>
   </UserControl.Resources>
 
   <Grid>
@@ -938,8 +969,27 @@
                       Classes.active="{Binding IsSecondaryPaneActive}" IsVisible="{Binding ShowDualPane}"
                       Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" ClipToBounds="True"
                       PointerPressed="OnSecondaryPanePointerPressed" GotFocus="OnSecondaryPaneGotFocus">
-                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
-                  <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="12,10,8,4">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+                  <!-- B 的标签轨：只在第二个标签出现时占位，单标签把高度让给文件区。 -->
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="4" Margin="12,8,8,0"
+                        IsVisible="{Binding ShowSecondaryTabs}">
+                    <md:MdScrollViewer x:Name="SecondaryTabScroller" HorizontalScrollBarVisibility="Hidden"
+                                       VerticalScrollBarVisibility="Disabled" AllowMouseDrag="False">
+                      <ItemsControl x:Name="SecondaryTabStrip" ItemsSource="{Binding SecondaryBrowser.Tabs}"
+                                    ItemTemplate="{StaticResource SecondaryTabTemplate}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                      </ItemsControl>
+                    </md:MdScrollViewer>
+                    <md:MdIconButton Grid.Column="1" Width="28" Height="28" MinWidth="28" MinHeight="28"
+                                     Icon="{x:Static md:MdSymbols.Add}"
+                                     Command="{Binding SecondaryBrowser.NewTabCommand}"
+                                     ToolTip.Tip="在对照窗格新建标签页"
+                                     AutomationProperties.Name="在对照窗格新建标签页" />
+                  </Grid>
+
+                  <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8" Margin="12,10,8,4">
                     <md:MdIcon Glyph="{x:Static md:MdSymbols.VerticalSplit}" Size="20" VerticalAlignment="Center"
                                Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -970,11 +1020,41 @@
                       <TextBlock Classes="caption" Text="{Binding SecondaryPaneBadgeText}"
                                  Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
                     </Border>
-                    <md:MdIconButton Grid.Column="4" Icon="{x:Static md:MdSymbols.Close}"
+                    <!-- B 自己的溢出菜单：只放 B 作用域的动作，不复制 A 的三列大菜单。 -->
+                    <md:MdIconButton x:Name="SecondaryOverflowButton" Grid.Column="4" Width="36" Height="36"
+                                     MinWidth="36" MinHeight="36" Icon="{x:Static md:MdSymbols.MoreVert}"
+                                     AutomationProperties.Name="对照窗格更多操作">
+                      <Button.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedRight">
+                          <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}" CornerRadius="16"
+                                  Padding="8" BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}"
+                                  BorderThickness="1" BoxShadow="0 14 32 #26000000" MinWidth="210">
+                            <StackPanel Spacing="2">
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="编辑对照窗格路径"
+                                           Command="{Binding SecondaryBrowser.BeginEditAddressCommand}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="复制对照窗格路径"
+                                           Command="{Binding SecondaryBrowser.CopyCurrentPathCommand}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="在对照窗格新建标签页"
+                                           Command="{Binding SecondaryBrowser.NewTabCommand}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="关闭对照窗格当前标签"
+                                           Command="{Binding SecondaryBrowser.CloseActiveTabCommand}"
+                                           IsVisible="{Binding SecondaryBrowser.HasMultipleTabs}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="交换两个窗格的目录"
+                                           Command="{Binding SwapPanesCommand}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="刷新对照窗格"
+                                           Command="{Binding SecondaryBrowser.RefreshCommand}" />
+                              <md:MdButton Classes="menu-action" Variant="Text" Content="关闭对照窗格"
+                                           Command="{Binding ToggleDualPaneCommand}" />
+                            </StackPanel>
+                          </Border>
+                        </Flyout>
+                      </Button.Flyout>
+                    </md:MdIconButton>
+                    <md:MdIconButton Grid.Column="5" Icon="{x:Static md:MdSymbols.Close}"
                                      Command="{Binding ToggleDualPaneCommand}" AutomationProperties.Name="关闭对照窗格" />
                   </Grid>
 
-                  <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="5" Margin="8,4,8,2">
+                  <Grid Grid.Row="2" ColumnDefinitions="Auto,*" ColumnSpacing="5" Margin="8,4,8,2">
                     <StackPanel Orientation="Horizontal" Spacing="1" VerticalAlignment="Center">
                       <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.ArrowBack}"
                                        Command="{Binding SecondaryBrowser.GoBackCommand}" IsEnabled="{Binding SecondaryBrowser.CanGoBack}"
@@ -1034,7 +1114,7 @@
                     </Border>
                   </Grid>
 
-                  <Border Grid.Row="2" Margin="8,2,8,0" Padding="4,3"
+                  <Border Grid.Row="3" Margin="8,2,8,0" Padding="4,3"
                           BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1">
                     <!-- 560dp 默认宽度放不下 12 个工具按钮，用 WrapPanel 折行而不是让 MdScrollViewer 静默裁掉尾部。 -->
                     <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="False">
@@ -1073,7 +1153,7 @@
                     </md:MdScrollViewer>
                   </Border>
 
-                  <Grid Grid.Row="3" Margin="8,4,8,0" RowDefinitions="Auto,*">
+                  <Grid Grid.Row="4" Margin="8,4,8,0" RowDefinitions="Auto,*">
                     <md:MdLinearProgressIndicator Grid.Row="0" IsIndeterminate="True" Height="3"
                                                   IsVisible="{Binding SecondaryBrowser.IsLoading}" />
                     <Grid x:Name="SecondaryDropArea" Grid.Row="1">
@@ -1248,7 +1328,7 @@
                     </Grid>
                   </Grid>
 
-                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="14,5,12,9">
+                  <Grid Grid.Row="5" ColumnDefinitions="*,Auto" Margin="14,5,12,9">
                     <TextBlock Classes="caption" Text="{Binding SecondaryBrowser.SelectionText}" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center">
                       <Run Text="排序：" /><Run Text="{Binding SecondaryBrowser.SortFieldLabel}" />
@@ -1256,7 +1336,7 @@
                   </Grid>
 
                   <!-- B 自己的搜索面板：只压在 B 的文件区上，标题/路径/工具栏与搜索岛保持可见可用。 -->
-                  <Grid Grid.Row="3" Grid.RowSpan="2" IsVisible="{Binding SecondaryBrowser.IsSearchPanelOpen}">
+                  <Grid Grid.Row="4" Grid.RowSpan="2" IsVisible="{Binding SecondaryBrowser.IsSearchPanelOpen}">
                     <Border Background="#14000000" Tapped="OnSecondarySearchScrimTapped" />
                     <Border x:Name="SecondarySearchPanel" HorizontalAlignment="Stretch" VerticalAlignment="Top"
                             Margin="8,6,8,0" Padding="14" CornerRadius="24"

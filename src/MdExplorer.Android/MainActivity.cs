@@ -27,6 +27,8 @@ public sealed class MainActivity : AvaloniaMainActivity
     {
         base.OnCreate(savedInstanceState);
         _current = this;
+        // 内嵌播放后端必须在 AppHost.Build（Avalonia 初始化）之前注册。
+        AppHost.MediaPlaybackFactory = static () => new AndroidMediaPlaybackService();
         MdSystemNotificationServiceAdapter.PlatformPreparation = static cancellationToken =>
             _current?.RequestNotificationPermissionAsync(cancellationToken)
             ?? Task.FromException(new InvalidOperationException("Android 前台 Activity 尚未就绪，无法请求通知权限。"));

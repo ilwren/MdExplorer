@@ -177,6 +177,57 @@ public sealed class DualPaneBrowserTests : IDisposable
         _ = leftFile;
     }
 
+    /// <summary>v0.30：B 有自己的标签轨，标签互不串台，且不写入全局标签会话；交换目录后两侧各就各位。</summary>
+    [Fact]
+    public async Task SecondaryPaneTabsAreLocalAndSwapPanesExchangesFolders()
+    {
+        var shell = CreateShell();
+        var leftFile = CreateFile("tab-left", "left.txt", "left");
+        var rightFile = CreateFile("tab-right", "right.txt", "right");
+        var thirdFile = CreateFile("tab-third", "third.txt", "third");
+        var leftDir = Path.GetDirectoryName(leftFile)!;
+        var rightDir = Path.GetDirectoryName(rightFile)!;
+        var thirdDir = Path.GetDirectoryName(thirdFile)!;
+
+        await shell.Browser.NavigateToAsync(leftDir);
+        shell.SettingsStore.Settings.DualPanePath = rightDir;
+        shell.SetViewportSize(1920, 1080);
+        await shell.ToggleDualPaneCommand.ExecuteAsync(null);
+        Assert.False(shell.ShowSecondaryTabs);
+
+        var primaryTabCount = shell.Browser.Tabs.Count;
+        await shell.SecondaryBrowser.OpenInNewTabAsync(thirdDir);
+
+        Assert.Equal(2, shell.SecondaryBrowser.Tabs.Count);
+        Assert.Equal(primaryTabCount, shell.Browser.Tabs.Count);
+        Assert.True(shell.ShowSecondaryTabs);
+        Assert.Equal(thirdDir, shell.SecondaryBrowser.CurrentPath);
+        Assert.Equal(leftDir, shell.Browser.CurrentPath);
+        // B 不写全局标签会话，避免与 A 的 OpenTabPaths 互相覆盖
+        Assert.DoesNotContain(shell.SettingsStore.Settings.OpenTabPaths, path => path == thirdDir);
+
+        // 切回 B 的第一个标签，A 的活动标签与目录都不动
+        var primaryActive = shell.Browser.ActiveTab;
+        var firstTab = shell.SecondaryBrowser.Tabs.First(tab => tab.Path is not null && tab.Path == rightDir);
+        await shell.SecondaryBrowser.ActivateTabCommand.ExecuteAsync(firstTab);
+        Assert.Same(primaryActive, shell.Browser.ActiveTab);
+        Assert.Equal(rightDir, shell.SecondaryBrowser.CurrentPath);
+        Assert.Equal(leftDir, shell.Browser.CurrentPath);
+
+        // 关闭 B 的第二个标签后标签轨收起
+        var secondTab = shell.SecondaryBrowser.Tabs.First(tab => ReferenceEquals(tab, firstTab) is false);
+        await shell.SecondaryBrowser.CloseTabCommand.ExecuteAsync(secondTab);
+        Assert.Single(shell.SecondaryBrowser.Tabs);
+        Assert.False(shell.ShowSecondaryTabs);
+
+        // 交换两个窗格的目录
+        Assert.Equal(rightDir, shell.SecondaryBrowser.CurrentPath);
+        await shell.SwapPanesCommand.ExecuteAsync(null);
+        Assert.Equal(leftDir, shell.SecondaryBrowser.CurrentPath);
+        Assert.Equal(rightDir, shell.Browser.CurrentPath);
+        Assert.Equal(leftDir, shell.SettingsStore.Settings.DualPanePath);
+    }
+
     [Fact]
     public async Task CrossPaneCopyAndMoveRefreshBothPanes()
     {
