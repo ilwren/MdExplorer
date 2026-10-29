@@ -1253,9 +1253,9 @@
                     </TextBlock>
                   </Grid>
 
-                  <!-- B 自己的搜索面板：只覆盖对照窗格，不抢 A 的工作区与全局搜索面板。 -->
-                  <Grid Grid.Row="0" Grid.RowSpan="5" IsVisible="{Binding SecondaryBrowser.IsSearchPanelOpen}">
-                    <Border Background="#22000000" Tapped="OnSecondarySearchScrimTapped" />
+                  <!-- B 自己的搜索面板：只压在 B 的文件区上，标题/路径/工具栏与搜索岛保持可见可用。 -->
+                  <Grid Grid.Row="3" Grid.RowSpan="2" IsVisible="{Binding SecondaryBrowser.IsSearchPanelOpen}">
+                    <Border Background="#14000000" Tapped="OnSecondarySearchScrimTapped" />
                     <Border x:Name="SecondarySearchPanel" HorizontalAlignment="Stretch" VerticalAlignment="Top"
                             Margin="8,6,8,0" Padding="14" CornerRadius="24"
                             Background="{DynamicResource Md.Sys.Color.Surface.Brush}"

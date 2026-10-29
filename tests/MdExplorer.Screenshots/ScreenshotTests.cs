@@ -485,6 +485,10 @@ public sealed class ScreenshotTests
             var pane = view.FindControl<Border>("SecondaryPane");
             Assert.NotNull(pane);
             Assert.Contains(secondaryPanel, pane!.GetVisualDescendants());
+            // 面板只压在文件区上，B 的工具栏与搜索岛仍可见（否则用户无法在面板外操作）
+            var toolbar = view.FindControl<Control>("SecondarySearch");
+            Assert.NotNull(toolbar);
+            Assert.True(toolbar!.IsEffectivelyVisible);
 
             // 切回 A 时收掉 B 的浮层
             shell.SecondaryBrowser.IsSearchPanelOpen = false;
