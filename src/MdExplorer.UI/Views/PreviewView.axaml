@@ -120,12 +120,14 @@
               <StackPanel Orientation="Horizontal" Spacing="10">
                 <Border Width="44" Height="44" CornerRadius="12"
                         Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}">
-                  <md:MdIcon Glyph="{x:Static md:MdSymbols.MusicNote}" Size="22" IsVisible="{Binding IsAudioMedia}"
-                             HorizontalAlignment="Center" VerticalAlignment="Center"
-                             Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
-                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="22" IsVisible="{Binding IsVideoMedia}"
-                             HorizontalAlignment="Center" VerticalAlignment="Center"
-                             Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                  <Panel>
+                    <md:MdIcon Glyph="{x:Static md:MdSymbols.MusicNote}" Size="22" IsVisible="{Binding IsAudioMedia}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                    <md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="22" IsVisible="{Binding IsVideoMedia}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                  </Panel>
                 </Border>
                 <StackPanel VerticalAlignment="Center" Spacing="1">
                   <TextBlock Classes="body" Text="{Binding MediaStateText}" TextWrapping="Wrap" />
