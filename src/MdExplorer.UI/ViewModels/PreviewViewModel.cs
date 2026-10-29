@@ -19,6 +19,8 @@ public sealed partial class PreviewViewModel(
     IMediaPlaybackService? mediaPlayback = null) : ObservableObject
 {
     private readonly IMediaPlaybackService? _media = mediaPlayback;
+    private string _mediaProbeText = string.Empty;
+    private string? _mediaProbeReason;
     private Avalonia.Threading.DispatcherTimer? _mediaTimer;
     private string? _mediaPath;
     private bool _mediaSubscribed;
@@ -74,6 +76,18 @@ public sealed partial class PreviewViewModel(
         (IsAudioMedia ? media.Capabilities.CanPlayAudio : media.Capabilities.CanPlayVideo);
     public bool IsMediaPlaying => _media?.State == MediaPlaybackState.Playing;
     public string MediaBackendName => _media?.Capabilities.BackendName ?? "none";
+    /// <summary>系统解码器对这个文件的预判（事实来自平台，不是按扩展名猜）。</summary>
+    public string MediaProbeText => _mediaProbeText;
+    public bool HasMediaProbe => IsMedia && !string.IsNullOrWhiteSpace(_mediaProbeText) && !CanPlayMediaInApp;
+    public string MediaProbeReasonText => _mediaProbeReason ?? string.Empty;
+    public bool HasMediaProbeReason => IsMedia && !string.IsNullOrWhiteSpace(_mediaProbeReason);
+    /// <summary>画面交付方式：纯音频后端或未接视频时为“无画面输出”。</summary>
+    public string MediaRendererText => _media?.RendererKind switch
+    {
+        MediaRendererKind.NativeSurface => "画面：平台原生 Surface",
+        MediaRendererKind.FramePush => "画面：宿主帧呈现",
+        _ => "画面：未接入（用系统应用打开）",
+    };
     public string MediaBackendDiagnostic => _media?.Capabilities.Diagnostic ?? "未配置播放后端。";
     public string MediaStateText => _media?.State switch
     {
@@ -165,6 +179,39 @@ public sealed partial class PreviewViewModel(
         RaiseMediaState();
     }
 
+    /// <summary>
+    /// 打开前先问平台「认不认这个文件」。只有实现了 <see cref="IMediaProbe"/> 的后端才答得上来，
+    /// 答不上来就明说未知——绝不用扩展名猜出一个“应该能播”。
+    /// </summary>
+    private async Task ProbeMediaAsync(FileItem item)
+    {
+        _mediaProbeText = string.Empty;
+        _mediaProbeReason = null;
+        if (_media is IMediaProbe probe)
+        {
+            try
+            {
+                var result = await probe.ProbeAsync(item.FullPath, CancellationToken.None).ConfigureAwait(true);
+                _mediaProbeText = result.Summary;
+                _mediaProbeReason = result.Reason;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or InvalidOperationException or NotSupportedException or ArgumentException)
+            {
+                _mediaProbeText = "系统解码器探测失败";
+                _mediaProbeReason = ex.Message;
+            }
+        }
+        else if (_media is not null)
+        {
+            _mediaProbeText = "系统解码器能力未知（尝试播放后才知道）";
+        }
+        OnPropertyChanged(nameof(MediaProbeText));
+        OnPropertyChanged(nameof(HasMediaProbe));
+        OnPropertyChanged(nameof(MediaProbeReasonText));
+        OnPropertyChanged(nameof(HasMediaProbeReason));
+    }
+
     private void RaiseMediaState()
     {
         OnPropertyChanged(nameof(IsMedia));
@@ -179,6 +226,11 @@ public sealed partial class PreviewViewModel(
         OnPropertyChanged(nameof(MediaVolumePercent));
         OnPropertyChanged(nameof(MediaBackendName));
         OnPropertyChanged(nameof(MediaBackendDiagnostic));
+        OnPropertyChanged(nameof(MediaRendererText));
+        OnPropertyChanged(nameof(MediaProbeText));
+        OnPropertyChanged(nameof(HasMediaProbe));
+        OnPropertyChanged(nameof(MediaProbeReasonText));
+        OnPropertyChanged(nameof(HasMediaProbeReason));
     }
 
     private void SubscribeMedia()
@@ -414,6 +466,8 @@ public sealed partial class PreviewViewModel(
         HasItem = true;
         CanOpen = !item.IsFolder;
         RaiseMediaState();
+        if (IsMedia)
+            await ProbeMediaAsync(item).ConfigureAwait(true);
         SelectedTabIndex = item.IsFolder ? 1 : 0;
         Title = item.Name;
         Subtitle = FileKindClassifier.Describe(item);

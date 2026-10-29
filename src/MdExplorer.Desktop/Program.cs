@@ -1,7 +1,5 @@
 using Avalonia;
-#if WINDOWS
 using MdExplorer.UI.Services;
-#endif
 
 namespace MdExplorer.Desktop;
 
@@ -19,6 +17,15 @@ internal static class Program
             WindowsNotificationRegistration.RegisterShortcutForCurrentUser();
             return Task.CompletedTask;
         };
+#endif
+        // 系统内置媒体栈：Windows 走 Media Foundation（WinRT MediaPlayer），
+        // Linux 走发行版自带的 GStreamer；两端都不捆绑第三方原生库。
+        // 音频没有画面宿主问题，所以先接线；视频画面需要原生 Surface/HWND 宿主，另行切片。
+#if WINDOWS
+        AppHost.MediaPlaybackFactory = static () => new WindowsMediaPlaybackService();
+#else
+        if (OperatingSystem.IsLinux())
+            AppHost.MediaPlaybackFactory = static () => new GStreamerMediaPlaybackService();
 #endif
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }

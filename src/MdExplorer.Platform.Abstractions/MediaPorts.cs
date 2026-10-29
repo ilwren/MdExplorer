@@ -11,6 +11,22 @@ public enum MediaPlaybackState
     Failed,
 }
 
+/// <summary>
+/// 视频画面的交付方式。它决定 UI 用哪种宿主：Avalonia 内的帧呈现器、
+/// 还是平台原生画面（Surface/HWND）。两者不能互相冒充。
+/// </summary>
+public enum MediaRendererKind
+{
+    /// <summary>没有画面输出（纯音频后端，或该平台尚未接入视频）。</summary>
+    None,
+
+    /// <summary>后端自己把画面画到平台原生 Surface/HWND，宿主只提供句柄。</summary>
+    NativeSurface,
+
+    /// <summary>后端把解码后的帧推给宿主，由宿主在 Avalonia 内呈现。</summary>
+    FramePush,
+}
+
 /// <summary>后端自述能力。UI 只按这里说的显隐控件，不猜平台。</summary>
 public sealed record MediaPlaybackCapabilities(
     bool CanPlayAudio,
@@ -22,12 +38,35 @@ public sealed record MediaPlaybackCapabilities(
 }
 
 /// <summary>
+/// 系统解码器对单个文件的预判。它只承诺「系统这一侧愿不愿意接」，
+/// 不等于一定能完整播完——所以它永远带一句人话解释。
+/// </summary>
+public sealed record MediaProbeResult(
+    bool CanPlay,
+    bool HasVideo,
+    bool HasAudio,
+    string Summary,
+    string? Reason = null);
+
+/// <summary>
+/// 可选能力：能在打开前判断「系统解码器认不认这个文件」的后端实现它。
+/// 系统解码器的覆盖是平台/发行版/设备相关的，所以这里只报事实，不猜。
+/// </summary>
+public interface IMediaProbe
+{
+    Task<MediaProbeResult> ProbeAsync(string path, CancellationToken cancellationToken);
+}
+
+/// <summary>
 /// 内嵌音视频播放端口（平台无关）。实现负责解码与输出；
 /// 调用方不得假定任何实现是线程安全的，全部调用都在 UI 线程发起。
 /// </summary>
 public interface IMediaPlaybackService : IAsyncDisposable
 {
     MediaPlaybackCapabilities Capabilities { get; }
+
+    /// <summary>画面交付方式；纯音频或未接入视频时为 <see cref="MediaRendererKind.None"/>。</summary>
+    MediaRendererKind RendererKind { get; }
     MediaPlaybackState State { get; }
     TimeSpan Position { get; }
     TimeSpan Duration { get; }

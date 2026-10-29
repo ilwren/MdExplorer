@@ -12,6 +12,8 @@ public sealed class UnsupportedMediaPlaybackService(string diagnostic) : IMediaP
     public MediaPlaybackCapabilities Capabilities { get; } =
         new(false, false, "none", diagnostic);
 
+    public MediaRendererKind RendererKind => MediaRendererKind.None;
+
     public MediaPlaybackState State { get; private set; } = MediaPlaybackState.Idle;
     public TimeSpan Position => TimeSpan.Zero;
     public TimeSpan Duration => TimeSpan.Zero;

@@ -137,7 +137,53 @@ public sealed class MediaPlaybackTests
         Assert.Equal(0, preview.MediaVolumePercent);
     }
 
-    private sealed class FakeMediaPlaybackService(bool canPlayAudio, bool canPlayVideo) : IMediaPlaybackService
+    [Fact]
+    public async Task ProbeReportsUnsupportedContainerWithoutPretendingToPlay()
+    {
+        var media = new FakeMediaPlaybackService(canPlayAudio: true, canPlayVideo: false)
+        {
+            Probe = new MediaProbeResult(
+                false, false, false, "容器不在系统清单内",
+                "Windows Media Foundation 对这些容器没有内置支持，可用系统应用打开。"),
+        };
+        var preview = CreatePreview(media);
+        await preview.LoadAsync(Item("clip.avi", FileKind.Video));
+
+        Assert.False(preview.CanPlayMediaInApp);
+        Assert.True(preview.HasMediaProbe);
+        Assert.Equal("容器不在系统清单内", preview.MediaProbeText);
+        Assert.True(preview.HasMediaProbeReason);
+        Assert.Contains("系统应用打开", preview.MediaProbeReasonText, StringComparison.Ordinal);
+        Assert.Equal(1, media.ProbeCount);
+    }
+
+    [Fact]
+    public async Task BackendWithoutProbeSaysCapabilityUnknownInsteadOfGuessing()
+    {
+        var preview = CreatePreview(new UnsupportedMediaPlaybackService("桌面端暂无内嵌解码后端。"));
+        await preview.LoadAsync(Item("song.mp3", FileKind.Audio));
+
+        // 没有实现 IMediaProbe 的后端不许按扩展名猜，只说明“未知”
+        Assert.Contains("未知", preview.MediaProbeText, StringComparison.Ordinal);
+        Assert.False(preview.HasMediaProbeReason);
+    }
+
+    [Fact]
+    public async Task RendererTextDistinguishesNativeSurfaceFromFramePushAndNone()
+    {
+        await using var frames = new FakeMediaPlaybackService(canPlayAudio: true, canPlayVideo: true);
+        var framePreview = CreatePreview(frames);
+        await framePreview.LoadAsync(Item("clip.mp4", FileKind.Video));
+        Assert.Equal("画面：宿主帧呈现", framePreview.MediaRendererText);
+
+        await using var none = new UnsupportedMediaPlaybackService("无后端");
+        var nonePreview = CreatePreview(none);
+        await nonePreview.LoadAsync(Item("clip.mp4", FileKind.Video));
+        Assert.Contains("未接入", nonePreview.MediaRendererText, StringComparison.Ordinal);
+    }
+
+    private sealed class FakeMediaPlaybackService(bool canPlayAudio, bool canPlayVideo)
+        : IMediaPlaybackService, IMediaProbe
     {
         public MediaPlaybackCapabilities Capabilities { get; } = new(
             canPlayAudio,
@@ -146,6 +192,19 @@ public sealed class MediaPlaybackTests
             canPlayVideo
                 ? "测试后端：音频与视频都走假实现。"
                 : "测试后端：只支持音频，视频请用系统应用打开。");
+
+        public MediaRendererKind RendererKind => canPlayVideo ? MediaRendererKind.FramePush : MediaRendererKind.None;
+
+        /// <summary>为 null 时按能力位编一个结果；测试可显式指定“不支持”的预判。</summary>
+        public MediaProbeResult? Probe { get; init; }
+        public int ProbeCount { get; private set; }
+
+        public Task<MediaProbeResult> ProbeAsync(string path, CancellationToken cancellationToken)
+        {
+            ProbeCount++;
+            return Task.FromResult(Probe ?? new MediaProbeResult(
+                canPlayAudio && !canPlayVideo, canPlayVideo, canPlayAudio, "假后端预判"));
+        }
 
         public MediaPlaybackState State { get; private set; } = MediaPlaybackState.Idle;
         public TimeSpan Position { get; set; }

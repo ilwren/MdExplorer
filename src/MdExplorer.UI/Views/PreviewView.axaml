@@ -155,7 +155,24 @@
                                  Variant="Outlined" AutomationProperties.Name="停止" />
               </StackPanel>
 
+              <md:MdLinearProgressIndicator IsIndeterminate="True" Height="2" Margin="0,2,0,0"
+                                            IsVisible="{Binding IsLoading}" />
+              <Border CornerRadius="10" Padding="9,6" Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}"
+                      IsVisible="{Binding HasMediaProbe}">
+                <StackPanel Spacing="2">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <md:MdIcon Glyph="{x:Static md:MdSymbols.Info}" Size="15" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                    <TextBlock Classes="caption" Text="{Binding MediaProbeText}" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <TextBlock Classes="caption" Text="{Binding MediaProbeReasonText}" TextWrapping="Wrap" Margin="21,0,0,0"
+                             IsVisible="{Binding HasMediaProbeReason}"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                </StackPanel>
+              </Border>
               <TextBlock Classes="caption" Text="{Binding MediaBackendDiagnostic}" TextWrapping="Wrap" Margin="0,0,4,0"
+                         Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+              <TextBlock Classes="caption" Text="{Binding MediaRendererText}" TextWrapping="Wrap" Margin="0,0,4,0"
                          Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
             </StackPanel>
           </Border>

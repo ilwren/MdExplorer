@@ -673,6 +673,16 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 >
 > 本版边界：B 的标签轨不支持拖拽重排（A 的标签拖拽仍只作用于窗口顶部轨）、B 的历史与选集仍不跨启动恢复；SAF 写回没有原子性、没有只读位、没有 Unix mode，提供者不提交内容时只能“尽力恢复 + 如实报错”；Android 内嵌播放只到音频，视频与桌面解码后端都还没有。
 
+> **v0.31 三端系统媒体栈 + 播放前能力探测（已落地到代码，真机/桌面会话待验收）**：本版不再讨论“要不要引第三方原生库”，而是**每端直接调用系统自带的媒体栈**：Android 继续用系统 `MediaPlayer`（音频），Windows 用 Media Foundation 之上的 WinRT `MediaPlayer`（音频），Linux 用发行版自带 GStreamer `playbin`（音频，P/Invoke `libgstreamer-1.0.so.0`）。三端都不捆绑 FFmpeg/libVLC/libmpv，安装包不增加一个字节，也不用提供 LGPL 源码包；代价是**能播什么由系统/设备/发行版决定**，所以本版同时补上两层“诚实机制”。
+>
+> 第一层是**端口扩容**：`IMediaPlaybackService` 新增 `RendererKind`（`None/NativeSurface/FramePush`），把“谁负责画画面”写进契约——纯音频后端或未接视频时只能是 `None`，UI 据此只显示“系统应用打开”，不会出现一个占位播放器。新增可选接口 `IMediaProbe` 与 `MediaProbeResult(CanPlay, HasVideo, HasAudio, Summary, Reason)`：能预判的后端答事实，答不上来的后端就不实现，UI 显示“系统解码器能力未知”，**不允许按扩展名猜出“应该能播”**。
+>
+> 第二层是**各端如实自述**：Android 的 `ProbeAsync` 真调 `MediaExtractor` 读轨道再 `MediaCodec.CreateDecoderByType` 验证解码器存在，容器不认（AVI/FLV/WMV）与缺解码器分成两种文案；Windows 的预判只看容器清单并明写“HEVC 需系统扩展、DTS/AC-3 默认缺失”；Linux 不实现探测（插件装了什么只有运行时知道）。三端的所有平台调用都包在 `DllNotFoundException/COMException/Java.IO.IOException` 一类捕获里，失败时能力位为 false 并把原因写进 `Diagnostic`。
+>
+> 本版**不含视频画面**：视频画面要么走平台原生 Surface（Android `SurfaceView`、Windows `HWND`，需要 `NativeControlHost`）要么走解码帧回调（Linux `appsink`、Windows 帧服务），三条都要单独验证宿主与合成，不能靠音频那套“没画面也没关系”的路径冒充。`CanPlayVideo` 因此在三端保持 false，含视频轨的文件由探测给出“画面请用系统应用打开”。
+>
+> 已知边界：WinRT `MediaPlayer` 在未打包桌面进程与精简系统上可能不可用（已按构造期捕获降级）；GStreamer 插件缺失时打开会失败并显示原因，但错误文本来自平台、不统一；Android 的 `MediaPlayer` 没有位置回调，全靠宿主定时器轮询。三者都只有单元测试与编译证据，**真实播放、A/V 同步与设备差异仍须真机/桌面会话验收**。
+
 ### 6.9 Phase 2 候选池（先定边界不排期）
 
 双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文档工作台后续切片（PDF 目录/文搜与 SAF 文本安全写回）、自动化第二切片（多工作流、显式来源文件夹与 SAF 安全原语；分支/定时触发须先另立安全模型）、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
@@ -1124,6 +1134,8 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | 2026-10-28 | **v0.15 ZIP 家族压缩包工作台（第一切片）**：扩展 `IArchiveService`，新增 `ArchiveExtractOptions` 驱动的全部/所选解压与单条目有界读取；旧 `ExtractAsync` 只作兼容，浏览器快捷解压和工作台都改走显式策略，默认同名两者保留，结束整包静默覆盖。工作台把本地 `.zip/.jar/.apk` 以显式条目 + 文件父链建成只读虚拟目录，面包屑以压缩包为首段，支持逐层导航、跨层级筛选与跨文件夹勾选；行与详情同时显示原始/压缩大小和比率，文本/代码/数据/图片在 16 MiB 上限内直接读条目预览，文本只解码前 256 KiB。目标文件夹可编辑，保留结构/扁平化、三档冲突策略与完成打开一次展示，执行走任务中心并逐项报告 Zip Slip、非法文件名、IO 与取消。页面按自身宽度切换条目+详情同屏或上下分工；最多载入 10,000 条、每屏构建 2,000 行。7z/RAR/Tar、加密包、包内编辑、嵌套包直达与 SAF 内压缩包仍未实现。 | push run `40655107258` 与 PR run `40655115537`（sha `6f0fe6c`）六 Job 全绿（116 单元测试 Ubuntu/Windows 双跑，新增选择/扁平重名/冲突/有界读取/Zip Slip/虚拟导航与所选解压 6 例；31 截图测试/30 PNG，新增 Large/Compact 工作台并目检，首轮修复滚动条压住详情数值与 Compact 列表仅一行；Windows/Linux 自包含、linux-x64 Native AOT、Android APK） |
 
 | 2026-10-29 | **v0.30 对照窗格标签与交换 + SAF 文本安全写回 + 内嵌音视频端口**：B 新增本地标签轨（点标签只切 B 的活动标签、`ShowSecondaryTabs` 单标签时收起）、B 标题行溢出菜单与 `SwapPanesCommand`；平台抽象新增 `IFileSystemService.OpenWriteAsync`，抽出共用 `TextFileCodec` 并新增 `StorageTextFileService` + `DelegatingTextFileService`，SAF 文本改为“校验指纹 → 就地覆盖 → 写后复核 → 失败尽力恢复”且不宣称原子，文档工作台去掉 SAF 只读限制；新增 `IMediaPlaybackService`/`IMediaPlaybackPoller` 端口，Android 用系统 `MediaPlayer` 提供音频内嵌播放，桌面无后端时由 `UnsupportedMediaPlaybackService` 明确自述。 | push run `40896788791` / PR run `40896801552`（sha `6a81eed`）六 Job 全绿：217 单元测试 Ubuntu/Windows 双跑（新增 `StorageTextFileTests` 5 例、`MediaPlaybackTests` 5 例）、72 截图测试分四进程 18/18/18/18 全过（新增 `71-large-audio-playback`、`72-compact-audio-playback`、`73-xlarge-dual-pane-tabs`，PNG 61→64）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK |
+
+| 2026-10-29 | **v0.31 三端系统媒体栈 + 播放前能力探测**：Windows 接 WinRT `MediaPlayer`（Media Foundation）、Linux 接系统 GStreamer `playbin`（P/Invoke），Android 沿用系统 `MediaPlayer` 并新增 `MediaExtractor`/`MediaCodec` 能力探测；`IMediaPlaybackService` 新增 `RendererKind` 契约与可选 `IMediaProbe`，UI 对未知/不支持/含视频轨分别给出事实文案。本版不捆绑任何第三方原生媒体库，视频画面仍交系统应用。 | push/PR CI 六 Job；新增 `MediaPlaybackTests` 中三条探测与渲染模式断言，真机与桌面会话的播放呈现待验收 |
 
 ### F. 文档变更规则
 
