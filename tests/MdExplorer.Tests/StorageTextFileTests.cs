@@ -23,14 +23,26 @@ public sealed class StorageTextFileTests : IDisposable
 
     private sealed record Tree(DelegatingFileSystemService Fs, FakeEntryFolder Root, FakeEntryFile File);
 
-    private Tree BuildTree(string content, byte[]? rawBytes = null)
+    /// <summary>
+    /// 委托层只在「枚举过该文件夹」后才认识子条目（与真实 SAF 一致），
+    /// 所以测试也必须先登记根、再走一次 ListAsync，否则 StatAsync 会合理地返回 null。
+    /// </summary>
+    private static async Task RegisterTreeAsync(DelegatingFileSystemService fs, FakeEntryFolder root, CancellationToken ct)
+    {
+        fs.RegisterRootEntry(root);
+        await foreach (var _ in fs.ListAsync(root.Key, includeHidden: true, ct))
+        {
+        }
+    }
+
+    private static async Task<Tree> BuildTreeAsync(string content, byte[]? rawBytes = null, CancellationToken ct = default)
     {
         var fs = new DelegatingFileSystemService(new LocalFileSystemService(), new StorageItemRegistry());
         var root = new FakeEntryFolder("授权夹", "content://tree/root", null);
         var file = root.AddFile("notes.md", content);
         if (rawBytes is not null)
             file.Content = rawBytes;
-        fs.RegisterRootEntry(root);
+        await RegisterTreeAsync(fs, root, ct);
         return new Tree(fs, root, file);
     }
 
@@ -40,7 +52,7 @@ public sealed class StorageTextFileTests : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var withBom = new List<byte>(new byte[] { 0xEF, 0xBB, 0xBF });
         withBom.AddRange(Encoding.UTF8.GetBytes("a\r\nb\r\n"));
-        var tree = BuildTree("ignored", withBom.ToArray());
+        var tree = await BuildTreeAsync("ignored", withBom.ToArray(), ct);
         var service = new DelegatingTextFileService(new LocalTextFileService(), new StorageTextFileService(tree.Fs));
 
         var snapshot = await service.ReadAsync(tree.File.Key, 2 * 1024 * 1024, ct);
@@ -60,7 +72,7 @@ public sealed class StorageTextFileTests : IDisposable
         var ct = TestContext.Current.CancellationToken;
         var withBom = new List<byte>(new byte[] { 0xEF, 0xBB, 0xBF });
         withBom.AddRange(Encoding.UTF8.GetBytes("one\r\ntwo\r\n"));
-        var tree = BuildTree("ignored", withBom.ToArray());
+        var tree = await BuildTreeAsync("ignored", withBom.ToArray(), ct);
         var service = new DelegatingTextFileService(new LocalTextFileService(), new StorageTextFileService(tree.Fs));
         var snapshot = await service.ReadAsync(tree.File.Key, 2 * 1024 * 1024, ct);
 
@@ -76,7 +88,7 @@ public sealed class StorageTextFileTests : IDisposable
     public async Task DetectsExternalChangeAndOnlyOverwritesWhenExplicit()
     {
         var ct = TestContext.Current.CancellationToken;
-        var tree = BuildTree("original");
+        var tree = await BuildTreeAsync("original", ct: ct);
         var service = new DelegatingTextFileService(new LocalTextFileService(), new StorageTextFileService(tree.Fs));
         var snapshot = await service.ReadAsync(tree.File.Key, 2 * 1024 * 1024, ct);
 
@@ -99,7 +111,7 @@ public sealed class StorageTextFileTests : IDisposable
         var root = new FakeEntryFolder("授权夹", "content://tree/broken", null);
         var file = new NonCommittingFile("broken.txt", "content://tree/broken/broken.txt", root, "before");
         root.Children.Add(file);
-        fs.RegisterRootEntry(root);
+        await RegisterTreeAsync(fs, root, ct);
         var service = new DelegatingTextFileService(new LocalTextFileService(), new StorageTextFileService(fs));
 
         var snapshot = await service.ReadAsync(file.Key, 2 * 1024 * 1024, ct);
@@ -115,7 +127,7 @@ public sealed class StorageTextFileTests : IDisposable
     public async Task RejectsOversizeTextBeforeWriting()
     {
         var ct = TestContext.Current.CancellationToken;
-        var tree = BuildTree("small");
+        var tree = await BuildTreeAsync("small", ct: ct);
         var service = new DelegatingTextFileService(new LocalTextFileService(), new StorageTextFileService(tree.Fs));
         var snapshot = await service.ReadAsync(tree.File.Key, 64, ct);
 
