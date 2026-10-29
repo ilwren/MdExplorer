@@ -1018,8 +1018,9 @@
 
                   <Border Grid.Row="2" Margin="8,2,8,0" Padding="4,3"
                           BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="0,0,0,1">
-                    <md:MdScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True">
-                      <StackPanel Orientation="Horizontal" Spacing="1">
+                    <!-- 560dp 默认宽度放不下 12 个工具按钮，用 WrapPanel 折行而不是让 MdScrollViewer 静默裁掉尾部。 -->
+                    <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="False">
+                      <WrapPanel Orientation="Horizontal" ItemSpacing="1" LineSpacing="1">
                         <md:MdButton Variant="Tonal" Width="38" MinWidth="38" Height="38" Padding="0"
                                      Command="{Binding SecondaryBrowser.NewFolderCommand}" ToolTip.Tip="新建文件夹"
                                      AutomationProperties.Name="在对照窗格新建文件夹">
@@ -1067,7 +1068,7 @@
                             </Border>
                           </Grid>
                         </md:MdButton>
-                      </StackPanel>
+                      </WrapPanel>
                     </md:MdScrollViewer>
                   </Border>
 
