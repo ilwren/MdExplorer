@@ -33,6 +33,16 @@ public sealed record PdfPreviewDocument(
 public sealed record PdfPageSize(double Width, double Height);
 
 /// <summary>
+/// PDF 呈现引擎。Direct 是把 PDF 页面对象直接排成 Avalonia 控件的原生预览控件；
+/// Raster 是 PDFium 整页光栅化，只在直接控件不适用时作为高保真兼容路径。
+/// </summary>
+public enum PdfViewEngine
+{
+    Direct,
+    Raster,
+}
+
+/// <summary>
 /// 预览提供者：插件体系 P0 的第一类扩展点。P1 起同名能力由声明式清单描述，
 /// P2 起由进程外工作者以相同语义（返回数据而非界面）远程实现。
 /// </summary>
@@ -188,10 +198,10 @@ internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPrevi
 
     public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
     {
-        // PDFium 的 Android 资产要求 API 31+；低版本不触碰原生库，改走纯托管常见子集回落。
-        var useManagedFallback = OperatingSystem.IsAndroid() && !OperatingSystem.IsAndroidVersionAtLeast(31);
-        var limit = useManagedFallback
-            ? OfficeDocumentLoader.PdfFallbackMaxBytes
+        // PDFium 的 Android 资产要求 API 31+；低版本只有纯托管直接控件这一条内置路径。
+        var rasterUnavailableOnPlatform = OperatingSystem.IsAndroid() && !OperatingSystem.IsAndroidVersionAtLeast(31);
+        var limit = rasterUnavailableOnPlatform
+            ? OfficeDocumentLoader.DirectPdfPreviewMaxBytes
             : (OperatingSystem.IsAndroid() ? 64L : 128L) * 1024 * 1024;
         if (item.Length is { } knownLength && knownLength > limit)
             return new PreviewContent(Message: $"此 PDF 为 {Formatting.Bytes(item.Length)}，超过内置预览的 {Formatting.Bytes(limit)} 安全上限；可先用系统应用打开。");
@@ -211,8 +221,18 @@ internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPrevi
             }
 
             data = memory.ToArray();
-            if (useManagedFallback)
-                return new PreviewContent(Office: OfficeDocumentLoader.CreatePdfFallback(data));
+            // 默认先把原始 PDF 交给直接预览控件，由它把页面对象排成 Avalonia 控件；
+            // 加密、无效文件头或超过直接控件上限时，才进入 PDFium 整页光栅化。
+            if (rasterUnavailableOnPlatform)
+            {
+                return new PreviewContent(
+                    Office: OfficeDocumentLoader.CreateDirectPdf(
+                        data, OfficeDocumentLoader.DirectPdfPreviewMaxBytes));
+            }
+            if (OfficeDocumentLoader.TryCreateDirectPdf(
+                    data, OfficeDocumentLoader.DirectPdfPreviewMaxBytes, out var directPdf))
+                return new PreviewContent(Office: directPdf);
+
             var document = await PdfPreviewRenderer.LoadAsync(data, cancellationToken).ConfigureAwait(true);
             return new PreviewContent(Pdf: document);
         }
@@ -230,18 +250,20 @@ internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPrevi
             {
                 try
                 {
-                    return new PreviewContent(Office: OfficeDocumentLoader.CreatePdfFallback(data));
+                    return new PreviewContent(
+                        Office: OfficeDocumentLoader.CreateDirectPdf(
+                            data, OfficeDocumentLoader.DirectPdfPreviewMaxBytes));
                 }
                 catch (InvalidDataException)
                 {
-                    // 回落也有字节上限；超限时仍回原平台不可用说明。
+                    // 直接控件也有字节上限；超限时仍回原平台不可用说明。
                 }
             }
             return new PreviewContent(Message: "当前平台的 PDF 渲染组件不可用；可先用系统应用打开。");
         }
-        catch (InvalidDataException ex) when (useManagedFallback)
+        catch (InvalidDataException ex) when (rasterUnavailableOnPlatform)
         {
-            return new PreviewContent(Message: $"无法以兼容模式读取此 PDF：{ex.Message} 可先用系统应用打开。");
+            return new PreviewContent(Message: $"无法以直接预览读取此 PDF：{ex.Message} 可先用系统应用打开。");
         }
     }
 }

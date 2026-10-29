@@ -42,6 +42,7 @@ public sealed partial class DocumentWorkbenchViewModel(
     private string _originalText = string.Empty;
     private byte[]? _pdfData;
     private string? _pdfPassword;
+    private bool _pdfPasswordKnown;
     private bool _pdfDocumentReady;
     private long _thumbnailAccessTick;
     private long _readerAccessTick;
@@ -78,6 +79,7 @@ public sealed partial class DocumentWorkbenchViewModel(
     [ObservableProperty] private int _officePageCount;
     [ObservableProperty] private int _officeSheetCount;
     [ObservableProperty] private int _officeSheetIndex;
+    [ObservableProperty] private bool _officeViewerLoadFailed;
 
     public FileItem? CurrentItem { get; private set; }
     public ObservableCollection<PdfPageViewModel> PdfPages { get; } = [];
@@ -90,9 +92,19 @@ public sealed partial class DocumentWorkbenchViewModel(
     public bool IsOfficeDocument => CurrentItem is { } item && FileKindClassifier.IsOfficeDocument(item);
     public bool UseOfficeViewer => OfficeDocument is not null;
     /// <summary>工作面在 Office 预检失败时也必须可见，否则只能看到空白页与无处落点的 FailureText。</summary>
-    public bool ShowOfficeWorkbench => IsOfficeDocument || IsPdfFallback;
-    public bool IsPdfFallback => OfficeDocument?.Format == OfficePreviewFormat.Pdf;
-    public bool ShowPdfWorkbench => IsPdfDocument && !IsPdfFallback;
+    public bool ShowOfficeWorkbench => IsOfficeDocument || IsDirectPdf;
+    /// <summary>v0.24 起 PDF 默认由直接控件呈现；PDFium 页面位图只作为兼容工作面。</summary>
+    public bool IsDirectPdf => OfficeDocument?.Format == OfficePreviewFormat.Pdf;
+    public PdfViewEngine PdfEngine =>
+        !IsPdfDocument ? PdfViewEngine.Direct : IsDirectPdf ? PdfViewEngine.Direct : PdfViewEngine.Raster;
+    public bool PdfRasterAvailable =>
+        !OperatingSystem.IsAndroid() || OperatingSystem.IsAndroidVersionAtLeast(31);
+    public bool CanSwitchToRasterPdf => IsDirectPdf && _pdfData is not null && PdfRasterAvailable;
+    public bool CanSwitchToDirectPdf =>
+        IsPdfDocument && !IsDirectPdf && _pdfData is not null && !_pdfPasswordKnown &&
+        _pdfData.LongLength <= OfficeDocumentLoader.DirectPdfWorkbenchMaxBytes &&
+        OfficeDocumentLoader.IsDirectPdfCandidate(_pdfData);
+    public bool ShowPdfWorkbench => IsPdfDocument && !IsDirectPdf;
     public bool IsOfficeExcel => OfficeDocument?.Format == OfficePreviewFormat.Xlsx;
     public bool CanPreviousOfficeSheet => IsOfficeExcel && OfficeSheetIndex > 0;
     public bool CanNextOfficeSheet => IsOfficeExcel && OfficeSheetIndex < OfficeSheetCount - 1;
@@ -113,7 +125,7 @@ public sealed partial class DocumentWorkbenchViewModel(
                 OfficePreviewFormat.Xlsx => OfficeSheetCount > 0
                     ? $"{OfficeSheetIndex + 1:N0}/{OfficeSheetCount:N0} · {CurrentOfficeSheetName}"
                     : document.Facts.Summary,
-                _ => OfficePageCount > 0 ? $"{OfficePageCount:N0} 页 · 兼容模式" : "兼容模式",
+                _ => OfficePageCount > 0 ? $"{OfficePageCount:N0} 页 · PDF 直接预览" : "PDF 直接预览",
             };
         }
     }
@@ -266,11 +278,20 @@ public sealed partial class DocumentWorkbenchViewModel(
 
     partial void OnOfficeSheetIndexChanged(int value) => RaiseOfficeState();
 
+    partial void OnOfficeViewerLoadFailedChanged(bool value)
+    {
+        if (value && IsDirectPdf)
+            _ = SwitchToRasterPdfAsync();
+    }
+
     private void RaiseOfficeState()
     {
         OnPropertyChanged(nameof(UseOfficeViewer));
         OnPropertyChanged(nameof(ShowOfficeWorkbench));
-        OnPropertyChanged(nameof(IsPdfFallback));
+        OnPropertyChanged(nameof(IsDirectPdf));
+        OnPropertyChanged(nameof(PdfEngine));
+        OnPropertyChanged(nameof(CanSwitchToRasterPdf));
+        OnPropertyChanged(nameof(CanSwitchToDirectPdf));
         OnPropertyChanged(nameof(ShowPdfWorkbench));
         OnPropertyChanged(nameof(IsOfficeExcel));
         OnPropertyChanged(nameof(CanPreviousOfficeSheet));
@@ -614,21 +635,29 @@ public sealed partial class DocumentWorkbenchViewModel(
         OfficePageCount = 0;
         OfficeSheetCount = 0;
         OfficeSheetIndex = 0;
+        OfficeViewerLoadFailed = false;
     }
 
-    private bool TryActivatePdfFallback()
+    private bool TryActivateDirectPdf()
     {
-        if (_pdfData is null)
+        if (_pdfData is null || _pdfPasswordKnown)
             return false;
         try
         {
-            OfficeDocument = OfficeDocumentLoader.CreatePdfFallback(_pdfData);
+            if (!OfficeDocumentLoader.TryCreateDirectPdf(
+                    _pdfData, OfficeDocumentLoader.DirectPdfWorkbenchMaxBytes, out var document))
+                return false;
+
+            OfficeViewerLoadFailed = false;
+            OfficeDocument = document;
             OfficePageCount = 0;
             OfficeSheetCount = 0;
             OfficeSheetIndex = 0;
             NeedsPdfPassword = false;
             FailureText = null;
-            StatusText = IsCompactLayout ? "PDF 兼容预览" : "PDF 兼容预览 · 完整渲染组件不可用";
+            StatusText = IsCompactLayout
+                ? "PDF 直接预览"
+                : "PDF 直接预览 · OfficeViewer Avalonia 原生控件";
             RaiseOfficeState();
             return true;
         }
@@ -638,14 +667,60 @@ public sealed partial class DocumentWorkbenchViewModel(
         }
     }
 
+    [RelayCommand]
+    private void UseDirectPdf()
+    {
+        if (!CanSwitchToDirectPdf)
+            return;
+        ClearPdfResources(clearBytes: false);
+        if (TryActivateDirectPdf())
+            return;
+        FailureText = "此 PDF 不适合直接预览控件；请继续使用 PDFium 兼容视图或系统应用。";
+        StatusText = "PDF 直接预览不可用";
+    }
+
+    [RelayCommand]
+    private async Task UseRasterPdfAsync() => await SwitchToRasterPdfAsync().ConfigureAwait(true);
+
+    private async Task SwitchToRasterPdfAsync()
+    {
+        if (CurrentItem is not { } item || !IsDirectPdf || _pdfData is null)
+            return;
+        if (!PdfRasterAvailable)
+        {
+            FailureText = "直接 PDF 控件无法读取此文件；当前 Android 版本没有 PDFium 兼容视图，可先用系统应用打开。";
+            StatusText = "PDF 不可用";
+            return;
+        }
+
+        var generation = _loadGeneration;
+        ClearOfficeDocument();
+        FailureText = null;
+        IsLoading = true;
+        try
+        {
+            await LoadPdfDocumentAsync(item, _pdfPassword, generation, forceRaster: true).ConfigureAwait(true);
+        }
+        finally
+        {
+            if (generation == _loadGeneration)
+                IsLoading = false;
+        }
+        RaiseOfficeState();
+    }
+
     // ---------- PDF ----------
 
-    private async Task LoadPdfDocumentAsync(FileItem item, string? password, int generation)
+    private async Task LoadPdfDocumentAsync(
+        FileItem item, string? password, int generation, bool forceRaster = false)
     {
         NeedsPdfPassword = false;
-        var useManagedFallback = OperatingSystem.IsAndroid() && !OperatingSystem.IsAndroidVersionAtLeast(31);
-        var limit = useManagedFallback
-            ? OfficeDocumentLoader.PdfFallbackMaxBytes
+        if (!string.IsNullOrEmpty(password))
+            _pdfPasswordKnown = true;
+        var rasterUnavailableOnPlatform =
+            OperatingSystem.IsAndroid() && !OperatingSystem.IsAndroidVersionAtLeast(31);
+        var limit = rasterUnavailableOnPlatform
+            ? OfficeDocumentLoader.DirectPdfWorkbenchMaxBytes
             : (OperatingSystem.IsAndroid() ? 64L : 128L) * 1024 * 1024;
         if (item.Length is { } knownLength && knownLength > limit)
         {
@@ -674,13 +749,15 @@ public sealed partial class DocumentWorkbenchViewModel(
             _pdfData = memory.ToArray();
         }
 
-        if (useManagedFallback)
+        // 工作台同样先交给直接 PDF 控件；它失败时 OfficeDocumentViewer 会回告页数错误，
+        // 再由 SwitchToRasterPdfAsync 强制进入 PDFium。加密、密码与超直接上限则在此预分流。
+        if (!forceRaster && string.IsNullOrEmpty(password) && TryActivateDirectPdf())
+            return;
+
+        if (rasterUnavailableOnPlatform)
         {
-            if (!TryActivatePdfFallback())
-            {
-                FailureText = "此 PDF 无法以兼容模式打开；完整 PDF 阅读需要 Android 12（API 31）或更高版本。";
-                StatusText = "PDF 不可用";
-            }
+            FailureText = "此 PDF 无法由直接预览控件打开；PDFium 兼容视图需要 Android 12（API 31）或更高版本。";
+            StatusText = "PDF 不可用";
             return;
         }
 
@@ -713,9 +790,10 @@ public sealed partial class DocumentWorkbenchViewModel(
                 PdfPages[0].IsCurrent = true;
             _pdfDocumentReady = true;
             StatusText = IsContinuousPdfMode
-                ? (IsCompactLayout ? "PDF 连续阅读" : "PDF 连续阅读 · 滚动时按需渲染")
-                : "PDF 只读阅读";
+                ? (IsCompactLayout ? "PDF 连续阅读" : "PDF 连续阅读 · PDFium 光栅兼容视图")
+                : (IsCompactLayout ? "PDF 只读阅读" : "PDF 只读阅读 · PDFium 光栅兼容视图");
             RaisePdfState();
+            RaiseOfficeState();
             if (IsContinuousPdfMode)
                 EnsureContinuousNeighborhood();
         }
@@ -723,9 +801,11 @@ public sealed partial class DocumentWorkbenchViewModel(
         {
             if (generation == _loadGeneration)
             {
+                _pdfPasswordKnown = true;
                 NeedsPdfPassword = true;
                 FailureText = null;
                 StatusText = "需要 PDF 密码";
+                RaiseOfficeState();
             }
         }
         catch (PdfException ex)
@@ -738,9 +818,9 @@ public sealed partial class DocumentWorkbenchViewModel(
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
-            if (generation == _loadGeneration && !TryActivatePdfFallback())
+            if (generation == _loadGeneration && (forceRaster || !TryActivateDirectPdf()))
             {
-                FailureText = "当前平台的 PDF 渲染组件不可用；可先用系统应用打开。";
+                FailureText = "直接 PDF 控件与 PDFium 兼容视图都不可用；可先用系统应用打开。";
                 StatusText = "PDF 不可用";
             }
         }
@@ -1029,6 +1109,7 @@ public sealed partial class DocumentWorkbenchViewModel(
         {
             _pdfData = null;
             _pdfPassword = null;
+            _pdfPasswordKnown = false;
         }
         RaisePdfState();
     }
@@ -1055,7 +1136,10 @@ public sealed partial class DocumentWorkbenchViewModel(
         OnPropertyChanged(nameof(IsOfficeDocument));
         OnPropertyChanged(nameof(UseOfficeViewer));
         OnPropertyChanged(nameof(ShowOfficeWorkbench));
-        OnPropertyChanged(nameof(IsPdfFallback));
+        OnPropertyChanged(nameof(IsDirectPdf));
+        OnPropertyChanged(nameof(PdfEngine));
+        OnPropertyChanged(nameof(CanSwitchToRasterPdf));
+        OnPropertyChanged(nameof(CanSwitchToDirectPdf));
         OnPropertyChanged(nameof(ShowPdfWorkbench));
         OnPropertyChanged(nameof(IsMarkdown));
         OnPropertyChanged(nameof(IsSourceView));

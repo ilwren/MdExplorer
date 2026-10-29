@@ -88,6 +88,49 @@ public sealed class OfficeDocumentPreviewTests : IDisposable
     }
 
     [Fact]
+    public void DirectPdfCandidateRejectsEncryptedInvalidAndOversizedPayloads()
+    {
+        var plain = Encoding.ASCII.GetBytes("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n");
+        Assert.True(OfficeDocumentLoader.IsDirectPdfCandidate(plain));
+        Assert.True(OfficeDocumentLoader.TryCreateDirectPdf(
+            plain, OfficeDocumentLoader.DirectPdfPreviewMaxBytes, out var document));
+        Assert.Equal(OfficePreviewFormat.Pdf, document!.Format);
+        Assert.Contains("直接预览", document.Facts.Summary, StringComparison.Ordinal);
+
+        var encrypted = Encoding.ASCII.GetBytes("%PDF-1.7\ntrailer << /Encrypt 9 0 R >>\n");
+        Assert.False(OfficeDocumentLoader.IsDirectPdfCandidate(encrypted));
+        Assert.Throws<InvalidDataException>(() =>
+            OfficeDocumentLoader.CreateDirectPdf(encrypted, OfficeDocumentLoader.DirectPdfPreviewMaxBytes));
+
+        Assert.False(OfficeDocumentLoader.IsDirectPdfCandidate(Encoding.ASCII.GetBytes("not pdf")));
+        Assert.False(OfficeDocumentLoader.TryCreateDirectPdf(plain, plain.Length - 1, out var oversized));
+        Assert.Null(oversized);
+    }
+
+    [Fact]
+    public async Task WorkbenchPrefersDirectPdfControl()
+    {
+        var start = Directory.CreateDirectory(Path.Combine(_root, "pdf-start")).FullName;
+        var data = Directory.CreateDirectory(Path.Combine(_root, "pdf-data")).FullName;
+        await File.WriteAllBytesAsync(
+            Path.Combine(start, "direct.pdf"),
+            Encoding.ASCII.GetBytes("%PDF-1.7\n% direct-control candidate\n"),
+            TestContext.Current.CancellationToken);
+
+        var shell = AppHost.CreateShell(AppHost.Build(data, start));
+        shell.Browser.SetWatchEnabled(false);
+        await shell.OpenDocumentWorkbenchAsync(await StatAsync(Path.Combine(start, "direct.pdf")));
+
+        var workbench = shell.DocumentWorkbench;
+        Assert.True(workbench.IsDirectPdf);
+        Assert.Equal(PdfViewEngine.Direct, workbench.PdfEngine);
+        Assert.True(workbench.ShowOfficeWorkbench);
+        Assert.False(workbench.ShowPdfWorkbench);
+        Assert.True(workbench.CanSwitchToRasterPdf);
+        Assert.Contains("PDF 直接预览", workbench.StatusText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ProviderRejectsMalformedEncryptedAndOversizedPackages()
     {
         var malformed = Path.Combine(_root, "broken.docx");

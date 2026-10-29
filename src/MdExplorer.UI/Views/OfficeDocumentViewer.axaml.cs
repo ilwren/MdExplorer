@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MdExplorer.UI.Preview;
 using DocxViewerControl = OfficeViewer.Avalonia.Docx.DocxViewer;
 using PdfViewerControl = OfficeViewer.Avalonia.Pdf.PdfViewer;
@@ -33,12 +34,22 @@ public sealed partial class OfficeDocumentViewer : UserControl
         AvaloniaProperty.Register<OfficeDocumentViewer, int>(
             nameof(SheetCount), defaultBindingMode: BindingMode.TwoWay);
 
+    /// <summary>直接 PDF 控件已明确报错或超时仍未给出页数时置位，宿主据此切到 PDFium。</summary>
+    public static readonly StyledProperty<bool> HasLoadErrorProperty =
+        AvaloniaProperty.Register<OfficeDocumentViewer, bool>(
+            nameof(HasLoadError), defaultBindingMode: BindingMode.TwoWay);
+
+    public static readonly StyledProperty<string?> LoadErrorProperty =
+        AvaloniaProperty.Register<OfficeDocumentViewer, string?>(
+            nameof(LoadError), defaultBindingMode: BindingMode.TwoWay);
+
     private readonly ScaleTransform _scaleTransform = new();
     private Control? _viewer;
     private OfficePreviewFormat? _format;
     private bool _syncingSheetIndex;
     private bool _isAttached;
     private bool _releaseScheduled;
+    private CancellationTokenSource? _pdfLoadMonitorCancellation;
 
     public OfficeDocumentViewer()
     {
@@ -68,6 +79,18 @@ public sealed partial class OfficeDocumentViewer : UserControl
     {
         get => GetValue(SheetCountProperty);
         set => SetValue(SheetCountProperty, value);
+    }
+
+    public bool HasLoadError
+    {
+        get => GetValue(HasLoadErrorProperty);
+        set => SetValue(HasLoadErrorProperty, value);
+    }
+
+    public string? LoadError
+    {
+        get => GetValue(LoadErrorProperty);
+        set => SetValue(LoadErrorProperty, value);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -135,6 +158,8 @@ public sealed partial class OfficeDocumentViewer : UserControl
         ReleaseViewer();
         SetCurrentValue(PageCountProperty, 0);
         SetCurrentValue(SheetCountProperty, 0);
+        SetCurrentValue(HasLoadErrorProperty, false);
+        SetCurrentValue(LoadErrorProperty, null);
         if (document is null)
             return;
 
@@ -168,12 +193,14 @@ public sealed partial class OfficeDocumentViewer : UserControl
                 break;
             case PdfViewerControl pdf:
                 pdf.Document = document.Data;
+                StartPdfLoadMonitor(pdf);
                 break;
         }
     }
 
     private void ReleaseViewer()
     {
+        CancelPdfLoadMonitor();
         if (_viewer is null)
             return;
         _viewer.PropertyChanged -= OnViewerPropertyChanged;
@@ -194,7 +221,16 @@ public sealed partial class OfficeDocumentViewer : UserControl
         else if (sender is PptxViewerControl && e.Property == PptxViewerControl.PageCountProperty)
             SetCurrentValue(PageCountProperty, e.GetNewValue<int>());
         else if (sender is PdfViewerControl && e.Property == PdfViewerControl.PageCountProperty)
-            SetCurrentValue(PageCountProperty, e.GetNewValue<int>());
+        {
+            var pageCount = e.GetNewValue<int>();
+            SetCurrentValue(PageCountProperty, pageCount);
+            if (pageCount > 0)
+            {
+                CancelPdfLoadMonitor();
+                SetCurrentValue(HasLoadErrorProperty, false);
+                SetCurrentValue(LoadErrorProperty, null);
+            }
+        }
         else if (sender is XlsxViewerControl && e.Property == XlsxViewerControl.SheetCountProperty)
             SetCurrentValue(SheetCountProperty, e.GetNewValue<int>());
         else if (sender is XlsxViewerControl && e.Property == XlsxViewerControl.SelectedSheetIndexProperty &&
@@ -211,6 +247,76 @@ public sealed partial class OfficeDocumentViewer : UserControl
             }
             UpdateScale();
         }
+    }
+
+    private void StartPdfLoadMonitor(PdfViewerControl pdf)
+    {
+        CancelPdfLoadMonitor();
+        var cancellation = new CancellationTokenSource();
+        _pdfLoadMonitorCancellation = cancellation;
+        _ = MonitorPdfLoadAsync(pdf, cancellation);
+    }
+
+    private async Task MonitorPdfLoadAsync(PdfViewerControl pdf, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            // 上游没有错误状态属性：成功以 PageCount>0 为准，失败则识别其错误横幅，
+            // 最长等 10 秒。这样宿主不必等用户看见红字才知道应切到 PDFium。
+            for (var attempt = 0; attempt < 100; attempt++)
+            {
+                await Task.Delay(100, cancellation.Token).ConfigureAwait(true);
+                if (!ReferenceEquals(_viewer, pdf))
+                    return;
+                if (pdf.PageCount > 0)
+                {
+                    SetCurrentValue(HasLoadErrorProperty, false);
+                    SetCurrentValue(LoadErrorProperty, null);
+                    return;
+                }
+
+                if (attempt % 5 != 4)
+                    continue;
+                var error = pdf.GetVisualDescendants()
+                    .OfType<TextBlock>()
+                    .Select(text => text.Text)
+                    .FirstOrDefault(text =>
+                        !string.IsNullOrWhiteSpace(text) &&
+                        text.StartsWith("无法加载 PDF", StringComparison.Ordinal));
+                if (error is not null)
+                {
+                    SetCurrentValue(LoadErrorProperty, error);
+                    SetCurrentValue(HasLoadErrorProperty, true);
+                    return;
+                }
+            }
+
+            if (ReferenceEquals(_viewer, pdf) && pdf.PageCount <= 0)
+            {
+                SetCurrentValue(LoadErrorProperty, "直接 PDF 控件在 10 秒内没有返回页数。");
+                SetCurrentValue(HasLoadErrorProperty, true);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // 文档已切换或控件已释放，旧监控自然退出。
+        }
+        finally
+        {
+            if (ReferenceEquals(_pdfLoadMonitorCancellation, cancellation))
+                _pdfLoadMonitorCancellation = null;
+            cancellation.Dispose();
+        }
+    }
+
+    private void CancelPdfLoadMonitor()
+    {
+        var cancellation = _pdfLoadMonitorCancellation;
+        _pdfLoadMonitorCancellation = null;
+        if (cancellation is null)
+            return;
+        cancellation.Cancel();
+        cancellation.Dispose();
     }
 
     private double GetNominalWidth(OfficePreviewFormat format)

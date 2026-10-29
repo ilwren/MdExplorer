@@ -53,10 +53,10 @@ public sealed class PreviewRegistryTests
     }
 
     [Fact]
-    public async Task InvalidPdf_ReturnsFriendlyMessageInsteadOfThrowing()
+    public async Task PdfProvider_PrefersDirectControlForHeaderValidPdf()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"eidoria-invalid-{Guid.NewGuid():N}.pdf");
-        await File.WriteAllTextAsync(path, "%PDF-1.4 this is not a complete PDF");
+        var path = Path.Combine(Path.GetTempPath(), $"eidoria-direct-{Guid.NewGuid():N}.pdf");
+        await File.WriteAllTextAsync(path, "%PDF-1.4 direct-control candidate");
         try
         {
             var item = new FileItem(
@@ -73,6 +73,37 @@ public sealed class PreviewRegistryTests
 
             var content = await provider.LoadAsync(item, TestContext.Current.CancellationToken);
             Assert.Null(content.Pdf);
+            Assert.Equal(OfficePreviewFormat.Pdf, content.Office?.Format);
+            Assert.Contains("PDF 直接预览", content.Office?.Facts.Summary, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task InvalidPdfWithoutHeader_ReturnsFriendlyMessageInsteadOfThrowing()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"eidoria-invalid-{Guid.NewGuid():N}.pdf");
+        await File.WriteAllTextAsync(path, "this is not a PDF");
+        try
+        {
+            var item = new FileItem(
+                FileLocator.FromPath(path),
+                Path.GetFileName(path),
+                FileKind.Document,
+                new FileInfo(path).Length,
+                DateTimeOffset.UtcNow,
+                IsHidden: false,
+                IsSymlink: false,
+                ".pdf");
+            var provider = BuiltIns().Resolve(item);
+            Assert.Equal("builtin.pdf", provider!.Id);
+
+            var content = await provider.LoadAsync(item, TestContext.Current.CancellationToken);
+            Assert.Null(content.Pdf);
+            Assert.Null(content.Office);
             Assert.Contains("PDF", content.Message, StringComparison.Ordinal);
         }
         finally

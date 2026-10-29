@@ -20,6 +20,7 @@ public sealed partial class PreviewViewModel(
     private int _generation;
     private int _pdfRenderGeneration;
     private byte[]? _pdfData;
+    private bool _switchingPdfEngine;
 
     [ObservableProperty] private bool _hasItem;
     [ObservableProperty] private string _title = string.Empty;
@@ -39,6 +40,7 @@ public sealed partial class PreviewViewModel(
     [ObservableProperty] private int _officePageCount;
     [ObservableProperty] private int _officeSheetCount;
     [ObservableProperty] private int _officeSheetIndex;
+    [ObservableProperty] private bool _officeViewerLoadFailed;
 
     public bool HasImage => Image is not null;
     public bool HasText => TextContent is not null;
@@ -58,6 +60,11 @@ public sealed partial class PreviewViewModel(
     public bool HasPdf => PdfPageCount > 0;
     public bool HasOfficeDocument => OfficeDocument is not null;
     public bool IsOfficeExcel => OfficeDocument?.Format == OfficePreviewFormat.Xlsx;
+    public bool IsDirectPdf => OfficeDocument?.Format == OfficePreviewFormat.Pdf;
+    public PdfViewEngine PdfEngine => IsDirectPdf ? PdfViewEngine.Direct : PdfViewEngine.Raster;
+    public bool CanUseRasterPdf =>
+        !OperatingSystem.IsAndroid() || OperatingSystem.IsAndroidVersionAtLeast(31);
+    public bool CanSwitchToRasterPdf => IsDirectPdf && _pdfData is not null && CanUseRasterPdf;
     public bool CanPreviousOfficeSheet => IsOfficeExcel && OfficeSheetIndex > 0;
     public bool CanNextOfficeSheet => IsOfficeExcel && OfficeSheetIndex < OfficeSheetCount - 1;
     public string OfficeStatusText
@@ -76,8 +83,8 @@ public sealed partial class PreviewViewModel(
                     ? $"Excel · 工作表 {OfficeSheetIndex + 1:N0}/{OfficeSheetCount:N0} · {CurrentOfficeSheetName}"
                     : $"Excel · {document.Facts.Summary} · 正在读取",
                 _ => OfficePageCount > 0
-                    ? $"PDF 兼容模式 · 共 {OfficePageCount:N0} 页"
-                    : "PDF 兼容模式 · 正在读取",
+                    ? $"PDF 直接预览 · 共 {OfficePageCount:N0} 页"
+                    : "PDF 直接预览 · 正在读取",
             };
         }
     }
@@ -155,10 +162,19 @@ public sealed partial class PreviewViewModel(
 
     partial void OnOfficeSheetIndexChanged(int value) => RaiseOfficeState();
 
+    partial void OnOfficeViewerLoadFailedChanged(bool value)
+    {
+        if (value && IsDirectPdf && CanUseRasterPdf)
+            _ = SwitchToRasterPdfAsync();
+    }
+
     private void RaiseOfficeState()
     {
         OnPropertyChanged(nameof(HasOfficeDocument));
         OnPropertyChanged(nameof(IsOfficeExcel));
+        OnPropertyChanged(nameof(IsDirectPdf));
+        OnPropertyChanged(nameof(PdfEngine));
+        OnPropertyChanged(nameof(CanSwitchToRasterPdf));
         OnPropertyChanged(nameof(CanPreviousOfficeSheet));
         OnPropertyChanged(nameof(CanNextOfficeSheet));
         OnPropertyChanged(nameof(OfficeStatusText));
@@ -188,9 +204,11 @@ public sealed partial class PreviewViewModel(
         HighlightLanguage = null;
         FailureText = null;
         _pdfData = null;
+        _switchingPdfEngine = false;
         PdfPageIndex = 0;
         PdfPageCount = 0;
         OfficeDocument = null;
+        OfficeViewerLoadFailed = false;
         OfficePageCount = 0;
         OfficeSheetCount = 0;
         OfficeSheetIndex = 0;
@@ -252,6 +270,8 @@ public sealed partial class PreviewViewModel(
             }
             if (content.Office is { } office)
             {
+                if (office.Format == OfficePreviewFormat.Pdf)
+                    _pdfData = office.Data;
                 OfficeDocument = office;
                 OfficeSheetIndex = 0;
                 OfficeSheetCount = office.Facts.SheetNames.Count;
@@ -293,6 +313,58 @@ public sealed partial class PreviewViewModel(
     [RelayCommand]
     private void NextOfficeSheet() =>
         OfficeSheetIndex = Math.Min(Math.Max(0, OfficeSheetCount - 1), OfficeSheetIndex + 1);
+
+    [RelayCommand]
+    private async Task UseRasterPdfAsync() => await SwitchToRasterPdfAsync().ConfigureAwait(true);
+
+    private async Task SwitchToRasterPdfAsync()
+    {
+        if (_switchingPdfEngine || !IsDirectPdf || _pdfData is null || !CanUseRasterPdf)
+            return;
+
+        _switchingPdfEngine = true;
+        var generation = _generation;
+        var renderGeneration = ++_pdfRenderGeneration;
+        var data = _pdfData;
+        OfficeDocument = null;
+        OfficePageCount = 0;
+        OfficeViewerLoadFailed = false;
+        FailureText = null;
+        IsLoading = true;
+        try
+        {
+            var pdf = await PdfPreviewRenderer.LoadAsync(data, CancellationToken.None).ConfigureAwait(true);
+            if (generation != _generation || renderGeneration != _pdfRenderGeneration)
+            {
+                pdf.FirstPage.Dispose();
+                return;
+            }
+
+            PdfPageCount = pdf.PageCount;
+            PdfPageIndex = 0;
+            Image = pdf.FirstPage;
+            for (var i = MetadataRows.Count - 1; i >= 0; i--)
+            {
+                if (MetadataRows[i].Key is "页数" or "结构" or "渲染")
+                    MetadataRows.RemoveAt(i);
+            }
+            MetadataRows.Add(new MetadataRowModel("页数", $"{pdf.PageCount:N0} 页"));
+            MetadataRows.Add(new MetadataRowModel("渲染", "PDFtoImage/PDFium（MIT）· 光栅兼容视图"));
+            RaiseOfficeState();
+            RaisePdfState();
+        }
+        catch (Exception ex)
+        {
+            if (generation == _generation && renderGeneration == _pdfRenderGeneration)
+                FailureText = $"直接 PDF 预览不可用，兼容视图也无法读取：{ex.Message}";
+        }
+        finally
+        {
+            if (generation == _generation && renderGeneration == _pdfRenderGeneration)
+                IsLoading = false;
+            _switchingPdfEngine = false;
+        }
+    }
 
     private async Task GoToPdfPageAsync(int pageIndex)
     {

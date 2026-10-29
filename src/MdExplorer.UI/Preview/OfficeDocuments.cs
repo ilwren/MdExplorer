@@ -41,7 +41,7 @@ public sealed record OfficePreviewDocument(
 /// </summary>
 public static class OfficeDocumentLoader
 {
-    public const string EngineDescription = "OfficeViewer.Avalonia 0.1.6（MIT）· 只读兼容渲染";
+    public const string EngineDescription = "OfficeViewer.Avalonia 0.1.6（MIT）· Avalonia 原生只读预览";
 
     private const int MaxEntries = 1536;
     private const int MaxSlides = 500;
@@ -51,7 +51,12 @@ public static class OfficeDocumentLoader
 
     public static long QuickPreviewMaxBytes => (OperatingSystem.IsAndroid() ? 16L : 32L) * 1024 * 1024;
     public static long WorkbenchMaxBytes => (OperatingSystem.IsAndroid() ? 32L : 64L) * 1024 * 1024;
-    public static long PdfFallbackMaxBytes => QuickPreviewMaxBytes;
+
+    /// <summary>直接 PDF 控件在快速预览中的整文件上限；超过后才进入 PDFium 光栅兼容路径。</summary>
+    public static long DirectPdfPreviewMaxBytes => QuickPreviewMaxBytes;
+
+    /// <summary>直接 PDF 控件在文档工作台中的整文件上限，与 Office 工作台一致。</summary>
+    public static long DirectPdfWorkbenchMaxBytes => WorkbenchMaxBytes;
 
     public static string DisplayName(OfficePreviewFormat format) => format switch
     {
@@ -98,19 +103,52 @@ public static class OfficeDocumentLoader
         return new OfficePreviewDocument(data, format, facts);
     }
 
-    /// <summary>PDFium 原生组件不可用时才允许创建纯托管 PDF 回落负载，并继续执行更小的字节上限。</summary>
-    public static OfficePreviewDocument CreatePdfFallback(byte[] data)
+    /// <summary>
+    /// 只做廉价预分流：有效文件头且没有明文加密字典。压缩对象流里的加密标记
+    /// 可能漏检，最终仍以直接控件的页数/错误状态为准。
+    /// </summary>
+    public static bool IsDirectPdfCandidate(byte[] data)
     {
-        if (data.Length > PdfFallbackMaxBytes)
+        var headerLength = Math.Min(data.Length, 1024);
+        return data.AsSpan(0, headerLength).IndexOf("%PDF-"u8) >= 0 &&
+               data.AsSpan().IndexOf("/Encrypt"u8) < 0;
+    }
+
+    /// <summary>
+    /// 创建直接交给 PDF 控件的负载。它不做整页光栅化；只有控件明确无法处理的
+    /// 加密标记、无效文件头或超限文档才在此被拒绝，并由调用方转入 PDFium 路径。
+    /// </summary>
+    public static OfficePreviewDocument CreateDirectPdf(byte[] data, long maxBytes)
+    {
+        if (data.Length > maxBytes)
             throw new InvalidDataException(
-                $"此 PDF 超过兼容预览的 {Formatting.Bytes(PdfFallbackMaxBytes)} 安全上限。");
+                $"此 PDF 超过直接预览的 {Formatting.Bytes(maxBytes)} 安全上限。");
         var headerLength = Math.Min(data.Length, 1024);
         if (data.AsSpan(0, headerLength).IndexOf("%PDF-"u8) < 0)
             throw new InvalidDataException("此文件不包含有效的 PDF 文件头。");
+        if (data.AsSpan().IndexOf("/Encrypt"u8) >= 0)
+            throw new InvalidDataException("此 PDF 已加密，直接预览控件不支持输入密码。");
         return new OfficePreviewDocument(
             data,
             OfficePreviewFormat.Pdf,
-            new OfficeDocumentFacts("PDFium 不可用 · 常见 PDF 子集兼容渲染", []));
+            new OfficeDocumentFacts("PDF 直接预览 · 原生控件连续渲染", []));
+    }
+
+    public static bool TryCreateDirectPdf(
+        byte[] data,
+        long maxBytes,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out OfficePreviewDocument? document)
+    {
+        try
+        {
+            document = CreateDirectPdf(data, maxBytes);
+            return true;
+        }
+        catch (InvalidDataException)
+        {
+            document = null;
+            return false;
+        }
     }
 
     private sealed record Limits(

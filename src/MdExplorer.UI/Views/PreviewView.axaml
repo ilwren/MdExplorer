@@ -62,12 +62,17 @@
                                           SelectedSheetIndex="{Binding OfficeSheetIndex, Mode=TwoWay}"
                                           PageCount="{Binding OfficePageCount, Mode=TwoWay}"
                                           SheetCount="{Binding OfficeSheetCount, Mode=TwoWay}"
+                                          HasLoadError="{Binding OfficeViewerLoadFailed, Mode=TwoWay}"
                                           AutomationProperties.Name="Office 文档预览" />
               <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" MinHeight="44"
                     Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
                 <md:MdIconButton Icon="{x:Static md:MdSymbols.ChevronLeft}" Command="{Binding PreviousOfficeSheetCommand}"
                                  IsVisible="{Binding IsOfficeExcel}" IsEnabled="{Binding CanPreviousOfficeSheet}"
                                  AutomationProperties.Name="上一张工作表" />
+                <md:MdIconButton Icon="{x:Static md:MdSymbols.Image}" Command="{Binding UseRasterPdfCommand}"
+                                 IsVisible="{Binding CanSwitchToRasterPdf}"
+                                 ToolTip.Tip="直接控件呈现不完整时，改用 PDFium 光栅兼容视图"
+                                 AutomationProperties.Name="切换到 PDF 兼容视图" />
                 <TextBlock Grid.Column="1" Classes="caption" Text="{Binding OfficeStatusText}" TextWrapping="Wrap"
                            HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" Margin="4,5" />
                 <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.ChevronRight}" Command="{Binding NextOfficeSheetCommand}"

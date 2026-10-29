@@ -9,6 +9,7 @@ using Avalonia.VisualTree;
 using System.Security.Cryptography;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
+using MdExplorer.UI.Preview;
 using MdExplorer.UI.Services;
 using MdExplorer.UI.ViewModels;
 using MdExplorer.UI.Views;
@@ -187,7 +188,23 @@ public sealed class ScreenshotTests
     [AvaloniaFact]
     public async Task Large_PdfPreview() => await CaptureAsync("18-large-pdf.png", 1440, 900, async shell =>
     {
-        await SelectByNameAsync(shell, "设计规范 v3.pdf", () => shell.Preview.HasPdf && shell.Preview.Image is not null);
+        await SelectByNameAsync(
+            shell, "设计规范 v3.pdf", () => shell.Preview.HasOfficeDocument && shell.Preview.IsDirectPdf);
+        Assert.Equal(PdfViewEngine.Direct, shell.Preview.PdfEngine);
+        Assert.Equal(OfficePreviewFormat.Pdf, shell.Preview.OfficeDocument?.Format);
+        Assert.True(shell.Preview.CanSwitchToRasterPdf);
+        Assert.False(shell.Preview.HasPdf);
+        Assert.Null(shell.Preview.Image);
+    });
+
+    [AvaloniaFact]
+    public async Task Large_PdfRasterFallbackPreview() => await CaptureAsync(
+        "55-large-pdf-raster-preview.png", 1440, 900, async shell =>
+    {
+        await SelectByNameAsync(
+            shell, "设计规范 v3.pdf", () => shell.Preview.HasOfficeDocument && shell.Preview.IsDirectPdf);
+        await shell.Preview.UseRasterPdfCommand.ExecuteAsync(null);
+        Assert.Equal(PdfViewEngine.Raster, shell.Preview.PdfEngine);
         Assert.Equal(2, shell.Preview.PdfPageCount);
         await shell.Preview.NextPdfPageCommand.ExecuteAsync(null);
         Assert.Equal(1, shell.Preview.PdfPageIndex);
@@ -214,6 +231,7 @@ public sealed class ScreenshotTests
         await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
         var workbench = shell.DocumentWorkbench;
         Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
+        await UseRasterPdfWorkbenchAsync(workbench);
         Assert.Equal(2, workbench.PdfPageCount);
         Assert.Equal(2, workbench.PdfPages.Count);
         Assert.NotNull(workbench.PdfImage);
@@ -293,6 +311,7 @@ public sealed class ScreenshotTests
         var workbench = shell.DocumentWorkbench;
         Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
         Assert.True(workbench.IsCompactLayout);
+        await UseRasterPdfWorkbenchAsync(workbench);
         Assert.Equal(2, workbench.PdfPageCount);
         Assert.NotNull(workbench.PdfImage);
         workbench.NextPdfPageCommand.Execute(null);
@@ -308,6 +327,7 @@ public sealed class ScreenshotTests
     {
         await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
         var workbench = shell.DocumentWorkbench;
+        await UseRasterPdfWorkbenchAsync(workbench);
         workbench.UseContinuousPdfModeCommand.Execute(null);
         workbench.ZoomOutCommand.Execute(null);
         workbench.ZoomOutCommand.Execute(null);
@@ -379,11 +399,42 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task Large_DocumentWorkbenchPdfDirect() => await CaptureAsync(
+        "53-large-pdf-direct-workbench.png", 1440, 900, async shell =>
+    {
+        await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
+        var workbench = shell.DocumentWorkbench;
+        Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
+        Assert.True(workbench.IsDirectPdf);
+        Assert.Equal(PdfViewEngine.Direct, workbench.PdfEngine);
+        Assert.True(workbench.ShowOfficeWorkbench);
+        Assert.False(workbench.ShowPdfWorkbench);
+        Assert.True(workbench.CanSwitchToRasterPdf);
+        Assert.Null(workbench.PdfImage);
+        Assert.Contains("PDF 直接预览", workbench.StatusText);
+    });
+
+    [AvaloniaFact]
+    public async Task Compact_DocumentWorkbenchPdfDirect() => await CaptureAsync(
+        "54-compact-pdf-direct-workbench.png", 390, 844, async shell =>
+    {
+        await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
+        var workbench = shell.DocumentWorkbench;
+        Assert.True(workbench.IsCompactLayout);
+        Assert.True(workbench.IsDirectPdf);
+        Assert.Equal(PdfViewEngine.Direct, workbench.PdfEngine);
+        Assert.True(workbench.ShowOfficeWorkbench);
+        Assert.False(workbench.ShowPdfWorkbench);
+        Assert.Null(workbench.PdfImage);
+    });
+
+    [AvaloniaFact]
     public async Task Compact_DocumentWorkbenchPdfContinuous() => await CaptureAsync(
         "46-compact-pdf-continuous.png", 390, 844, async shell =>
     {
         await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
         var workbench = shell.DocumentWorkbench;
+        await UseRasterPdfWorkbenchAsync(workbench);
         workbench.UseContinuousPdfModeCommand.Execute(null);
         for (int i = 0; i < 100 && workbench.PdfPages.Any(page => page.PageImage is null); i++)
             await Task.Delay(50);
@@ -400,6 +451,7 @@ public sealed class ScreenshotTests
         shell.SetViewportSize(1440, 900);
         await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
         var workbench = shell.DocumentWorkbench;
+        await UseRasterPdfWorkbenchAsync(workbench);
         workbench.UseContinuousPdfModeCommand.Execute(null);
         workbench.ZoomOutCommand.Execute(null);
         workbench.ZoomOutCommand.Execute(null);
@@ -967,6 +1019,17 @@ public sealed class ScreenshotTests
         await shell.OpenFolderAsync(DocumentsDir);
         await shell.Browser.WhenIdleAsync();
         await OpenDocumentByNameAsync(shell, name);
+    }
+
+    private static async Task UseRasterPdfWorkbenchAsync(DocumentWorkbenchViewModel workbench)
+    {
+        Assert.True(workbench.IsDirectPdf);
+        Assert.Equal(PdfViewEngine.Direct, workbench.PdfEngine);
+        await workbench.UseRasterPdfCommand.ExecuteAsync(null);
+        for (int i = 0; i < 100 && (workbench.PdfPageCount == 0 || workbench.PdfImage is null); i++)
+            await Task.Delay(50);
+        Assert.Equal(PdfViewEngine.Raster, workbench.PdfEngine);
+        Assert.True(workbench.ShowPdfWorkbench);
     }
 
     private static async Task SelectByNameAsync(ShellViewModel shell, string name, Func<bool> ready)
