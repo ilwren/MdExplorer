@@ -1092,7 +1092,7 @@
                                   Sorting="OnSecondaryDetailsSorting"
                                   Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
                           <DataGrid.Columns>
-                            <DataGridTemplateColumn Width="*" MinWidth="110" SortMemberPath="Name" CanUserSort="True">
+                            <DataGridTemplateColumn Width="*" MinWidth="96" SortMemberPath="Name" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="名称" VerticalAlignment="Center" />
@@ -1111,7 +1111,7 @@
                                 </DataTemplate>
                               </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="88" SortMemberPath="Size" CanUserSort="True">
+                            <DataGridTemplateColumn Width="82" SortMemberPath="Size" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="大小" VerticalAlignment="Center" />
@@ -1124,7 +1124,7 @@
                                 </DataTemplate>
                               </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="84" SortMemberPath="Kind" CanUserSort="True">
+                            <DataGridTemplateColumn Width="76" SortMemberPath="Kind" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="类型" VerticalAlignment="Center" />
@@ -1138,7 +1138,7 @@
                                 </DataTemplate>
                               </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="130" MinWidth="118" SortMemberPath="LastWriteTime" CanUserSort="True">
+                            <DataGridTemplateColumn Width="146" MinWidth="136" SortMemberPath="LastWriteTime" CanUserSort="True">
                               <DataGridTemplateColumn.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
                                   <TextBlock Text="修改时间" VerticalAlignment="Center" />
