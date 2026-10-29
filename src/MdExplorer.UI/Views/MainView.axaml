@@ -717,26 +717,44 @@
                     <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.17" />
                   </Transitions>
                 </Grid.Transitions>
-                <md:MdList x:Name="FileList" Classes="file-list" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
-                         ItemsSource="{Binding Browser.Items}"
-                         SelectedItems="{Binding Browser.SelectedItems}"
-                         ItemTemplate="{StaticResource FileRowTemplate}"
-                         IsVisible="{Binding Browser.IsListView}"
-                         ContextMenu="{StaticResource ItemMenu}"
-                         Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped" />
-                <md:MdList x:Name="FileGrid" Classes="file-list file-grid" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="6"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         ItemsSource="{Binding Browser.Items}"
-                         SelectedItems="{Binding Browser.SelectedItems}"
-                         ItemTemplate="{StaticResource FileCardTemplate}"
-                         IsVisible="{Binding Browser.IsGridView}"
-                         ContextMenu="{StaticResource ItemMenu}"
-                         Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
-                  <md:MdList.ItemsPanel>
-                    <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                  </md:MdList.ItemsPanel>
-                </md:MdList>
+                <md:MdRefreshIndicator IsRefreshing="{Binding Browser.IsRefreshing, Mode=TwoWay}"
+                                       RefreshCommand="{Binding Browser.PullRefreshCommand}"
+                                       PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
+                                       RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                       IsVisible="{Binding Browser.IsListView}"
+                                       AutomationProperties.Name="主窗格文件列表，下拉刷新">
+                  <md:MdList x:Name="FileList" Classes="file-list" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
+                           ItemsSource="{Binding Browser.Items}"
+                           SelectedItems="{Binding Browser.SelectedItems}"
+                           ItemTemplate="{StaticResource FileRowTemplate}"
+                           ContextMenu="{StaticResource ItemMenu}"
+                           Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped" />
+                </md:MdRefreshIndicator>
+                <md:MdRefreshIndicator IsRefreshing="{Binding Browser.IsRefreshing, Mode=TwoWay}"
+                                       RefreshCommand="{Binding Browser.PullRefreshCommand}"
+                                       PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
+                                       RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                       IsVisible="{Binding Browser.IsGridView}"
+                                       AutomationProperties.Name="主窗格文件网格，下拉刷新">
+                  <md:MdList x:Name="FileGrid" Classes="file-list file-grid" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="6"
+                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                           ItemsSource="{Binding Browser.Items}"
+                           SelectedItems="{Binding Browser.SelectedItems}"
+                           ItemTemplate="{StaticResource FileCardTemplate}"
+                           ContextMenu="{StaticResource ItemMenu}"
+                           Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
+                    <md:MdList.ItemsPanel>
+                      <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                    </md:MdList.ItemsPanel>
+                  </md:MdList>
+                </md:MdRefreshIndicator>
                 <!-- 详细信息视图：排序经 Sorting 事件收回 VM 管线（控件自排关闭），箭头自绘于表头 -->
+                <md:MdRefreshIndicator IsRefreshing="{Binding Browser.IsRefreshing, Mode=TwoWay}"
+                                       RefreshCommand="{Binding Browser.PullRefreshCommand}"
+                                       PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
+                                       RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                       IsVisible="{Binding Browser.IsDetailsView}"
+                                       AutomationProperties.Name="主窗格文件详情，下拉刷新">
                 <DataGrid x:Name="FileDetails" Classes="file-details"
                           ItemsSource="{Binding Browser.Items}"
                           SelectionMode="Extended"
@@ -748,7 +766,6 @@
                           CanUserReorderColumns="False"
                           GridLinesVisibility="Horizontal"
                           HeadersVisibility="Column"
-                          IsVisible="{Binding Browser.IsDetailsView}"
                           ContextMenu="{StaticResource ItemMenu}"
                           Sorting="OnDetailsSorting"
                           Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
@@ -813,6 +830,7 @@
                     </DataGridTemplateColumn>
                   </DataGrid.Columns>
                 </DataGrid>
+                </md:MdRefreshIndicator>
 
                 <StackPanel IsVisible="{Binding Browser.IsEmpty}" HorizontalAlignment="Center"
                             VerticalAlignment="Center" Spacing="10">
@@ -845,6 +863,23 @@
                                Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
                     <TextBlock x:Name="DropHintText" Text="释放以移动到此处" VerticalAlignment="Center"
                                Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                  </StackPanel>
+                </Border>
+
+                <Border IsVisible="{Binding Browser.ShowLoadMoreFooter}"
+                        HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                        Margin="12,0,84,12" Padding="12,7" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}"
+                        BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <md:MdCircularProgressIndicator IsVisible="{Binding Browser.IsLoadingMore}" IsIndeterminate="True"
+                                                    Width="20" Height="20" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Browser.PagingStatusText}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                    <md:MdButton Variant="Tonal" Content="加载更多" Height="34" Padding="12,0"
+                                 Command="{Binding Browser.LoadMoreItemsCommand}"
+                                 IsEnabled="{Binding Browser.CanLoadMoreItems}"
+                                 AutomationProperties.Name="加载更多文件" />
                   </StackPanel>
                 </Border>
 
@@ -1006,25 +1041,37 @@
                     <md:MdLinearProgressIndicator Grid.Row="0" IsIndeterminate="True" Height="3"
                                                   IsVisible="{Binding SecondaryBrowser.IsLoading}" />
                     <Grid x:Name="SecondaryDropArea" Grid.Row="1">
-                      <md:MdList x:Name="SecondaryFileList" Classes="file-list" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
+                      <md:MdRefreshIndicator IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
+                                             RefreshCommand="{Binding SecondaryBrowser.PullRefreshCommand}"
+                                             PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
+                                             RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                             IsVisible="{Binding !SecondaryBrowser.IsGridView}"
+                                             AutomationProperties.Name="对照窗格文件列表，下拉刷新">
+                        <md:MdList x:Name="SecondaryFileList" Classes="file-list" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
                                  ItemsSource="{Binding SecondaryBrowser.Items}"
                                  SelectedItems="{Binding SecondaryBrowser.SelectedItems}"
                                  ItemTemplate="{StaticResource FileRowTemplate}"
-                                 IsVisible="{Binding !SecondaryBrowser.IsGridView}"
                                  ContextMenu="{StaticResource ItemMenu}"
                                  Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped" />
-                      <md:MdList x:Name="SecondaryFileGrid" Classes="file-list file-grid" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="6"
+                      </md:MdRefreshIndicator>
+                      <md:MdRefreshIndicator IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
+                                             RefreshCommand="{Binding SecondaryBrowser.PullRefreshCommand}"
+                                             PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
+                                             RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                             IsVisible="{Binding SecondaryBrowser.IsGridView}"
+                                             AutomationProperties.Name="对照窗格文件网格，下拉刷新">
+                        <md:MdList x:Name="SecondaryFileGrid" Classes="file-list file-grid" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="6"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  ItemsSource="{Binding SecondaryBrowser.Items}"
                                  SelectedItems="{Binding SecondaryBrowser.SelectedItems}"
                                  ItemTemplate="{StaticResource FileCardTemplate}"
-                                 IsVisible="{Binding SecondaryBrowser.IsGridView}"
                                  ContextMenu="{StaticResource ItemMenu}"
                                  Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
-                        <md:MdList.ItemsPanel>
-                          <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                        </md:MdList.ItemsPanel>
-                      </md:MdList>
+                          <md:MdList.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                          </md:MdList.ItemsPanel>
+                        </md:MdList>
+                      </md:MdRefreshIndicator>
 
                       <StackPanel IsVisible="{Binding SecondaryBrowser.IsEmpty}" HorizontalAlignment="Center"
                                   VerticalAlignment="Center" Spacing="10" Margin="16">
@@ -1054,6 +1101,23 @@
                                      Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
                           <TextBlock x:Name="SecondaryDropHintText" Text="释放以移动到对照窗格" VerticalAlignment="Center"
                                      Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+                        </StackPanel>
+                      </Border>
+
+                      <Border IsVisible="{Binding SecondaryBrowser.ShowLoadMoreFooter}"
+                              HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                              Margin="12,0,12,12" Padding="12,7" CornerRadius="20"
+                              Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}"
+                              BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <md:MdCircularProgressIndicator IsVisible="{Binding SecondaryBrowser.IsLoadingMore}" IsIndeterminate="True"
+                                                          Width="20" Height="20" VerticalAlignment="Center" />
+                          <TextBlock Text="{Binding SecondaryBrowser.PagingStatusText}" VerticalAlignment="Center"
+                                     Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                          <md:MdButton Variant="Tonal" Content="加载更多" Height="34" Padding="12,0"
+                                       Command="{Binding SecondaryBrowser.LoadMoreItemsCommand}"
+                                       IsEnabled="{Binding SecondaryBrowser.CanLoadMoreItems}"
+                                       AutomationProperties.Name="加载更多对照窗格文件" />
                         </StackPanel>
                       </Border>
                     </Grid>

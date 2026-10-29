@@ -58,6 +58,9 @@ internal sealed class BrowserClipboardState
 
 public sealed partial class BrowserViewModel : ObservableObject
 {
+    /// <summary>文件区每次物化的行数；目录仍完整枚举和排序，分页只延后创建行 VM 与控件。</summary>
+    public const int ItemPageSize = 120;
+
     private readonly IFileSystemService _fileSystem;
     private readonly IFileOperationService _operations;
     private readonly ITrashService _trash;
@@ -77,6 +80,9 @@ public sealed partial class BrowserViewModel : ObservableObject
     private Stack<string> _forwardStack;
     private bool _suppressTabFilterRefilter;
     private List<FileItem> _allItems = [];
+    private List<FileItem> _filteredItems = [];
+    private int _visibleItemCount;
+    private int _pagingGeneration;
     private IDisposable? _watchSubscription;
     private bool _watchEnabled;
     private SortField _currentSortField = SortField.Name;
@@ -84,6 +90,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     private bool _applyingFolderViewPreferences;
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _thumbCts;
+    private readonly SemaphoreSlim _thumbnailGate = new(OperatingSystem.IsAndroid() ? 2 : 4);
     private Task _idleTask = Task.CompletedTask;
 
     /// <summary>对照窗格的第二会话不写主标签页持久化，避免两个 Browser 互相覆盖 OpenTabPaths。</summary>
@@ -164,13 +171,20 @@ public sealed partial class BrowserViewModel : ObservableObject
         UpdateTabMetadata();
 
         SelectedItems.CollectionChanged += (_, _) => OnSelectionChanged();
-        Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(SearchResultBadgeText));
+        Items.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(SearchResultBadgeText));
+            RaisePagingState();
+        };
     }
 
     // ---------- 基本状态 ----------
     [ObservableProperty] private string? _currentPath;
     [ObservableProperty] private string _currentFolderName = string.Empty;
     [ObservableProperty] private bool _isLoading;
+    [ObservableProperty] private bool _isRefreshing;
+    [ObservableProperty] private bool _isLoadingMore;
+    [ObservableProperty] private int _totalItemCount;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _loadError;
@@ -222,6 +236,35 @@ public sealed partial class BrowserViewModel : ObservableObject
     public bool HasClipboard => _clipboard.Paths.Count > 0;
     public string SelectionText => SelectedCount == 0 ? StatusText : $"已选 {SelectedCount} 项";
 
+    /// <summary>当前已物化的文件行数；与 <see cref="TotalItemCount"/> 分开，避免大文件夹首屏创建全部行 VM。</summary>
+    public int VisibleItemCount => Items.Count;
+    public bool HasMoreItems => _visibleItemCount < _filteredItems.Count;
+    public bool CanLoadMoreItems => HasMoreItems && !IsLoading && !IsLoadingMore;
+    public bool ShowLoadMoreFooter => HasMoreItems || IsLoadingMore;
+    public string PagingStatusText => TotalItemCount == 0
+        ? string.Empty
+        : $"已显示 {VisibleItemCount:N0} / {TotalItemCount:N0} 项";
+
+    partial void OnIsLoadingChanged(bool value) => RaisePagingState();
+
+    partial void OnIsLoadingMoreChanged(bool value) => RaisePagingState();
+
+    partial void OnTotalItemCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(SearchResultBadgeText));
+        OnPropertyChanged(nameof(SearchPanelStatusText));
+        RaisePagingState();
+    }
+
+    private void RaisePagingState()
+    {
+        OnPropertyChanged(nameof(VisibleItemCount));
+        OnPropertyChanged(nameof(HasMoreItems));
+        OnPropertyChanged(nameof(CanLoadMoreItems));
+        OnPropertyChanged(nameof(ShowLoadMoreFooter));
+        OnPropertyChanged(nameof(PagingStatusText));
+    }
+
     /// <summary>迷你搜索岛是否应显示清除入口。</summary>
     public bool HasActiveSearch => IsSearchMode || !string.IsNullOrWhiteSpace(FilterText);
 
@@ -240,7 +283,7 @@ public sealed partial class BrowserViewModel : ObservableObject
     /// <summary>图标型搜索岛的角标：活动搜索只回显结果数，完整语义保留在 SearchIslandText（ToolTip/无障碍名）。</summary>
     public string SearchResultBadgeText => !HasActiveSearch
         ? string.Empty
-        : Items.Count > 99 ? "99+" : Items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        : TotalItemCount > 99 ? "99+" : TotalItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     public string SearchPanelScopeText => IsSearchMode
         ? $"递归搜索 · {CurrentFolderName}"
@@ -248,7 +291,7 @@ public sealed partial class BrowserViewModel : ObservableObject
 
     /// <summary>搜索面板状态行：列表筛选报匹配数，递归搜索报搜索进度/结果数。</summary>
     public string SearchPanelStatusText => !IsSearchMode && !string.IsNullOrWhiteSpace(FilterText)
-        ? $"当前列表匹配 {Items.Count} 项"
+        ? $"当前列表匹配 {TotalItemCount:N0} 项"
         : StatusText;
 
     /// <summary>截图/测试等待当前加载与缩略图完成。</summary>
@@ -522,7 +565,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         UpdateHistoryFlags(path);
         LoadError = null;
         IsLoading = true;
-        Items.Clear();
+        ClearVisibleItems();
         SelectedItems.Clear();
         if (DrivesSharedPreview)
             await _preview.LoadAsync(null).ConfigureAwait(true);
@@ -584,11 +627,20 @@ public sealed partial class BrowserViewModel : ObservableObject
         {
             var collected = new List<FileItem>();
             await foreach (var item in _fileSystem.ListAsync(path, _settingsStore.Settings.ShowHidden, ct).ConfigureAwait(true))
+            {
                 collected.Add(item);
+                if (collected.Count % 250 == 0)
+                {
+                    TotalItemCount = collected.Count;
+                    StatusText = $"正在读取 {collected.Count:N0} 项…";
+                }
+            }
 
             _allItems = collected;
             RefilterAndSort();
-            StatusText = $"{collected.Count} 个项目";
+            StatusText = HasMoreItems
+                ? PagingStatusText
+                : $"{TotalItemCount:N0} 个项目";
             await RecordRecentFolderAsync(path).ConfigureAwait(true);
             StartThumbnails();
         }
@@ -597,32 +649,66 @@ public sealed partial class BrowserViewModel : ObservableObject
         {
             LoadError = "没有访问此文件夹的权限。可尝试选择其他位置，或在系统设置中调整权限。";
             _allItems = [];
-            Items.Clear();
+            ClearVisibleItems();
         }
         catch (DirectoryNotFoundException)
         {
             LoadError = "此文件夹已不存在，可能已被移动或删除。";
             _allItems = [];
-            Items.Clear();
+            ClearVisibleItems();
         }
         catch (IOException ex)
         {
             LoadError = $"无法打开此文件夹：{ex.Message}";
             _allItems = [];
-            Items.Clear();
+            ClearVisibleItems();
         }
         finally
         {
             IsLoading = false;
-            IsEmpty = Items.Count == 0 && LoadError is null;
+            IsEmpty = TotalItemCount == 0 && LoadError is null;
         }
     }
 
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        if (IsSearchMode) { await ExitSearchAsync().ConfigureAwait(true); return; }
-        await SoftReloadAsync().ConfigureAwait(true);
+        if (IsLoading)
+            return;
+        IsRefreshing = true;
+        try
+        {
+            if (IsSearchMode) { await ExitSearchAsync().ConfigureAwait(true); return; }
+            await SoftReloadAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
+    }
+
+    /// <summary>
+    /// MdRefreshIndicator 的手势入口：只软刷新当前文件夹，不借下拉手势退出递归搜索，
+    /// 也不与正在进行的首次导航重复枚举。
+    /// </summary>
+    [RelayCommand]
+    private async Task PullRefreshAsync()
+    {
+        if (IsSearchMode || IsLoading)
+        {
+            IsRefreshing = false;
+            return;
+        }
+
+        IsRefreshing = true;
+        try
+        {
+            await SoftReloadAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
     }
 
     [RelayCommand]
@@ -786,6 +872,7 @@ public sealed partial class BrowserViewModel : ObservableObject
             await NavigateToAsync(parent).ConfigureAwait(true);
 
         SelectedItems.Clear();
+        RevealItemByPath(path);
         if (Items.FirstOrDefault(item => PathsEqual(item.FullPath, path)) is { } target)
             SelectedItems.Add(target);
     }
@@ -912,6 +999,7 @@ public sealed partial class BrowserViewModel : ObservableObject
 
         if (selectedPaths.Count > 0)
         {
+            RevealItemsByPaths(selectedPaths);
             foreach (var item in Items.Where(item => selectedPaths.Any(path => PathsEqual(path, item.FullPath))))
                 SelectedItems.Add(item);
         }
@@ -1241,6 +1329,8 @@ public sealed partial class BrowserViewModel : ObservableObject
     [RelayCommand]
     private void SelectAll()
     {
+        // Ctrl+A 的语义仍是“当前筛选结果全部”，不能因分页只选已物化的前几页。
+        LoadAllVisibleItems();
         SelectedItems.Clear();
         foreach (var item in Items)
         {
@@ -1307,19 +1397,174 @@ public sealed partial class BrowserViewModel : ObservableObject
             var query = FilterText.Trim();
             filtered = filtered.Where(i => i.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
         }
-        var sorted = FileItemOrdering.Sort(filtered, CurrentSortField, CurrentSortDirection, _settingsStore.Settings.FoldersFirst);
+        var sorted = FileItemOrdering.Sort(filtered, CurrentSortField, CurrentSortDirection, _settingsStore.Settings.FoldersFirst)
+            .ToList();
         var previousSelection = SelectedItems.Select(s => s.FullPath).ToHashSet();
-        Items.Clear();
-        foreach (var item in sorted)
-        {
-            var vm = new FileItemViewModel(item) { IsFavorite = _settingsStore.IsFavorite(item.FullPath), IsChecked = previousSelection.Contains(item.FullPath) && IsSelectionMode };
-            Items.Add(vm);
-        }
-        SelectedItems.Clear();
-        foreach (var vm in Items.Where(i => previousSelection.Contains(i.FullPath)))
-            SelectedItems.Add(vm);
-        IsEmpty = Items.Count == 0 && LoadError is null && !IsLoading;
+        ResetVisibleItems(sorted, previousSelection);
+        IsEmpty = TotalItemCount == 0 && LoadError is null && !IsLoading;
         OnPropertyChanged(nameof(SearchPanelStatusText));
+    }
+
+    private void ClearVisibleItems()
+    {
+        _pagingGeneration++;
+        IsLoadingMore = false;
+        _filteredItems = [];
+        _visibleItemCount = 0;
+        TotalItemCount = 0;
+        Items.Clear();
+        RaisePagingState();
+    }
+
+    private void ResetVisibleItems(IReadOnlyList<FileItem> source, IReadOnlySet<string> previousSelection)
+    {
+        _pagingGeneration++;
+        IsLoadingMore = false;
+        _filteredItems = source.ToList();
+        TotalItemCount = _filteredItems.Count;
+        _visibleItemCount = 0;
+        Items.Clear();
+        SelectedItems.Clear();
+
+        var initialCount = Math.Min(ItemPageSize, _filteredItems.Count);
+        if (previousSelection.Count > 0)
+        {
+            var lastSelectedIndex = -1;
+            for (var i = 0; i < _filteredItems.Count; i++)
+            {
+                if (previousSelection.Contains(_filteredItems[i].FullPath))
+                    lastSelectedIndex = i;
+            }
+            if (lastSelectedIndex >= initialCount)
+            {
+                initialCount = Math.Min(
+                    _filteredItems.Count,
+                    (lastSelectedIndex / ItemPageSize + 1) * ItemPageSize);
+            }
+        }
+
+        var added = AppendVisibleItems(initialCount, previousSelection);
+        foreach (var vm in added.Where(vm => previousSelection.Contains(vm.FullPath)))
+            SelectedItems.Add(vm);
+        RaisePagingState();
+    }
+
+    private List<FileItemViewModel> AppendVisibleItems(
+        int count, IReadOnlySet<string>? selectedPaths = null)
+    {
+        var target = (int)Math.Min(
+            (long)_filteredItems.Count,
+            (long)_visibleItemCount + Math.Max(0, count));
+        var added = new List<FileItemViewModel>(Math.Max(0, target - _visibleItemCount));
+        while (_visibleItemCount < target)
+        {
+            var item = _filteredItems[_visibleItemCount++];
+            var vm = new FileItemViewModel(item)
+            {
+                IsFavorite = _settingsStore.IsFavorite(item.FullPath),
+                IsChecked = selectedPaths?.Contains(item.FullPath) == true && IsSelectionMode,
+            };
+            Items.Add(vm);
+            added.Add(vm);
+        }
+        RaisePagingState();
+        return added;
+    }
+
+    /// <summary>滚动接近底部或点击页脚时追加下一页；分小块让出 UI 线程，避免大目录一次物化卡住。</summary>
+    [RelayCommand]
+    private async Task LoadMoreItemsAsync()
+    {
+        if (!CanLoadMoreItems)
+            return;
+
+        var generation = _pagingGeneration;
+        var target = Math.Min(_filteredItems.Count, _visibleItemCount + ItemPageSize);
+        var added = new List<FileItemViewModel>(target - _visibleItemCount);
+        IsLoadingMore = true;
+        try
+        {
+            while (_visibleItemCount < target && generation == _pagingGeneration)
+            {
+                added.AddRange(AppendVisibleItems(Math.Min(24, target - _visibleItemCount)));
+                if (_visibleItemCount < target)
+                    await YieldToUiAsync().ConfigureAwait(true);
+            }
+
+            if (generation == _pagingGeneration)
+            {
+                StartThumbnailsFor(added);
+                UpdatePagingStatusText();
+            }
+        }
+        finally
+        {
+            if (generation == _pagingGeneration)
+                IsLoadingMore = false;
+        }
+    }
+
+    private static async Task YieldToUiAsync()
+    {
+        try
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+                return;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // 单元测试未启动 Avalonia Application 时退化为协程让步。
+        }
+        await Task.Yield();
+    }
+
+    private void LoadAllVisibleItems()
+    {
+        if (!HasMoreItems)
+            return;
+        var added = AppendVisibleItems(int.MaxValue);
+        StartThumbnailsFor(added);
+        UpdatePagingStatusText();
+    }
+
+    /// <summary>地址/搜索/收藏定位到尚未物化的文件时，同步展开到包含该项的页。</summary>
+    public void RevealItemByPath(string path) => RevealItemsByPaths([path]);
+
+    public void RevealItemsByPaths(IEnumerable<string> paths)
+    {
+        var targets = paths.Distinct(StringComparer.Ordinal).ToList();
+        if (targets.Count == 0)
+            return;
+
+        var required = _visibleItemCount;
+        for (var i = 0; i < _filteredItems.Count; i++)
+        {
+            if (targets.Any(path => TransferPathsEqual(_filteredItems[i].FullPath, path)))
+                required = Math.Max(required, i + 1);
+        }
+
+        if (required <= _visibleItemCount)
+            return;
+        var added = AppendVisibleItems(required - _visibleItemCount);
+        StartThumbnailsFor(added);
+        UpdatePagingStatusText();
+    }
+
+    private void UpdatePagingStatusText()
+    {
+        if (IsSearchMode)
+        {
+            StatusText = HasMoreItems
+                ? $"搜索到 {TotalItemCount:N0} 项 · 已显示 {VisibleItemCount:N0} 项"
+                : $"搜索到 {TotalItemCount:N0} 项";
+            return;
+        }
+        StatusText = HasMoreItems
+            ? PagingStatusText
+            : $"{TotalItemCount:N0} 个项目";
     }
 
     // ---------- 搜索（递归） ----------
@@ -1339,7 +1584,8 @@ public sealed partial class BrowserViewModel : ObservableObject
         DisarmFolderWatch();
         IsSearchMode = true;
         ExitSelectionMode();
-        Items.Clear();
+        _allItems = [];
+        ClearVisibleItems();
         SelectedItems.Clear();
         LoadError = null;
         IsLoading = true;
@@ -1359,28 +1605,40 @@ public sealed partial class BrowserViewModel : ObservableObject
                     FlushBatch(batch);
                     batch.Clear();
                 }
-                StatusText = $"已找到 {found} 项…";
+                StatusText = $"已找到 {found:N0} 项…";
             }
             FlushBatch(batch);
-            _allItems = Items.Select(i => i.Model).ToList();
-            StatusText = $"搜索到 {found} 项";
+            _allItems = _filteredItems.ToList();
+            StatusText = HasMoreItems
+                ? $"搜索到 {found:N0} 项 · 已显示 {VisibleItemCount:N0} 项"
+                : $"搜索到 {found:N0} 项";
         }
         catch (OperationCanceledException)
         {
-            StatusText = $"搜索已取消 · {found} 项";
+            StatusText = $"搜索已取消 · {found:N0} 项";
         }
         finally
         {
             IsLoading = false;
-            IsEmpty = Items.Count == 0;
+            IsEmpty = TotalItemCount == 0;
             StartThumbnails();
         }
     }
 
     private void FlushBatch(List<FileItem> batch)
     {
-        foreach (var item in batch)
-            Items.Add(new FileItemViewModel(item) { IsFavorite = _settingsStore.IsFavorite(item.FullPath) });
+        if (batch.Count == 0)
+            return;
+        _allItems.AddRange(batch);
+        _filteredItems.AddRange(batch);
+        TotalItemCount = _filteredItems.Count;
+        if (_visibleItemCount < ItemPageSize)
+        {
+            AppendVisibleItems(Math.Min(
+                ItemPageSize - _visibleItemCount,
+                _filteredItems.Count - _visibleItemCount));
+        }
+        RaisePagingState();
     }
 
     [RelayCommand]
@@ -2199,22 +2457,31 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         _thumbCts?.Cancel();
         _thumbCts = new CancellationTokenSource();
+        StartThumbnailsFor(Items);
+    }
+
+    private void StartThumbnailsFor(IEnumerable<FileItemViewModel> candidates)
+    {
+        if (_thumbCts is null || _thumbCts.IsCancellationRequested)
+            _thumbCts = new CancellationTokenSource();
         var ct = _thumbCts.Token;
-        var targets = Items.Where(i => i.Kind == FileKind.Image).Take(300).ToList();
-        if (targets.Count == 0) { _idleTask = Task.CompletedTask; return; }
-        var gate = new SemaphoreSlim(OperatingSystem.IsAndroid() ? 2 : 4);
+        var targets = candidates
+            .Where(i => i.Kind == FileKind.Image && i.Thumbnail is null)
+            .Take(300)
+            .ToList();
+        if (targets.Count == 0) return;
         var tasks = targets.Select(async item =>
         {
             try
             {
-                await gate.WaitAsync(ct).ConfigureAwait(false);
+                await _thumbnailGate.WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
                     await using var stream = await _fileSystem.OpenReadAsync(item.FullPath, ct).ConfigureAwait(false);
                     var bitmap = await Task.Run(() => Bitmap.DecodeToWidth(stream, 192), ct).ConfigureAwait(false);
                     await Dispatcher.UIThread.InvokeAsync(() => item.Thumbnail = bitmap);
                 }
-                finally { gate.Release(); }
+                finally { _thumbnailGate.Release(); }
             }
             catch (OperationCanceledException) { }
             catch (Exception) { /* 坏图回落图标 */ }

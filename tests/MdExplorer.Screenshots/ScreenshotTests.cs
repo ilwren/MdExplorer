@@ -212,6 +212,25 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task Large_BrowserLoadMore() => await CaptureAsync(
+        "56-large-browser-load-more.png", 1440, 900, async shell =>
+    {
+        await OpenPagingSamplesAsync(shell);
+        Assert.True(shell.Browser.ShowLoadMoreFooter);
+        Assert.True(shell.Browser.CanLoadMoreItems);
+    });
+
+    [AvaloniaFact]
+    public async Task Compact_BrowserPullRefresh() => await CaptureAsync(
+        "57-compact-browser-pull-refresh.png", 390, 844, async shell =>
+    {
+        await OpenPagingSamplesAsync(shell);
+        shell.Browser.IsRefreshing = true;
+        Assert.True(shell.Browser.IsRefreshing);
+        Assert.True(shell.Browser.ShowLoadMoreFooter);
+    });
+
+    [AvaloniaFact]
     public async Task Large_DocumentWorkbenchText() => await CaptureAsync("38-large-document-editor.png", 1440, 900, async shell =>
     {
         await OpenDocumentByNameAsync(shell, "Program.cs");
@@ -1008,6 +1027,25 @@ public sealed class ScreenshotTests
             "no thumbnails decoded; kinds=" + string.Join(",", shell.Browser.Items.Select(i => i.Name + ":" + i.Kind)));
         Assert.NotNull(shell.Preview.Image);
     }
+    private static async Task OpenPagingSamplesAsync(ShellViewModel shell)
+    {
+        var dir = Directory.CreateDirectory(
+            Path.Combine(Path.GetTempPath(), "mdexplorer-paging-screenshots")).FullName;
+        for (var i = 1; i <= 150; i++)
+        {
+            var path = Path.Combine(dir, $"report-{i:000}.txt");
+            if (!File.Exists(path))
+                await File.WriteAllTextAsync(path, "MdExplorer 分页浏览演示文件");
+        }
+
+        await shell.OpenFolderAsync(dir);
+        await shell.Browser.WhenIdleAsync();
+        shell.Browser.SelectedItems.Clear();
+        Assert.Equal(150, shell.Browser.TotalItemCount);
+        Assert.Equal(BrowserViewModel.ItemPageSize, shell.Browser.Items.Count);
+        Assert.Equal("已显示 120 / 150 项", shell.Browser.PagingStatusText);
+    }
+
     private static async Task OpenDocumentByNameAsync(ShellViewModel shell, string name)
     {
         var item = shell.Browser.Items.First(i => i.Name == name);

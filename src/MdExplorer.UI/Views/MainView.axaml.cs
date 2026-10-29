@@ -92,6 +92,7 @@ public partial class MainView : UserControl
             control.AddHandler(PointerMovedEvent, OnDragPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
             control.AddHandler(PointerReleasedEvent, OnDragPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
             control.AddHandler(PointerCaptureLostEvent, OnDragPointerCaptureLost, RoutingStrategies.Tunnel, handledEventsToo: true);
+            control.AddHandler(ScrollViewer.ScrollChangedEvent, OnFileScrollChanged, RoutingStrategies.Bubble);
         }
 
         RegisterTabStripDrag(TabStrip);
@@ -711,6 +712,28 @@ public partial class MainView : UserControl
         return item is null ? shell.ActiveBrowser : BrowserForItem(item);
     }
 
+    // ---------- 分页滚动 ----------
+    private void OnFileScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (BrowserForControl(sender) is not { CanLoadMoreItems: true } browser)
+            return;
+        if (e.Source is not ScrollViewer scroller ||
+            scroller.Extent.Height <= 0 || scroller.Viewport.Height <= 0)
+            return;
+
+        var remaining = scroller.Extent.Height - (scroller.Offset.Y + scroller.Viewport.Height);
+        if (remaining <= 320)
+            _ = browser.LoadMoreItemsCommand.ExecuteAsync(null);
+    }
+
+    private static bool IsFileSurfaceAtTop(object? sender)
+    {
+        if (sender is not Control control)
+            return false;
+        var scroller = control.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+        return scroller is null || scroller.Offset.Y <= 0.5;
+    }
+
     // ---------- 列表交互 ----------
     private async void OnListPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -777,6 +800,14 @@ public partial class MainView : UserControl
         var delta = e.GetPosition(this) - candidate.Origin;
         if (Math.Abs(delta.X) < 6 && Math.Abs(delta.Y) < 6)
             return;
+
+        // 文件面已在顶部且手势明显向下时，让 MdRefreshIndicator 接管下拉刷新；
+        // 横向或向上起手仍按原语义拖拽文件。
+        if (delta.Y >= 6 && delta.Y > Math.Abs(delta.X) * 1.25 && IsFileSurfaceAtTop(sender))
+        {
+            _dragCandidate = null;
+            return;
+        }
 
         _dragCandidate = null;
         _dragInProgress = true;
