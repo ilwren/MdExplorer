@@ -233,14 +233,12 @@
             <TextBlock Classes="caption" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis"
                        VerticalAlignment="Center" ToolTip.Tip="{Binding StatusText}" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-              <md:MdButton Variant="Text" Height="36" Command="{Binding UseDirectPdfCommand}"
-                           IsVisible="{Binding CanSwitchToDirectPdf}"
-                           ToolTip.Tip="回到 OfficeViewer 直接 PDF 控件">
-                <StackPanel Orientation="Horizontal" Spacing="5">
-                  <md:MdIcon Glyph="{x:Static md:MdSymbols.PictureAsPdf}" Size="16" />
-                  <TextBlock Text="直接预览" VerticalAlignment="Center" />
-                </StackPanel>
-              </md:MdButton>
+              <md:MdIconButton Width="36" Height="36" MinWidth="36" MinHeight="36"
+                               Icon="{x:Static md:MdSymbols.PictureAsPdf}"
+                               Command="{Binding UseDirectPdfCommand}"
+                               IsVisible="{Binding CanSwitchToDirectPdf}"
+                               ToolTip.Tip="回到 OfficeViewer 直接 PDF 控件"
+                               AutomationProperties.Name="切换到 PDF 直接预览" />
               <md:MdTabs x:Name="PdfReadingModeTabs" Variant="Secondary"
                          SelectedIndex="{Binding PdfReadingModeIndex, Mode=TwoWay}" IsVisible="{Binding HasPdf}"
                          AutomationProperties.Name="PDF 阅读模式">

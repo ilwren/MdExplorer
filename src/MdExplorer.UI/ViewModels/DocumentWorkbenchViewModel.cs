@@ -215,12 +215,12 @@ public sealed partial class DocumentWorkbenchViewModel(
 
         if (IsContinuousPdfMode)
         {
-            StatusText = IsCompactLayout ? "PDF 连续阅读" : "PDF 连续阅读 · 滚动时按需渲染";
+            StatusText = IsCompactLayout ? "PDF 连续阅读" : "PDF 连续阅读 · PDFium 光栅兼容视图";
             EnsureContinuousNeighborhood();
         }
         else
         {
-            StatusText = "PDF 只读阅读";
+            StatusText = IsCompactLayout ? "PDF 只读阅读" : "PDF 只读阅读 · PDFium 光栅兼容视图";
             _ = RenderCurrentPdfPageAsync();
         }
     }

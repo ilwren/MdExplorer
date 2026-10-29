@@ -231,7 +231,7 @@ public sealed class ScreenshotTests
         await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
         var workbench = shell.DocumentWorkbench;
         Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
-        await UseRasterPdfWorkbenchAsync(workbench);
+        await UseRasterPdfWorkbenchAsync(workbench, simulateDirectFailure: true);
         Assert.Equal(2, workbench.PdfPageCount);
         Assert.Equal(2, workbench.PdfPages.Count);
         Assert.NotNull(workbench.PdfImage);
@@ -1021,15 +1021,25 @@ public sealed class ScreenshotTests
         await OpenDocumentByNameAsync(shell, name);
     }
 
-    private static async Task UseRasterPdfWorkbenchAsync(DocumentWorkbenchViewModel workbench)
+    private static async Task UseRasterPdfWorkbenchAsync(
+        DocumentWorkbenchViewModel workbench, bool simulateDirectFailure = false)
     {
         Assert.True(workbench.IsDirectPdf);
         Assert.Equal(PdfViewEngine.Direct, workbench.PdfEngine);
-        await workbench.UseRasterPdfCommand.ExecuteAsync(null);
+        if (simulateDirectFailure)
+        {
+            // 与 OfficeDocumentViewer 的 HasLoadError 双向绑定等价：验证 VM 自动切换而非手动命令。
+            workbench.OfficeViewerLoadFailed = true;
+        }
+        else
+        {
+            await workbench.UseRasterPdfCommand.ExecuteAsync(null);
+        }
         for (int i = 0; i < 100 && (workbench.PdfPageCount == 0 || workbench.PdfImage is null); i++)
             await Task.Delay(50);
         Assert.Equal(PdfViewEngine.Raster, workbench.PdfEngine);
         Assert.True(workbench.ShowPdfWorkbench);
+        Assert.True(workbench.CanSwitchToDirectPdf);
     }
 
     private static async Task SelectByNameAsync(ShellViewModel shell, string name, Func<bool> ready)
