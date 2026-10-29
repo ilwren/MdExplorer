@@ -1135,7 +1135,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 
 | 2026-10-29 | **v0.30 对照窗格标签与交换 + SAF 文本安全写回 + 内嵌音视频端口**：B 新增本地标签轨（点标签只切 B 的活动标签、`ShowSecondaryTabs` 单标签时收起）、B 标题行溢出菜单与 `SwapPanesCommand`；平台抽象新增 `IFileSystemService.OpenWriteAsync`，抽出共用 `TextFileCodec` 并新增 `StorageTextFileService` + `DelegatingTextFileService`，SAF 文本改为“校验指纹 → 就地覆盖 → 写后复核 → 失败尽力恢复”且不宣称原子，文档工作台去掉 SAF 只读限制；新增 `IMediaPlaybackService`/`IMediaPlaybackPoller` 端口，Android 用系统 `MediaPlayer` 提供音频内嵌播放，桌面无后端时由 `UnsupportedMediaPlaybackService` 明确自述。 | push run `40896788791` / PR run `40896801552`（sha `6a81eed`）六 Job 全绿：217 单元测试 Ubuntu/Windows 双跑（新增 `StorageTextFileTests` 5 例、`MediaPlaybackTests` 5 例）、72 截图测试分四进程 18/18/18/18 全过（新增 `71-large-audio-playback`、`72-compact-audio-playback`、`73-xlarge-dual-pane-tabs`，PNG 61→64）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK |
 
-| 2026-10-29 | **v0.31 三端系统媒体栈 + 播放前能力探测**：Windows 接 WinRT `MediaPlayer`（Media Foundation）、Linux 接系统 GStreamer `playbin`（P/Invoke），Android 沿用系统 `MediaPlayer` 并新增 `MediaExtractor`/`MediaCodec` 能力探测；`IMediaPlaybackService` 新增 `RendererKind` 契约与可选 `IMediaProbe`，UI 对未知/不支持/含视频轨分别给出事实文案。本版不捆绑任何第三方原生媒体库，视频画面仍交系统应用。 | push/PR CI 六 Job；新增 `MediaPlaybackTests` 中三条探测与渲染模式断言，真机与桌面会话的播放呈现待验收 |
+| 2026-10-29 | **v0.31 三端系统媒体栈 + 播放前能力探测**：Windows 接 WinRT `MediaPlayer`（Media Foundation）、Linux 接系统 GStreamer `playbin`（P/Invoke），Android 沿用系统 `MediaPlayer` 并新增 `MediaExtractor`/`MediaCodec` 能力探测；`IMediaPlaybackService` 新增 `RendererKind` 契约与可选 `IMediaProbe`，UI 对未知/不支持/含视频轨分别给出事实文案。本版不捆绑任何第三方原生媒体库，视频画面仍交系统应用。 | push run `40903621804` / PR run `40903635978`（sha `c6e5d45`）六 Job 全绿：220 单元测试 Ubuntu/Windows 双跑（新增探测与渲染模式 3 例）、73 截图测试分四进程 19/18/18/18、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK；真机与桌面会话的播放呈现待验收 |
 
 ### F. 文档变更规则
 
