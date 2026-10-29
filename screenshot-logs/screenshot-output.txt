@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 1.07 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.07 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 1.07 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 4 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 2.99 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 5.74 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 897 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 897 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 987 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 4.31 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 6.74 sec).
   MdExplorer.Domain -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/bin/Release/net10.0/MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/bin/Release/net10.0/MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/bin/Release/net10.0/MdExplorer.Application.dll
@@ -43,14 +43,14 @@ Build succeeded.
     13 Warning(s)
     0 Error(s)
 
-Time Elapsed 00:00:36.53
+Time Elapsed 00:00:24.79
 Discovered 66 screenshot tests; running in 4 isolated processes.
 === Screenshot partition 1/4: 17 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3282).
-[xUnit.net 00:00:27.80]     MdExplorer.Screenshots.ScreenshotTests.ExtraLarge_SecondaryPaneDetailsMirrorsSelectionAndSorts [FAIL]
-  Failed MdExplorer.Screenshots.ScreenshotTests.ExtraLarge_SecondaryPaneDetailsMirrorsSelectionAndSorts [583 ms]
+Blame: Attaching crash dump utility to process dotnet (3085).
+[xUnit.net 00:00:21.14]     MdExplorer.Screenshots.ScreenshotTests.ExtraLarge_SecondaryPaneDetailsMirrorsSelectionAndSorts [FAIL]
+  Failed MdExplorer.Screenshots.ScreenshotTests.ExtraLarge_SecondaryPaneDetailsMirrorsSelectionAndSorts [417 ms]
   Error Message:
    Assert.False() Failure
 Expected: False
@@ -59,4 +59,4 @@ Actual:   True
      at MdExplorer.Screenshots.ScreenshotTests.ExtraLarge_SecondaryPaneDetailsMirrorsSelectionAndSorts() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs:line 324
 --- End of stack trace from previous location ---
 
-Failed!  - Failed:     1, Passed:    16, Skipped:     0, Total:    17, Duration: 26 s - MdExplorer.Screenshots.dll (net10.0)
+Failed!  - Failed:     1, Passed:    16, Skipped:     0, Total:    17, Duration: 20 s - MdExplorer.Screenshots.dll (net10.0)
