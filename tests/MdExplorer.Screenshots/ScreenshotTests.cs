@@ -316,6 +316,82 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task Large_DocumentWorkbenchPdfContinuousScrollSync()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
+        var workbench = shell.DocumentWorkbench;
+        workbench.UseContinuousPdfModeCommand.Execute(null);
+        workbench.ZoomOutCommand.Execute(null);
+        workbench.ZoomOutCommand.Execute(null);
+        for (int i = 0; i < 100 && workbench.PdfPages.Any(page => page.PageImage is null); i++)
+            await Task.Delay(50);
+        Assert.All(workbench.PdfPages, page => Assert.NotNull(page.PageImage));
+
+        var window = new MainWindow { Width = 1440, Height = 900, DataContext = shell };
+        var view = Assert.IsType<MainView>(window.Content);
+        window.Show();
+        try
+        {
+            ListBox? list = null;
+            Control? firstPage = null;
+            ScrollViewer? scroller = null;
+            for (int i = 0; i < 100; i++)
+            {
+                window.CaptureRenderedFrame();
+                list = view.GetVisualDescendants()
+                    .OfType<ListBox>()
+                    .FirstOrDefault(control => control.Name == "PdfContinuousList");
+                firstPage = list?.ContainerFromIndex(0);
+                scroller = list?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+                if (list is not null && firstPage is not null && scroller is not null &&
+                    list.Bounds.Height > 300 && firstPage.Bounds.Height > 100)
+                    break;
+                await Task.Delay(50);
+            }
+
+            Assert.NotNull(list);
+            Assert.NotNull(firstPage);
+            Assert.NotNull(scroller);
+            Assert.Same(workbench.PdfPages[0], firstPage!.DataContext);
+            Assert.Contains(firstPage.GetVisualDescendants().OfType<Image>(), image => image.Source is not null);
+
+            scroller!.Offset = new Vector(0, firstPage.Bounds.Height);
+            for (int i = 0; i < 100 && workbench.PdfPageIndex != 1; i++)
+            {
+                window.CaptureRenderedFrame();
+                await Task.Delay(50);
+            }
+            Assert.Equal(1, workbench.PdfPageIndex);
+            var secondPage = list!.ContainerFromIndex(1);
+            Assert.NotNull(secondPage);
+            Assert.Same(workbench.PdfPages[1], secondPage!.DataContext);
+            Assert.Contains(secondPage.GetVisualDescendants().OfType<Image>(), image => image.Source is not null);
+
+            workbench.PreviousPdfPageCommand.Execute(null);
+            for (int i = 0; i < 100; i++)
+            {
+                window.CaptureRenderedFrame();
+                firstPage = list.ContainerFromIndex(0);
+                var top = firstPage?.TranslatePoint(new Point(0, 0), list)?.Y;
+                if (workbench.PdfPageIndex == 0 && top is > -20 and < 80)
+                    break;
+                await Task.Delay(50);
+            }
+            Assert.Equal(0, workbench.PdfPageIndex);
+            Assert.NotNull(firstPage);
+            var firstTop = firstPage!.TranslatePoint(new Point(0, 0), list)?.Y;
+            Assert.True(firstTop is > -20 and < 80, $"上一页命令应把第一页滚回视口顶部，实际 Y={firstTop}。");
+        }
+        finally
+        {
+            workbench.Clear();
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task Large_UnsavedDocumentCloseGuard()
     {
         var shell = await CreateShellAsync();

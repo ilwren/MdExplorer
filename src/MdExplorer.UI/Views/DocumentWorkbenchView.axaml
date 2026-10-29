@@ -10,6 +10,13 @@
              Background="Transparent">
   <UserControl.Styles>
     <themes:MaterialAvaloniaEditTheme />
+    <!-- 连续阅读的当前页只用纸面左侧主色线标记，不把整行染成选中面。 -->
+    <Style Selector="md|MdList.pdf-continuous ListBoxItem:selected /template/ Border#PART_Container">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="md|MdList.pdf-continuous ListBoxItem:pointerover /template/ Border#PART_Container">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
   </UserControl.Styles>
 
   <Grid x:Name="DocumentRoot" Margin="20,12,20,20" RowDefinitions="Auto,Auto,*" RowSpacing="10">
@@ -216,7 +223,7 @@
             </md:MdScrollViewer>
 
             <!-- Md3 主题下同样使用 MdList；虚拟化容器进入视口后才渲染整页位图。 -->
-            <md:MdList x:Name="PdfContinuousList" ItemsSource="{Binding PdfPages}"
+            <md:MdList x:Name="PdfContinuousList" Classes="pdf-continuous" ItemsSource="{Binding PdfPages}"
                        SelectedIndex="{Binding PdfPageIndex, Mode=TwoWay}"
                        AutoScrollToSelectedItem="False" ItemSpacing="10"
                        Background="Transparent" BorderThickness="0"
