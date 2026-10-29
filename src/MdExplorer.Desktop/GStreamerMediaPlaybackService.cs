@@ -221,6 +221,8 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
         RaiseChanged();
     }
 
+    private void RaiseChanged() => PlaybackChanged?.Invoke(this, EventArgs.Empty);
+
     private void ApplyVolume()
     {
         try
