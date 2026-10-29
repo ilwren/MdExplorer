@@ -184,6 +184,35 @@ public sealed class SettingsPreferencesTests : IDisposable
         Assert.Equal(150, shell.Browser.TotalItemCount);
     }
 
+    /// <summary>v0.29：应用内回收站的配额与保留期也是可调项，夹取后落盘并给出可读文案。</summary>
+    [Fact]
+    public void AppTrashQuotaAndRetentionSettingsAreClampedAndDescribed()
+    {
+        var shell = CreateShell();
+
+        // 桌面宿主用系统回收站，设置项不显示，但值仍然可读、可夹取
+        Assert.False(shell.UsesAppTrash);
+        Assert.Equal(1_000_000_000, shell.AppTrashQuotaBytes);
+        Assert.True(shell.IsAppTrashQuota1Gb);
+        Assert.Equal(30, shell.AppTrashRetentionDays);
+        Assert.True(shell.IsAppTrashRetention30);
+        Assert.Equal("30 天", shell.AppTrashRetentionText);
+
+        shell.SetAppTrashQuotaCommand.Execute("500");
+        Assert.Equal(500_000_000, shell.SettingsStore.Settings.AppTrashQuotaBytes);
+        Assert.True(shell.IsAppTrashQuota500Mb);
+        Assert.Contains("MB", shell.AppTrashQuotaText);
+
+        shell.AppTrashQuotaBytes = 9_999_999_999_999;
+        Assert.Equal(10_000_000_000, shell.SettingsStore.Settings.AppTrashQuotaBytes);
+
+        shell.SetAppTrashRetentionDaysCommand.Execute("7");
+        Assert.Equal(7, shell.SettingsStore.Settings.AppTrashRetentionDays);
+        shell.AppTrashRetentionDays = 0;
+        Assert.Equal(1, shell.SettingsStore.Settings.AppTrashRetentionDays);
+        Assert.Equal("1 天", shell.AppTrashRetentionText);
+    }
+
     /// <summary>v0.29：新字段手改越界也会在加载时被夹回文档区间。</summary>
     [Fact]
     public async Task LoadingClampsNewBrowsingAndSearchSettings()
@@ -195,7 +224,9 @@ public sealed class SettingsPreferencesTests : IDisposable
               "SchemaVersion": 1,
               "AutoLoadMoreDistance": 5000,
               "SearchResultLimit": 1,
-              "EnablePullRefresh": false
+              "EnablePullRefresh": false,
+              "AppTrashQuotaBytes": 1,
+              "AppTrashRetentionDays": 9999
             }
             """,
             TestContext.Current.CancellationToken);
@@ -205,6 +236,8 @@ public sealed class SettingsPreferencesTests : IDisposable
         Assert.Equal(600d, store.Settings.AutoLoadMoreDistance);
         Assert.Equal(200, store.Settings.SearchResultLimit);
         Assert.False(store.Settings.EnablePullRefresh);
+        Assert.Equal(200_000_000, store.Settings.AppTrashQuotaBytes);
+        Assert.Equal(365, store.Settings.AppTrashRetentionDays);
     }
 
     [Fact]

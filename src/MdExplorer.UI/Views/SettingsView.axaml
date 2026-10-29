@@ -72,6 +72,46 @@
                                       IsVisible="{Binding HasTrashQuota}" />
         <TextBlock Classes="caption" TextWrapping="Wrap"
                    Text="不是 Android 系统回收站；只保留经 Eidoria 删除的项目，超过上限时会保留原文件。" />
+
+        <!-- 配额与保留期只有应用内回收站在管；桌面用系统回收站，这一组不显示以免给出假选项。 -->
+        <StackPanel Spacing="2" IsVisible="{Binding UsesAppTrash}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="回收站配额上限" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AppTrashQuotaText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="超出上限时不再接收新的删除，原文件与既有副本都会保留" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashQuota500Mb}" Variant="Text"
+                         Content="500 MB" Margin="0,0,6,0"
+                         Command="{Binding SetAppTrashQuotaCommand}" CommandParameter="500" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashQuota1Gb}" Variant="Text"
+                         Content="1 GB" Margin="0,0,6,0"
+                         Command="{Binding SetAppTrashQuotaCommand}" CommandParameter="1000" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashQuota2Gb}" Variant="Text"
+                         Content="2 GB"
+                         Command="{Binding SetAppTrashQuotaCommand}" CommandParameter="2000" />
+          </WrapPanel>
+        </StackPanel>
+        <StackPanel Spacing="2" IsVisible="{Binding UsesAppTrash}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="回收站保留期" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AppTrashRetentionText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="超过保留期的条目会在下次打开回收站时自动清理；这是删除而不是还原" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashRetention7}" Variant="Text"
+                         Content="7 天" Margin="0,0,6,0"
+                         Command="{Binding SetAppTrashRetentionDaysCommand}" CommandParameter="7" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashRetention30}" Variant="Text"
+                         Content="30 天" Margin="0,0,6,0"
+                         Command="{Binding SetAppTrashRetentionDaysCommand}" CommandParameter="30" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashRetention90}" Variant="Text"
+                         Content="90 天"
+                         Command="{Binding SetAppTrashRetentionDaysCommand}" CommandParameter="90" />
+          </WrapPanel>
+        </StackPanel>
       </StackPanel>
       </Border>
 

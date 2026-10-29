@@ -176,6 +176,40 @@ public sealed class AppTrashTests : IDisposable
         Assert.Empty(await storageService.ListAsync(ct));
     }
 
+    /// <summary>v0.29：配额与保留期改成可在设置页调整的运行期值，改完必须立刻影响准入与统计。</summary>
+    [Fact]
+    public async Task QuotaAndRetentionAreMutableAtRuntime()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var service = CreateService(CreateFileSystem(), quotaBytes: 4);
+        var small = Path.Combine(SourceDir, "small.txt");
+        await File.WriteAllTextAsync(small, "hello", ct);
+        await Assert.ThrowsAsync<IOException>(() => service.MoveToTrashAsync(small, ct));
+        Assert.Equal(4, (await service.GetStatsAsync(ct)).QuotaBytes);
+
+        // 放宽配额后同一次删除就能通过
+        service.QuotaBytes = 1024 * 1024;
+        await service.MoveToTrashAsync(small, ct);
+        var stats = await service.GetStatsAsync(ct);
+        Assert.Equal(1024 * 1024, stats.QuotaBytes);
+        Assert.Equal(1, stats.ItemCount);
+
+        // 保留期同样可改：30 天时不算过期，改成 1 天并推进时钟后同一批条目被清掉
+        service.RetentionDays = 30;
+        Assert.Equal(1, (await service.GetStatsAsync(ct)).ItemCount);
+        service.RetentionDays = 1;
+        _now = _now.AddDays(2);
+        var purged = await service.GetStatsAsync(ct);
+        Assert.Equal(0, purged.ItemCount);
+        Assert.Equal(1, purged.RetentionDays);
+
+        // 非正值被拒绝，避免运行时把配额/保留期写成 0 导致全员过期或全部拒收
+        Assert.Throws<ArgumentOutOfRangeException>(() => service.QuotaBytes = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => service.RetentionDays = 0);
+        Assert.Equal(1024 * 1024, service.QuotaBytes);
+        Assert.Equal(1, service.RetentionDays);
+    }
+
     [Fact]
     public async Task RestoreDoesNotOverwriteNameConflictAndKeepsTrashCopy()
     {

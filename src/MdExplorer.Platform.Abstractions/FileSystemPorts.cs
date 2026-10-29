@@ -333,6 +333,8 @@ public sealed class AppSettings
     public bool EnablePullRefresh { get; set; } = true;      // 下拉刷新手势总开关；桌面刷新按钮与 F5/Ctrl+R 始终可用
     public double AutoLoadMoreDistance { get; set; } = 320;  // 距底多少 DIP 触发自动续页（120–600）
     public int SearchResultLimit { get; set; } = 2000;      // 递归与索引搜索的结果上限（200–20000）
+    public long AppTrashQuotaBytes { get; set; } = 1_000_000_000; // Android 应用内回收站配额（200 MB–10 GB）；桌面走系统回收站
+    public int AppTrashRetentionDays { get; set; } = 30;    // Android 应用内回收站保留期（1–365 天）
     public bool NotifyOnTaskCompletion { get; set; }       // 长任务完成/失败时发送操作系统通知（默认关，需用户显式开启）
     public List<string> OpenTabPaths { get; set; } = [];   // 上次会话的浏览器标签页（按显示顺序）
     public int ActiveTabIndex { get; set; }                // OpenTabPaths 中上次活动标签的下标

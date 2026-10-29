@@ -17,8 +17,8 @@ public sealed class AppTrashService : ITrashService
 
     private readonly string _trashRoot;
     private readonly DelegatingFileSystemService _fileSystem;
-    private readonly long _quotaBytes;
-    private readonly int _retentionDays;
+    private long _quotaBytes;
+    private int _retentionDays;
     private readonly Func<DateTimeOffset> _clock;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -45,6 +45,30 @@ public sealed class AppTrashService : ITrashService
 
     public bool CanMoveToTrash => true;
     public bool CanBrowseTrash => true;
+
+    /// <summary>当前配额（字节）。设置页调整后立即作用于后续的准入判断与占用百分比。</summary>
+    public long QuotaBytes
+    {
+        get => Interlocked.Read(ref _quotaBytes);
+        set
+        {
+            if (value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(value), "回收站配额必须为正数。");
+            Interlocked.Exchange(ref _quotaBytes, value);
+        }
+    }
+
+    /// <summary>当前保留天数。调整后下一次清理即按新窗口裁掉过期条目。</summary>
+    public int RetentionDays
+    {
+        get => Volatile.Read(ref _retentionDays);
+        set
+        {
+            if (value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(value), "回收站保留期必须为正数。");
+            Volatile.Write(ref _retentionDays, value);
+        }
+    }
 
     private string FilesDir => Path.Combine(_trashRoot, "files");
     private string InfoDir => Path.Combine(_trashRoot, "info");
@@ -116,8 +140,8 @@ public sealed class AppTrashService : ITrashService
         PurgeExpiredLocked(cancellationToken);
         var stats = GetStatsLocked(cancellationToken, purgeExpired: false);
         var estimate = await MeasureSourceAsync(path, source, cancellationToken).ConfigureAwait(false);
-        if (estimate is { } estimatedBytes && stats.UsedBytes + estimatedBytes > _quotaBytes)
-            throw new IOException($"应用内回收站空间不足（上限 {Formatting.Bytes(_quotaBytes)}），已保留原项目。");
+        if (estimate is { } estimatedBytes && stats.UsedBytes + estimatedBytes > QuotaBytes)
+            throw new IOException($"应用内回收站空间不足（上限 {Formatting.Bytes(QuotaBytes)}），已保留原项目。");
 
         var id = Guid.NewGuid().ToString("N");
         var payloadPath = PayloadPath(id);
@@ -155,7 +179,7 @@ public sealed class AppTrashService : ITrashService
             }
 
             var actualBytes = ComputeLocalPayloadSize(payloadPath) ?? metadata.SizeBytes;
-            if (stats.UsedBytes + actualBytes > _quotaBytes)
+            if (stats.UsedBytes + actualBytes > QuotaBytes)
             {
                 if (localMoved)
                 {
@@ -164,7 +188,7 @@ public sealed class AppTrashService : ITrashService
                     sourceRemoved = false;
                     localMoved = false;
                 }
-                throw new IOException($"应用内回收站空间不足（上限 {Formatting.Bytes(_quotaBytes)}），已保留原项目。");
+                throw new IOException($"应用内回收站空间不足（上限 {Formatting.Bytes(QuotaBytes)}），已保留原项目。");
             }
 
             if (actualBytes != metadata.SizeBytes)
@@ -317,13 +341,13 @@ public sealed class AppTrashService : ITrashService
         return new TrashStats(
             items.Sum(item => item.SizeBytes ?? 0),
             items.Count,
-            _quotaBytes,
-            _retentionDays);
+            QuotaBytes,
+            RetentionDays);
     }
 
     private void PurgeExpiredLocked(CancellationToken cancellationToken)
     {
-        var cutoff = _clock().AddDays(-_retentionDays);
+        var cutoff = _clock().AddDays(-RetentionDays);
         foreach (var metadata in ReadAllMetadataLocked())
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -188,6 +188,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _autoLoadMoreDistance = Math.Clamp(
             double.IsFinite(s.AutoLoadMoreDistance) ? s.AutoLoadMoreDistance : 320, 120, 600);
         _searchResultLimit = Math.Clamp(s.SearchResultLimit, 200, 20000);
+        _appTrashQuotaBytes = Math.Clamp(s.AppTrashQuotaBytes, 200_000_000, 10_000_000_000);
+        _appTrashRetentionDays = Math.Clamp(s.AppTrashRetentionDays, 1, 365);
         RefreshSearchIndexRoots();
     }
 
@@ -1214,6 +1216,24 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     }
 
     partial void OnTrashRetentionDaysChanged(int? value) => OnPropertyChanged(nameof(TrashRetentionText));
+
+    /// <summary>只刷新回收站占用/配额快照（设置变更后立刻反映新上限），不重建条目列表。</summary>
+    private async Task RefreshTrashStateAsync()
+    {
+        if (!Capabilities.CanBrowseTrash)
+            return;
+        try
+        {
+            ApplyTrashStats(await _services.Trash.GetStatsAsync(CancellationToken.None).ConfigureAwait(true));
+        }
+        catch (IOException)
+        {
+            // 统计失败不应把设置页带崩：保留上一次快照，条目的真实状态仍在回收站页。
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
 
     private async Task RefreshTrashAsync()
     {
@@ -2788,6 +2808,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _enablePullRefresh = true;
     [ObservableProperty] private double _autoLoadMoreDistance = 320;
     [ObservableProperty] private int _searchResultLimit = 2000;
+    [ObservableProperty] private long _appTrashQuotaBytes = 1_000_000_000;
+    [ObservableProperty] private int _appTrashRetentionDays = 30;
     [ObservableProperty] private bool _autoLoadMore = true;
     [ObservableProperty] private bool _enableThumbnails = true;
     [ObservableProperty] private string _density = "Comfortable";
@@ -2825,6 +2847,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     /// <summary>滚动续页的统一门槛：关闭自动加载后只剩页脚按钮与快捷键。</summary>
     public bool ShouldAutoLoadMore(double remainingFromBottom) =>
         AutoLoadMore && remainingFromBottom <= AutoLoadMoreDistanceClamped;
+    /// <summary>只有 Android 走应用内回收站；桌面用系统回收站，配额与保留期由系统管理。</summary>
+    public bool UsesAppTrash => Capabilities.UsesAppTrash;
+    public string AppTrashQuotaText => Formatting.Bytes(AppTrashQuotaClamped);
+    public string AppTrashRetentionText => $"{Math.Clamp(AppTrashRetentionDays, 1, 365)} 天";
+    public long AppTrashQuotaClamped => Math.Clamp(AppTrashQuotaBytes, 200_000_000, 10_000_000_000);
+    public bool IsAppTrashQuota500Mb => AppTrashQuotaClamped == 500_000_000;
+    public bool IsAppTrashQuota1Gb => AppTrashQuotaClamped == 1_000_000_000;
+    public bool IsAppTrashQuota2Gb => AppTrashQuotaClamped == 2_000_000_000;
+    public bool IsAppTrashRetention7 => Math.Clamp(AppTrashRetentionDays, 1, 365) == 7;
+    public bool IsAppTrashRetention30 => Math.Clamp(AppTrashRetentionDays, 1, 365) == 30;
+    public bool IsAppTrashRetention90 => Math.Clamp(AppTrashRetentionDays, 1, 365) == 90;
     public double AutoLoadMoreDistanceClamped => Math.Clamp(
         double.IsFinite(AutoLoadMoreDistance) ? AutoLoadMoreDistance : 320, 120, 600);
     public string SystemNotificationPlatformText => _services.SystemNotifications.PlatformName;
@@ -2998,6 +3031,50 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsAutoLoadDistance160));
         OnPropertyChanged(nameof(IsAutoLoadDistance320));
         OnPropertyChanged(nameof(IsAutoLoadDistance480));
+    }
+
+    partial void OnAppTrashQuotaBytesChanged(long value)
+    {
+        var quota = Math.Clamp(value, 200_000_000, 10_000_000_000);
+        _services.SettingsStore.Settings.AppTrashQuotaBytes = quota;
+        _ = SaveAsync();
+        if (_services.Trash is AppTrashService appTrash)
+            appTrash.QuotaBytes = quota;
+        OnPropertyChanged(nameof(AppTrashQuotaText));
+        OnPropertyChanged(nameof(AppTrashQuotaClamped));
+        OnPropertyChanged(nameof(IsAppTrashQuota500Mb));
+        OnPropertyChanged(nameof(IsAppTrashQuota1Gb));
+        OnPropertyChanged(nameof(IsAppTrashQuota2Gb));
+        _ = RefreshTrashStateAsync();
+    }
+
+    partial void OnAppTrashRetentionDaysChanged(int value)
+    {
+        var days = Math.Clamp(value, 1, 365);
+        _services.SettingsStore.Settings.AppTrashRetentionDays = days;
+        _ = SaveAsync();
+        if (_services.Trash is AppTrashService appTrash)
+            appTrash.RetentionDays = days;
+        OnPropertyChanged(nameof(AppTrashRetentionText));
+        OnPropertyChanged(nameof(IsAppTrashRetention7));
+        OnPropertyChanged(nameof(IsAppTrashRetention30));
+        OnPropertyChanged(nameof(IsAppTrashRetention90));
+        _ = RefreshTrashStateAsync();
+    }
+
+    [RelayCommand]
+    private void SetAppTrashQuota(string? value)
+    {
+        // 分段按 MB 传参，避免在 XAML 里写长整数
+        if (long.TryParse(value, out var megabytes))
+            AppTrashQuotaBytes = Math.Clamp(megabytes * 1_000_000, 200_000_000, 10_000_000_000);
+    }
+
+    [RelayCommand]
+    private void SetAppTrashRetentionDays(string? value)
+    {
+        if (int.TryParse(value, out var days))
+            AppTrashRetentionDays = Math.Clamp(days, 1, 365);
     }
 
     partial void OnSearchResultLimitChanged(int value)

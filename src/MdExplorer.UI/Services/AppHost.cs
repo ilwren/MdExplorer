@@ -49,10 +49,13 @@ public static class AppHost
         var knownFolders = new KnownFoldersService();
         // Android 没有可统一浏览/还原的系统回收站：改用应用数据目录内的配额回收站，
         // 同一服务同时覆盖应用专属目录与 SAF 授权树；桌面继续走系统回收站。
-        ITrashService trash = OperatingSystem.IsAndroid()
-            ? new AppTrashService(dataDir, fileSystem)
-            : new TrashService();
         var store = SettingsStore.LoadOrDefault(dataDir);
+        ITrashService trash = OperatingSystem.IsAndroid()
+            ? new AppTrashService(
+                dataDir, fileSystem,
+                quotaBytes: store.Settings.AppTrashQuotaBytes,
+                retentionDays: store.Settings.AppTrashRetentionDays)
+            : new TrashService();
         var searchIndex = new FileNameIndexService(dataDir, store);
         var search = new IndexedSearchService(searchIndex, new SearchService(), store);
 

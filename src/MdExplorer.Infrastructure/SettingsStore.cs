@@ -113,6 +113,9 @@ public sealed class SettingsStore : ISettingsStore
             settings.AutoLoadMoreDistance = 320;
         settings.AutoLoadMoreDistance = Math.Clamp(settings.AutoLoadMoreDistance, 120, 600);
         settings.SearchResultLimit = Math.Clamp(settings.SearchResultLimit, 200, 20000);
+        settings.AppTrashQuotaBytes = Math.Clamp(
+            settings.AppTrashQuotaBytes, 200_000_000, 10_000_000_000);
+        settings.AppTrashRetentionDays = Math.Clamp(settings.AppTrashRetentionDays, 1, 365);
         settings.FolderViewStates ??= [];
         foreach (var key in settings.FolderViewStates
                      .Where(pair => pair.Value is null)
