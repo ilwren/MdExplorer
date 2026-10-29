@@ -1,4 +1,44 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.47]     MdExplorer.Tests.StorageTextFileTests.SavesInPlacePreservingBomAndNewLine [FAIL]
+[xUnit.net 00:00:01.49]     MdExplorer.Tests.StorageTextFileTests.RejectsUnverifiableWriteAndReportsHonestly [FAIL]
+[xUnit.net 00:00:01.49]     MdExplorer.Tests.StorageTextFileTests.ReadsStorageTextWithEncodingBomAndNewLine [FAIL]
+  Failed MdExplorer.Tests.StorageTextFileTests.SavesInPlacePreservingBomAndNewLine [3 ms]
+  Error Message:
+   System.IO.FileNotFoundException : 文件不可用。
+  Stack Trace:
+     at MdExplorer.Infrastructure.StorageTextFileService.ReadAsync(String path, Int64 maxBytes, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/StorageTextFileService.cs:line 21
+   at MdExplorer.Tests.StorageTextFileTests.SavesInPlacePreservingBomAndNewLine() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/StorageTextFileTests.cs:line 65
+--- End of stack trace from previous location ---
+  Failed MdExplorer.Tests.StorageTextFileTests.RejectsUnverifiableWriteAndReportsHonestly [1 ms]
+  Error Message:
+   System.IO.FileNotFoundException : 文件不可用。
+  Stack Trace:
+     at MdExplorer.Infrastructure.StorageTextFileService.ReadAsync(String path, Int64 maxBytes, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/StorageTextFileService.cs:line 21
+   at MdExplorer.Tests.StorageTextFileTests.RejectsUnverifiableWriteAndReportsHonestly() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/StorageTextFileTests.cs:line 105
+--- End of stack trace from previous location ---
+  Failed MdExplorer.Tests.StorageTextFileTests.ReadsStorageTextWithEncodingBomAndNewLine [1 ms]
+  Error Message:
+   System.IO.FileNotFoundException : 文件不可用。
+  Stack Trace:
+     at MdExplorer.Infrastructure.StorageTextFileService.ReadAsync(String path, Int64 maxBytes, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/StorageTextFileService.cs:line 21
+   at MdExplorer.Tests.StorageTextFileTests.ReadsStorageTextWithEncodingBomAndNewLine() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/StorageTextFileTests.cs:line 46
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.50]     MdExplorer.Tests.StorageTextFileTests.DetectsExternalChangeAndOnlyOverwritesWhenExplicit [FAIL]
+[xUnit.net 00:00:01.50]     MdExplorer.Tests.StorageTextFileTests.RejectsOversizeTextBeforeWriting [FAIL]
+  Failed MdExplorer.Tests.StorageTextFileTests.DetectsExternalChangeAndOnlyOverwritesWhenExplicit [1 ms]
+  Error Message:
+   System.IO.FileNotFoundException : 文件不可用。
+  Stack Trace:
+     at MdExplorer.Infrastructure.StorageTextFileService.ReadAsync(String path, Int64 maxBytes, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/StorageTextFileService.cs:line 21
+   at MdExplorer.Tests.StorageTextFileTests.DetectsExternalChangeAndOnlyOverwritesWhenExplicit() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/StorageTextFileTests.cs:line 81
+--- End of stack trace from previous location ---
+  Failed MdExplorer.Tests.StorageTextFileTests.RejectsOversizeTextBeforeWriting [1 ms]
+  Error Message:
+   System.IO.FileNotFoundException : 文件不可用。
+  Stack Trace:
+     at MdExplorer.Infrastructure.StorageTextFileService.ReadAsync(String path, Int64 maxBytes, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/StorageTextFileService.cs:line 21
+   at MdExplorer.Tests.StorageTextFileTests.RejectsOversizeTextBeforeWriting() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/StorageTextFileTests.cs:line 120
+--- End of stack trace from previous location ---
 
-Passed!  - Failed:     0, Passed:   206, Skipped:     0, Total:   206, Duration: 1 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     5, Passed:   212, Skipped:     0, Total:   217, Duration: 3 s - MdExplorer.Tests.dll (net10.0)
