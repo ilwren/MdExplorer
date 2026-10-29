@@ -104,7 +104,7 @@ MVP 发布须同时满足：三端功能清单 §6 中全部 `MVP` 项在真机/
 | .NET SDK / TFM | SDK `10.0.1xx`、`net10.0` / `net10.0-android` | .NET 10 为 LTS；Avalonia 12 对 Android/iOS 宿主仅支持 .NET 10，故不设多目标 `net8.0` 兼容分支，简化矩阵。`global.json` 固定 SDK 大版本 |
 | 语言 | C# 14 | 可用 `field` 关键字、扩展成员等新特性；禁止依赖运行时反射语法的「魔法」特性 |
 | Avalonia | `12.1.4`（以立项时最新稳定版为准） | MIT。12 的关键收益：Android 后端重构（官方称 NativeAOT 冷启动 1960→460 ms 级）、编译绑定默认开启、SkiaSharp 3.0、开源 WebView（本期不依赖）。注意：12 大版本二进制不兼容，所有第三方 Avalonia 库须为针对 12 的构建 |
-| Md3.Avalonia | `0.5.0-preview.2`（`Md3.Avalonia` + `Md3.Avalonia.Icons.Lite`，按需加 `.DataGrid` / `.AvaloniaEdit` / `.Markdown` / `.Extra` 主题与控件包） | Apache-2.0，自有库；核心与 Extra 包目标 `net8.0;net10.0`，声明 `IsTrimmable` / `IsAotCompatible`，HCT 动态配色（49 色角、6 方案、3 对比度），组件覆盖导航/搜索/对话框/列表/自适应布局（`MdAdaptiveLayout` 优先评估复用，见 §7.3）；`.Extra` 自 v0.11 起只取 `MdFloatingWindow` 承载窄断点悬浮预览。风险：仍处 preview，API 可能变更——缓解：版本钉死、升级走独立 PR、UI 层对 Md3 类型的使用收敛在自有控件/主题资源中（§17 R-01） |
+| Md3.Avalonia | `0.5.0-preview.2`（`Md3.Avalonia` + `Md3.Avalonia.Icons.Lite`，按需加 `.DataGrid` / `.AvaloniaEdit` / `.Markdown` / `.Extra` / `.NodifyM` / `.Notifications` 主题与控件包） | Apache-2.0，自有库；核心与 Extra 包目标 `net8.0;net10.0`，声明 `IsTrimmable` / `IsAotCompatible`，HCT 动态配色（49 色角、6 方案、3 对比度），组件覆盖导航/搜索/对话框/列表/自适应布局（`MdAdaptiveLayout` 优先评估复用，见 §7.3）；`.Extra` 自 v0.11 起只取 `MdFloatingWindow` 承载窄断点悬浮预览；v0.21 起 `.NodifyM` 只在自动化页局部注册 `MaterialNodifyMTheme`，`.Notifications` 只经自有平台端口适配。风险：仍处 preview，API 可能变更——缓解：版本钉死、升级走独立 PR、UI 层对 Md3 类型的使用收敛在自有控件/主题资源中（§17 R-01） |
 | MVVM | `CommunityToolkit.Mvvm 8.x` | MIT。纯源生成（`[ObservableProperty]` / `[RelayCommand]`），零运行时反射，AOT 安全。禁止 `ReactiveUI`（其当下版本在 Avalonia AOT 下仍有大量 trim 警告与破坏性迁移） |
 | DI | `Microsoft.Extensions.DependencyInjection 10.x` + **显式注册** | MIT。仅用运行时容器做组合根注入；**禁止**程序集扫描/`Scrutor` 式约定注册；注册表集中写在各宿主 `CompositionRoot`。单测时可直接 `new`，ViewModel 构造注入口面要小 |
 | 序列化 | `System.Text.Json` **源生成**（`JsonSerializerContext`） | MIT。禁止无 Context 的反射重载、禁止 `Newtonsoft.Json` |
@@ -133,6 +133,8 @@ MVP 发布须同时满足：三端功能清单 §6 中全部 `MVP` 项在真机/
 | 文件监控 | `System.IO.FileSystemWatcher`（桌）/ Android 平台层 `FileObserver` | MIT / 系统 API | AOT 安全；Linux inotify 上限需处理 | **首选**，封装为 `IDirectoryWatcher` 并做防抖与降级（§9） |
 | 哈希（Phase 2） | `System.Security.Cryptography`（SHA-256 等） | MIT | AOT 安全 | 自写流式计算纳入任务队列可取消（§6.10） |
 | 全文索引（可选） | SQLite **FTS5** | Public Domain（SQLite） | 随 `e_sqlite3` 原生支持 | **首选**；拒绝 Lucene.NET（AOT 下编解码工厂反射扫描会报 IL2026，且体积过重） |
+| 节点编辑器（自动化） | `Md3.Avalonia.NodifyM 0.5.0-preview.2` + 上游 `NodifyM.Avalonia 12.0.0` | Apache-2.0 / MIT | Md3 包装目标 `net10.0` 并声明 `IsTrimmable` / `IsAotCompatible`；上游目标 `net8.0`、显式 `IsAotCompatible=true`，依赖 Avalonia 12、CommunityToolkit.Mvvm 与 `System.Reactive`；声明不替代本项目 Linux Native AOT + Android trimming/AOT 发布门 | **v0.21 已采用但收窄使用面**：只用 Node/Connector/Connection 线性单链与页面局部 `MaterialNodifyMTheme`，不用上游 `ControlStyles`、连线文本标签、连接分裂或 Knot；图定义、校验和执行均由 Domain/Application 自有模型收口，编辑器退出时可替换画布而不迁移数据模型 |
+| 系统通知 | `Md3.Avalonia.Notifications 0.5.0-preview.2` | Apache-2.0 | 项目声明 `IsTrimmable` / `IsAotCompatible` 且开启 Trim Analyzer；Windows 资产要求宿主 `net10.0-windows10.0.19041.0`，Android 资产要求宿主直接引用包，Linux 运行时依赖 `libnotify.so.4` 与 freedesktop 通知服务 | **v0.21 已采用并隔离**：Application/UI 只依赖 `ISystemNotificationService` 的标题+正文和四态结果；Windows AppUserModelID 快捷方式与 Android 运行时权限由宿主懒准备。第一版不支持点击回跳、按钮、进度更新、替换/关闭通知；发送失败不得改判已完成的文件任务 |
 
 **禁用清单（PR 检查项，CI 以 `PackageReference` 黑名单脚本拦截）：** `ReactiveUI.*`、`Newtonsoft.Json`、EF Core 全家、`ImageSharp`、`iText.*`（AGPL）、任何 GPL/AGPL 许可的包、Avalonia Accelerate 商业组件（许可证与离线发布约束与本项目开源定位冲突）、依赖 `Assembly.Load*`/代码生成加载插件的框架。Avalonia 官方 `DataGrid` / `TreeDataGrid` 历史上有 Trim 警告（IL2104）——仅当 Spike 证明在 12.1 下零警告时才允许在详细信息视图中使用，否则详细信息视图用虚拟化 `ListBox` + 表头行自实现（§14 亦有对称测试要求）。
 
@@ -639,9 +641,15 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 >
 > PDF 仍由串行栅格化收口层调用 PDFtoImage/PDFium，新密码、宽度与旋转参数追加在既有 `CancellationToken` 之后；原始字节和密码只在当前文档驻内存。页面模型用 `MdList.ContainerPrepared` 按视口懒生成约 180px 缩略图，最多缓存 36 张并释放远离当前页者（原生 `ListBox` 在 Md3 主题下无无键模板，继续遵守全仓 `MdList` 不变量）。缩放档为 50%–300%，可 90° 旋转与输入页码；Compact 隐藏缩略图轨及首末页/旋转/系统打开等次级动作，只留翻页、跳页与缩放。第一切片明确不含 PDF 连续滚动、目录/书签、文本层搜索与命中高亮，也不含 Android SAF 文本写回——现有 SAF 删除同名再写的复制原语不得冒充原子保存。
 
+> **v0.21 Windows 窗口动画修复、系统通知与自动化第一切片（已落地到代码与无头验证）**：v0.19 的 `BorderOnly` 在 Avalonia 12.1.2 Win32 后端不带 `WS_CAPTION`，因而 Windows 11 的最小化/最大化/还原没有 DWM 缩放动画；这不是按钮事件问题。`MainWindowChromePolicy` 现在只在 Windows 返回 `WindowDecorations.Full`，Linux 保持 `BorderOnly`。Windows 在切 Full 前先绑定空白 `WindowDrawnDecorations` 主题（零标题栏/边框/阴影自绘几何），所以原生窗口语义和动画保留、框架不再绘制第二套标题/按钮，现有顶部标签 Chrome 与 `MinimizeButton`/`MaximizeButton`/`CloseButton`/`TitleBar` 角色继续负责视觉与命中。无头测试只能证明策略与资源接线，Windows 11 的实际 DWM 动画、Snap Layouts 与任务栏按钮仍须在真实桌面会话验收。
+>
+> 平台抽象新增 `ISystemNotificationService` 与 `Sent/Unsupported/PermissionDenied/Failed` 结果；UI 的 `MdSystemNotificationServiceAdapter` 懒创建 `Md3.Avalonia.Notifications` 后端并串行化宿主准备。桌面项目仅在 Windows 构建机切到 `net10.0-windows10.0.19041.0` 并直接引用通知包，进程创建窗口前设置 `MdExplorer.Eidoria` AppUserModelID，首次真正发送时才为当前用户创建同 ID 的开始菜单快捷方式；Linux 继续普通 `net10.0`，运行时需要 `libnotify.so.4` 与 freedesktop 通知服务；从 Linux 交叉发布的普通 Windows 产物不得声称 WinRT Toast 可用。Android 宿主直接引用 android 资产、声明 `POST_NOTIFICATIONS`，由前台 `MainActivity` 在首次发送时请求 Android 13+ 运行时权限。设置中的任务通知默认关闭，开启后失败任务立即通知、成功任务仅运行时长至少 3 秒才通知、取消不通知；测试通知可显式发送。通知只有标题+正文，没有点击回跳、按钮或进度更新，且通知结果不得并入 `OperationOutcome`。
+>
+> 自动化定义以 Domain 的 `AutomationWorkflowDefinition` 类型化嵌入 `AppSettings`，经既有源生成 JSON 与原子写持久化。Application 校验器只接受恰好一个 `CurrentFolder`、零或多个 `KindFilter`/`NameContains`、恰好一个 `TransferToSubfolder`、至多一个终点 `SystemNotification` 的单链，并拒绝重复 ID、多入多出、环、未连节点、文件夹类型筛选、路径型目标名与未知通知占位符。执行器只读取运行瞬间主浏览器的本地当前文件夹顶层文件（拒绝 `content:` SAF 定位串），先过滤、仅有匹配时建一级目标夹，再以 `ConflictPolicy.KeepBoth` 复用 `IFileOperationService`；整体经 Shell 任务队列运行，文件结果与流程内通知结果分开呈现。NodifyM 画布只在自动化页局部注册 Md3 主题，节点 VM 对连线再做单入单出与终点限制，并禁用连接分裂/Knot；默认示例为图片复制到“图片整理”后通知。分支、条件、循环、多工作流、定时/监听触发、递归、任意目标路径和 SAF 自动化仍未实现。
+
 ### 6.9 Phase 2 候选池（先定边界不排期）
 
-双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文档工作台第二切片（PDF 连续滚动/目录/文搜、SAF 文本安全写回与关闭守卫）、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
+双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文档工作台第二切片（PDF 连续滚动/目录/文搜、SAF 文本安全写回与关闭守卫）、自动化第二切片（多工作流、显式来源文件夹与 SAF 安全原语；分支/定时触发须先另立安全模型）、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
 
 ### 6.10 不做清单（防止 PR 夹带）
 
@@ -740,7 +748,7 @@ Md3 尚无或不够用时自写控件的清单（实现收在 `MdExplorer.UI/Con
 | 目录监听 | `FileSystemWatcher`(ReadDirectoryChangesW) | inotify（注意 `max_user_watches` 上限，超限降级为聚焦时重扫） | `FileObserver`（真路径处）/ SAF 位置靠聚焦重查 |
 | PDF | PDFium 原生（按 RID） | 同 | 系统 `PdfRenderer` |
 | 视频海报 | Shell 缩略图可选（Spike) | 无→类型卡 | `MediaMetadataRetriever` |
-| 长任务通知 | 任务栏进度 + 应用内提示 | 桌面通知 `libnotify`/DBus（经能力探测、P2) | 前台 Snackbar，后台完成才发系统通知（需 `POST_NOTIFICATIONS`，可选授予） |
+| 长任务通知（v0.21） | 应用内提示 + 可选 WinRT Toast（仅 Windows 专用 TFM 构建；进程与开始菜单快捷方式统一 `MdExplorer.Eidoria`） | 应用内提示 + 可选 `libnotify.so.4` / freedesktop D-Bus 通知（缺库或服务时明确降级） | 应用内提示 + 可选系统通知（`POST_NOTIFICATIONS` 首次发送才由前台 Activity 请求；拒绝后不影响文件任务） |
 
 ### 9.1 Windows 细则
 

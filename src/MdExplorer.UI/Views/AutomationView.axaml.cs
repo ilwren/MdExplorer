@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Threading;
 
 namespace MdExplorer.UI.Views;
 
@@ -14,6 +15,8 @@ public partial class AutomationView : UserControl
     {
         InitializeComponent();
         SizeChanged += (_, e) => ApplyLayout(e.NewSize.Width);
+        AutomationEditor.Loaded += (_, _) =>
+            Dispatcher.UIThread.Post(ApplyEditorZoom, DispatcherPriority.Loaded);
     }
 
     private void ApplyLayout(double width)
@@ -35,7 +38,7 @@ public partial class AutomationView : UserControl
             Grid.SetColumn(AutomationCanvasCard, 0);
             Grid.SetRow(AutomationInspectorCard, 2);
             Grid.SetColumn(AutomationInspectorCard, 0);
-            AutomationEditorFrame.Height = 440;
+            AutomationEditorFrame.Height = 380;
         }
         else
         {
@@ -49,5 +52,23 @@ public partial class AutomationView : UserControl
             Grid.SetColumn(AutomationInspectorCard, 2);
             AutomationEditorFrame.Height = 520;
         }
+
+        if (AutomationEditor.IsLoaded)
+            Dispatcher.UIThread.Post(ApplyEditorZoom, DispatcherPriority.Loaded);
+    }
+
+    private void ApplyEditorZoom()
+    {
+        // NodifyEditor.OnLoaded 会按整图宽高自动“塞满”视口；横向四节点链在 Compact 会被
+        // 压到约 0.3 倍，连接点小到无法触摸。这里在上游 Loaded 之后恢复可操作缩放：
+        // 窄屏保留前段节点并靠拖动画布平移，宽屏使用既有总览倍率。
+        var zoom = _isStacked ? 0.68 : 0.82;
+        if (Math.Abs(AutomationEditor.Zoom - zoom) > 0.001)
+            AutomationEditor.Zoom = zoom;
+
+        AutomationEditor.OffsetX = 0;
+        AutomationEditor.OffsetY = 0;
+        AutomationEditor.ViewTranslateTransform.X = 0;
+        AutomationEditor.ViewTranslateTransform.Y = 0;
     }
 }
