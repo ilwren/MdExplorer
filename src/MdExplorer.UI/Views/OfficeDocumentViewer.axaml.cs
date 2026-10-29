@@ -88,6 +88,7 @@ public sealed partial class OfficeDocumentViewer : UserControl
             {
                 _syncingSheetIndex = false;
             }
+            UpdateScale();
         }
     }
 
@@ -191,7 +192,25 @@ public sealed partial class OfficeDocumentViewer : UserControl
             {
                 _syncingSheetIndex = false;
             }
+            UpdateScale();
         }
+    }
+
+    private double GetNominalWidth(OfficePreviewFormat format)
+    {
+        if (format == OfficePreviewFormat.Xlsx &&
+            Document?.Facts.SheetNominalWidths is { } widths &&
+            SelectedSheetIndex >= 0 && SelectedSheetIndex < widths.Count &&
+            widths[SelectedSheetIndex] > 0)
+            return widths[SelectedSheetIndex];
+
+        return format switch
+        {
+            OfficePreviewFormat.Docx => 920d,
+            OfficePreviewFormat.Pptx => 1380d,
+            OfficePreviewFormat.Xlsx => 900d,
+            _ => 760d,
+        };
     }
 
     private void UpdateScale()
@@ -203,17 +222,14 @@ public sealed partial class OfficeDocumentViewer : UserControl
         if (width <= 0 || height <= 0)
             return;
 
-        // 第三方控件没有 FitWidth/Zoom 绑定：给它一个不小于纸面自然宽度的设计视口，
-        // 再由布局变换等比落回真实视口，Compact 下第一屏仍能看到完整页宽。
-        var nominalWidth = format switch
-        {
-            OfficePreviewFormat.Docx => 920d,
-            OfficePreviewFormat.Pptx => 1380d,
-            OfficePreviewFormat.Xlsx => 1220d,
-            _ => 760d,
-        };
-        var designWidth = Math.Max(width, nominalWidth);
-        var scale = Math.Clamp(width / designWidth, 0.1, 1);
+        // 第三方控件没有 FitWidth/Zoom 绑定：给它一个等于纸面/活动工作表逻辑宽度的
+        // 设计视口，再由布局变换等比落回真实视口，Compact 下第一屏仍能看到完整页宽。
+        // XLSX 小表允许适度放大，避免在宽工作台里只剩中央一条难以辨认的网格。
+        var nominalWidth = GetNominalWidth(format);
+        var isSpreadsheet = format == OfficePreviewFormat.Xlsx;
+        var designWidth = isSpreadsheet ? nominalWidth : Math.Max(width, nominalWidth);
+        var maximumScale = isSpreadsheet ? 1.75 : 1d;
+        var scale = Math.Clamp(width / designWidth, 0.1, maximumScale);
         _viewer.Width = designWidth;
         _viewer.Height = height / scale;
         _scaleTransform.ScaleX = scale;

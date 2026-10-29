@@ -23,7 +23,8 @@ public sealed record OfficeDocumentFacts(
     int? ParagraphCount = null,
     int? TableCount = null,
     long ExpandedBytes = 0,
-    int EntryCount = 0);
+    int EntryCount = 0,
+    IReadOnlyList<double>? SheetNominalWidths = null);
 
 /// <summary>
 /// 已通过宿主有界预检的 Office 文档字节。第三方控件只接收这一负载，
@@ -275,6 +276,7 @@ public static class OfficeDocumentLoader
         elements += ScanXml(archive, "xl/styles.xml", onElement: null, required: false);
         EnsureElementBudget(elements, limits);
 
+        var sheetNominalWidths = new List<double>();
         var maxRowsOverall = 0;
         var maxColumnsOverall = 0;
         long populatedCells = 0;
@@ -287,13 +289,37 @@ public static class OfficeDocumentLoader
 
             var maxRow = 0;
             var maxColumn = 0;
+            var defaultColumnWidth = 8.43 * 6;
+            var columnWidths = new Dictionary<int, double>();
             elements += ScanXml(archive, sheetPath, reader =>
             {
                 switch (reader.LocalName)
                 {
+                    case "sheetFormatPr":
+                        if (double.TryParse(reader.GetAttribute("defaultColWidth"),
+                                System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture,
+                                out var parsedDefaultWidth) && parsedDefaultWidth > 0)
+                            defaultColumnWidth = Math.Max(40, parsedDefaultWidth * 6);
+                        break;
                     case "col":
                         if (int.TryParse(reader.GetAttribute("max"), out var colMax))
                             maxColumn = Math.Max(maxColumn, colMax);
+                        var colMin = int.TryParse(reader.GetAttribute("min"), out var parsedMin) ? parsedMin : 1;
+                        var hidden = reader.GetAttribute("hidden") is "1" or "true";
+                        var columnWidth = hidden
+                            ? 0
+                            : double.TryParse(reader.GetAttribute("width"),
+                                System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture,
+                                out var parsedWidth) && parsedWidth > 0
+                                ? Math.Max(1, parsedWidth * 6)
+                                : defaultColumnWidth;
+                        // 只记录宿主允许范围内的列宽；超范围仍由 maxColumn 在整表扫描后统一拒绝。
+                        for (var column = Math.Max(1, colMin);
+                             column <= Math.Min(colMax, MaxSpreadsheetColumns);
+                             column++)
+                            columnWidths[column - 1] = columnWidth;
                         break;
                     case "row":
                         if (int.TryParse(reader.GetAttribute("r"), out var rowNumber))
@@ -327,6 +353,10 @@ public static class OfficeDocumentLoader
                 throw new InvalidDataException(
                     $"工作表「{sheetNames[index]}」范围过大（{maxRow:N0} 行 × {maxColumn:N0} 列），已拒绝在内置预览中展开。");
             }
+            var nominalWidth = 52d + 16d + 14d; // 行号列 + 上游网格边距 + 垂直滚动条。
+            for (var column = 0; column < maxColumn; column++)
+                nominalWidth += columnWidths.TryGetValue(column, out var width) ? width : defaultColumnWidth;
+            sheetNominalWidths.Add(Math.Clamp(nominalWidth, 320, 1600));
             maxRowsOverall = Math.Max(maxRowsOverall, maxRow);
             maxColumnsOverall = Math.Max(maxColumnsOverall, maxColumn);
         }
@@ -343,7 +373,7 @@ public static class OfficeDocumentLoader
         }
 
         var summary = $"{sheetNames.Count:N0} 张工作表 · 最大 {maxRowsOverall:N0} 行 × {maxColumnsOverall:N0} 列";
-        return new OfficeDocumentFacts(summary, sheetNames);
+        return new OfficeDocumentFacts(summary, sheetNames, SheetNominalWidths: sheetNominalWidths);
     }
 
     private static long ScanSpreadsheetDrawing(ZipArchive archive, string path)

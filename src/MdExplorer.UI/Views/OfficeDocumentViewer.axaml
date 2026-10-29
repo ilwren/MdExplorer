@@ -53,6 +53,6 @@
   </UserControl.Resources>
 
   <LayoutTransformControl x:Name="ScaleHost"
-                          HorizontalAlignment="Left"
+                          HorizontalAlignment="Center"
                           VerticalAlignment="Top" />
 </UserControl>

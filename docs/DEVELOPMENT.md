@@ -58,7 +58,7 @@ MdExplorer 是一款**仅面向本地磁盘**的跨平台文件资源管理器�
 **非目标（明确不做，避免范围蔓延）：**
 
 - ❌ 网络存储：WebDAV、SMB、FTP、NFS、云盘——本期一律不做。但抽象层**不得把「文件 = 本地路径字符串」写死**，以便未来增加 Provider 时不推翻核心（见 §5.2 `FileLocator` 设计；注意：仅预留定位符抽象，不预留任何网络代码）。
-- ❌ 完整编辑器：文本/代码仅做预览 + 轻量编辑（小文件）；图片不做编辑；Office 文档不做排版级渲染（见 §6.5 降级策略）。
+- ❌ 完整编辑器：文本/代码仅做预览 + 轻量编辑（小文件）；图片不做编辑；Office 文档只做常见 OOXML 子集的有界只读渲染，不做编辑或像素级完整排版（见 §6.5 降级策略）。
 - ❌ 同步、备份、重复文件清理、磁盘清理类「管家」功能。
 - ❌ root / 提权浏览系统目录；需要权限时引导用户走系统授权（Android SAF）或给出明确的无权限提示，不绕过系统安全模型。
 - ❌ iOS / macOS / WebAssembly 交付——架构保持可移植（不写死桌面假设），但本期不做宿主、不做测试矩阵。
@@ -123,7 +123,9 @@ MVP 发布须同时满足：三端功能清单 §6 中全部 `MVP` 项在真机/
 | Hex 查看 | `AvaloniaHex`（对应 `Md3.Avalonia.AvaloniaHex` 主题）或自写虚拟化只读十六进制视图 | 以所选包为准（采用前登记） | 未知 | **Spike** 后二选一；兜底方案是自写只读视图（功能小、可控），定位为「未知二进制」的最后降级 |
 | Markdown 预览 | `Markdig`（解析）+ 渲染控件（`Markdown.Avalonia` 系或 Md3 Markdown 主题对应上游） | Markdig BSD-2；渲染控件以所选为准 | 渲染控件历史上有反射式样式绑定，需实测 | **Spike**。渲染控件若 AOT 不过关，则用 Markdig 生成文档对象 + 自有 `TextBlock`/`Inline` 只读渲染子集（标题/段落/列表/代码/链接/图片），禁止内嵌 WebView 渲染本地 Markdown |
 | PDF 预览（桌面） | `PDFtoImage 5.2.1`（PDFium + SkiaSharp，页渲染为位图） | MIT；PDFium 本体 BSD-3 类许可 + `bblanchon.PDFium.*` 原生包 Apache-2.0 | 包声明 `IsAotCompatible`，目标含 `net10.0`；PDFium 非线程安全，宿主全进程串行（§6.5） | **v0.6 已采用**。原生库按 RID 打包，体积进 §12 预算 |
-| PDF 预览（Android） | 同一 `PDFtoImage 5.2.1`（目标含 `net10.0-android`） | MIT；PDFium Android Apache-2.0 | 包声明 `IsAotCompatible`；Android 宿主直接引用以选中 Android 原生资产；上游标注 API 31+ | **v0.6 已采用**（调整原“系统 `PdfRenderer` 首选”）：一套流式入口可同时覆盖本地与 SAF 字节流，避免为 `ParcelFileDescriptor` 复制临时文件；API <31 时不进入原生渲染并回落系统打开提示。代价是 APK 原生体积，后续以 §12 预算复核 |
+| PDF 预览（Android） | 同一 `PDFtoImage 5.2.1`（目标含 `net10.0-android`） | MIT；PDFium Android Apache-2.0 | 包声明 `IsAotCompatible`；Android 宿主直接引用以选中 Android 原生资产；上游标注 API 31+ | **v0.6 已采用**（调整原“系统 `PdfRenderer` 首选”）：一套流式入口可同时覆盖本地与 SAF 字节流，避免为 `ParcelFileDescriptor` 复制临时文件；API <31 时不进入原生渲染，v0.23 起改走有界纯托管 PDF 兼容回落。代价是 APK 原生体积，后续以 §12 预算复核 |
+| Office 只读预览 / PDF 兼容回落 | `OfficeViewer.Avalonia 0.1.6`（Avalonia 原生 `DocxViewer`/`PptxViewer`/`XlsxViewer`/`PdfViewer`） | MIT | 包目标含 `net10.0` 且声明 Trim/Native AOT 兼容；本仓须以 Linux Native AOT 与 Android trimming/AOT 发布复核每一版本 | **v0.23 已采用（隔离）**：只在 `MdExplorer.UI` 引用，宿主经 `IFileSystemService` 有界读入 `byte[]` 并预检后才绑定，禁止调用其 path/stream 无界入口；仅覆盖常见 DOCX/PPTX/XLSX 兼容子集，PDF 只作 PDFium 不可用回落，不取代 PDFium 的密码/缩略图/连续阅读主路径 |
+| 官方 Avalonia PDF 控件（未采用） | `Avalonia.Controls.PdfViewer` | Avalonia Pro/Enterprise 商业许可 | 支持 .NET 10/Avalonia 12 并声明 Trim/AOT 兼容 | **不用**：当前 Apache-2.0 项目没有 Pro/Enterprise 许可证，不能作为默认构建/分发依赖；仅记录为未来取得商业许可时的完整控件路线 |
 | 压缩包 | `SharpCompress` | MIT；纯托管 | 现行版本对 `net8+` 标注 `IsTrimmable/IsAotCompatible`；仅处理数 MB 卷时托管 LZMA 速度可接受 | **首选**（浏览/解压/建包）。RAR 仅解压；加密包提示输密码但密码不落盘。备选 `GrindCore.SharpCompress`（MIT、原生加速、声明 AOT）只在性能实测不达标时启用并复核原生库许可 |
 | 内置 ZIP | `System.IO.Compression` | MIT（.NET） | AOT 安全 | 用作 ZIP 快速路径（列表/解压小文件）与 SharpCompress 并存，以接口 `IArchiveService` 收口 |
 | 媒体元数据（音视频/图片 EXIF） | `MetadataExtractor`（EXIF 等）/ 图片走 Skia `SKCodec`；音视频标签候选 `TagLibSharp` | MetadataExtractor Apache-2.0；TagLibSharp **LGPL-2.1** | 均需 Spike 验证 Trim | EXIF 首选 Skia + MetadataExtractor（**Spike**）；`TagLibSharp` 为 LGPL 且增加体积——**默认不用**，MVP 只读平台可得的基本元数据（时长/码率经平台层，§9），不足时再评估 LGPL 的动态链接合规（§3.5） |
@@ -595,7 +597,7 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 | 图片 jpg/png/gif/webp/bmp/svg* | Skia 解码下采样；动图仅首帧+徽标（播放 P2）；SVG 以 Avalonia `Svg` 能力评估（Spike，Svg.Skia 系许可为 MIT）或位图化 | ✔ | 支持缩放手势（双击/捏合）与 EXIF 方向；超大图（>8000px 边）只解预览尺寸 |
 | 文本/代码/日志 | 预览为 AvaloniaEdit 只读高亮并只截取前 512 KiB；独立文档工作台完整读取 ≤2 MiB 的本地文本，严格识别 UTF-8/16/32 与 BOM | ✔（v0.20 轻编辑第一切片） | 默认只读、显式进入编辑；保存保留编码、BOM 与主导换行，旧代码页不猜测解码；完整 IDE、SAF 写回与超限分片编辑仍未实现 |
 | Markdown | 渲染阅读视图（§3.2 路线）；本地相对图片允许加载、外链图片禁止自动加载（隐私） | ✔ | 不执行 HTML/脚本内嵌 |
-| PDF | 预览为单页分页；工作台可在单页纸面与连续滚动之间切换，连续页按视口懒渲染并与缩略图轨/页码同步，缩放/90° 旋转按需重渲，密码仅驻内存、页码可跳转 | ✔（v0.20 第一片 + v0.22 连续阅读） | 目录/书签与文字层/文档内搜索仍为 P2；PDFtoImage/PDFium 5.2.1 公开 API 无文本提取、命中位置或目录接口 |
+| PDF | 预览为单页分页；工作台可在单页纸面与连续滚动之间切换，连续页按视口懒渲染并与缩略图轨/页码同步，缩放/90° 旋转按需重渲，密码仅驻内存、页码可跳转；Android API <31 或 PDFium 原生组件不可用时改走 OfficeViewer 常见 PDF 子集回落 | ✔（v0.20 第一片 + v0.22 连续阅读 + v0.23 回落） | 目录/书签与文字层/文档内搜索仍为 P2；PDFtoImage/PDFium 5.2.1 公开 API 无文本提取、命中位置或目录接口，回落面不提供密码、目录、搜索或同等保真承诺 |
 | 音频 | 封面 + 标签 + 时长 + 「用系统播放」；（内置播放见 D-03）迷你播放为 P2 候选 | ✔（信息卡） | — |
 | 视频 | 海报帧（平台层：Android `MediaMetadataRetriever`、Windows Shell 缩略可选、Linux 无则类型卡）+ 元信息 | ✔（信息卡） | 内置播放默认不交付（§3.2） |
 | 压缩包 | 条目树（名/原大小/压后大小/日期）、单文件提取到内存预览（上限 10 MB)、整包解压入口 | ✔ | 嵌套压缩包只开一层 |
@@ -603,7 +605,7 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 | CSV / TSV | 网格只读（前 500 行 × 64 列，分隔符嗅探） | ✔ | — |
 | 字体 ttf/otf | 示例串渲染 + 元信息 | P2 | 加载到 Skia typeface，不安装到系统 |
 | 未知/二进制 | 元信息卡 + Hex 视图（前 64 KB 窗滑动） | ✔ | 永远兜底，永不白屏 |
-| Office docx/xlsx/pptx、epub | 不渲染排版：元信息卡（自 zip 内读 `docProps`)+ 系统打开 | ✔（元信息） | docx 纯文本抽取为 P2（解 zip 读 XML 拉文本） |
+| Office docx/xlsx/pptx | 快速预览与文档工作台只读渲染：DOCX/PPTX 连续滚动，XLSX 宿主切换工作表；进入第三方控件前先限制文件、ZIP 条目/展开量、XML/媒体规模与表格网格并拒绝加密/宏部件 | ✔（v0.23 常见 OOXML 兼容子集） | 不支持编辑、旧 `.doc/.xls/.ppt` 二进制格式或完整 Office 保真保证；DOCX 浮动对象/自动分页、PPTX 动画/复杂图表、XLSX 公式重算/图表/透视表可能缺失或偏差，失败与超限明确回落系统打开；epub 仍为元信息卡 + 系统打开 |
 
 预览窗格（Expanded+ 侧栏）与 Compact/Medium 悬浮查看窗共用同一 `PreviewView` 与装卸逻辑：文件头与「打开」常驻，内容与属性分「预览 / 属性」双页签（文件默认内容、文件夹默认属性）；切文件即取消上一加载；加载骨架屏；失败明确区分「格式不支持/文件损坏/无权限/文件已消失」并保持元信息卡可达。
 
@@ -648,6 +650,8 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 > 自动化定义以 Domain 的 `AutomationWorkflowDefinition` 类型化嵌入 `AppSettings`，经既有源生成 JSON 与原子写持久化。Application 校验器只接受恰好一个 `CurrentFolder`、零或多个 `KindFilter`/`NameContains`、恰好一个 `TransferToSubfolder`、至多一个终点 `SystemNotification` 的单链，并拒绝重复 ID、多入多出、环、未连节点、文件夹类型筛选、路径型目标名与未知通知占位符。执行器只读取运行瞬间主浏览器的本地当前文件夹顶层文件（拒绝 `content:` SAF 定位串），先过滤、仅有匹配时建一级目标夹，再以 `ConflictPolicy.KeepBoth` 复用 `IFileOperationService`；整体经 Shell 任务队列运行，文件结果与流程内通知结果分开呈现。NodifyM 画布只在自动化页局部注册 Md3 主题，节点 VM 对连线再做单入单出与终点限制，并禁用连接分裂/Knot；默认示例为图片复制到“图片整理”后通知。分支、条件、循环、多工作流、定时/监听触发、递归、任意目标路径和 SAF 自动化仍未实现。
 
 > **v0.22 文档工作台第二切片（PDF 连续阅读 + 关闭守卫，已落地到代码与无头验证）**：`DocumentWorkbenchViewModel` 新增单页/连续阅读模式。连续面继续遵守 Md3-only 主题下的 `MdList` 不变量，以每页已知宽高比预留纸面尺寸，容器进入视口后才通过既有串行 PDFium 收口层按当前缩放与旋转渲染整页；当前页附近会预取相邻页，滚动锚点反向同步 `PdfPageIndex`、缩略图轨、页码输入与翻页命令。缩放或旋转会以视觉代次废弃旧渲染，整页位图同时受最多 10 页与约 96 MiB 未压缩像素估算双预算约束，优先释放远离当前页者；单页模式、密码仅驻内存与 64/128 MiB 输入上限不变。桌面 `MainWindow.OnClosing` 统一拦截脏文本与正在保存状态：前者必须明确选择放弃并关闭，后者直接阻止关闭，避免窗口自绘关闭按钮和系统关闭路径出现不同语义。本版 CI 证据包括 Ubuntu/Windows 单元测试各 165/165、无头 UI 测试 52/52、正式截图 47 张，以及 Windows/Linux 自包含、Linux Native AOT 与 Android trimming/AOT 发布覆盖。目录/书签、文本层提取、文档内搜索/命中高亮与 Android SAF 安全写回仍未实现。
+
+> **v0.23 Office 只读预览 + PDF 兼容回落（已落地）**：`FileKindClassifier` 只把 `.docx/.pptx/.xlsx` 识别为内置 Office，旧二进制格式继续走元信息/系统打开。`OfficeDocumentLoader` 是 OfficeViewer 的唯一数据收口：经 `IFileSystemService` 覆盖本地路径与 Android SAF，快速预览上限为桌面 32 MiB/Android 16 MiB，文档工作台为 64/32 MiB；随后在后台以禁用 DTD、`XmlResolver=null` 的流式 XML 扫描预检 ZIP 条目（≤1536）、展开量（≤192/96 MiB）、单部件、XML 与媒体总量、核心 XML 元素、PPTX 页数及 XLSX 工作表/行列/网格位置，并直接拒绝 `EncryptionInfo`、`EncryptedPackage` 与 `vbaProject.bin`。预检同时产出段落/表格/幻灯片/工作表事实和每张 XLSX 的逻辑宽度。`OfficeDocumentViewer` 是唯一第三方控件适配层：按格式只实例化一个 Viewer，切换/清空/脱离视觉树时释放、重挂载时重建；为 Md3-only 主题缺失的原生 `ScrollViewer` 仅在适配器子树内补模板，并按纸面或活动工作表宽度做布局缩放，使 Compact 与窄预览栏能先看到完整宽度。快速预览与工作台共享同一有界负载和页/表状态，XLSX 切表由宿主控制。PDF 仍以 PDFtoImage/PDFium 为主路径；只有 Android API <31 预先避开原生资产、或运行时原生组件加载失败时才切 OfficeViewer PDF 面，`ShowPdfWorkbench` 与 Office 回落面互斥。OfficeViewer 是年轻的 0.1.x 依赖，升级前必须重新跑真实 OOXML 截图、Android 与 Native AOT 门，不得因样本可渲染就宣称完整 Office 兼容。
 
 ### 6.9 Phase 2 候选池（先定边界不排期）
 

@@ -83,6 +83,7 @@ public sealed class OfficeDocumentPreviewTests : IDisposable
         var xlsContent = await LoadAsync(registry, xlsx);
         Assert.Equal(OfficePreviewFormat.Xlsx, xlsContent.Office?.Format);
         Assert.Equal(["总览", "明细"], xlsContent.Office?.Facts.SheetNames);
+        Assert.Equal([320d, 320d], xlsContent.Office?.Facts.SheetNominalWidths);
         Assert.Contains("2 张工作表", xlsContent.Office?.Facts.Summary, StringComparison.Ordinal);
     }
 
