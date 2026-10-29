@@ -121,6 +121,8 @@ public sealed class ScreenshotTests
         }
         finally
         {
+            // 截图夹具的收尾关闭不走用户确认；真实关闭守卫由专门用例覆盖。
+            shell.DocumentWorkbench.Clear();
             window.Close();
         }
     }
@@ -279,6 +281,98 @@ public sealed class ScreenshotTests
         Assert.Equal(1, workbench.PdfPageIndex);
         Assert.NotNull(workbench.PdfImage);
     });
+
+    [AvaloniaFact]
+    public async Task Large_DocumentWorkbenchPdfContinuous() => await CaptureAsync(
+        "45-large-pdf-continuous.png", 1440, 900, async shell =>
+    {
+        await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
+        var workbench = shell.DocumentWorkbench;
+        workbench.UseContinuousPdfModeCommand.Execute(null);
+        workbench.ZoomOutCommand.Execute(null);
+        workbench.ZoomOutCommand.Execute(null);
+        for (int i = 0; i < 100 && workbench.PdfPages.Any(page => page.PageImage is null); i++)
+            await Task.Delay(50);
+
+        Assert.True(workbench.IsContinuousPdfMode);
+        Assert.Equal(50, workbench.ZoomPercent);
+        Assert.Equal(0, workbench.PdfPageIndex);
+        Assert.All(workbench.PdfPages, page => Assert.NotNull(page.PageImage));
+    });
+
+    [AvaloniaFact]
+    public async Task Compact_DocumentWorkbenchPdfContinuous() => await CaptureAsync(
+        "46-compact-pdf-continuous.png", 390, 844, async shell =>
+    {
+        await OpenDocumentByNameAsync(shell, "设计规范 v3.pdf");
+        var workbench = shell.DocumentWorkbench;
+        workbench.UseContinuousPdfModeCommand.Execute(null);
+        for (int i = 0; i < 100 && workbench.PdfPages.Any(page => page.PageImage is null); i++)
+            await Task.Delay(50);
+
+        Assert.True(workbench.IsCompactLayout);
+        Assert.True(workbench.IsContinuousPdfMode);
+        Assert.All(workbench.PdfPages, page => Assert.NotNull(page.PageImage));
+    });
+
+    [AvaloniaFact]
+    public async Task Large_UnsavedDocumentCloseGuard()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        await OpenDocumentByNameAsync(shell, "Program.cs");
+        var workbench = shell.DocumentWorkbench;
+        workbench.BeginEditCommand.Execute(null);
+        workbench.EditorText += "\n// 未保存更改\n";
+        Assert.True(workbench.NeedsCloseConfirmation);
+
+        var window = new MainWindow { Width = 1440, Height = 900, DataContext = shell };
+        var closed = false;
+        window.Closed += (_, _) => closed = true;
+        window.Show();
+        try
+        {
+            window.Close();
+            for (int i = 0; i < 80 && !shell.IsDialogOpen; i++)
+            {
+                window.CaptureRenderedFrame();
+                await Task.Delay(50);
+            }
+
+            Assert.True(shell.IsDialogOpen);
+            Assert.True(window.IsVisible);
+            Assert.False(closed);
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            frame!.Save(Path.Combine(OutputDir, "47-large-unsaved-close-dialog.png"));
+
+            shell.DialogCancelCommand.Execute(null);
+            for (int i = 0; i < 40 && shell.IsDialogOpen; i++)
+                await Task.Delay(25);
+            Assert.False(shell.IsDialogOpen);
+            Assert.True(window.IsVisible);
+            Assert.False(closed);
+            await Task.Delay(100);
+
+            window.Close();
+            for (int i = 0; i < 80 && !shell.IsDialogOpen; i++)
+                await Task.Delay(50);
+            Assert.True(shell.IsDialogOpen);
+            shell.DialogConfirmCommand.Execute(null);
+            for (int i = 0; i < 80 && !closed; i++)
+                await Task.Delay(50);
+            Assert.True(closed);
+            Assert.False(window.IsVisible);
+        }
+        finally
+        {
+            if (window.IsVisible)
+            {
+                workbench.Clear();
+                window.Close();
+            }
+        }
+    }
 
     [AvaloniaFact]
     public async Task Large_AutomationEditor()

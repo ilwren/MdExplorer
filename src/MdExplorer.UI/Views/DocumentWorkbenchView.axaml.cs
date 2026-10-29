@@ -2,6 +2,8 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit.Highlighting;
 using MdExplorer.Domain;
 using MdExplorer.UI.ViewModels;
@@ -12,6 +14,7 @@ public partial class DocumentWorkbenchView : UserControl
 {
     private DocumentWorkbenchViewModel? _vm;
     private bool _syncingEditor;
+    private bool _syncingPdfPageFromContinuousScroll;
 
     public DocumentWorkbenchView()
     {
@@ -29,6 +32,8 @@ public partial class DocumentWorkbenchView : UserControl
             DocumentEditor.Focus();
         };
         PdfPageList.ContainerPrepared += OnPdfPageContainerPrepared;
+        PdfContinuousList.ContainerPrepared += OnPdfContinuousContainerPrepared;
+        PdfContinuousList.AddHandler(ScrollViewer.ScrollChangedEvent, OnPdfContinuousScrollChanged);
         PdfPageInputBox.KeyDown += OnPdfPageInputKeyDown;
         PdfPasswordBox.KeyDown += OnPdfPasswordKeyDown;
     }
@@ -90,13 +95,20 @@ public partial class DocumentWorkbenchView : UserControl
 
         if (_vm.IsPdfDocument && e.Source is not TextBox)
         {
-            if (e.Key is Key.PageDown or Key.Right or Key.Down)
+            // 连续模式让方向键回到列表自身的滚动/选择语义；PageUp/PageDown 仍按整页导航。
+            var next = _vm.IsContinuousPdfMode
+                ? e.Key == Key.PageDown
+                : e.Key is Key.PageDown or Key.Right or Key.Down;
+            var previous = _vm.IsContinuousPdfMode
+                ? e.Key == Key.PageUp
+                : e.Key is Key.PageUp or Key.Left or Key.Up;
+            if (next)
             {
                 _vm.NextPdfPageCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
-            if (e.Key is Key.PageUp or Key.Left or Key.Up)
+            if (previous)
             {
                 _vm.PreviousPdfPageCommand.Execute(null);
                 e.Handled = true;
@@ -114,6 +126,14 @@ public partial class DocumentWorkbenchView : UserControl
             or nameof(DocumentWorkbenchViewModel.IsEditing)
             or nameof(DocumentWorkbenchViewModel.FullPath))
             ApplyEditorState();
+
+        if (!_syncingPdfPageFromContinuousScroll &&
+            (e.PropertyName is nameof(DocumentWorkbenchViewModel.PdfPageIndex)
+                or nameof(DocumentWorkbenchViewModel.PdfReadingModeIndex)))
+        {
+            // 等连续列表先完成本帧布局，再把目标页带入视口；滚动同步页码时不反向抢滚动位置。
+            Dispatcher.UIThread.Post(ScrollContinuousToCurrentPage, DispatcherPriority.Loaded);
+        }
     }
 
     private void OnEditorTextChanged(object? sender, EventArgs e)
@@ -157,6 +177,61 @@ public partial class DocumentWorkbenchView : UserControl
     {
         if (_vm is not null && e.Container.DataContext is PdfPageViewModel page)
             _ = _vm.EnsureThumbnailAsync(page);
+    }
+
+    private void OnPdfContinuousContainerPrepared(object? sender, ContainerPreparedEventArgs e)
+    {
+        if (_vm is not null && e.Container.DataContext is PdfPageViewModel page)
+            _ = _vm.EnsurePageImageAsync(page);
+    }
+
+    private void ScrollContinuousToCurrentPage()
+    {
+        if (_vm is null || !_vm.IsContinuousPdfMode || _syncingPdfPageFromContinuousScroll ||
+            _vm.PdfPageIndex < 0 || _vm.PdfPageIndex >= _vm.PdfPages.Count)
+            return;
+        PdfContinuousList.ScrollIntoView(_vm.PdfPages[_vm.PdfPageIndex]);
+    }
+
+    private void OnPdfContinuousScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (_vm is null || !_vm.IsContinuousPdfMode || PdfContinuousList.Bounds.Height <= 0)
+            return;
+
+        var anchorY = Math.Clamp(PdfContinuousList.Bounds.Height * 0.25, 24, 160);
+        PdfPageViewModel? anchored = null;
+        PdfPageViewModel? firstVisible = null;
+        foreach (var item in PdfContinuousList.GetVisualDescendants().OfType<ListBoxItem>())
+        {
+            if (item.DataContext is not PdfPageViewModel page)
+                continue;
+            var top = item.TranslatePoint(new Point(0, 0), PdfContinuousList)?.Y;
+            if (top is not { } y)
+                continue;
+            var bottom = y + item.Bounds.Height;
+            if (bottom <= 0 || y >= PdfContinuousList.Bounds.Height)
+                continue;
+            if (firstVisible is null || page.Index < firstVisible.Index)
+                firstVisible = page;
+            if (y <= anchorY && bottom > anchorY)
+            {
+                anchored = page;
+                break;
+            }
+        }
+
+        var current = anchored ?? firstVisible;
+        if (current is null || current.Index == _vm.PdfPageIndex)
+            return;
+        _syncingPdfPageFromContinuousScroll = true;
+        try
+        {
+            _vm.PdfPageIndex = current.Index;
+        }
+        finally
+        {
+            _syncingPdfPageFromContinuousScroll = false;
+        }
     }
 
     private void OnPdfPageInputKeyDown(object? sender, KeyEventArgs e)

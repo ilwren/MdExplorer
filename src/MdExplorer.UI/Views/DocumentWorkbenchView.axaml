@@ -192,31 +192,79 @@
 
       <Border x:Name="PdfReaderCard" Grid.Column="2" Classes="card" Padding="8">
         <Grid RowDefinitions="Auto,*" RowSpacing="6">
-          <TextBlock Classes="caption" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" />
-          <md:MdScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                             AllowMouseDrag="True">
-            <Grid MinHeight="360">
-              <Border x:Name="PdfPaper" Width="{Binding PdfDisplayWidth}" CornerRadius="4" ClipToBounds="True"
-                      Background="#FFFDF8" BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
-                      HorizontalAlignment="Center" VerticalAlignment="Top" IsVisible="{Binding HasPdf}">
-                <Image Source="{Binding PdfImage}" Stretch="Uniform" />
-              </Border>
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <TextBlock Classes="caption" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" ToolTip.Tip="{Binding StatusText}" />
+            <md:MdTabs x:Name="PdfReadingModeTabs" Grid.Column="1" Variant="Secondary"
+                       SelectedIndex="{Binding PdfReadingModeIndex, Mode=TwoWay}" IsVisible="{Binding HasPdf}"
+                       AutomationProperties.Name="PDF 阅读模式">
+              <md:MdTabItem Content="单页" />
+              <md:MdTabItem Content="连续" />
+            </md:MdTabs>
+          </Grid>
 
-              <StackPanel IsVisible="{Binding NeedsPdfPassword}" Width="340" Spacing="10"
-                          HorizontalAlignment="Center" VerticalAlignment="Center">
-                <md:MdIcon Glyph="{x:Static md:MdSymbols.Lock}" Size="38" HorizontalAlignment="Center"
-                           Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-                <TextBlock Classes="h3" Text="此 PDF 需要密码" HorizontalAlignment="Center" />
-                <TextBlock Classes="caption" Text="密码仅在本次打开期间保存在内存中，不会写入设置。" TextWrapping="Wrap" TextAlignment="Center" />
-                <md:MdTextBox x:Name="PdfPasswordBox" Text="{Binding PdfPasswordInput}" Variant="Outlined" Label="PDF 密码"
-                              IsPassword="True" AutomationProperties.Name="PDF 密码" />
-                <md:MdButton Variant="Filled" Height="42" Content="解锁" Command="{Binding UnlockPdfCommand}" />
-              </StackPanel>
+          <Grid Grid.Row="1">
+            <md:MdScrollViewer x:Name="PdfSingleScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                               AllowMouseDrag="True" IsVisible="{Binding IsSinglePagePdfMode}">
+              <Grid MinHeight="360">
+                <Border x:Name="PdfPaper" Width="{Binding PdfDisplayWidth}" CornerRadius="4" ClipToBounds="True"
+                        Background="#FFFDF8" BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
+                        HorizontalAlignment="Center" VerticalAlignment="Top" IsVisible="{Binding HasPdf}">
+                  <Image Source="{Binding PdfImage}" Stretch="Uniform" />
+                </Border>
+              </Grid>
+            </md:MdScrollViewer>
 
-              <TextBlock Classes="caption" Text="{Binding FailureText}" IsVisible="{Binding HasFailure}"
-                         HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-            </Grid>
-          </md:MdScrollViewer>
+            <!-- Md3 主题下同样使用 MdList；虚拟化容器进入视口后才渲染整页位图。 -->
+            <md:MdList x:Name="PdfContinuousList" ItemsSource="{Binding PdfPages}"
+                       SelectedIndex="{Binding PdfPageIndex, Mode=TwoWay}"
+                       AutoScrollToSelectedItem="False" ItemSpacing="10"
+                       Background="Transparent" BorderThickness="0"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       IsVisible="{Binding IsContinuousPdfMode}"
+                       AutomationProperties.Name="PDF 连续阅读">
+              <md:MdList.ItemTemplate>
+                <DataTemplate x:DataType="vm:PdfPageViewModel">
+                  <Grid Width="{Binding ReaderWidth}" HorizontalAlignment="Center" RowDefinitions="Auto,Auto" Margin="2,4">
+                    <Border Height="{Binding ReaderHeight}" CornerRadius="4" ClipToBounds="True"
+                            Background="#FFFDF8" BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
+                      <Grid>
+                        <Image Source="{Binding PageImage}" Stretch="Fill" IsVisible="{Binding HasPageImage}" />
+                        <StackPanel IsVisible="{Binding !HasPageImage}" Spacing="8"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                          <md:MdCircularProgressIndicator IsVisible="{Binding IsPageLoading}" IsIndeterminate="True"
+                                                          Width="24" Height="24" HorizontalAlignment="Center" />
+                          <TextBlock Classes="caption" Text="{Binding PageLabel}"
+                                     HorizontalAlignment="Center" IsVisible="{Binding !HasPageLoadError}" />
+                          <TextBlock Classes="caption" Text="此页渲染失败" HorizontalAlignment="Center"
+                                     IsVisible="{Binding HasPageLoadError}" />
+                        </StackPanel>
+                        <Border Width="4" HorizontalAlignment="Left" IsVisible="{Binding IsCurrent}"
+                                Background="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                      </Grid>
+                    </Border>
+                    <TextBlock Grid.Row="1" Classes="caption" Text="{Binding PageText}"
+                               HorizontalAlignment="Center" Margin="0,4,0,0" />
+                  </Grid>
+                </DataTemplate>
+              </md:MdList.ItemTemplate>
+            </md:MdList>
+
+            <StackPanel IsVisible="{Binding NeedsPdfPassword}" Width="340" Spacing="10"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.Lock}" Size="38" HorizontalAlignment="Center"
+                         Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+              <TextBlock Classes="h3" Text="此 PDF 需要密码" HorizontalAlignment="Center" />
+              <TextBlock Classes="caption" Text="密码仅在本次打开期间保存在内存中，不会写入设置。" TextWrapping="Wrap" TextAlignment="Center" />
+              <md:MdTextBox x:Name="PdfPasswordBox" Text="{Binding PdfPasswordInput}" Variant="Outlined" Label="PDF 密码"
+                            IsPassword="True" AutomationProperties.Name="PDF 密码" />
+              <md:MdButton Variant="Filled" Height="42" Content="解锁" Command="{Binding UnlockPdfCommand}" />
+            </StackPanel>
+
+            <TextBlock Classes="caption" Text="{Binding FailureText}" IsVisible="{Binding HasFailure}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+          </Grid>
         </Grid>
       </Border>
     </Grid>

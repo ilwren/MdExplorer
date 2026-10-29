@@ -27,6 +27,8 @@ public sealed partial class DocumentWorkbenchViewModel(
 {
     public const long MaxTextBytes = 2L * 1024 * 1024;
     private const int MaxCachedPdfThumbnails = 36;
+    private const int MaxCachedContinuousPdfPages = 10;
+    private const long MaxContinuousPdfCacheBytes = 96L * 1024 * 1024;
     private static readonly int[] ZoomLevels = [50, 75, 100, 125, 150, 200, 250, 300];
     private static readonly HashSet<string> TextualDataExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -35,12 +37,14 @@ public sealed partial class DocumentWorkbenchViewModel(
 
     private int _loadGeneration;
     private int _pdfRenderGeneration;
+    private int _pdfVisualGeneration;
     private TextFileSnapshot? _textSnapshot;
     private string _originalText = string.Empty;
     private byte[]? _pdfData;
     private string? _pdfPassword;
     private bool _pdfDocumentReady;
     private long _thumbnailAccessTick;
+    private long _readerAccessTick;
 
     [ObservableProperty] private bool _hasDocument;
     [ObservableProperty] private string _title = string.Empty;
@@ -64,6 +68,7 @@ public sealed partial class DocumentWorkbenchViewModel(
     [ObservableProperty] private int _pdfPageCount;
     [ObservableProperty] private string _pdfPageInput = "1";
     [ObservableProperty] private Bitmap? _pdfImage;
+    [ObservableProperty] private int _pdfReadingModeIndex;
     [ObservableProperty] private int _zoomPercent = 100;
     [ObservableProperty] private int _rotationDegrees;
     [ObservableProperty] private string _pdfPasswordInput = string.Empty;
@@ -90,6 +95,7 @@ public sealed partial class DocumentWorkbenchViewModel(
     public bool IsReadOnlyText => IsTextDocument && _textSnapshot is { IsReadOnly: true };
     public bool IsDirty => IsTextDocument && _textSnapshot is not null &&
                            !string.Equals(Canonical(EditorText), Canonical(_originalText), StringComparison.Ordinal);
+    public bool NeedsCloseConfirmation => IsDirty || IsSaving;
     public bool CanSave => IsEditing && IsDirty && CanEditDocument && EstimatedEditorBytes <= MaxTextBytes;
     public bool CanFormat => IsEditing && CanEditDocument && CurrentItem is { } item && IsFormattable(item);
     public int CharacterCount => EditorText.Length;
@@ -113,6 +119,9 @@ public sealed partial class DocumentWorkbenchViewModel(
     public string DirtyText => IsDirty ? "已修改" : IsEditing ? "正在编辑" : "只读预览";
 
     public bool HasPdf => IsPdfDocument && PdfPageCount > 0;
+    public bool IsContinuousPdfMode => PdfReadingModeIndex == 1;
+    public bool IsSinglePagePdfMode => !IsContinuousPdfMode;
+    public string PdfReadingModeText => IsContinuousPdfMode ? "连续" : "单页";
     public string PdfPageText => HasPdf ? $"第 {PdfPageIndex + 1} / {PdfPageCount} 页" : string.Empty;
     public string PdfPageCountText => HasPdf ? $"/ {PdfPageCount:N0}" : string.Empty;
     public bool CanPreviousPdfPage => HasPdf && PdfPageIndex > 0;
@@ -146,6 +155,27 @@ public sealed partial class DocumentWorkbenchViewModel(
     {
         OnPropertyChanged(nameof(PdfDisplayWidth));
         OnPropertyChanged(nameof(TextFactsText));
+        UpdatePdfReaderLayout();
+    }
+
+    partial void OnPdfReadingModeIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsContinuousPdfMode));
+        OnPropertyChanged(nameof(IsSinglePagePdfMode));
+        OnPropertyChanged(nameof(PdfReadingModeText));
+        if (!_pdfDocumentReady)
+            return;
+
+        if (IsContinuousPdfMode)
+        {
+            StatusText = IsCompactLayout ? "PDF 连续阅读" : "PDF 连续阅读 · 滚动时按需渲染";
+            EnsureContinuousNeighborhood();
+        }
+        else
+        {
+            StatusText = "PDF 只读阅读";
+            _ = RenderCurrentPdfPageAsync();
+        }
     }
 
     partial void OnEditorTextChanged(string value)
@@ -172,8 +202,18 @@ public sealed partial class DocumentWorkbenchViewModel(
         RaisePdfState();
         foreach (var page in PdfPages)
             page.IsCurrent = page.Index == value;
-        if (_pdfDocumentReady)
+        if (!_pdfDocumentReady)
+            return;
+        if (IsContinuousPdfMode)
+        {
+            if (value >= 0 && value < PdfPages.Count)
+                PdfPages[value].ReaderAccessTick = ++_readerAccessTick;
+            TrimContinuousPageCache();
+        }
+        else
+        {
             _ = RenderCurrentPdfPageAsync();
+        }
     }
 
     partial void OnPdfPageCountChanged(int value) => RaisePdfState();
@@ -182,14 +222,24 @@ public sealed partial class DocumentWorkbenchViewModel(
     {
         OnPropertyChanged(nameof(PdfDisplayWidth));
         OnPropertyChanged(nameof(ZoomText));
-        if (_pdfDocumentReady)
+        InvalidateContinuousPageImages();
+        if (!_pdfDocumentReady)
+            return;
+        if (IsContinuousPdfMode)
+            EnsureContinuousNeighborhood();
+        else
             _ = RenderCurrentPdfPageAsync();
     }
 
     partial void OnRotationDegreesChanged(int value)
     {
         OnPropertyChanged(nameof(RotationText));
-        if (_pdfDocumentReady)
+        InvalidateContinuousPageImages();
+        if (!_pdfDocumentReady)
+            return;
+        if (IsContinuousPdfMode)
+            EnsureContinuousNeighborhood();
+        else
             _ = RenderCurrentPdfPageAsync();
     }
 
@@ -299,6 +349,23 @@ public sealed partial class DocumentWorkbenchViewModel(
             "放弃未保存更改？",
             $"「{Title}」还有未保存的更改。返回后这些更改不会写入磁盘。",
             "放弃更改",
+            destructive: true).ConfigureAwait(true);
+    }
+
+    /// <summary>桌面窗口关闭前的统一守卫；正在保存时不允许以放弃更改的方式截断任务。</summary>
+    public async Task<bool> ConfirmCloseAsync()
+    {
+        if (IsSaving)
+        {
+            dialogs.Notify("文档正在保存，请等待任务完成后再关闭");
+            return false;
+        }
+        if (!IsDirty)
+            return true;
+        return await dialogs.ConfirmAsync(
+            "关闭前放弃未保存更改？",
+            $"「{Title}」还有未保存的更改。关闭窗口后这些更改将丢失且不会写入磁盘。",
+            "放弃并关闭",
             destructive: true).ConfigureAwait(true);
     }
 
@@ -500,13 +567,18 @@ public sealed partial class DocumentWorkbenchViewModel(
                     aspect = Math.Clamp(sizes[i].Width / sizes[i].Height, 0.2, 5);
                 PdfPages.Add(new PdfPageViewModel(i, aspect));
             }
+            UpdatePdfReaderLayout();
             SetPdfImage(document.FirstPage);
             PdfPageIndex = 0;
             if (PdfPages.Count > 0)
                 PdfPages[0].IsCurrent = true;
             _pdfDocumentReady = true;
-            StatusText = "PDF 只读阅读";
+            StatusText = IsContinuousPdfMode
+                ? (IsCompactLayout ? "PDF 连续阅读" : "PDF 连续阅读 · 滚动时按需渲染")
+                : "PDF 只读阅读";
             RaisePdfState();
+            if (IsContinuousPdfMode)
+                EnsureContinuousNeighborhood();
         }
         catch (PdfPasswordProtectedException)
         {
@@ -567,6 +639,12 @@ public sealed partial class DocumentWorkbenchViewModel(
 
     [RelayCommand]
     private void LastPdfPage() => PdfPageIndex = Math.Max(0, PdfPageCount - 1);
+
+    [RelayCommand]
+    private void UseSinglePagePdfMode() => PdfReadingModeIndex = 0;
+
+    [RelayCommand]
+    private void UseContinuousPdfMode() => PdfReadingModeIndex = 1;
 
     [RelayCommand]
     private void GoToPdfPageInput()
@@ -670,6 +748,96 @@ public sealed partial class DocumentWorkbenchViewModel(
         }
     }
 
+    public async Task EnsurePageImageAsync(PdfPageViewModel page)
+    {
+        if (_pdfData is null || !_pdfDocumentReady || page.PageImage is not null ||
+            page.IsPageLoading || page.HasPageLoadError)
+            return;
+
+        var loadGeneration = _loadGeneration;
+        var visualGeneration = _pdfVisualGeneration;
+        page.IsPageLoading = true;
+        page.ReaderAccessTick = ++_readerAccessTick;
+        try
+        {
+            var bitmap = await PdfPreviewRenderer.RenderPageAsync(
+                    _pdfData, page.Index, CancellationToken.None, _pdfPassword, RenderWidthForZoom, Rotation)
+                .ConfigureAwait(true);
+            if (loadGeneration != _loadGeneration || visualGeneration != _pdfVisualGeneration)
+            {
+                bitmap.Dispose();
+                return;
+            }
+
+            page.SetPageImage(bitmap);
+            TrimContinuousPageCache();
+        }
+        catch (Exception ex) when (ex is PdfException or IOException or InvalidDataException or NotSupportedException)
+        {
+            if (loadGeneration == _loadGeneration && visualGeneration == _pdfVisualGeneration)
+                page.HasPageLoadError = true;
+        }
+        finally
+        {
+            if (loadGeneration == _loadGeneration && visualGeneration == _pdfVisualGeneration)
+                page.IsPageLoading = false;
+        }
+    }
+
+    private void EnsureContinuousNeighborhood()
+    {
+        if (!_pdfDocumentReady || PdfPages.Count == 0)
+            return;
+        var current = Math.Clamp(PdfPageIndex, 0, PdfPages.Count - 1);
+        _ = EnsurePageImageAsync(PdfPages[current]);
+        if (current + 1 < PdfPages.Count)
+            _ = EnsurePageImageAsync(PdfPages[current + 1]);
+        if (current > 0)
+            _ = EnsurePageImageAsync(PdfPages[current - 1]);
+    }
+
+    private void UpdatePdfReaderLayout()
+    {
+        var sideways = RotationDegrees is 90 or 270;
+        foreach (var page in PdfPages)
+            page.UpdateReaderLayout(PdfDisplayWidth, sideways);
+    }
+
+    private void InvalidateContinuousPageImages()
+    {
+        _pdfVisualGeneration++;
+        foreach (var page in PdfPages)
+        {
+            page.SetPageImage(null);
+            page.IsPageLoading = false;
+            page.HasPageLoadError = false;
+        }
+        UpdatePdfReaderLayout();
+    }
+
+    private void TrimContinuousPageCache()
+    {
+        var loaded = PdfPages.Where(page => page.PageImage is not null).ToList();
+        while (loaded.Count > 2)
+        {
+            var estimatedBytes = loaded.Sum(page => page.PageImage is { } bitmap
+                ? (long)bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4
+                : 0);
+            if (loaded.Count <= MaxCachedContinuousPdfPages && estimatedBytes <= MaxContinuousPdfCacheBytes)
+                break;
+
+            var victim = loaded
+                .Where(page => page.Index != PdfPageIndex)
+                .OrderByDescending(page => Math.Abs(page.Index - PdfPageIndex))
+                .ThenBy(page => page.ReaderAccessTick)
+                .FirstOrDefault();
+            if (victim is null)
+                break;
+            victim.SetPageImage(null);
+            loaded.Remove(victim);
+        }
+    }
+
     private void TrimThumbnailCache()
     {
         var loaded = PdfPages.Where(page => page.Thumbnail is not null).ToList();
@@ -699,10 +867,14 @@ public sealed partial class DocumentWorkbenchViewModel(
     private void ClearPdfResources(bool clearBytes)
     {
         _pdfRenderGeneration++;
+        _pdfVisualGeneration++;
         _pdfDocumentReady = false;
         SetPdfImage(null);
         foreach (var page in PdfPages)
         {
+            page.SetPageImage(null);
+            page.IsPageLoading = false;
+            page.HasPageLoadError = false;
             page.Thumbnail?.Dispose();
             page.Thumbnail = null;
         }
@@ -730,6 +902,9 @@ public sealed partial class DocumentWorkbenchViewModel(
         OnPropertyChanged(nameof(CanPreviousPdfPage));
         OnPropertyChanged(nameof(CanNextPdfPage));
         OnPropertyChanged(nameof(PdfDisplayWidth));
+        OnPropertyChanged(nameof(IsContinuousPdfMode));
+        OnPropertyChanged(nameof(IsSinglePagePdfMode));
+        OnPropertyChanged(nameof(PdfReadingModeText));
     }
 
     // ---------- 文本派生状态与格式化 ----------
@@ -749,6 +924,7 @@ public sealed partial class DocumentWorkbenchViewModel(
         OnPropertyChanged(nameof(CanEditDocument));
         OnPropertyChanged(nameof(IsReadOnlyText));
         OnPropertyChanged(nameof(IsDirty));
+        OnPropertyChanged(nameof(NeedsCloseConfirmation));
         OnPropertyChanged(nameof(CanSave));
         OnPropertyChanged(nameof(CanFormat));
         OnPropertyChanged(nameof(CharacterCount));
@@ -865,21 +1041,53 @@ public sealed partial class DocumentWorkbenchViewModel(
     }
 }
 
-/// <summary>PDF 工作台的单页导航模型；缩略图只在页面进入视口时按需生成。</summary>
+/// <summary>PDF 工作台的单页导航模型；缩略图与连续阅读位图都只在页面进入视口时按需生成。</summary>
 public sealed partial class PdfPageViewModel(int index, double aspectRatio) : ObservableObject
 {
     public int Index { get; } = index;
     public int PageNumber => Index + 1;
     public string PageText => PageNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    public string PageLabel => $"第 {PageText} 页";
     public double AspectRatio { get; } = aspectRatio;
     public double PaperHeight => Math.Clamp(76 / AspectRatio, 42, 150);
     internal long LastAccessTick { get; set; }
+    internal long ReaderAccessTick { get; set; }
 
     [ObservableProperty] private Bitmap? _thumbnail;
+    [ObservableProperty] private Bitmap? _pageImage;
     [ObservableProperty] private bool _isCurrent;
     [ObservableProperty] private bool _isThumbnailLoading;
+    [ObservableProperty] private bool _isPageLoading;
+    [ObservableProperty] private bool _hasPageLoadError;
+    [ObservableProperty] private double _readerWidth = 780;
+    [ObservableProperty] private bool _isReaderSideways;
 
     public bool HasThumbnail => Thumbnail is not null;
+    public bool HasPageImage => PageImage is not null;
+    public double ReaderHeight => ReaderWidth * (IsReaderSideways ? AspectRatio : 1 / AspectRatio);
+
+    public void UpdateReaderLayout(double readerWidth, bool sideways)
+    {
+        ReaderWidth = Math.Max(120, readerWidth);
+        IsReaderSideways = sideways;
+        OnPropertyChanged(nameof(ReaderHeight));
+    }
+
+    public void SetPageImage(Bitmap? next)
+    {
+        var previous = PageImage;
+        PageImage = next;
+        if (next is not null)
+            HasPageLoadError = false;
+        if (previous is not null && !ReferenceEquals(previous, next))
+            previous.Dispose();
+    }
 
     partial void OnThumbnailChanged(Bitmap? value) => OnPropertyChanged(nameof(HasThumbnail));
+
+    partial void OnPageImageChanged(Bitmap? value) => OnPropertyChanged(nameof(HasPageImage));
+
+    partial void OnReaderWidthChanged(double value) => OnPropertyChanged(nameof(ReaderHeight));
+
+    partial void OnIsReaderSidewaysChanged(bool value) => OnPropertyChanged(nameof(ReaderHeight));
 }

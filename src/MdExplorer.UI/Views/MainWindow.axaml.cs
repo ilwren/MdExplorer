@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Styling;
+using MdExplorer.UI.ViewModels;
 
 namespace MdExplorer.UI.Views;
 
@@ -17,6 +18,9 @@ public static class MainWindowChromePolicy
 
 public partial class MainWindow : Window
 {
+    private bool _closeApproved;
+    private bool _closePromptOpen;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -27,5 +31,35 @@ public partial class MainWindow : Window
             WindowDecorationsTheme = decorationsTheme;
         }
         WindowDecorations = MainWindowChromePolicy.DecorationsForPlatform(OperatingSystem.IsWindows());
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        if (!_closeApproved &&
+            DataContext is ShellViewModel { DocumentWorkbench.NeedsCloseConfirmation: true } shell)
+        {
+            e.Cancel = true;
+            if (!_closePromptOpen)
+                _ = ConfirmCloseAsync(shell);
+        }
+
+        base.OnClosing(e);
+    }
+
+    private async Task ConfirmCloseAsync(ShellViewModel shell)
+    {
+        _closePromptOpen = true;
+        try
+        {
+            if (await shell.DocumentWorkbench.ConfirmCloseAsync().ConfigureAwait(true))
+            {
+                _closeApproved = true;
+                Close();
+            }
+        }
+        finally
+        {
+            _closePromptOpen = false;
+        }
     }
 }

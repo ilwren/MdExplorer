@@ -171,6 +171,47 @@ public sealed class DocumentWorkbenchTests : IDisposable
         Assert.Equal("{\"theme\":\"teal\"}", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task WorkbenchCloseGuardRequiresExplicitDiscard()
+    {
+        var (shell, _) = await CreateShellWithFileAsync("draft.txt", "before\n");
+        var workbench = shell.DocumentWorkbench;
+
+        Assert.False(workbench.NeedsCloseConfirmation);
+        Assert.True(await workbench.ConfirmCloseAsync());
+        Assert.False(shell.IsDialogOpen);
+
+        workbench.BeginEditCommand.Execute(null);
+        workbench.EditorText = "after\n";
+        Assert.True(workbench.NeedsCloseConfirmation);
+
+        var cancelledClose = workbench.ConfirmCloseAsync();
+        Assert.True(shell.IsDialogOpen);
+        shell.DialogCancelCommand.Execute(null);
+        Assert.False(await cancelledClose);
+        Assert.True(workbench.IsDirty);
+
+        var approvedClose = workbench.ConfirmCloseAsync();
+        Assert.True(shell.IsDialogOpen);
+        shell.DialogConfirmCommand.Execute(null);
+        Assert.True(await approvedClose);
+    }
+
+    [Fact]
+    public void PdfPageReaderLayoutHonorsRotation()
+    {
+        var page = new PdfPageViewModel(2, aspectRatio: 0.5);
+
+        page.UpdateReaderLayout(readerWidth: 600, sideways: false);
+        Assert.Equal(600, page.ReaderWidth);
+        Assert.Equal(1200, page.ReaderHeight);
+        Assert.Equal("第 3 页", page.PageLabel);
+
+        page.UpdateReaderLayout(readerWidth: 600, sideways: true);
+        Assert.Equal(300, page.ReaderHeight);
+        Assert.False(page.HasPageImage);
+    }
+
     private async Task<(ShellViewModel Shell, string Path)> CreateShellWithFileAsync(string name, string content)
     {
         var dataDir = Directory.CreateDirectory(Path.Combine(_root, Guid.NewGuid().ToString("N"), "data")).FullName;
