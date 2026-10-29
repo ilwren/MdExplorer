@@ -970,8 +970,13 @@
                       <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Icon="{x:Static md:MdSymbols.Refresh}"
                                        Command="{Binding SecondaryBrowser.RefreshCommand}" AutomationProperties.Name="刷新对照窗格" />
                     </StackPanel>
-                    <Border Grid.Column="1" Classes="path-pill" MinHeight="38" ClipToBounds="True">
-                      <md:MdScrollViewer x:Name="SecondaryBreadcrumbScroller" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True">
+                    <!-- 对照窗格路径胶囊：与 A 同一套语义（点分段跳转、点空白进入编辑、Enter 提交、Esc 取消），
+                         编辑状态只属于 SecondaryBrowser，不会让 A 的地址栏跟着变。 -->
+                    <Border Grid.Column="1" Classes="path-pill" MinHeight="38" ClipToBounds="True"
+                            Tapped="OnSecondaryBreadcrumbBarTapped">
+                      <Grid>
+                      <md:MdScrollViewer x:Name="SecondaryBreadcrumbScroller" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" AllowMouseDrag="True"
+                                         IsVisible="{Binding ShowSecondaryBreadcrumbBar}">
                         <ItemsControl x:Name="SecondaryBreadcrumbBar" ItemsSource="{Binding SecondaryBrowser.Breadcrumbs}" VerticalAlignment="Center">
                           <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -990,6 +995,24 @@
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>
                       </md:MdScrollViewer>
+                      <Grid RowDefinitions="Auto,Auto" IsVisible="{Binding IsEditingSecondaryAddress}">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                          <md:MdTextBox x:Name="SecondaryAddressBox" Text="{Binding SecondaryBrowser.AddressText}" Variant="Outlined"
+                                        Background="Transparent" BorderBrush="Transparent" CornerRadius="14"
+                                        PlaceholderText="输入路径后按 Enter" KeyDown="OnSecondaryAddressKeyDown" />
+                          <md:MdIconButton Grid.Column="1" Icon="{x:Static md:MdSymbols.Check}"
+                                           Command="{Binding SecondaryBrowser.CommitAddressCommand}"
+                                           AutomationProperties.Name="在对照窗格前往" />
+                          <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.Close}"
+                                           Command="{Binding SecondaryBrowser.CancelEditAddressCommand}"
+                                           AutomationProperties.Name="取消编辑对照窗格路径" />
+                        </Grid>
+                        <TextBlock Grid.Row="1" Classes="caption" Margin="4,2,4,0"
+                                   Foreground="{DynamicResource Md.Sys.Color.Error.Brush}"
+                                   Text="{Binding SecondaryBrowser.AddressError}"
+                                   IsVisible="{Binding SecondaryBrowser.HasAddressError}" />
+                      </Grid>
+                      </Grid>
                     </Border>
                   </Grid>
 

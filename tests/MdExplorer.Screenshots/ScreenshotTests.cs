@@ -247,6 +247,25 @@ public sealed class ScreenshotTests
         Assert.Equal("Size", shell.SettingsStore.Settings.DualPaneSortField);
     });
 
+    /// <summary>v0.28：对照窗格有自己的可编辑地址栏，错误时留在编辑态并给出提示，A 的路径胶囊不受影响。</summary>
+    [AvaloniaFact]
+    public async Task ExtraLarge_DualPaneAddressEdit() => await CaptureAsync(
+        "60-xlarge-dual-pane-address-edit.png", 1920, 1080, async shell =>
+    {
+        await ArrangeDualPaneForDetailsTestAsync(shell);
+        shell.ActivateSecondaryPane();
+        shell.SecondaryBrowser.BeginEditAddressCommand.Execute(null);
+        Assert.True(shell.SecondaryBrowser.IsAddressEditing);
+        Assert.False(shell.Browser.IsAddressEditing);
+        Assert.False(shell.ShowSecondaryBreadcrumbBar);
+
+        var current = shell.SecondaryBrowser.CurrentPath!;
+        Assert.False(await shell.SecondaryBrowser.NavigateToAddressAsync(Path.Combine(current, "不存在的子目录")));
+        Assert.True(shell.SecondaryBrowser.HasAddressError);
+        Assert.Equal(current, shell.SecondaryBrowser.CurrentPath);
+        Assert.True(shell.Browser.IsAddressEditing == false);
+    });
+
     [AvaloniaFact]
     public async Task Large_SettingsPreferences() => await CaptureAsync(
         "58-large-settings.png", 1440, 900, shell =>
@@ -365,6 +384,50 @@ public sealed class ScreenshotTests
             Assert.Equal(primaryDirection, shell.Browser.CurrentSortDirection);
             Assert.Equal("Size", shell.SettingsStore.Settings.DualPaneSortField);
             Assert.NotEqual("Size", shell.SettingsStore.Settings.SortField);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>v0.28：B 进入地址编辑时，路径胶囊换成输入框，A 的路径胶囊保持面包屑。</summary>
+    [AvaloniaFact]
+    public async Task ExtraLarge_SecondaryAddressEditorTakesOverPathPill()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1920, 1080);
+        var window = new MainWindow { Width = 1920, Height = 1080, DataContext = shell };
+        window.Show();
+        try
+        {
+            await ArrangeDualPaneForDetailsTestAsync(shell);
+            var view = Assert.IsType<MainView>(window.Content);
+            var editor = view.FindControl<TextBox>("SecondaryAddressBox");
+            var breadcrumb = view.FindControl<Control>("SecondaryBreadcrumbScroller");
+            var primaryBreadcrumb = view.FindControl<Control>("BreadcrumbScroller");
+            Assert.NotNull(editor);
+            Assert.NotNull(breadcrumb);
+            Assert.NotNull(primaryBreadcrumb);
+
+            await Task.Delay(120);
+            window.CaptureRenderedFrame();
+            Assert.False(editor!.IsVisible);
+            Assert.True(breadcrumb!.IsVisible);
+
+            shell.ActivateSecondaryPane();
+            shell.SecondaryBrowser.BeginEditAddressCommand.Execute(null);
+            await Task.Delay(120);
+            window.CaptureRenderedFrame();
+
+            var state = $"editingB={shell.SecondaryBrowser.IsAddressEditing}, editingA={shell.Browser.IsAddressEditing}, " +
+                        $"editor={editor.IsVisible}, breadcrumb={breadcrumb.IsVisible}";
+            Assert.True(editor.IsVisible, state);
+            Assert.False(breadcrumb.IsVisible, state);
+            Assert.Equal(shell.SecondaryBrowser.CurrentPath, editor.Text);
+            // A 侧保持自己的面包屑，不被 B 的编辑态牵连
+            Assert.True(primaryBreadcrumb.IsVisible, state);
+            Assert.True(shell.ShowBreadcrumbBar, state);
         }
         finally
         {

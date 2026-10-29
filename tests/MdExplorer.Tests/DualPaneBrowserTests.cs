@@ -86,6 +86,60 @@ public sealed class DualPaneBrowserTests : IDisposable
         Assert.Equal(rightDir, shell.SettingsStore.Settings.DualPanePath);
     }
 
+    /// <summary>v0.28：B 自己有可编辑地址栏，提交只移动 B 的会话，A 的路径/编辑态/面包屑不受影响。</summary>
+    [Fact]
+    public async Task SecondaryAddressBarEditsOnlyItsOwnSession()
+    {
+        var shell = CreateShell();
+        var leftFile = CreateFile("addr-left", "left.txt", "left");
+        var rightFile = CreateFile("addr-right", "right.txt", "right");
+        var thirdFile = CreateFile("addr-third", "third.txt", "third");
+        var leftDir = Path.GetDirectoryName(leftFile)!;
+        var rightDir = Path.GetDirectoryName(rightFile)!;
+        var thirdDir = Path.GetDirectoryName(thirdFile)!;
+
+        await shell.Browser.NavigateToAsync(leftDir);
+        shell.SettingsStore.Settings.DualPanePath = rightDir;
+        shell.SetViewportSize(1920, 1080);
+        await shell.ToggleDualPaneCommand.ExecuteAsync(null);
+        Assert.Equal(rightDir, shell.SecondaryBrowser.CurrentPath);
+        Assert.True(shell.ShowSecondaryBreadcrumbBar);
+
+        shell.ActivateSecondaryPane();
+        var notified = new List<string?>();
+        shell.PropertyChanged += (_, e) => notified.Add(e.PropertyName);
+        shell.SecondaryBrowser.BeginEditAddressCommand.Execute(null);
+
+        Assert.True(shell.SecondaryBrowser.IsAddressEditing);
+        Assert.False(shell.Browser.IsAddressEditing);
+        Assert.False(shell.ShowSecondaryBreadcrumbBar);
+        Assert.True(shell.IsEditingSecondaryAddress);
+        Assert.Contains(nameof(ShellViewModel.ShowSecondaryBreadcrumbBar), notified);
+        Assert.Contains(nameof(ShellViewModel.IsEditingSecondaryAddress), notified);
+
+        // 提交只作用于 B：A 的路径与选集完全不动。
+        _ = Select(shell.Browser, "left.txt");
+        Assert.True(await shell.SecondaryBrowser.NavigateToAddressAsync(thirdDir));
+        Assert.Equal(thirdDir, shell.SecondaryBrowser.CurrentPath);
+        Assert.False(shell.SecondaryBrowser.IsAddressEditing);
+        Assert.True(shell.ShowSecondaryBreadcrumbBar);
+        Assert.Equal(leftDir, shell.Browser.CurrentPath);
+        Assert.False(shell.Browser.IsAddressEditing);
+        Assert.Equal("left.txt", Assert.Single(shell.Browser.SelectedItems).Name);
+        Assert.Equal(thirdDir, shell.SettingsStore.Settings.DualPanePath);
+
+        // 错误路径留在编辑态并给出提示，Esc（取消）回到当前路径。
+        Assert.False(await shell.SecondaryBrowser.NavigateToAddressAsync(Path.Combine(thirdDir, "missing")));
+        Assert.True(shell.SecondaryBrowser.IsAddressEditing);
+        Assert.True(shell.SecondaryBrowser.HasAddressError);
+        Assert.True(shell.IsEditingSecondaryAddress);
+        shell.SecondaryBrowser.CancelEditAddressCommand.Execute(null);
+        Assert.False(shell.IsEditingSecondaryAddress);
+        Assert.Equal(thirdDir, shell.SecondaryBrowser.AddressText);
+        Assert.False(shell.SecondaryBrowser.HasAddressError);
+        Assert.Equal(thirdDir, shell.SecondaryBrowser.CurrentPath);
+    }
+
     [Fact]
     public async Task CrossPaneCopyAndMoveRefreshBothPanes()
     {

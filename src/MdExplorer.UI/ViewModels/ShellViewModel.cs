@@ -239,6 +239,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
                 _ = SaveAsync();
             }
 
+            // B 的地址编辑状态驱动自己的面包屑/输入框互换，A 的这两项互不影响。
+            if (!isPrimary && e.PropertyName is nameof(BrowserViewModel.IsAddressEditing))
+            {
+                OnPropertyChanged(nameof(ShowSecondaryBreadcrumbBar));
+                OnPropertyChanged(nameof(IsEditingSecondaryAddress));
+            }
+
             if (e.PropertyName is nameof(BrowserViewModel.SelectedCount)
                 or nameof(BrowserViewModel.HasSelection)
                 or nameof(BrowserViewModel.CurrentPath)
@@ -262,6 +269,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool CanTransferSecondaryToPrimary =>
         ShowDualPane && SecondaryBrowser.HasSelection && !Browser.IsSearchMode &&
         !string.IsNullOrWhiteSpace(Browser.CurrentPath);
+    /// <summary>B 的路径胶囊在编辑地址时让位给输入框；B 只出现在 ExtraLarge，不需要 Compact 折叠分支。</summary>
+    public bool ShowSecondaryBreadcrumbBar => !SecondaryBrowser.IsAddressEditing;
+    public bool IsEditingSecondaryAddress => SecondaryBrowser.IsAddressEditing;
 
     partial void OnIsDualPaneEnabledChanged(bool value)
     {

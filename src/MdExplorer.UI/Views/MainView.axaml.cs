@@ -1368,6 +1368,45 @@ public partial class MainView : UserControl
         Browser?.BeginEditAddressCommand.Execute(null);
     }
 
+    private void OnSecondaryBreadcrumbBarTapped(object? sender, TappedEventArgs e)
+    {
+        if (Shell is not { } shell)
+            return;
+        var browser = shell.SecondaryBrowser;
+        if (browser.IsAddressEditing)
+            return;
+        // 分段按钮自己处理跳转并 eat 掉事件，这里只负责“点空白进编辑”。
+        if (e.Source is Control source && source.FindAncestorOfType<Button>() is not null)
+            return;
+        shell.ActivateSecondaryPane();
+        browser.BeginEditAddressCommand.Execute(null);
+        if (browser.IsAddressEditing)
+            SecondaryAddressBox.Focus();
+    }
+
+    private async void OnSecondaryAddressKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (Shell is not { } shell)
+            return;
+        var browser = shell.SecondaryBrowser;
+        if (e.Key == Key.Enter)
+        {
+            await browser.NavigateToAddressAsync(SecondaryAddressBox.Text);
+            if (!browser.IsAddressEditing)
+            {
+                shell.ActivateSecondaryPane();
+                FocusActiveFileView();
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            browser.CancelEditAddressCommand.Execute(null);
+            FocusActiveFileView();
+            e.Handled = true;
+        }
+    }
+
     private async void OnAddressKeyDown(object? sender, KeyEventArgs e)
     {
         if (Browser is not { } browser)
@@ -1710,7 +1749,16 @@ public partial class MainView : UserControl
         }
         if (shell.Page == ShellPage.Browser && !shell.IsDialogOpen && ctrl && e.Key == Key.L)
         {
-            shell.Browser.BeginEditAddressCommand.Execute(null);
+            // Ctrl+L 编辑“活动窗格”的路径：B 活动时不能把输入框开在 A。
+            var target = shell.ActiveBrowser;
+            target.BeginEditAddressCommand.Execute(null);
+            if (target.IsAddressEditing)
+            {
+                if (ReferenceEquals(target, shell.SecondaryBrowser))
+                    SecondaryAddressBox.Focus();
+                else
+                    AddressBox.Focus();
+            }
             e.Handled = true;
             return;
         }
