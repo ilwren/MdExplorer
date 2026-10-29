@@ -245,6 +245,63 @@ public sealed class AutomationTests : IDisposable
     }
 
     [Fact]
+    public async Task AutomationEditor_AddReconnectPersistAndDeleteNode()
+    {
+        var notifications = new FakeNotificationService();
+        var shell = AppHost.CreateShell(AppHost.Build(
+            dataDirectory: _dataDir,
+            startFolder: _startDir,
+            systemNotifications: notifications));
+        shell.Browser.SetWatchEnabled(false);
+        var automation = shell.Automation;
+
+        automation.AddNameFilterNodeCommand.Execute(null);
+        var nodes = automation.Nodes.OfType<AutomationNodeViewModel>().ToArray();
+        var source = Assert.Single(nodes, node => node.IsCurrentFolder);
+        var kind = Assert.Single(nodes, node => node.IsKindFilter);
+        var name = Assert.Single(nodes, node => node.IsNameFilter);
+        var transfer = Assert.Single(nodes, node => node.IsTransfer);
+        Assert.Same(name, automation.SelectedNode);
+        Assert.False(automation.IsWorkflowValid); // 新节点尚未连入单链
+
+        name.NameQuery = "IMG_";
+        var kindToTransfer = Assert.Single(
+            automation.Connections,
+            connection => ReferenceEquals(connection.Source, kind.OutputConnector));
+        automation.Disconnect(kindToTransfer);
+        automation.Connect(kind.OutputConnector!, name.InputConnector!);
+        automation.Connect(name.OutputConnector!, transfer.InputConnector!);
+
+        Assert.True(automation.IsWorkflowValid, automation.ValidationText);
+        Assert.Equal(4, automation.Connections.Count);
+        Assert.Equal(5, shell.SettingsStore.Settings.AutomationWorkflow.Nodes.Count);
+
+        // 单链不允许再从来源拉第二条出线到传输节点。
+        automation.Connect(source.OutputConnector!, transfer.InputConnector!);
+        Assert.Equal(4, automation.Connections.Count);
+        Assert.Contains("出线", automation.StatusText, StringComparison.Ordinal);
+
+        await shell.SettingsStore.SaveSettingsAsync(TestContext.Current.CancellationToken);
+        var restored = AppHost.CreateShell(AppHost.Build(
+            dataDirectory: _dataDir,
+            startFolder: _startDir,
+            systemNotifications: notifications));
+        restored.Browser.SetWatchEnabled(false);
+        var restoredNodes = restored.Automation.Nodes.OfType<AutomationNodeViewModel>().ToArray();
+        var restoredName = Assert.Single(restoredNodes, node => node.IsNameFilter);
+        Assert.Equal(5, restoredNodes.Length);
+        Assert.Equal("IMG_", restoredName.NameQuery);
+        Assert.True(restored.Automation.IsWorkflowValid, restored.Automation.ValidationText);
+
+        restored.Automation.SelectedNodes.Clear();
+        restored.Automation.SelectedNodes.Add(restoredName);
+        Assert.Same(restoredName, restored.Automation.SelectedNode);
+        restored.Automation.DeleteSelectedNodeCommand.Execute(null);
+        Assert.Equal(4, restored.Automation.Nodes.Count);
+        Assert.False(restored.Automation.IsWorkflowValid); // 删除中间节点后必须由用户重新连线
+    }
+
+    [Fact]
     public async Task ShellTaskNotifications_SkipShortSuccess_ButReportFailure()
     {
         var notifications = new FakeNotificationService();
