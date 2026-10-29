@@ -1511,7 +1511,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         {
             // 无 Application 的普通单元测试没有 Avalonia 消息泵；尤其 Windows 上
             // Dispatcher.UIThread 可能绑定到当前测试线程，若等待 InvokeAsync 会永久挂起。
-            if (Application.Current is not null && Dispatcher.UIThread.CheckAccess())
+            if (global::Avalonia.Application.Current is not null && Dispatcher.UIThread.CheckAccess())
             {
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
                 return;
