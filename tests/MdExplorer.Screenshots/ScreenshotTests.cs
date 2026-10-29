@@ -320,16 +320,17 @@ public sealed class ScreenshotTests
             Assert.NotNull(list);
             Assert.NotNull(grid);
 
-            Assert.True(list!.IsVisible);
-            Assert.False(details!.IsVisible);
+            // IsVisible 只反映控件自身值；宿主包裹层的隐藏要用 IsEffectivelyVisible 才是“不渲染、不吃命中”。
+            Assert.True(list!.IsEffectivelyVisible);
+            Assert.False(details!.IsEffectivelyVisible);
 
             shell.SecondaryBrowser.ViewMode = BrowserViewMode.Details;
             await Task.Delay(120);
             window.CaptureRenderedFrame();
 
-            Assert.True(details.IsVisible);
-            Assert.False(list.IsVisible);
-            Assert.False(grid!.IsVisible);
+            Assert.True(details.IsEffectivelyVisible);
+            Assert.False(list.IsEffectivelyVisible);
+            Assert.False(grid!.IsEffectivelyVisible);
             // 详细信息面直接消费 B 会话集合，不另建副本
             Assert.Same(shell.SecondaryBrowser.Items, details.ItemsSource);
 
