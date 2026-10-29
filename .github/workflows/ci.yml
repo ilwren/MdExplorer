@@ -50,7 +50,33 @@ jobs:
       - name: Render breakpoint screenshots
         run: |
           set -o pipefail
-          dotnet test tests/MdExplorer.Screenshots -c Release --blame-crash --results-directory "$PWD/TestResults" 2>&1 | tee screenshot-output.txt
+          # 57 个真实窗口长期共用一个无头 Skia 进程时，第三方文档控件的异步排版会让
+          # 原生渲染资源累积并偶发 exit 139。按发现清单轮转拆成四个独立进程，仍覆盖全部用例。
+          dotnet build tests/MdExplorer.Screenshots -c Release 2>&1 | tee screenshot-output.txt
+          mapfile -t screenshot_tests < <(
+            dotnet test tests/MdExplorer.Screenshots -c Release --no-build --list-tests 2>/dev/null \
+              | grep -o 'MdExplorer\.Screenshots\.ScreenshotTests\.[A-Za-z0-9_]*' \
+              | sort -u
+          )
+          if [ "${#screenshot_tests[@]}" -eq 0 ]; then
+            echo "No screenshot tests were discovered." | tee -a screenshot-output.txt
+            exit 1
+          fi
+          echo "Discovered ${#screenshot_tests[@]} screenshot tests; running in 4 isolated processes." | tee -a screenshot-output.txt
+          for partition in 0 1 2 3; do
+            filter=""
+            count=0
+            for index in "${!screenshot_tests[@]}"; do
+              if [ $((index % 4)) -eq "$partition" ]; then
+                filter="${filter:+$filter|}FullyQualifiedName=${screenshot_tests[$index]}"
+                count=$((count + 1))
+              fi
+            done
+            echo "=== Screenshot partition $((partition + 1))/4: $count tests ===" | tee -a screenshot-output.txt
+            dotnet test tests/MdExplorer.Screenshots -c Release --no-build \
+              --filter "$filter" --blame-crash --results-directory "$PWD/TestResults" \
+              2>&1 | tee -a screenshot-output.txt
+          done
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
