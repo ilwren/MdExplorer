@@ -19,7 +19,8 @@ public sealed record PreviewContent(
     string? Message = null,
     string? Markdown = null,
     string? HighlightLanguage = null,
-    PdfPreviewDocument? Pdf = null);
+    PdfPreviewDocument? Pdf = null,
+    OfficePreviewDocument? Office = null);
 
 /// <summary>PDF 预览负载：原始字节仅在内存中保留，翻页时按需光栅化，避免整本同时驻留位图。</summary>
 public sealed record PdfPreviewDocument(
@@ -71,6 +72,7 @@ public static class BuiltInPreviewProviders
     [
         new ImagePreviewProvider(fileSystem),
         new PdfPreviewProvider(fileSystem),
+        new OfficePreviewProvider(fileSystem),
         new MarkdownPreviewProvider(fileSystem),
         new TextPreviewProvider(fileSystem),
         new HexPreviewProvider(fileSystem),
@@ -186,13 +188,15 @@ internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPrevi
 
     public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
     {
-        if (OperatingSystem.IsAndroid() && !OperatingSystem.IsAndroidVersionAtLeast(31))
-            return new PreviewContent(Message: "内置 PDF 预览需要 Android 12（API 31）或更高版本；此设备可先用系统应用打开。");
-
-        var limit = (OperatingSystem.IsAndroid() ? 64L : 128L) * 1024 * 1024;
+        // PDFium 的 Android 资产要求 API 31+；低版本不触碰原生库，改走纯托管常见子集回落。
+        var useManagedFallback = OperatingSystem.IsAndroid() && !OperatingSystem.IsAndroidVersionAtLeast(31);
+        var limit = useManagedFallback
+            ? OfficeDocumentLoader.PdfFallbackMaxBytes
+            : (OperatingSystem.IsAndroid() ? 64L : 128L) * 1024 * 1024;
         if (item.Length is { } knownLength && knownLength > limit)
             return new PreviewContent(Message: $"此 PDF 为 {Formatting.Bytes(item.Length)}，超过内置预览的 {Formatting.Bytes(limit)} 安全上限；可先用系统应用打开。");
 
+        byte[]? data = null;
         try
         {
             await using var source = await fileSystem.OpenReadAsync(item.FullPath, cancellationToken).ConfigureAwait(true);
@@ -206,7 +210,10 @@ internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPrevi
                 await memory.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(true);
             }
 
-            var document = await PdfPreviewRenderer.LoadAsync(memory.ToArray(), cancellationToken).ConfigureAwait(true);
+            data = memory.ToArray();
+            if (useManagedFallback)
+                return new PreviewContent(Office: OfficeDocumentLoader.CreatePdfFallback(data));
+            var document = await PdfPreviewRenderer.LoadAsync(data, cancellationToken).ConfigureAwait(true);
             return new PreviewContent(Pdf: document);
         }
         catch (PdfPasswordProtectedException)
@@ -219,7 +226,22 @@ internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPrevi
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
+            if (data is not null)
+            {
+                try
+                {
+                    return new PreviewContent(Office: OfficeDocumentLoader.CreatePdfFallback(data));
+                }
+                catch (InvalidDataException)
+                {
+                    // 回落也有字节上限；超限时仍回原平台不可用说明。
+                }
+            }
             return new PreviewContent(Message: "当前平台的 PDF 渲染组件不可用；可先用系统应用打开。");
+        }
+        catch (InvalidDataException ex) when (useManagedFallback)
+        {
+            return new PreviewContent(Message: $"无法以兼容模式读取此 PDF：{ex.Message} 可先用系统应用打开。");
         }
     }
 }

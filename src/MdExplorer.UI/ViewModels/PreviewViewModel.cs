@@ -35,6 +35,10 @@ public sealed partial class PreviewViewModel(
     [ObservableProperty] private int _selectedTabIndex;
     [ObservableProperty] private int _pdfPageIndex;
     [ObservableProperty] private int _pdfPageCount;
+    [ObservableProperty] private OfficePreviewDocument? _officeDocument;
+    [ObservableProperty] private int _officePageCount;
+    [ObservableProperty] private int _officeSheetCount;
+    [ObservableProperty] private int _officeSheetIndex;
 
     public bool HasImage => Image is not null;
     public bool HasText => TextContent is not null;
@@ -52,6 +56,35 @@ public sealed partial class PreviewViewModel(
         !FileLocator.IsStorageUri(item.FullPath);
     public bool HasFailure => FailureText is not null;
     public bool HasPdf => PdfPageCount > 0;
+    public bool HasOfficeDocument => OfficeDocument is not null;
+    public bool IsOfficeExcel => OfficeDocument?.Format == OfficePreviewFormat.Xlsx;
+    public bool CanPreviousOfficeSheet => IsOfficeExcel && OfficeSheetIndex > 0;
+    public bool CanNextOfficeSheet => IsOfficeExcel && OfficeSheetIndex < OfficeSheetCount - 1;
+    public string OfficeStatusText
+    {
+        get
+        {
+            if (OfficeDocument is not { } document)
+                return string.Empty;
+            return document.Format switch
+            {
+                OfficePreviewFormat.Docx => OfficePageCount > 0
+                    ? $"Word · 共 {OfficePageCount:N0} 页 · 只读兼容预览"
+                    : $"Word · {document.Facts.Summary} · 正在排版",
+                OfficePreviewFormat.Pptx => $"PowerPoint · 共 {(OfficePageCount > 0 ? OfficePageCount : document.Facts.SlideCount ?? 0):N0} 张 · 只读兼容预览",
+                OfficePreviewFormat.Xlsx => OfficeSheetCount > 0
+                    ? $"Excel · 工作表 {OfficeSheetIndex + 1:N0}/{OfficeSheetCount:N0} · {CurrentOfficeSheetName}"
+                    : $"Excel · {document.Facts.Summary} · 正在读取",
+                _ => OfficePageCount > 0
+                    ? $"PDF 兼容模式 · 共 {OfficePageCount:N0} 页"
+                    : "PDF 兼容模式 · 正在读取",
+            };
+        }
+    }
+    private string CurrentOfficeSheetName =>
+        OfficeDocument is { } document && OfficeSheetIndex >= 0 && OfficeSheetIndex < document.Facts.SheetNames.Count
+            ? document.Facts.SheetNames[OfficeSheetIndex]
+            : string.Empty;
     /// <summary>内容页下方的图标事实条只承载数值；带字段名的完整事实仍在属性页。</summary>
     public bool HasQuickFacts => CurrentItem is { IsFolder: false };
     public string QuickSizeText => CurrentItem is { IsFolder: false } item ? Formatting.Bytes(item.Length) : string.Empty;
@@ -109,6 +142,28 @@ public sealed partial class PreviewViewModel(
 
     partial void OnPdfPageCountChanged(int value) => RaisePdfState();
 
+    partial void OnOfficeDocumentChanged(OfficePreviewDocument? value) => RaiseOfficeState();
+
+    partial void OnOfficePageCountChanged(int value) => RaiseOfficeState();
+
+    partial void OnOfficeSheetCountChanged(int value)
+    {
+        if (value > 0 && OfficeSheetIndex >= value)
+            OfficeSheetIndex = value - 1;
+        RaiseOfficeState();
+    }
+
+    partial void OnOfficeSheetIndexChanged(int value) => RaiseOfficeState();
+
+    private void RaiseOfficeState()
+    {
+        OnPropertyChanged(nameof(HasOfficeDocument));
+        OnPropertyChanged(nameof(IsOfficeExcel));
+        OnPropertyChanged(nameof(CanPreviousOfficeSheet));
+        OnPropertyChanged(nameof(CanNextOfficeSheet));
+        OnPropertyChanged(nameof(OfficeStatusText));
+    }
+
     private void RaisePdfState()
     {
         OnPropertyChanged(nameof(HasPdf));
@@ -135,6 +190,10 @@ public sealed partial class PreviewViewModel(
         _pdfData = null;
         PdfPageIndex = 0;
         PdfPageCount = 0;
+        OfficeDocument = null;
+        OfficePageCount = 0;
+        OfficeSheetCount = 0;
+        OfficeSheetIndex = 0;
         ArchiveEntries.Clear();
         MetadataRows.Clear();
         OnPropertyChanged(nameof(HasArchive));
@@ -191,6 +250,17 @@ public sealed partial class PreviewViewModel(
                 Image = pdf.FirstPage;
                 MetadataRows.Add(new MetadataRowModel("页数", $"{pdf.PageCount:N0} 页"));
             }
+            if (content.Office is { } office)
+            {
+                OfficeDocument = office;
+                OfficeSheetIndex = 0;
+                OfficeSheetCount = office.Facts.SheetNames.Count;
+                OfficePageCount = office.Facts.SlideCount ?? 0;
+                MetadataRows.Add(new MetadataRowModel("结构", office.Facts.Summary));
+                MetadataRows.Add(new MetadataRowModel("渲染", OfficeDocumentLoader.EngineDescription));
+                if (office.Facts.SheetNames.Count > 0)
+                    MetadataRows.Add(new MetadataRowModel("工作表", string.Join("、", office.Facts.SheetNames)));
+            }
             FailureText = content.Message;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException or ArgumentException)
@@ -216,6 +286,13 @@ public sealed partial class PreviewViewModel(
 
     [RelayCommand]
     private async Task LastPdfPageAsync() => await GoToPdfPageAsync(PdfPageCount - 1).ConfigureAwait(true);
+
+    [RelayCommand]
+    private void PreviousOfficeSheet() => OfficeSheetIndex = Math.Max(0, OfficeSheetIndex - 1);
+
+    [RelayCommand]
+    private void NextOfficeSheet() =>
+        OfficeSheetIndex = Math.Min(Math.Max(0, OfficeSheetCount - 1), OfficeSheetIndex + 1);
 
     private async Task GoToPdfPageAsync(int pageIndex)
     {

@@ -5,6 +5,7 @@
              xmlns:mdm="using:Markdown.Avalonia"
              xmlns:ae="using:AvaloniaEdit"
              xmlns:vm="using:MdExplorer.UI.ViewModels"
+             xmlns:views="using:MdExplorer.UI.Views"
              x:Class="MdExplorer.UI.Views.DocumentWorkbenchView"
              x:DataType="vm:DocumentWorkbenchViewModel"
              Background="Transparent">
@@ -85,7 +86,7 @@
           </md:MdButton>
         </WrapPanel>
 
-        <Grid x:Name="PdfToolbarGrid" IsVisible="{Binding IsPdfDocument}" ColumnDefinitions="Auto,Auto,72,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*" ColumnSpacing="2" MinHeight="48">
+        <Grid x:Name="PdfToolbarGrid" IsVisible="{Binding ShowPdfWorkbench}" ColumnDefinitions="Auto,Auto,72,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*" ColumnSpacing="2" MinHeight="48">
           <md:MdIconButton x:Name="PdfFirstPageButton" Width="40" Height="40" MinWidth="40" MinHeight="40"
                            Icon="{x:Static md:MdSymbols.FirstPage}" Command="{Binding FirstPdfPageCommand}"
                            IsEnabled="{Binding CanPreviousPdfPage}" AutomationProperties.Name="PDF 第一页" />
@@ -123,6 +124,27 @@
             </StackPanel>
           </md:MdButton>
         </Grid>
+
+        <WrapPanel Orientation="Horizontal" IsVisible="{Binding ShowOfficeWorkbench}">
+          <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Margin="0,0,3,5"
+                           Icon="{x:Static md:MdSymbols.ChevronLeft}" Command="{Binding PreviousOfficeSheetCommand}"
+                           IsVisible="{Binding IsOfficeExcel}" IsEnabled="{Binding CanPreviousOfficeSheet}"
+                           AutomationProperties.Name="上一张工作表" />
+          <TextBlock Classes="body" Text="{Binding OfficeCountText}" VerticalAlignment="Center" Margin="2,0,5,5"
+                     IsVisible="{Binding IsOfficeExcel}" TextTrimming="CharacterEllipsis" />
+          <md:MdIconButton Width="40" Height="40" MinWidth="40" MinHeight="40" Margin="0,0,7,5"
+                           Icon="{x:Static md:MdSymbols.ChevronRight}" Command="{Binding NextOfficeSheetCommand}"
+                           IsVisible="{Binding IsOfficeExcel}" IsEnabled="{Binding CanNextOfficeSheet}"
+                           AutomationProperties.Name="下一张工作表" />
+          <md:MdButton Variant="Text" Height="40" Margin="0,0,7,5" Command="{Binding ReloadCommand}"
+                       Content="重新加载" />
+          <md:MdButton Variant="Text" Height="40" Margin="0,0,0,5" Command="{Binding OpenExternalCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <md:MdIcon Glyph="{x:Static md:MdSymbols.OpenInNew}" Size="17" />
+              <TextBlock Text="系统打开" VerticalAlignment="Center" />
+            </StackPanel>
+          </md:MdButton>
+        </WrapPanel>
       </Grid>
     </Border>
 
@@ -170,7 +192,7 @@
     </Grid>
 
     <!-- PDF 工作面 -->
-    <Grid x:Name="PdfWorkbenchGrid" Grid.Row="2" IsVisible="{Binding IsPdfDocument}" ColumnDefinitions="140,12,*">
+    <Grid x:Name="PdfWorkbenchGrid" Grid.Row="2" IsVisible="{Binding ShowPdfWorkbench}" ColumnDefinitions="140,12,*">
       <Border x:Name="PdfThumbnailRail" Classes="card" Padding="4">
         <!-- Md3 主题没有原生 ListBox 模板；必须使用 MdList，容器生成与虚拟化才有完整呈现。 -->
         <md:MdList x:Name="PdfPageList" ItemsSource="{Binding PdfPages}" SelectedIndex="{Binding PdfPageIndex, Mode=TwoWay}"
@@ -272,6 +294,28 @@
             <TextBlock Classes="caption" Text="{Binding FailureText}" IsVisible="{Binding HasFailure}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
           </Grid>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- Office 工作面：第三方原生只读控件经适配层缩放与释放；DOCX/PPTX 连续滚动，XLSX 由宿主切表。 -->
+    <Grid Grid.Row="2" IsVisible="{Binding ShowOfficeWorkbench}" RowDefinitions="Auto,*" RowSpacing="8">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <TextBlock Classes="body" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis"
+                   VerticalAlignment="Center" ToolTip.Tip="{Binding StatusText}" />
+        <TextBlock Grid.Column="1" Classes="caption" Text="{Binding OfficeCountText}" VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
+      </Grid>
+      <Border Grid.Row="1" Classes="card" Padding="6" ClipToBounds="True">
+        <Grid>
+          <views:OfficeDocumentViewer x:Name="OfficeViewer"
+                                      Document="{Binding OfficeDocument}"
+                                      SelectedSheetIndex="{Binding OfficeSheetIndex, Mode=TwoWay}"
+                                      PageCount="{Binding OfficePageCount, Mode=TwoWay}"
+                                      SheetCount="{Binding OfficeSheetCount, Mode=TwoWay}"
+                                      AutomationProperties.Name="Office 文档工作台" />
+          <TextBlock Classes="caption" Text="{Binding FailureText}" IsVisible="{Binding HasFailure}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
         </Grid>
       </Border>
     </Grid>

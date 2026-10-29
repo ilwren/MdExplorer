@@ -39,6 +39,7 @@ public sealed class ScreenshotTests
 {
     private static readonly string SampleRoot = SampleData.Create();
     private static string PicturesDir => Path.Combine(SampleRoot, "Pictures");
+    private static string DocumentsDir => Path.Combine(SampleRoot, "Documents");
 
     private static string OutputDir
     {
@@ -113,6 +114,22 @@ public sealed class ScreenshotTests
         {
             for (int i = 0; i < 40 && shell.Browser.Items.All(x => x.Thumbnail is null); i++)
                 await Task.Delay(50);
+            if (shell.DocumentWorkbench.UseOfficeViewer || shell.Preview.HasOfficeDocument)
+            {
+                // 第三方控件在控件真正挂载后才异步解析；等其页面文字进入视觉树再截图。
+                for (int i = 0; i < 100; i++)
+                {
+                    window.CaptureRenderedFrame();
+                    var ready = window.GetVisualDescendants()
+                        .OfType<OfficeDocumentViewer>()
+                        .Any(viewer => viewer.GetVisualDescendants()
+                            .OfType<TextBlock>()
+                            .Any(text => !string.IsNullOrWhiteSpace(text.Text)));
+                    if (ready)
+                        break;
+                    await Task.Delay(50);
+                }
+            }
             await Task.Delay(120);
             window.CaptureRenderedFrame(); // 先热一帧让容器实现/布局稳定
             var frame = window.CaptureRenderedFrame();
@@ -299,6 +316,64 @@ public sealed class ScreenshotTests
         Assert.Equal(50, workbench.ZoomPercent);
         Assert.Equal(0, workbench.PdfPageIndex);
         Assert.All(workbench.PdfPages, page => Assert.NotNull(page.PageImage));
+    });
+
+    [AvaloniaFact]
+    public async Task Large_DocumentWorkbenchDocx() => await CaptureAsync(
+        "48-large-office-docx.png", 1440, 900, async shell =>
+    {
+        await OpenOfficeByNameAsync(shell, "报告-终版.docx");
+        var workbench = shell.DocumentWorkbench;
+        Assert.Equal(ShellPage.DocumentWorkbench, shell.Page);
+        Assert.True(workbench.IsOfficeDocument);
+        Assert.Equal(MdExplorer.UI.Preview.OfficePreviewFormat.Docx, workbench.OfficeDocument?.Format);
+        Assert.True(workbench.OfficeDocument?.Facts.ParagraphCount > 5);
+    });
+
+    [AvaloniaFact]
+    public async Task Large_DocumentWorkbenchPptx() => await CaptureAsync(
+        "49-large-office-pptx.png", 1440, 900, async shell =>
+    {
+        await OpenOfficeByNameAsync(shell, "产品发布会.pptx");
+        var workbench = shell.DocumentWorkbench;
+        Assert.Equal(MdExplorer.UI.Preview.OfficePreviewFormat.Pptx, workbench.OfficeDocument?.Format);
+        Assert.Equal(2, workbench.OfficePageCount);
+        Assert.Contains("PowerPoint", workbench.StatusText);
+    });
+
+    [AvaloniaFact]
+    public async Task Large_DocumentWorkbenchXlsx() => await CaptureAsync(
+        "50-large-office-xlsx.png", 1440, 900, async shell =>
+    {
+        await OpenOfficeByNameAsync(shell, "预算表.xlsx");
+        var workbench = shell.DocumentWorkbench;
+        Assert.Equal(MdExplorer.UI.Preview.OfficePreviewFormat.Xlsx, workbench.OfficeDocument?.Format);
+        Assert.Equal(2, workbench.OfficeSheetCount);
+        workbench.NextOfficeSheetCommand.Execute(null);
+        Assert.Equal("明细", workbench.CurrentOfficeSheetName);
+    });
+
+    [AvaloniaFact]
+    public async Task Compact_DocumentWorkbenchPptx() => await CaptureAsync(
+        "51-compact-office-pptx.png", 390, 844, async shell =>
+    {
+        await OpenOfficeByNameAsync(shell, "产品发布会.pptx");
+        var workbench = shell.DocumentWorkbench;
+        Assert.True(workbench.IsCompactLayout);
+        Assert.Equal(2, workbench.OfficePageCount);
+    });
+
+    [AvaloniaFact]
+    public async Task Large_OfficePreviewXlsx() => await CaptureAsync(
+        "52-large-office-preview-xlsx.png", 1440, 900, async shell =>
+    {
+        await shell.OpenFolderAsync(DocumentsDir);
+        await shell.Browser.WhenIdleAsync();
+        await SelectByNameAsync(shell, "预算表.xlsx", () => shell.Preview.HasOfficeDocument);
+        Assert.Equal(2, shell.Preview.OfficeSheetCount);
+        shell.Preview.NextOfficeSheetCommand.Execute(null);
+        Assert.Equal(1, shell.Preview.OfficeSheetIndex);
+        Assert.Contains("明细", shell.Preview.OfficeStatusText);
     });
 
     [AvaloniaFact]
@@ -883,6 +958,13 @@ public sealed class ScreenshotTests
     {
         var item = shell.Browser.Items.First(i => i.Name == name);
         await shell.OpenDocumentWorkbenchAsync(item.Model);
+    }
+
+    private static async Task OpenOfficeByNameAsync(ShellViewModel shell, string name)
+    {
+        await shell.OpenFolderAsync(DocumentsDir);
+        await shell.Browser.WhenIdleAsync();
+        await OpenDocumentByNameAsync(shell, name);
     }
 
     private static async Task SelectByNameAsync(ShellViewModel shell, string name, Func<bool> ready)

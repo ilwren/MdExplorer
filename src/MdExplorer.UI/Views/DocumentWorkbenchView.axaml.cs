@@ -93,7 +93,7 @@ public partial class DocumentWorkbenchView : UserControl
             return;
         }
 
-        if (_vm.IsPdfDocument && e.Source is not TextBox)
+        if (_vm.ShowPdfWorkbench && e.Source is not TextBox)
         {
             // 连续模式让方向键回到列表自身的滚动/选择语义；PageUp/PageDown 仍按整页导航。
             var next = _vm.IsContinuousPdfMode

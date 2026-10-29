@@ -74,6 +74,11 @@ public sealed partial class DocumentWorkbenchViewModel(
     [ObservableProperty] private string _pdfPasswordInput = string.Empty;
     [ObservableProperty] private bool _needsPdfPassword;
 
+    [ObservableProperty] private OfficePreviewDocument? _officeDocument;
+    [ObservableProperty] private int _officePageCount;
+    [ObservableProperty] private int _officeSheetCount;
+    [ObservableProperty] private int _officeSheetIndex;
+
     public FileItem? CurrentItem { get; private set; }
     public ObservableCollection<PdfPageViewModel> PdfPages { get; } = [];
 
@@ -82,6 +87,36 @@ public sealed partial class DocumentWorkbenchViewModel(
 
     public bool IsPdfDocument => CurrentItem is { } item && FileKindClassifier.IsPdf(item);
     public bool IsTextDocument => CurrentItem is { } item && IsSupportedText(item);
+    public bool IsOfficeDocument => CurrentItem is { } item && FileKindClassifier.IsOfficeDocument(item);
+    public bool UseOfficeViewer => OfficeDocument is not null;
+    /// <summary>工作面在 Office 预检失败时也必须可见，否则只能看到空白页与无处落点的 FailureText。</summary>
+    public bool ShowOfficeWorkbench => IsOfficeDocument || IsPdfFallback;
+    public bool IsPdfFallback => OfficeDocument?.Format == OfficePreviewFormat.Pdf;
+    public bool ShowPdfWorkbench => IsPdfDocument && !IsPdfFallback;
+    public bool IsOfficeExcel => OfficeDocument?.Format == OfficePreviewFormat.Xlsx;
+    public bool CanPreviousOfficeSheet => IsOfficeExcel && OfficeSheetIndex > 0;
+    public bool CanNextOfficeSheet => IsOfficeExcel && OfficeSheetIndex < OfficeSheetCount - 1;
+    public string CurrentOfficeSheetName =>
+        OfficeDocument is { } document && OfficeSheetIndex >= 0 && OfficeSheetIndex < document.Facts.SheetNames.Count
+            ? document.Facts.SheetNames[OfficeSheetIndex]
+            : string.Empty;
+    public string OfficeCountText
+    {
+        get
+        {
+            if (OfficeDocument is not { } document)
+                return string.Empty;
+            return document.Format switch
+            {
+                OfficePreviewFormat.Docx => OfficePageCount > 0 ? $"{OfficePageCount:N0} 页" : document.Facts.Summary,
+                OfficePreviewFormat.Pptx => $"{(OfficePageCount > 0 ? OfficePageCount : document.Facts.SlideCount ?? 0):N0} 张幻灯片",
+                OfficePreviewFormat.Xlsx => OfficeSheetCount > 0
+                    ? $"{OfficeSheetIndex + 1:N0}/{OfficeSheetCount:N0} · {CurrentOfficeSheetName}"
+                    : document.Facts.Summary,
+                _ => OfficePageCount > 0 ? $"{OfficePageCount:N0} 页 · 兼容模式" : "兼容模式",
+            };
+        }
+    }
     public bool HasFailure => FailureText is not null;
     public bool IsMarkdown => CurrentItem is { } item &&
                               (string.Equals(item.Extension, ".md", StringComparison.OrdinalIgnoreCase) ||
@@ -134,7 +169,7 @@ public sealed partial class DocumentWorkbenchViewModel(
     {
         if (item.IsFolder)
             return false;
-        if (FileKindClassifier.IsPdf(item))
+        if (FileKindClassifier.IsPdf(item) || FileKindClassifier.IsOfficeDocument(item))
             return true;
         return IsSupportedText(item) && !FileLocator.IsStorageUri(item.FullPath);
     }
@@ -218,6 +253,32 @@ public sealed partial class DocumentWorkbenchViewModel(
 
     partial void OnPdfPageCountChanged(int value) => RaisePdfState();
 
+    partial void OnOfficeDocumentChanged(OfficePreviewDocument? value) => RaiseOfficeState();
+
+    partial void OnOfficePageCountChanged(int value) => RaiseOfficeState();
+
+    partial void OnOfficeSheetCountChanged(int value)
+    {
+        if (value > 0 && OfficeSheetIndex >= value)
+            OfficeSheetIndex = value - 1;
+        RaiseOfficeState();
+    }
+
+    partial void OnOfficeSheetIndexChanged(int value) => RaiseOfficeState();
+
+    private void RaiseOfficeState()
+    {
+        OnPropertyChanged(nameof(UseOfficeViewer));
+        OnPropertyChanged(nameof(ShowOfficeWorkbench));
+        OnPropertyChanged(nameof(IsPdfFallback));
+        OnPropertyChanged(nameof(ShowPdfWorkbench));
+        OnPropertyChanged(nameof(IsOfficeExcel));
+        OnPropertyChanged(nameof(CanPreviousOfficeSheet));
+        OnPropertyChanged(nameof(CanNextOfficeSheet));
+        OnPropertyChanged(nameof(CurrentOfficeSheetName));
+        OnPropertyChanged(nameof(OfficeCountText));
+    }
+
     partial void OnZoomPercentChanged(int value)
     {
         OnPropertyChanged(nameof(PdfDisplayWidth));
@@ -250,6 +311,7 @@ public sealed partial class DocumentWorkbenchViewModel(
     {
         var generation = ++_loadGeneration;
         ClearPdfResources(clearBytes: true);
+        ClearOfficeDocument();
         _textSnapshot = null;
         _originalText = string.Empty;
         CurrentItem = item;
@@ -274,6 +336,10 @@ public sealed partial class DocumentWorkbenchViewModel(
             if (IsPdfDocument)
             {
                 await LoadPdfDocumentAsync(item, password: null, generation).ConfigureAwait(true);
+            }
+            else if (IsOfficeDocument)
+            {
+                await LoadOfficeDocumentAsync(item, generation).ConfigureAwait(true);
             }
             else if (IsTextDocument)
             {
@@ -324,6 +390,7 @@ public sealed partial class DocumentWorkbenchViewModel(
     {
         _loadGeneration++;
         ClearPdfResources(clearBytes: true);
+        ClearOfficeDocument();
         _textSnapshot = null;
         _originalText = string.Empty;
         CurrentItem = null;
@@ -505,19 +572,81 @@ public sealed partial class DocumentWorkbenchViewModel(
             await launcherRefresh().OpenAsync(item.FullPath, CancellationToken.None).ConfigureAwait(true);
     }
 
+    // ---------- Office ----------
+
+    private async Task LoadOfficeDocumentAsync(FileItem item, int generation)
+    {
+        var document = await OfficeDocumentLoader.LoadAsync(
+            fileSystem, item, OfficeDocumentLoader.WorkbenchMaxBytes, CancellationToken.None).ConfigureAwait(true);
+        if (generation != _loadGeneration)
+            return;
+
+        OfficeDocument = document;
+        OfficeSheetIndex = 0;
+        OfficeSheetCount = document.Facts.SheetNames.Count;
+        OfficePageCount = document.Facts.SlideCount ?? 0;
+        StatusText = document.Format switch
+        {
+            OfficePreviewFormat.Docx => IsCompactLayout
+                ? "Word 只读预览"
+                : $"Word 只读预览 · {document.Facts.Summary}",
+            OfficePreviewFormat.Pptx => IsCompactLayout
+                ? "PowerPoint 只读预览"
+                : $"PowerPoint 只读预览 · {document.Facts.Summary}",
+            OfficePreviewFormat.Xlsx => IsCompactLayout
+                ? "Excel 只读预览"
+                : $"Excel 只读预览 · {document.Facts.Summary}",
+            _ => "只读预览",
+        };
+        RaiseOfficeState();
+    }
+
+    [RelayCommand]
+    private void PreviousOfficeSheet() => OfficeSheetIndex = Math.Max(0, OfficeSheetIndex - 1);
+
+    [RelayCommand]
+    private void NextOfficeSheet() =>
+        OfficeSheetIndex = Math.Min(Math.Max(0, OfficeSheetCount - 1), OfficeSheetIndex + 1);
+
+    private void ClearOfficeDocument()
+    {
+        OfficeDocument = null;
+        OfficePageCount = 0;
+        OfficeSheetCount = 0;
+        OfficeSheetIndex = 0;
+    }
+
+    private bool TryActivatePdfFallback()
+    {
+        if (_pdfData is null)
+            return false;
+        try
+        {
+            OfficeDocument = OfficeDocumentLoader.CreatePdfFallback(_pdfData);
+            OfficePageCount = 0;
+            OfficeSheetCount = 0;
+            OfficeSheetIndex = 0;
+            NeedsPdfPassword = false;
+            FailureText = null;
+            StatusText = IsCompactLayout ? "PDF 兼容预览" : "PDF 兼容预览 · 完整渲染组件不可用";
+            RaiseOfficeState();
+            return true;
+        }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+    }
+
     // ---------- PDF ----------
 
     private async Task LoadPdfDocumentAsync(FileItem item, string? password, int generation)
     {
         NeedsPdfPassword = false;
-        if (OperatingSystem.IsAndroid() && !OperatingSystem.IsAndroidVersionAtLeast(31))
-        {
-            FailureText = "内置 PDF 阅读需要 Android 12（API 31）或更高版本；此设备可先用系统应用打开。";
-            StatusText = "PDF 不可用";
-            return;
-        }
-
-        var limit = (OperatingSystem.IsAndroid() ? 64L : 128L) * 1024 * 1024;
+        var useManagedFallback = OperatingSystem.IsAndroid() && !OperatingSystem.IsAndroidVersionAtLeast(31);
+        var limit = useManagedFallback
+            ? OfficeDocumentLoader.PdfFallbackMaxBytes
+            : (OperatingSystem.IsAndroid() ? 64L : 128L) * 1024 * 1024;
         if (item.Length is { } knownLength && knownLength > limit)
         {
             FailureText = $"此 PDF 为 {Formatting.Bytes(item.Length)}，超过内置阅读的 {Formatting.Bytes(limit)} 安全上限。";
@@ -543,6 +672,16 @@ public sealed partial class DocumentWorkbenchViewModel(
                 await memory.WriteAsync(buffer.AsMemory(0, read), CancellationToken.None).ConfigureAwait(true);
             }
             _pdfData = memory.ToArray();
+        }
+
+        if (useManagedFallback)
+        {
+            if (!TryActivatePdfFallback())
+            {
+                FailureText = "此 PDF 无法以兼容模式打开；完整 PDF 阅读需要 Android 12（API 31）或更高版本。";
+                StatusText = "PDF 不可用";
+            }
+            return;
         }
 
         try
@@ -599,7 +738,7 @@ public sealed partial class DocumentWorkbenchViewModel(
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
-            if (generation == _loadGeneration)
+            if (generation == _loadGeneration && !TryActivatePdfFallback())
             {
                 FailureText = "当前平台的 PDF 渲染组件不可用；可先用系统应用打开。";
                 StatusText = "PDF 不可用";
@@ -913,6 +1052,11 @@ public sealed partial class DocumentWorkbenchViewModel(
     {
         OnPropertyChanged(nameof(IsPdfDocument));
         OnPropertyChanged(nameof(IsTextDocument));
+        OnPropertyChanged(nameof(IsOfficeDocument));
+        OnPropertyChanged(nameof(UseOfficeViewer));
+        OnPropertyChanged(nameof(ShowOfficeWorkbench));
+        OnPropertyChanged(nameof(IsPdfFallback));
+        OnPropertyChanged(nameof(ShowPdfWorkbench));
         OnPropertyChanged(nameof(IsMarkdown));
         OnPropertyChanged(nameof(IsSourceView));
         OnPropertyChanged(nameof(IsRenderedView));

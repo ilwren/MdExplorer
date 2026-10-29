@@ -2007,14 +2007,12 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         item ??= SelectedItems.FirstOrDefault();
         if (item is null || item.IsFolder) return;
-        if (!DocumentWorkbenchViewModel.IsSupportedText(item.Model) && !FileKindClassifier.IsPdf(item.Model))
+        if (!DocumentWorkbenchViewModel.CanOpen(item.Model))
         {
-            _dialogs.Notify("此类型暂不支持文档工作台");
-            return;
-        }
-        if (DocumentWorkbenchViewModel.IsSupportedText(item.Model) && FileLocator.IsStorageUri(item.FullPath))
-        {
-            _dialogs.Notify("授权文件夹中的文本暂仅支持只读预览");
+            _dialogs.Notify(DocumentWorkbenchViewModel.IsSupportedText(item.Model) &&
+                            FileLocator.IsStorageUri(item.FullPath)
+                ? "授权文件夹中的文本暂仅支持只读预览"
+                : "此类型暂不支持文档工作台");
             return;
         }
         await RecordRecentFileAsync(item.FullPath).ConfigureAwait(true);

@@ -5,6 +5,7 @@
              xmlns:mdm="using:Markdown.Avalonia"
              xmlns:ae="using:AvaloniaEdit"
              xmlns:vm="using:MdExplorer.UI.ViewModels"
+             xmlns:views="using:MdExplorer.UI.Views"
              x:Class="MdExplorer.UI.Views.PreviewView"
              x:DataType="vm:PreviewViewModel"
              Background="Transparent">
@@ -51,6 +52,29 @@
               <md:MdIconButton Icon="{x:Static md:MdSymbols.LastPage}" Command="{Binding LastPdfPageCommand}"
                                IsEnabled="{Binding CanNextPdfPage}" AutomationProperties.Name="最后一页" />
             </StackPanel>
+          </Border>
+          <Border IsVisible="{Binding HasOfficeDocument}" VerticalAlignment="Top" Height="456"
+                  Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
+                  BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
+                  CornerRadius="16" ClipToBounds="True">
+            <Grid RowDefinitions="*,Auto">
+              <views:OfficeDocumentViewer Document="{Binding OfficeDocument}"
+                                          SelectedSheetIndex="{Binding OfficeSheetIndex, Mode=TwoWay}"
+                                          PageCount="{Binding OfficePageCount, Mode=TwoWay}"
+                                          SheetCount="{Binding OfficeSheetCount, Mode=TwoWay}"
+                                          AutomationProperties.Name="Office 文档预览" />
+              <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" MinHeight="44"
+                    Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
+                <md:MdIconButton Icon="{x:Static md:MdSymbols.ChevronLeft}" Command="{Binding PreviousOfficeSheetCommand}"
+                                 IsVisible="{Binding IsOfficeExcel}" IsEnabled="{Binding CanPreviousOfficeSheet}"
+                                 AutomationProperties.Name="上一张工作表" />
+                <TextBlock Grid.Column="1" Classes="caption" Text="{Binding OfficeStatusText}" TextWrapping="Wrap"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" Margin="4,5" />
+                <md:MdIconButton Grid.Column="2" Icon="{x:Static md:MdSymbols.ChevronRight}" Command="{Binding NextOfficeSheetCommand}"
+                                 IsVisible="{Binding IsOfficeExcel}" IsEnabled="{Binding CanNextOfficeSheet}"
+                                 AutomationProperties.Name="下一张工作表" />
+              </Grid>
+            </Grid>
           </Border>
           <Border IsVisible="{Binding ShowPlainText}" VerticalAlignment="Top" Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}"
                   CornerRadius="16" Padding="12" ClipToBounds="True" MaxHeight="480">
