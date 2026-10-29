@@ -1042,7 +1042,8 @@
                     <md:MdLinearProgressIndicator Grid.Row="0" IsIndeterminate="True" Height="3"
                                                   IsVisible="{Binding SecondaryBrowser.IsLoading}" />
                     <Grid x:Name="SecondaryDropArea" Grid.Row="1">
-                      <md:MdRefreshIndicator IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
+                      <md:MdRefreshIndicator x:Name="SecondaryListRefresh"
+                                             IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
                                              RefreshCommand="{Binding SecondaryBrowser.PullRefreshCommand}"
                                              PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
                                              RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"
@@ -1055,7 +1056,8 @@
                                  ContextMenu="{StaticResource ItemMenu}"
                                  Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped" />
                       </md:MdRefreshIndicator>
-                      <md:MdRefreshIndicator IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
+                      <md:MdRefreshIndicator x:Name="SecondaryGridRefresh"
+                                             IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
                                              RefreshCommand="{Binding SecondaryBrowser.PullRefreshCommand}"
                                              PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
                                              RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"
@@ -1074,7 +1076,8 @@
                         </md:MdList>
                       </md:MdRefreshIndicator>
                       <!-- 对照窗格详细信息：与 A 侧共用同一 VM 排序/选集管线，但列头字形和排序只作用于 B。 -->
-                      <md:MdRefreshIndicator IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
+                      <md:MdRefreshIndicator x:Name="SecondaryDetailsRefresh"
+                                             IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
                                              RefreshCommand="{Binding SecondaryBrowser.PullRefreshCommand}"
                                              PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
                                              RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"

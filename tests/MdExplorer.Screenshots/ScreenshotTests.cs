@@ -316,21 +316,34 @@ public sealed class ScreenshotTests
             var details = view.FindControl<DataGrid>("SecondaryFileDetails");
             var list = view.FindControl<Control>("SecondaryFileList");
             var grid = view.FindControl<Control>("SecondaryFileGrid");
+            var detailsHost = view.FindControl<Control>("SecondaryDetailsRefresh");
+            var listHost = view.FindControl<Control>("SecondaryListRefresh");
+            var gridHost = view.FindControl<Control>("SecondaryGridRefresh");
             Assert.NotNull(details);
             Assert.NotNull(list);
             Assert.NotNull(grid);
+            Assert.NotNull(detailsHost);
+            Assert.NotNull(listHost);
+            Assert.NotNull(gridHost);
 
-            // IsVisible 只反映控件自身值；宿主包裹层的隐藏要用 IsEffectivelyVisible 才是“不渲染、不吃命中”。
-            Assert.True(list!.IsEffectivelyVisible);
-            Assert.False(details!.IsEffectivelyVisible);
+            // 无头窗口先走一帧，确保绑定与布局已应用，再断言宿主的可见性。
+            await Task.Delay(120);
+            window.CaptureRenderedFrame();
+            var state = $"mode={shell.SecondaryBrowser.ViewMode}, list={listHost!.IsVisible}, " +
+                        $"grid={gridHost!.IsVisible}, details={detailsHost!.IsVisible}";
+            Assert.False(shell.SecondaryBrowser.IsDetailsView, state);
+            Assert.True(listHost.IsVisible, state);
+            Assert.False(detailsHost.IsVisible, state);
 
             shell.SecondaryBrowser.ViewMode = BrowserViewMode.Details;
             await Task.Delay(120);
             window.CaptureRenderedFrame();
 
-            Assert.True(details.IsEffectivelyVisible);
-            Assert.False(list.IsEffectivelyVisible);
-            Assert.False(grid!.IsEffectivelyVisible);
+            var switched = $"mode={shell.SecondaryBrowser.ViewMode}, list={listHost.IsVisible}, " +
+                           $"grid={gridHost.IsVisible}, details={detailsHost.IsVisible}";
+            Assert.True(detailsHost.IsVisible, switched);
+            Assert.False(listHost.IsVisible, switched);
+            Assert.False(gridHost.IsVisible, switched);
             // 详细信息面直接消费 B 会话集合，不另建副本
             Assert.Same(shell.SecondaryBrowser.Items, details.ItemsSource);
 
