@@ -50,7 +50,7 @@ jobs:
       - name: Render breakpoint screenshots
         run: |
           set -o pipefail
-          dotnet test tests/MdExplorer.Screenshots -c Release 2>&1 | tee screenshot-output.txt
+          dotnet test tests/MdExplorer.Screenshots -c Release --blame-crash --results-directory "$PWD/TestResults" 2>&1 | tee screenshot-output.txt
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -65,7 +65,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash .github/publish-artifacts.sh screenshots tests/MdExplorer.Screenshots/bin/Release/net10.0/screenshots/*.png
-          bash .github/publish-artifacts.sh screenshot-logs screenshot-output.txt
+          seq="$(find TestResults -name 'Sequence_*.xml' -print -quit 2>/dev/null || true)"
+          if [ -n "$seq" ]; then cp "$seq" blame-sequence.xml; fi
+          bash .github/publish-artifacts.sh screenshot-logs screenshot-output.txt blame-sequence.xml
 
   publish-desktop:
     name: Desktop publish (self-contained)
