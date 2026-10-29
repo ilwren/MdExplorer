@@ -289,7 +289,8 @@ public static class OfficeDocumentLoader
 
             var maxRow = 0;
             var maxColumn = 0;
-            var defaultColumnWidth = 8.43 * 6;
+            // OfficeViewer 0.1.6 的实际列宽约为 SpreadsheetML 单位 ×7；宿主取 7.25 留出边框余量。
+            var defaultColumnWidth = 8.43 * 7.25;
             var columnWidths = new Dictionary<int, double>();
             elements += ScanXml(archive, sheetPath, reader =>
             {
@@ -300,7 +301,7 @@ public static class OfficeDocumentLoader
                                 System.Globalization.NumberStyles.Float,
                                 System.Globalization.CultureInfo.InvariantCulture,
                                 out var parsedDefaultWidth) && parsedDefaultWidth > 0)
-                            defaultColumnWidth = Math.Max(40, parsedDefaultWidth * 6);
+                            defaultColumnWidth = Math.Max(48, parsedDefaultWidth * 7.25);
                         break;
                     case "col":
                         if (int.TryParse(reader.GetAttribute("max"), out var colMax))
@@ -313,7 +314,7 @@ public static class OfficeDocumentLoader
                                 System.Globalization.NumberStyles.Float,
                                 System.Globalization.CultureInfo.InvariantCulture,
                                 out var parsedWidth) && parsedWidth > 0
-                                ? Math.Max(1, parsedWidth * 6)
+                                ? Math.Max(1, parsedWidth * 7.25)
                                 : defaultColumnWidth;
                         // 只记录宿主允许范围内的列宽；超范围仍由 maxColumn 在整表扫描后统一拒绝。
                         for (var column = Math.Max(1, colMin);
@@ -353,7 +354,7 @@ public static class OfficeDocumentLoader
                 throw new InvalidDataException(
                     $"工作表「{sheetNames[index]}」范围过大（{maxRow:N0} 行 × {maxColumn:N0} 列），已拒绝在内置预览中展开。");
             }
-            var nominalWidth = 52d + 16d + 14d; // 行号列 + 上游网格边距 + 垂直滚动条。
+            var nominalWidth = 52d + 16d + 18d; // 行号列 + 上游网格边距 + 垂直滚动条。
             for (var column = 0; column < maxColumn; column++)
                 nominalWidth += columnWidths.TryGetValue(column, out var width) ? width : defaultColumnWidth;
             sheetNominalWidths.Add(Math.Clamp(nominalWidth, 320, 1600));
