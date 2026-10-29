@@ -184,6 +184,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _recentItemLimit = Math.Clamp(s.RecentItemLimit, 6, 60);
         _pullRefreshTriggerDistance = Math.Clamp(
             double.IsFinite(s.PullRefreshTriggerDistance) ? s.PullRefreshTriggerDistance : 72, 48, 120);
+        _enablePullRefresh = s.EnablePullRefresh;
+        _autoLoadMoreDistance = Math.Clamp(
+            double.IsFinite(s.AutoLoadMoreDistance) ? s.AutoLoadMoreDistance : 320, 120, 600);
+        _searchResultLimit = Math.Clamp(s.SearchResultLimit, 200, 20000);
         RefreshSearchIndexRoots();
     }
 
@@ -271,6 +275,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         !string.IsNullOrWhiteSpace(Browser.CurrentPath);
     /// <summary>B 的路径胶囊在编辑地址时让位给输入框；B 只出现在 ExtraLarge，不需要 Compact 折叠分支。</summary>
     public bool ShowSecondaryBreadcrumbBar => !SecondaryBrowser.IsAddressEditing;
+    /// <summary>B 搜索面板里“清除”按钮的可见性；编译绑定的取反只写到一层属性，这里显式给个镜像。</summary>
+    public bool IsSecondaryNotSearching => !SecondaryBrowser.IsSearchMode;
     public bool IsEditingSecondaryAddress => SecondaryBrowser.IsAddressEditing;
 
     partial void OnIsDualPaneEnabledChanged(bool value)
@@ -302,6 +308,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(SecondaryPaneBadgeText));
         OnPropertyChanged(nameof(CanTransferPrimaryToSecondary));
         OnPropertyChanged(nameof(CanTransferSecondaryToPrimary));
+        OnPropertyChanged(nameof(IsSecondaryNotSearching));
     }
 
     private void ApplyActivePanePreviewSource()
@@ -1154,6 +1161,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         if (IsDialogOpen) return true; // 模态开着时吞掉返回，由对话框按钮收尾
         if (IsTaskCenterOpen) { IsTaskCenterOpen = false; return true; }
         if (Browser.IsSearchPanelOpen) { Browser.IsSearchPanelOpen = false; return true; }
+        if (ShowDualPane && SecondaryBrowser.IsSearchPanelOpen) { SecondaryBrowser.IsSearchPanelOpen = false; return true; }
         if (IsDrawerOpen) { IsDrawerOpen = false; return true; }
         if (IsPreviewPageOpen) { IsPreviewPageOpen = false; return true; }
         if (Page == ShellPage.DocumentWorkbench)
@@ -2571,7 +2579,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         var batch = new List<FileItemViewModel>(50);
         try
         {
-            var spec = new SearchSpec(query, string.Empty, kinds, ShowHidden, MaxResults: 5000);
+            var spec = new SearchSpec(query, string.Empty, kinds, ShowHidden, MaxResults: SearchResultLimit);
             await foreach (var item in _services.SearchIndex.SearchAsync(spec, cts.Token).ConfigureAwait(true))
             {
                 batch.Add(new FileItemViewModel(item)
@@ -2777,6 +2785,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _notifyOnTaskCompletion;
     [ObservableProperty] private bool _isSendingTestSystemNotification;
     [ObservableProperty] private int _itemPageSize = BrowserViewModel.DefaultItemPageSize;
+    [ObservableProperty] private bool _enablePullRefresh = true;
+    [ObservableProperty] private double _autoLoadMoreDistance = 320;
+    [ObservableProperty] private int _searchResultLimit = 2000;
     [ObservableProperty] private bool _autoLoadMore = true;
     [ObservableProperty] private bool _enableThumbnails = true;
     [ObservableProperty] private string _density = "Comfortable";
@@ -2792,6 +2803,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public string ItemPageSizeText => $"{ItemPageSize} 项/页";
     public string RecentLimitText => $"{RecentItemLimit} 条";
     public string PullTriggerText => $"{PullRefreshTriggerDistance:0} DIP";
+    public string AutoLoadMoreDistanceText => $"{AutoLoadMoreDistanceClamped:0} DIP";
+    public string SearchResultLimitText => $"{SearchResultLimit} 条";
     public bool IsDensityComfortable => !IsCompactDensity;
     public bool IsDensityCompact => IsCompactDensity;
     public bool IsPageSize60 => ItemPageSize == 60;
@@ -2802,10 +2815,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsRecentLimit48 => RecentItemLimit == 48;
     public bool IsPullTrigger72 => Math.Abs(PullRefreshTriggerDistance - 72) < 0.1;
     public bool IsPullTrigger96 => Math.Abs(PullRefreshTriggerDistance - 96) < 0.1;
+    public bool IsAutoLoadDistance160 => Math.Abs(AutoLoadMoreDistanceClamped - 160) < 0.1;
+    public bool IsAutoLoadDistance320 => Math.Abs(AutoLoadMoreDistanceClamped - 320) < 0.1;
+    public bool IsAutoLoadDistance480 => Math.Abs(AutoLoadMoreDistanceClamped - 480) < 0.1;
+    public bool IsSearchLimit1000 => SearchResultLimit == 1000;
+    public bool IsSearchLimit2000 => SearchResultLimit == 2000;
+    public bool IsSearchLimit5000 => SearchResultLimit == 5000;
 
     /// <summary>滚动续页的统一门槛：关闭自动加载后只剩页脚按钮与快捷键。</summary>
     public bool ShouldAutoLoadMore(double remainingFromBottom) =>
-        AutoLoadMore && remainingFromBottom <= 320;
+        AutoLoadMore && remainingFromBottom <= AutoLoadMoreDistanceClamped;
+    public double AutoLoadMoreDistanceClamped => Math.Clamp(
+        double.IsFinite(AutoLoadMoreDistance) ? AutoLoadMoreDistance : 320, 120, 600);
     public string SystemNotificationPlatformText => _services.SystemNotifications.PlatformName;
     public string SystemNotificationSupportText => _services.SystemNotifications.SupportDescription;
 
@@ -2959,6 +2980,49 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(PullTriggerText));
         OnPropertyChanged(nameof(IsPullTrigger72));
         OnPropertyChanged(nameof(IsPullTrigger96));
+    }
+
+    partial void OnEnablePullRefreshChanged(bool value)
+    {
+        _services.SettingsStore.Settings.EnablePullRefresh = value;
+        _ = SaveAsync();
+    }
+
+    partial void OnAutoLoadMoreDistanceChanged(double value)
+    {
+        var distance = Math.Clamp(double.IsFinite(value) ? value : 320, 120, 600);
+        _services.SettingsStore.Settings.AutoLoadMoreDistance = distance;
+        _ = SaveAsync();
+        OnPropertyChanged(nameof(AutoLoadMoreDistanceText));
+        OnPropertyChanged(nameof(AutoLoadMoreDistanceClamped));
+        OnPropertyChanged(nameof(IsAutoLoadDistance160));
+        OnPropertyChanged(nameof(IsAutoLoadDistance320));
+        OnPropertyChanged(nameof(IsAutoLoadDistance480));
+    }
+
+    partial void OnSearchResultLimitChanged(int value)
+    {
+        var limit = Math.Clamp(value, 200, 20000);
+        _services.SettingsStore.Settings.SearchResultLimit = limit;
+        _ = SaveAsync();
+        OnPropertyChanged(nameof(SearchResultLimitText));
+        OnPropertyChanged(nameof(IsSearchLimit1000));
+        OnPropertyChanged(nameof(IsSearchLimit2000));
+        OnPropertyChanged(nameof(IsSearchLimit5000));
+    }
+
+    [RelayCommand]
+    private void SetAutoLoadMoreDistance(string? value)
+    {
+        if (double.TryParse(value, out var distance))
+            AutoLoadMoreDistance = Math.Clamp(distance, 120, 600);
+    }
+
+    [RelayCommand]
+    private void SetSearchResultLimit(string? value)
+    {
+        if (int.TryParse(value, out var limit))
+            SearchResultLimit = Math.Clamp(limit, 200, 20000);
     }
 
     [RelayCommand]

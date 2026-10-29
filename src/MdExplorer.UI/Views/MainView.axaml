@@ -1050,6 +1050,23 @@
                         <md:MdIconButton Icon="{x:Static md:MdSymbols.GridView}" Command="{Binding SecondaryBrowser.ToggleViewModeCommand}"
                                          ToolTip.Tip="切换对照窗格视图（列表 / 网格 / 详细信息）"
                                          AutomationProperties.Name="切换对照窗格视图" />
+                        <md:MdButton Classes="search-island" Variant="Tonal" Height="38" Width="44" MinWidth="44" Padding="0"
+                                     Command="{Binding SecondaryBrowser.OpenSearchPanelCommand}"
+                                     ToolTip.Tip="{Binding SecondaryBrowser.SearchIslandText}"
+                                     AutomationProperties.Name="{Binding SecondaryBrowser.SearchIslandText}">
+                          <Grid Width="28" Height="24">
+                            <md:MdIcon Glyph="{x:Static md:MdSymbols.Search}" Size="18"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Border MinWidth="15" Height="15" CornerRadius="8" Padding="3,0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}"
+                                    IsVisible="{Binding SecondaryBrowser.HasActiveSearch}">
+                              <TextBlock Text="{Binding SecondaryBrowser.SearchResultBadgeText}" FontSize="8.5" FontWeight="Bold"
+                                         Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                          </Grid>
+                        </md:MdButton>
                       </StackPanel>
                     </md:MdScrollViewer>
                   </Border>
@@ -1234,6 +1251,57 @@
                     <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center">
                       <Run Text="排序：" /><Run Text="{Binding SecondaryBrowser.SortFieldLabel}" />
                     </TextBlock>
+                  </Grid>
+
+                  <!-- B 自己的搜索面板：只覆盖对照窗格，不抢 A 的工作区与全局搜索面板。 -->
+                  <Grid Grid.Row="0" Grid.RowSpan="5" IsVisible="{Binding SecondaryBrowser.IsSearchPanelOpen}">
+                    <Border Background="#22000000" Tapped="OnSecondarySearchScrimTapped" />
+                    <Border x:Name="SecondarySearchPanel" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                            Margin="8,6,8,0" Padding="14" CornerRadius="24"
+                            Background="{DynamicResource Md.Sys.Color.Surface.Brush}"
+                            BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
+                            BoxShadow="0 18 40 #33000000">
+                      <md:MdScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled"
+                                         VerticalScrollBarVisibility="Auto" AllowMouseDrag="True">
+                        <StackPanel Spacing="11">
+                          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <TextBlock Classes="caption" Text="{Binding SecondaryBrowser.SearchPanelScopeText}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <md:MdIconButton Grid.Column="1" Icon="{x:Static md:MdSymbols.Close}"
+                                             Command="{Binding SecondaryBrowser.CloseSearchPanelCommand}"
+                                             AutomationProperties.Name="关闭对照窗格搜索面板" />
+                          </Grid>
+
+                          <md:MdSearchBar x:Name="SecondarySearch" PlaceholderText="搜索对照窗格"
+                                          ToolTip.Tip="输入筛选 B 的当前列表；回车递归搜索"
+                                          Text="{Binding SecondaryBrowser.FilterText}" ShowClearButton="True"
+                                          KeyDown="OnSecondarySearchKeyDown" />
+
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Classes="caption" Text="{Binding SecondaryBrowser.SearchPanelStatusText}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <md:MdCircularProgressIndicator Grid.Column="1" IsVisible="{Binding SecondaryBrowser.IsLoading}"
+                                                            IsIndeterminate="True" Width="20" Height="20" />
+                          </Grid>
+
+                          <WrapPanel Orientation="Horizontal">
+                            <md:MdButton Variant="Filled" Content="递归" Margin="0,0,8,8"
+                                         Command="{Binding SecondaryBrowser.SearchRecursiveFromPanelCommand}" />
+                            <md:MdButton Variant="Tonal" Content="当前列表" Margin="0,0,8,8"
+                                         Click="OnApplySecondarySearchFilterClick" />
+                            <md:MdButton Variant="Outlined" Content="取消" Margin="0,0,8,8"
+                                         Command="{Binding SecondaryBrowser.CancelCurrentSearchCommand}"
+                                         IsVisible="{Binding SecondaryBrowser.IsLoading}" />
+                            <md:MdButton Variant="Text" Content="清除" Margin="0,0,8,8"
+                                         Command="{Binding SecondaryBrowser.ClearFilterCommand}"
+                                         IsVisible="{Binding IsSecondaryNotSearching}" />
+                            <md:MdButton Variant="Text" Content="退出" Margin="0,0,8,8"
+                                         Command="{Binding SecondaryBrowser.ExitSearchCommand}"
+                                         IsVisible="{Binding SecondaryBrowser.IsSearchMode}" />
+                          </WrapPanel>
+                        </StackPanel>
+                      </md:MdScrollViewer>
+                    </Border>
                   </Grid>
                 </Grid>
               </Border>

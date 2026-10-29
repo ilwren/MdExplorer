@@ -124,6 +124,89 @@ public sealed class SettingsPreferencesTests : IDisposable
         Assert.False(shell.ShouldAutoLoadMore(200));
     }
 
+    /// <summary>v0.29：浏览器/搜索新增的三项设置必须落盘、夹取并真正作用到运行时判定。</summary>
+    [Fact]
+    public void BrowsingDistancePullRefreshAndSearchLimitStayInRange()
+    {
+        var shell = CreateShell();
+
+        Assert.True(shell.EnablePullRefresh);
+        Assert.Equal(320d, shell.AutoLoadMoreDistance);
+        Assert.Equal("320 DIP", shell.AutoLoadMoreDistanceText);
+        Assert.True(shell.IsAutoLoadDistance320);
+        Assert.Equal(2000, shell.SearchResultLimit);
+        Assert.Equal("2000 条", shell.SearchResultLimitText);
+        Assert.True(shell.IsSearchLimit2000);
+
+        // 分段选择走命令，超范围走属性都由夹取兜住
+        shell.SetAutoLoadMoreDistanceCommand.Execute("480");
+        Assert.Equal(480d, shell.SettingsStore.Settings.AutoLoadMoreDistance);
+        Assert.True(shell.IsAutoLoadDistance480);
+        Assert.True(shell.ShouldAutoLoadMore(470));
+        Assert.False(shell.ShouldAutoLoadMore(500));
+
+        shell.AutoLoadMoreDistance = 99999;
+        Assert.Equal(600d, shell.SettingsStore.Settings.AutoLoadMoreDistance);
+        Assert.Equal(600d, shell.AutoLoadMoreDistanceClamped);
+        Assert.True(shell.ShouldAutoLoadMore(590));
+
+        shell.SetSearchResultLimitCommand.Execute("1000");
+        Assert.Equal(1000, shell.SettingsStore.Settings.SearchResultLimit);
+        Assert.True(shell.IsSearchLimit1000);
+        shell.SearchResultLimit = 10;
+        Assert.Equal(200, shell.SettingsStore.Settings.SearchResultLimit);
+
+        shell.EnablePullRefresh = false;
+        Assert.False(shell.SettingsStore.Settings.EnablePullRefresh);
+        shell.EnablePullRefresh = true;
+        Assert.True(shell.SettingsStore.Settings.EnablePullRefresh);
+    }
+
+    /// <summary>v0.29：关掉下拉刷新手势后手势入口立刻收手，工具栏刷新仍然可用。</summary>
+    [Fact]
+    public async Task DisabledPullRefreshOnlyBlocksTheGesture()
+    {
+        var shell = CreateShell();
+        await shell.Browser.NavigateToAsync(_manyDir, pushHistory: false);
+        Assert.Equal(150, shell.Browser.TotalItemCount);
+
+        shell.EnablePullRefresh = false;
+        await shell.Browser.PullRefreshCommand.ExecuteAsync(null);
+        Assert.False(shell.Browser.IsRefreshing);
+        Assert.Equal(150, shell.Browser.TotalItemCount);
+
+        await shell.Browser.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(150, shell.Browser.TotalItemCount);
+
+        shell.EnablePullRefresh = true;
+        await shell.Browser.PullRefreshCommand.ExecuteAsync(null);
+        Assert.False(shell.Browser.IsRefreshing);
+        Assert.Equal(150, shell.Browser.TotalItemCount);
+    }
+
+    /// <summary>v0.29：新字段手改越界也会在加载时被夹回文档区间。</summary>
+    [Fact]
+    public async Task LoadingClampsNewBrowsingAndSearchSettings()
+    {
+        await File.WriteAllTextAsync(
+            Path.Combine(_dataDir, "settings.json"),
+            """
+            {
+              "SchemaVersion": 1,
+              "AutoLoadMoreDistance": 5000,
+              "SearchResultLimit": 1,
+              "EnablePullRefresh": false
+            }
+            """,
+            TestContext.Current.CancellationToken);
+
+        var store = await SettingsStore.LoadAsync(_dataDir, TestContext.Current.CancellationToken);
+
+        Assert.Equal(600d, store.Settings.AutoLoadMoreDistance);
+        Assert.Equal(200, store.Settings.SearchResultLimit);
+        Assert.False(store.Settings.EnablePullRefresh);
+    }
+
     [Fact]
     public void ThumbnailSettingReachesBothPanes()
     {

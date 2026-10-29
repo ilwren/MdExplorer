@@ -140,6 +140,43 @@ public sealed class DualPaneBrowserTests : IDisposable
         Assert.Equal(thirdDir, shell.SecondaryBrowser.CurrentPath);
     }
 
+    /// <summary>v0.29：B 有自己的搜索面板，筛选只作用于 B；返回键先收面板，再谈后退。</summary>
+    [Fact]
+    public async Task SecondarySearchFiltersOnlyItsOwnSession()
+    {
+        var shell = CreateShell();
+        var leftFile = CreateFile("search-left", "left-only.txt", "left");
+        var rightFile = CreateFile("search-right", "right-only.txt", "right");
+        var leftDir = Path.GetDirectoryName(leftFile)!;
+        var rightDir = Path.GetDirectoryName(rightFile)!;
+
+        await shell.Browser.NavigateToAsync(leftDir);
+        shell.SettingsStore.Settings.DualPanePath = rightDir;
+        shell.SetViewportSize(1920, 1080);
+        await shell.ToggleDualPaneCommand.ExecuteAsync(null);
+        shell.ActivateSecondaryPane();
+
+        shell.SecondaryBrowser.OpenSearchPanelCommand.Execute(null);
+        Assert.True(shell.SecondaryBrowser.IsSearchPanelOpen);
+        Assert.False(shell.Browser.IsSearchPanelOpen);
+        Assert.True(shell.IsSecondaryNotSearching);
+
+        shell.SecondaryBrowser.FilterText = "right";
+        await WaitForAsync(() => shell.SecondaryBrowser.Items.Count == 1);
+        Assert.Equal("right-only.txt", Assert.Single(shell.SecondaryBrowser.Items).Name);
+        // A 的列表、筛选词与面板状态都保持原样
+        Assert.Contains(shell.Browser.Items, item => item.Name == "left-only.txt");
+        Assert.Equal(string.Empty, shell.Browser.FilterText);
+        Assert.False(shell.Browser.IsSearchPanelOpen);
+
+        // 返回（Esc）先收 B 的搜索面板，不触发 B 的后退
+        Assert.True(await shell.TryGoBackAsync());
+        Assert.False(shell.SecondaryBrowser.IsSearchPanelOpen);
+        Assert.Equal(rightDir, shell.SecondaryBrowser.CurrentPath);
+        Assert.True(shell.IsSecondaryNotSearching);
+        _ = leftFile;
+    }
+
     [Fact]
     public async Task CrossPaneCopyAndMoveRefreshBothPanes()
     {

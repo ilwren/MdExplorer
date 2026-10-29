@@ -266,6 +266,24 @@ public sealed class ScreenshotTests
         Assert.True(shell.Browser.IsAddressEditing == false);
     });
 
+    /// <summary>v0.29：B 自己的搜索面板只覆盖对照窗格，A 的工作区与全局搜索面板不受影响。</summary>
+    [AvaloniaFact]
+    public async Task ExtraLarge_DualPaneSearch() => await CaptureAsync(
+        "61-xlarge-dual-pane-search.png", 1920, 1080, async shell =>
+    {
+        await ArrangeDualPaneForDetailsTestAsync(shell);
+        shell.ActivateSecondaryPane();
+        shell.SecondaryBrowser.OpenSearchPanelCommand.Execute(null);
+        shell.SecondaryBrowser.FilterText = "IMG";
+        await Task.Delay(80);
+        Assert.True(shell.SecondaryBrowser.IsSearchPanelOpen);
+        Assert.False(shell.Browser.IsSearchPanelOpen);
+        Assert.Equal(string.Empty, shell.Browser.FilterText);
+        Assert.True(shell.SecondaryBrowser.HasActiveSearch);
+        Assert.All(shell.SecondaryBrowser.Items, item => Assert.Contains("IMG", item.Name));
+        Assert.Contains(shell.Browser.Items, item => !item.Name.Contains("IMG"));
+    });
+
     [AvaloniaFact]
     public async Task Large_SettingsPreferences() => await CaptureAsync(
         "58-large-settings.png", 1440, 900, shell =>
@@ -430,6 +448,49 @@ public sealed class ScreenshotTests
             // A 侧保持自己的面包屑，不被 B 的编辑态牵连
             Assert.True(primaryBreadcrumb.IsEffectivelyVisible, state);
             Assert.True(shell.ShowBreadcrumbBar, state);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>v0.29：B 搜索面板在窗格内浮出，A 的搜索面板保持关闭。</summary>
+    [AvaloniaFact]
+    public async Task ExtraLarge_SecondarySearchPanelStaysInsideItsPane()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1920, 1080);
+        var window = new MainWindow { Width = 1920, Height = 1080, DataContext = shell };
+        window.Show();
+        try
+        {
+            await ArrangeDualPaneForDetailsTestAsync(shell);
+            var view = Assert.IsType<MainView>(window.Content);
+            var secondaryPanel = view.FindControl<Control>("SecondarySearchPanel");
+            var primarySearch = view.FindControl<Control>("BrowserSearch");
+            Assert.NotNull(secondaryPanel);
+            Assert.NotNull(primarySearch);
+
+            shell.ActivateSecondaryPane();
+            shell.SecondaryBrowser.OpenSearchPanelCommand.Execute(null);
+            await Task.Delay(120);
+            window.CaptureRenderedFrame();
+
+            var state = $"panelB={shell.SecondaryBrowser.IsSearchPanelOpen}, panelA={shell.Browser.IsSearchPanelOpen}, " +
+                        $"visible={secondaryPanel!.IsEffectivelyVisible}";
+            Assert.True(secondaryPanel.IsEffectivelyVisible, state);
+            Assert.False(shell.Browser.IsSearchPanelOpen, state);
+            // 面板在 B 窗格内部，不属于 A 的工作区
+            var pane = view.FindControl<Border>("SecondaryPane");
+            Assert.NotNull(pane);
+            Assert.Contains(secondaryPanel, pane!.GetVisualDescendants());
+
+            // 切回 A 时收掉 B 的浮层
+            shell.SecondaryBrowser.IsSearchPanelOpen = false;
+            await Task.Delay(60);
+            window.CaptureRenderedFrame();
+            Assert.False(secondaryPanel.IsEffectivelyVisible, state);
         }
         finally
         {

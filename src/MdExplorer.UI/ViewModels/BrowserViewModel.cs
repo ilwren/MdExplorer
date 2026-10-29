@@ -740,6 +740,12 @@ public sealed partial class BrowserViewModel : ObservableObject
     [RelayCommand]
     private async Task PullRefreshAsync()
     {
+        // 设置里关掉下拉刷新后，手势入口只把指示器收回；工具栏刷新与 F5/Ctrl+R 不受影响。
+        if (!_settingsStore.Settings.EnablePullRefresh)
+        {
+            IsRefreshing = false;
+            return;
+        }
         if (IsSearchMode || IsLoading)
         {
             IsRefreshing = false;
@@ -1656,7 +1662,9 @@ public sealed partial class BrowserViewModel : ObservableObject
         _idleTask = Task.CompletedTask;
         try
         {
-            var spec = new SearchSpec(query, root, kinds, _settingsStore.Settings.ShowHidden);
+            var spec = new SearchSpec(
+                query, root, kinds, _settingsStore.Settings.ShowHidden,
+                MaxResults: Math.Clamp(_settingsStore.Settings.SearchResultLimit, 200, 20000));
             await foreach (var hit in _search.SearchByNameAsync(spec, ct).ConfigureAwait(true))
             {
                 batch.Add(hit);

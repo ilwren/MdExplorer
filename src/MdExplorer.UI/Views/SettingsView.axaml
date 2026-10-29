@@ -176,6 +176,25 @@
           </StackPanel>
           <md:MdSwitch Grid.Column="1" IsChecked="{Binding AutoLoadMore}" VerticalAlignment="Center" />
         </Grid>
+        <StackPanel Spacing="2">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="自动续页距离" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AutoLoadMoreDistanceText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="距离列表底部多少时开始加载下一页；调大更早预取、调小更省内存" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAutoLoadDistance160}" Variant="Text"
+                         Content="160 DIP" Margin="0,0,6,0"
+                         Command="{Binding SetAutoLoadMoreDistanceCommand}" CommandParameter="160" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAutoLoadDistance320}" Variant="Text"
+                         Content="320 DIP" Margin="0,0,6,0"
+                         Command="{Binding SetAutoLoadMoreDistanceCommand}" CommandParameter="320" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAutoLoadDistance480}" Variant="Text"
+                         Content="480 DIP"
+                         Command="{Binding SetAutoLoadMoreDistanceCommand}" CommandParameter="480" />
+          </WrapPanel>
+        </StackPanel>
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel>
             <TextBlock Classes="body" Text="图片缩略图" />
@@ -189,6 +208,14 @@
             <TextBlock Classes="caption" Text="关闭后删除选中项会直接移入回收站；永久删除没有恢复路径，始终要求确认" />
           </StackPanel>
           <md:MdSwitch Grid.Column="1" IsChecked="{Binding ConfirmBeforeTrash}" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="下拉刷新手势" />
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="在文件面顶部向下拖触发刷新；关闭后工具栏刷新按钮与 F5/Ctrl+R 仍然可用" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding EnablePullRefresh}" VerticalAlignment="Center" />
         </Grid>
         <StackPanel Spacing="2" Margin="0,4,0,0">
           <Grid ColumnDefinitions="*,Auto">
@@ -247,6 +274,25 @@
           </StackPanel>
           <md:MdSwitch Grid.Column="1" IsChecked="{Binding UseSearchIndex}" VerticalAlignment="Center" />
         </Grid>
+        <StackPanel Spacing="2">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="搜索结果上限" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding SearchResultLimitText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="递归搜索与搜索中心单次最多返回的条数；达到上限时结果会被截断，不会静默当成全部" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsSearchLimit1000}" Variant="Text"
+                         Content="1000" Margin="0,0,6,0"
+                         Command="{Binding SetSearchResultLimitCommand}" CommandParameter="1000" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsSearchLimit2000}" Variant="Text"
+                         Content="2000" Margin="0,0,6,0"
+                         Command="{Binding SetSearchResultLimitCommand}" CommandParameter="2000" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsSearchLimit5000}" Variant="Text"
+                         Content="5000"
+                         Command="{Binding SetSearchResultLimitCommand}" CommandParameter="5000" />
+          </WrapPanel>
+        </StackPanel>
         <TextBlock Classes="caption">
           <Run Text="{Binding SearchIndexStateText}" /><Run Text=" · " /><Run Text="{Binding SearchIndexEntryCountText}" /><Run Text=" 项 · " /><Run Text="{Binding SearchIndexSizeText}" />
         </TextBlock>

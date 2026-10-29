@@ -109,6 +109,10 @@ public sealed class SettingsStore : ISettingsStore
         if (!double.IsFinite(settings.PullRefreshTriggerDistance))
             settings.PullRefreshTriggerDistance = 72;
         settings.PullRefreshTriggerDistance = Math.Clamp(settings.PullRefreshTriggerDistance, 48, 120);
+        if (!double.IsFinite(settings.AutoLoadMoreDistance))
+            settings.AutoLoadMoreDistance = 320;
+        settings.AutoLoadMoreDistance = Math.Clamp(settings.AutoLoadMoreDistance, 120, 600);
+        settings.SearchResultLimit = Math.Clamp(settings.SearchResultLimit, 200, 20000);
         settings.FolderViewStates ??= [];
         foreach (var key in settings.FolderViewStates
                      .Where(pair => pair.Value is null)

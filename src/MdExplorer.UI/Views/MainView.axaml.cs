@@ -672,7 +672,15 @@ public partial class MainView : UserControl
     }
 
     // ---------- 双窗格活动会话 ----------
-    private void OnPrimaryPanePointerPressed(object? sender, PointerPressedEventArgs e) => Shell?.ActivatePrimaryPane();
+    private void OnPrimaryPanePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (Shell is { } shell)
+        {
+            // B 的搜索浮层只属于 B：切到 A 时收掉，避免浮层压在非活动窗格上。
+            shell.SecondaryBrowser.IsSearchPanelOpen = false;
+            shell.ActivatePrimaryPane();
+        }
+    }
 
     private void OnPrimaryPaneGotFocus(object? sender, FocusChangedEventArgs e) => Shell?.ActivatePrimaryPane();
 
@@ -1625,6 +1633,38 @@ public partial class MainView : UserControl
         }
     }
 
+    private async void OnSecondarySearchKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (Shell is not { } shell)
+            return;
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            await shell.SecondaryBrowser.SearchRecursiveFromPanelCommand.ExecuteAsync(null);
+        }
+        else if (e.Key == Key.Escape)
+        {
+            shell.SecondaryBrowser.IsSearchPanelOpen = false;
+            FocusActiveFileView();
+            e.Handled = true;
+        }
+    }
+
+    private void OnApplySecondarySearchFilterClick(object? sender, RoutedEventArgs e)
+    {
+        if (Shell is not { } shell)
+            return;
+        shell.SecondaryBrowser.IsSearchPanelOpen = false;
+        FocusActiveFileView();
+    }
+
+    private void OnSecondarySearchScrimTapped(object? sender, TappedEventArgs e)
+    {
+        if (Shell is { } shell)
+            shell.SecondaryBrowser.IsSearchPanelOpen = false;
+        e.Handled = true;
+    }
+
     private void OnApplySearchFilterClick(object? sender, RoutedEventArgs e)
     {
         if (Shell is not { } shell)
@@ -1764,7 +1804,13 @@ public partial class MainView : UserControl
         }
         if (shell.Page == ShellPage.Browser && !shell.IsDialogOpen && ctrl && (e.Key == Key.F || e.Key == Key.K))
         {
-            shell.Browser.OpenSearchPanelCommand.Execute(null);
+            // Ctrl+F/K 打开“活动窗格”的搜索面板：B 活动时不该弹出覆盖整个窗口的 A 面板。
+            var target = shell.ActiveBrowser;
+            target.OpenSearchPanelCommand.Execute(null);
+            if (ReferenceEquals(target, shell.SecondaryBrowser))
+                SecondarySearch.Focus();
+            else
+                BrowserSearch.Focus();
             e.Handled = true;
             return;
         }
