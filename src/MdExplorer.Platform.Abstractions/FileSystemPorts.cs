@@ -318,8 +318,15 @@ public sealed class AppSettings
     public bool DualPaneEnabled { get; set; }             // XL 双窗格偏好；窄于 XL 时仅保留 B 会话而不显示
     public string? DualPanePath { get; set; }             // 对照窗格 B 上次所在文件夹（本地路径或 storage URI）
     public double DualPaneWidth { get; set; } = 560;      // 对照窗格 B 宽度（MaterialGridSplitter 拖后回写）
-    public bool ConfirmPermanentDelete { get; set; } = true;
+    public bool ConfirmBeforeTrash { get; set; } = true;    // 移入回收站前确认；永久删除始终确认
     public bool WatchFolderChanges { get; set; } = true;   // 外部增删改时自动刷新当前文件夹
+    public int ItemPageSize { get; set; } = 120;            // 文件区每页物化的行数（60–480），不改变底层枚举
+    public bool AutoLoadMore { get; set; } = true;          // 滚动距底 320 DIP 时自动续页
+    public bool EnableThumbnails { get; set; } = true;      // 解码图片缩略图；关闭后列表只留类型图标
+    public string Density { get; set; } = "Comfortable";    // Comfortable | Compact（列表/网格行密度）
+    public bool RestoreTabsOnLaunch { get; set; } = true;   // 启动恢复上次会话标签页
+    public int RecentItemLimit { get; set; } = 12;          // 最近访问保留条数（6–60）
+    public double PullRefreshTriggerDistance { get; set; } = 72; // 下拉刷新触发距离（48–120 DIP）
     public bool NotifyOnTaskCompletion { get; set; }       // 长任务完成/失败时发送操作系统通知（默认关，需用户显式开启）
     public List<string> OpenTabPaths { get; set; } = [];   // 上次会话的浏览器标签页（按显示顺序）
     public int ActiveTabIndex { get; set; }                // OpenTabPaths 中上次活动标签的下标

@@ -59,8 +59,18 @@ internal sealed class BrowserClipboardState
 
 public sealed partial class BrowserViewModel : ObservableObject
 {
-    /// <summary>文件区每次物化的行数；目录仍完整枚举和排序，分页只延后创建行 VM 与控件。</summary>
-    public const int ItemPageSize = 120;
+    /// <summary>文件区默认每次物化的行数；目录仍完整枚举和排序，分页只延后创建行 VM 与控件。</summary>
+    public const int DefaultItemPageSize = 120;
+
+    /// <summary>当前设置下的每页行数（60–480）；改设置后只影响下一次分页，不改底层枚举。</summary>
+    public int PageSize => Math.Clamp(_settingsStore.Settings.ItemPageSize, 60, 480);
+
+    /// <summary>图片缩略图是否仍参与解码；关闭时列表只保留类型图标。</summary>
+    public bool ThumbnailDecodingEnabled => _settingsStore.Settings.EnableThumbnails;
+
+    /// <summary>移入回收站前是否需要确认；永久删除不受此开关影响，始终确认。</summary>
+    public bool RequiresTrashConfirmation =>
+        _trash.CanMoveToTrash && _settingsStore.Settings.ConfirmBeforeTrash;
 
     private readonly IFileSystemService _fileSystem;
     private readonly IFileOperationService _operations;
@@ -951,8 +961,9 @@ public sealed partial class BrowserViewModel : ObservableObject
             return;
         target.RemoveAll(existing => PathsEqual(existing, path));
         target.Insert(0, path);
-        if (target.Count > 12)
-            target.RemoveRange(12, target.Count - 12);
+        var limit = Math.Clamp(_settingsStore.Settings.RecentItemLimit, 6, 60);
+        if (target.Count > limit)
+            target.RemoveRange(limit, target.Count - limit);
         await SaveSettingsAsync().ConfigureAwait(true);
         RecentsChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -1230,13 +1241,15 @@ public sealed partial class BrowserViewModel : ObservableObject
         await ActivateTabAsync(Tabs[(index - 1 + Tabs.Count) % Tabs.Count]).ConfigureAwait(true);
     }
 
-    /// <summary>启动恢复：优先打开上次会话的标签页（最多 12 个）；没有记录时打开宿主起始文件夹。</summary>
+    /// <summary>启动恢复：开启时会话恢复上次标签页（最多 12 个）；关闭或没有记录时只打开宿主起始文件夹。</summary>
     public async Task RestoreTabsAsync(string fallbackPath)
     {
-        var savedPaths = _settingsStore.Settings.OpenTabPaths
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Take(12)
-            .ToArray();
+        string[] savedPaths = _settingsStore.Settings.RestoreTabsOnLaunch
+            ? _settingsStore.Settings.OpenTabPaths
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Take(12)
+                .ToArray()
+            : [];
 
         Tabs.Clear();
         foreach (var path in savedPaths)
@@ -1427,7 +1440,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         Items.Clear();
         SelectedItems.Clear();
 
-        var initialCount = Math.Min(ItemPageSize, _filteredItems.Count);
+        var initialCount = Math.Min(PageSize, _filteredItems.Count);
         if (previousSelection.Count > 0)
         {
             var lastSelectedIndex = -1;
@@ -1440,7 +1453,7 @@ public sealed partial class BrowserViewModel : ObservableObject
             {
                 initialCount = Math.Min(
                     _filteredItems.Count,
-                    (lastSelectedIndex / ItemPageSize + 1) * ItemPageSize);
+                    (lastSelectedIndex / PageSize + 1) * PageSize);
             }
         }
 
@@ -1480,7 +1493,7 @@ public sealed partial class BrowserViewModel : ObservableObject
             return;
 
         var generation = _pagingGeneration;
-        var target = Math.Min(_filteredItems.Count, _visibleItemCount + ItemPageSize);
+        var target = Math.Min(_filteredItems.Count, _visibleItemCount + PageSize);
         var added = new List<FileItemViewModel>(target - _visibleItemCount);
         IsLoadingMore = true;
         try
@@ -1635,10 +1648,10 @@ public sealed partial class BrowserViewModel : ObservableObject
         _allItems.AddRange(batch);
         _filteredItems.AddRange(batch);
         TotalItemCount = _filteredItems.Count;
-        if (_visibleItemCount < ItemPageSize)
+        if (_visibleItemCount < PageSize)
         {
             AppendVisibleItems(Math.Min(
-                ItemPageSize - _visibleItemCount,
+                PageSize - _visibleItemCount,
                 _filteredItems.Count - _visibleItemCount));
         }
         RaisePagingState();
@@ -2211,7 +2224,9 @@ public sealed partial class BrowserViewModel : ObservableObject
         var message = canTrash
             ? $"将 {items.Count} 个项目移入{trashName}，之后可从{trashName}恢复。"
             : $"将永久删除 {items.Count} 个项目，此操作无法撤销。";
-        if (!await _dialogs.ConfirmAsync(title, message, canTrash ? $"移入{trashName}" : "永久删除", destructive: true).ConfigureAwait(true))
+        // 移入回收站可按设置跳过确认；永久删除没有恢复路径，始终要求确认。
+        if ((!canTrash || RequiresTrashConfirmation) &&
+            !await _dialogs.ConfirmAsync(title, message, canTrash ? $"移入{trashName}" : "永久删除", destructive: true).ConfigureAwait(true))
             return;
 
         if (canTrash)
@@ -2456,6 +2471,35 @@ public sealed partial class BrowserViewModel : ObservableObject
     }
 
     // ---------- 缩略图 ----------
+    /// <summary>设置切换后同步当前列表：关闭时取消解码并释放已生成的缩略图，开启时补做当前已物化行。</summary>
+    public void ApplyThumbnailPreference()
+    {
+        if (_settingsStore.Settings.EnableThumbnails)
+        {
+            StartThumbnails();
+            return;
+        }
+
+        _thumbCts?.Cancel();
+        foreach (var item in Items)
+        {
+            if (item.Thumbnail is null)
+                continue;
+            item.Thumbnail.Dispose();
+            item.Thumbnail = null;
+        }
+    }
+
+    /// <summary>每页行数改大后补足当前页；改小时不移除已呈现行，避免用户眼前的条目突然消失。</summary>
+    public void ApplyPageSizePreference()
+    {
+        if (!HasMoreItems || _visibleItemCount >= PageSize)
+            return;
+        var added = AppendVisibleItems(Math.Min(PageSize, _filteredItems.Count) - _visibleItemCount);
+        StartThumbnailsFor(added);
+        UpdatePagingStatusText();
+    }
+
     private void StartThumbnails()
     {
         _thumbCts?.Cancel();
@@ -2465,6 +2509,8 @@ public sealed partial class BrowserViewModel : ObservableObject
 
     private void StartThumbnailsFor(IEnumerable<FileItemViewModel> candidates)
     {
+        if (!_settingsStore.Settings.EnableThumbnails)
+            return;
         if (_thumbCts is null || _thumbCts.IsCancellationRequested)
             _thumbCts = new CancellationTokenSource();
         var ct = _thumbCts.Token;

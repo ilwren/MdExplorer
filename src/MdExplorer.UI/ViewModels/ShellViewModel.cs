@@ -170,6 +170,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _notifyOnTaskCompletion = s.NotifyOnTaskCompletion;
         _useSearchIndex = s.UseSearchIndex;
         _isDualPaneEnabled = s.DualPaneEnabled;
+        _itemPageSize = Math.Clamp(s.ItemPageSize, 60, 480);
+        _autoLoadMore = s.AutoLoadMore;
+        _enableThumbnails = s.EnableThumbnails;
+        _density = string.Equals(s.Density, "Compact", StringComparison.OrdinalIgnoreCase) ? "Compact" : "Comfortable";
+        _confirmBeforeTrash = s.ConfirmBeforeTrash;
+        _restoreTabsOnLaunch = s.RestoreTabsOnLaunch;
+        _recentItemLimit = Math.Clamp(s.RecentItemLimit, 6, 60);
+        _pullRefreshTriggerDistance = Math.Clamp(
+            double.IsFinite(s.PullRefreshTriggerDistance) ? s.PullRefreshTriggerDistance : 72, 48, 120);
         RefreshSearchIndexRoots();
     }
 
@@ -679,7 +688,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         try
         {
             var folders = new List<NavEntry>();
-            foreach (var path in _services.SettingsStore.Settings.RecentFolderPaths.Take(12))
+            foreach (var path in _services.SettingsStore.Settings.RecentFolderPaths.Take(RecentItemLimit))
             {
                 var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
                 if (item?.IsFolder == true)
@@ -694,7 +703,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             }
 
             var files = new List<FileItemViewModel>();
-            foreach (var path in _services.SettingsStore.Settings.RecentFilePaths.Take(12))
+            foreach (var path in _services.SettingsStore.Settings.RecentFilePaths.Take(RecentItemLimit))
             {
                 var item = await _services.FileSystem.StatAsync(path, CancellationToken.None).ConfigureAwait(true);
                 if (item is not null && !item.IsFolder)
@@ -2752,9 +2761,36 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _rememberFolderView;
     [ObservableProperty] private bool _notifyOnTaskCompletion;
     [ObservableProperty] private bool _isSendingTestSystemNotification;
+    [ObservableProperty] private int _itemPageSize = BrowserViewModel.DefaultItemPageSize;
+    [ObservableProperty] private bool _autoLoadMore = true;
+    [ObservableProperty] private bool _enableThumbnails = true;
+    [ObservableProperty] private string _density = "Comfortable";
+    [ObservableProperty] private bool _confirmBeforeTrash = true;
+    [ObservableProperty] private bool _restoreTabsOnLaunch = true;
+    [ObservableProperty] private int _recentItemLimit = 12;
+    [ObservableProperty] private double _pullRefreshTriggerDistance = 72;
     [ObservableProperty] private string _systemNotificationStatusText = "尚未发送测试通知。";
 
     public string ThemeModeText => ThemeMode switch { "Light" => "浅色", "Dark" => "深色", _ => "跟随系统" };
+    public bool IsCompactDensity => string.Equals(Density, "Compact", StringComparison.Ordinal);
+    public string DensityText => IsCompactDensity ? "紧凑" : "舒适";
+    public string ItemPageSizeText => $"{ItemPageSize} 项/页";
+    public string RecentLimitText => $"{RecentItemLimit} 条";
+    public string PullTriggerText => $"{PullRefreshTriggerDistance:0} DIP";
+    public bool IsDensityComfortable => !IsCompactDensity;
+    public bool IsDensityCompact => IsCompactDensity;
+    public bool IsPageSize60 => ItemPageSize == 60;
+    public bool IsPageSize120 => ItemPageSize == 120;
+    public bool IsPageSize240 => ItemPageSize == 240;
+    public bool IsRecentLimit12 => RecentItemLimit == 12;
+    public bool IsRecentLimit24 => RecentItemLimit == 24;
+    public bool IsRecentLimit48 => RecentItemLimit == 48;
+    public bool IsPullTrigger72 => Math.Abs(PullRefreshTriggerDistance - 72) < 0.1;
+    public bool IsPullTrigger96 => Math.Abs(PullRefreshTriggerDistance - 96) < 0.1;
+
+    /// <summary>滚动续页的统一门槛：关闭自动加载后只剩页脚按钮与快捷键。</summary>
+    public bool ShouldAutoLoadMore(double remainingFromBottom) =>
+        AutoLoadMore && remainingFromBottom <= 320;
     public string SystemNotificationPlatformText => _services.SystemNotifications.PlatformName;
     public string SystemNotificationSupportText => _services.SystemNotifications.SupportDescription;
 
@@ -2828,6 +2864,111 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         _services.SettingsStore.Settings.NotifyOnTaskCompletion = value;
         _ = SaveAsync();
+    }
+
+    partial void OnItemPageSizeChanged(int value)
+    {
+        _services.SettingsStore.Settings.ItemPageSize = value;
+        _ = SaveAsync();
+        NotifyItemPageSizeState();
+        Browser.ApplyPageSizePreference();
+        SecondaryBrowser.ApplyPageSizePreference();
+    }
+
+    private void NotifyItemPageSizeState()
+    {
+        OnPropertyChanged(nameof(ItemPageSizeText));
+        OnPropertyChanged(nameof(IsPageSize60));
+        OnPropertyChanged(nameof(IsPageSize120));
+        OnPropertyChanged(nameof(IsPageSize240));
+    }
+
+    partial void OnAutoLoadMoreChanged(bool value)
+    {
+        _services.SettingsStore.Settings.AutoLoadMore = value;
+        _ = SaveAsync();
+    }
+
+    partial void OnEnableThumbnailsChanged(bool value)
+    {
+        _services.SettingsStore.Settings.EnableThumbnails = value;
+        _ = SaveAsync();
+        Browser.ApplyThumbnailPreference();
+        SecondaryBrowser.ApplyThumbnailPreference();
+    }
+
+    partial void OnDensityChanged(string value)
+    {
+        _services.SettingsStore.Settings.Density = value;
+        _ = SaveAsync();
+        OnPropertyChanged(nameof(IsCompactDensity));
+        OnPropertyChanged(nameof(IsDensityComfortable));
+        OnPropertyChanged(nameof(IsDensityCompact));
+        OnPropertyChanged(nameof(DensityText));
+    }
+
+    partial void OnConfirmBeforeTrashChanged(bool value)
+    {
+        _services.SettingsStore.Settings.ConfirmBeforeTrash = value;
+        _ = SaveAsync();
+    }
+
+    partial void OnRestoreTabsOnLaunchChanged(bool value)
+    {
+        _services.SettingsStore.Settings.RestoreTabsOnLaunch = value;
+        _ = SaveAsync();
+    }
+
+    partial void OnRecentItemLimitChanged(int value)
+    {
+        var limit = Math.Clamp(value, 6, 60);
+        var settings = _services.SettingsStore.Settings;
+        settings.RecentItemLimit = limit;
+        if (settings.RecentFolderPaths.Count > limit)
+            settings.RecentFolderPaths.RemoveRange(limit, settings.RecentFolderPaths.Count - limit);
+        if (settings.RecentFilePaths.Count > limit)
+            settings.RecentFilePaths.RemoveRange(limit, settings.RecentFilePaths.Count - limit);
+        _ = SaveAsync();
+        OnPropertyChanged(nameof(RecentLimitText));
+        OnPropertyChanged(nameof(IsRecentLimit12));
+        OnPropertyChanged(nameof(IsRecentLimit24));
+        OnPropertyChanged(nameof(IsRecentLimit48));
+        _ = RefreshRecentsAsync();
+    }
+
+    partial void OnPullRefreshTriggerDistanceChanged(double value)
+    {
+        var distance = Math.Clamp(double.IsFinite(value) ? value : 72, 48, 120);
+        _services.SettingsStore.Settings.PullRefreshTriggerDistance = distance;
+        _ = SaveAsync();
+        OnPropertyChanged(nameof(PullTriggerText));
+        OnPropertyChanged(nameof(IsPullTrigger72));
+        OnPropertyChanged(nameof(IsPullTrigger96));
+    }
+
+    [RelayCommand]
+    private void SetItemPageSize(string? value)
+    {
+        if (int.TryParse(value, out var size))
+            ItemPageSize = Math.Clamp(size, 60, 480);
+    }
+
+    [RelayCommand]
+    private void SetDensity(string? value) =>
+        Density = string.Equals(value, "Compact", StringComparison.Ordinal) ? "Compact" : "Comfortable";
+
+    [RelayCommand]
+    private void SetRecentItemLimit(string? value)
+    {
+        if (int.TryParse(value, out var limit))
+            RecentItemLimit = Math.Clamp(limit, 6, 60);
+    }
+
+    [RelayCommand]
+    private void SetPullRefreshTriggerDistance(string? value)
+    {
+        if (double.TryParse(value, out var distance))
+            PullRefreshTriggerDistance = Math.Clamp(distance, 48, 120);
     }
 
     [RelayCommand]

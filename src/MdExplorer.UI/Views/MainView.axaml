@@ -720,10 +720,10 @@
                 <md:MdRefreshIndicator IsRefreshing="{Binding Browser.IsRefreshing, Mode=TwoWay}"
                                        RefreshCommand="{Binding Browser.PullRefreshCommand}"
                                        PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
-                                       RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                       RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"
                                        IsVisible="{Binding Browser.IsListView}"
                                        AutomationProperties.Name="主窗格文件列表，下拉刷新">
-                  <md:MdList x:Name="FileList" Classes="file-list" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
+                  <md:MdList x:Name="FileList" Classes="file-list" Classes.dense="{Binding IsCompactDensity}" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
                            ItemsSource="{Binding Browser.Items}"
                            SelectedItems="{Binding Browser.SelectedItems}"
                            ItemTemplate="{StaticResource FileRowTemplate}"
@@ -733,10 +733,10 @@
                 <md:MdRefreshIndicator IsRefreshing="{Binding Browser.IsRefreshing, Mode=TwoWay}"
                                        RefreshCommand="{Binding Browser.PullRefreshCommand}"
                                        PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
-                                       RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                       RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"
                                        IsVisible="{Binding Browser.IsGridView}"
                                        AutomationProperties.Name="主窗格文件网格，下拉刷新">
-                  <md:MdList x:Name="FileGrid" Classes="file-list file-grid" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="6"
+                  <md:MdList x:Name="FileGrid" Classes="file-list file-grid" Classes.dense="{Binding IsCompactDensity}" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="6"
                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                            ItemsSource="{Binding Browser.Items}"
                            SelectedItems="{Binding Browser.SelectedItems}"
@@ -752,10 +752,10 @@
                 <md:MdRefreshIndicator IsRefreshing="{Binding Browser.IsRefreshing, Mode=TwoWay}"
                                        RefreshCommand="{Binding Browser.PullRefreshCommand}"
                                        PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
-                                       RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                       RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"
                                        IsVisible="{Binding Browser.IsDetailsView}"
                                        AutomationProperties.Name="主窗格文件详情，下拉刷新">
-                <DataGrid x:Name="FileDetails" Classes="file-details"
+                <DataGrid x:Name="FileDetails" Classes="file-details" Classes.dense="{Binding IsCompactDensity}"
                           ItemsSource="{Binding Browser.Items}"
                           SelectionMode="Extended"
                           SelectionChanged="OnDetailsSelectionChanged"
@@ -1044,10 +1044,10 @@
                       <md:MdRefreshIndicator IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
                                              RefreshCommand="{Binding SecondaryBrowser.PullRefreshCommand}"
                                              PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
-                                             RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                             RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"
                                              IsVisible="{Binding !SecondaryBrowser.IsGridView}"
                                              AutomationProperties.Name="对照窗格文件列表，下拉刷新">
-                        <md:MdList x:Name="SecondaryFileList" Classes="file-list" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
+                        <md:MdList x:Name="SecondaryFileList" Classes="file-list" Classes.dense="{Binding IsCompactDensity}" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
                                  ItemsSource="{Binding SecondaryBrowser.Items}"
                                  SelectedItems="{Binding SecondaryBrowser.SelectedItems}"
                                  ItemTemplate="{StaticResource FileRowTemplate}"
@@ -1057,10 +1057,10 @@
                       <md:MdRefreshIndicator IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
                                              RefreshCommand="{Binding SecondaryBrowser.PullRefreshCommand}"
                                              PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
-                                             RefreshingText="正在刷新…" TriggerDistance="72" Displacement="48"
+                                             RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"
                                              IsVisible="{Binding SecondaryBrowser.IsGridView}"
                                              AutomationProperties.Name="对照窗格文件网格，下拉刷新">
-                        <md:MdList x:Name="SecondaryFileGrid" Classes="file-list file-grid" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="6"
+                        <md:MdList x:Name="SecondaryFileGrid" Classes="file-list file-grid" Classes.dense="{Binding IsCompactDensity}" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="6"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  ItemsSource="{Binding SecondaryBrowser.Items}"
                                  SelectedItems="{Binding SecondaryBrowser.SelectedItems}"
@@ -1138,7 +1138,7 @@
           <!-- 收藏页 -->
           <Grid IsVisible="{Binding IsFavoritesPage}" RowDefinitions="Auto,*" Margin="20,12,20,8">
             <TextBlock Classes="h1" Text="收藏" />
-            <md:MdList Grid.Row="1" Classes="file-list" Margin="0,10,0,0" Variant="Segmented" ItemSpacing="2"
+            <md:MdList Grid.Row="1" Classes="file-list" Classes.dense="{Binding IsCompactDensity}" Margin="0,10,0,0" Variant="Segmented" ItemSpacing="2"
                      ItemsSource="{Binding FavoriteItems}"
                      ItemTemplate="{StaticResource FileRowTemplate}"
                      Tapped="OnFavoriteItemTapped" />

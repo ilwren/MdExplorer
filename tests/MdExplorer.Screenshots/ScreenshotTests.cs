@@ -231,6 +231,60 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task Large_SettingsPreferences() => await CaptureAsync(
+        "58-large-settings.png", 1440, 900, shell =>
+    {
+        shell.GoSettingsCommand.Execute(null);
+        Assert.Equal(ShellPage.Settings, shell.Page);
+        Assert.True(shell.IsPageSize120);
+        Assert.True(shell.IsDensityComfortable);
+        Assert.True(shell.IsPullTrigger72);
+        return Task.CompletedTask;
+    });
+
+    /// <summary>Large 常驻抽屉：品牌区必须固定在顶部，只有导航列表随滚动移动。</summary>
+    [AvaloniaFact]
+    public async Task Large_DrawerBrandHeaderStaysFixedWhileNavScrolls()
+    {
+        var shell = await CreateShellAsync();
+        // 560 DIP 仍属 Large，但导航内容超过可视高度，能证明品牌区不随列表滚动。
+        shell.SetViewportSize(1440, 560);
+        var window = new MainWindow { Width = 1440, Height = 560, DataContext = shell };
+        window.Show();
+        try
+        {
+            await Task.Delay(150);
+            window.CaptureRenderedFrame();
+
+            var drawer = window.GetVisualDescendants().OfType<DrawerContentView>()
+                .First(view => view.IsEffectivelyVisible);
+            var header = drawer.FindControl<Border>("DrawerBrandHeader");
+            Assert.NotNull(header);
+            var scroller = drawer.GetVisualDescendants().OfType<ScrollViewer>()
+                .OrderByDescending(view => view.Extent.Height - view.Viewport.Height)
+                .First();
+            Assert.True(scroller.Extent.Height > scroller.Viewport.Height,
+                $"抽屉内容未溢出：extent={scroller.Extent.Height}, viewport={scroller.Viewport.Height}");
+            Assert.DoesNotContain(scroller, header!.GetVisualAncestors());
+
+            var before = header.TranslatePoint(new Point(0, 0), drawer);
+            window.CaptureRenderedFrame();
+            scroller.Offset = new Vector(0, scroller.Extent.Height);
+            await Task.Delay(120);
+            window.CaptureRenderedFrame();
+
+            var after = header.TranslatePoint(new Point(0, 0), drawer);
+            Assert.Equal(before, after);
+            Assert.True(scroller.Offset.Y > 0);
+            Assert.True(header.Bounds.Height > 0);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task Large_DocumentWorkbenchText() => await CaptureAsync("38-large-document-editor.png", 1440, 900, async shell =>
     {
         await OpenDocumentByNameAsync(shell, "Program.cs");
@@ -1042,7 +1096,7 @@ public sealed class ScreenshotTests
         await shell.Browser.WhenIdleAsync();
         shell.Browser.SelectedItems.Clear();
         Assert.Equal(150, shell.Browser.TotalItemCount);
-        Assert.Equal(BrowserViewModel.ItemPageSize, shell.Browser.Items.Count);
+        Assert.Equal(shell.Browser.PageSize, shell.Browser.Items.Count);
         Assert.Equal("已显示 120 / 150 项", shell.Browser.PagingStatusText);
     }
 

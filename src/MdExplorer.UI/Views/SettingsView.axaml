@@ -91,6 +91,18 @@
         <TextBlock Classes="caption">
           <Run Text="当前种子色：" /><Run Text="{Binding SeedColor}" />
         </TextBlock>
+        <StackPanel Spacing="2" Margin="0,8,0,0">
+          <TextBlock Classes="body" Text="列表密度" />
+          <TextBlock Classes="caption" TextWrapping="Wrap" Text="紧凑会收紧列表行高、网格间距与详细信息行高；图标井、选中描边和拖放目标保持不变" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsDensityComfortable}" Variant="Text"
+                         Content="舒适" Margin="0,0,6,0"
+                         Command="{Binding SetDensityCommand}" CommandParameter="Comfortable" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsDensityCompact}" Variant="Text"
+                         Content="紧凑"
+                         Command="{Binding SetDensityCommand}" CommandParameter="Compact" />
+          </WrapPanel>
+        </StackPanel>
         <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
           <StackPanel>
             <TextBlock Classes="body" Text="减少动态效果" />
@@ -141,6 +153,87 @@
           </StackPanel>
           <md:MdSwitch Grid.Column="1" IsChecked="{Binding WatchFolderChanges}" VerticalAlignment="Center" />
         </Grid>
+        <StackPanel Spacing="2" Margin="0,4,0,0">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="每页项目数" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding ItemPageSizeText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="首屏与每次续载创建的行数；底层仍先完整枚举并统一排序，因此这是渐进呈现，不是磁盘分页读取" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsPageSize60}" Variant="Text"
+                         Content="60" Margin="0,0,6,0" Command="{Binding SetItemPageSizeCommand}" CommandParameter="60" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsPageSize120}" Variant="Text"
+                         Content="120" Margin="0,0,6,0" Command="{Binding SetItemPageSizeCommand}" CommandParameter="120" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsPageSize240}" Variant="Text"
+                         Content="240" Command="{Binding SetItemPageSizeCommand}" CommandParameter="240" />
+          </WrapPanel>
+        </StackPanel>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="滚动接近底部自动加载" />
+            <TextBlock Classes="caption" Text="关闭后只在页脚点“加载更多”时续页；手动入口与快捷键始终保留" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding AutoLoadMore}" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="图片缩略图" />
+            <TextBlock Classes="caption" Text="关闭后图片只显示类型图标，并释放已生成的缩略图以节省内存" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding EnableThumbnails}" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="移入回收站前确认" />
+            <TextBlock Classes="caption" Text="关闭后删除选中项会直接移入回收站；永久删除没有恢复路径，始终要求确认" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding ConfirmBeforeTrash}" VerticalAlignment="Center" />
+        </Grid>
+        <StackPanel Spacing="2" Margin="0,4,0,0">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="下拉刷新触发距离" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding PullTriggerText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap" Text="手指或鼠标从文件面顶部向下拖过该距离才触发刷新；桌面刷新按钮与 F5/Ctrl+R 不受影响" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsPullTrigger72}" Variant="Text"
+                         Content="72 DIP" Margin="0,0,6,0"
+                         Command="{Binding SetPullRefreshTriggerDistanceCommand}" CommandParameter="72" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsPullTrigger96}" Variant="Text"
+                         Content="96 DIP"
+                         Command="{Binding SetPullRefreshTriggerDistanceCommand}" CommandParameter="96" />
+          </WrapPanel>
+        </StackPanel>
+      </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+      <StackPanel Spacing="12">
+        <TextBlock Classes="h3" Text="启动与最近" />
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="启动时恢复上次标签页" />
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="关闭后每次启动只打开起始文件夹，并覆盖上一次的标签会话记录" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding RestoreTabsOnLaunch}" VerticalAlignment="Center" />
+        </Grid>
+        <StackPanel Spacing="2">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="最近访问保留条数" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding RecentLimitText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap" Text="同时约束主页最近访问与浏览历史记录；调小后立即裁剪最旧条目" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsRecentLimit12}" Variant="Text"
+                         Content="12" Margin="0,0,6,0" Command="{Binding SetRecentItemLimitCommand}" CommandParameter="12" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsRecentLimit24}" Variant="Text"
+                         Content="24" Margin="0,0,6,0" Command="{Binding SetRecentItemLimitCommand}" CommandParameter="24" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsRecentLimit48}" Variant="Text"
+                         Content="48" Command="{Binding SetRecentItemLimitCommand}" CommandParameter="48" />
+          </WrapPanel>
+        </StackPanel>
       </StackPanel>
       </Border>
 

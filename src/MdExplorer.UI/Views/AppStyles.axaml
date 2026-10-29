@@ -273,6 +273,35 @@
     <Setter Property="BorderThickness" Value="1.5" />
   </Style>
 
+  <!-- 紧凑密度（设置 → 浏览）：只收紧行高与卡宽，图标井、选中描边与拖放命中区不改。 -->
+  <Style Selector="md|MdList.file-list.dense ListBoxItem">
+    <Setter Property="Padding" Value="4,1" />
+  </Style>
+  <Style Selector="md|MdList.file-list.dense ListBoxItem Border.file-row">
+    <Setter Property="Padding" Value="8,3" />
+  </Style>
+  <Style Selector="md|MdList.file-grid.dense ListBoxItem">
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="Margin" Value="1" />
+  </Style>
+  <Style Selector="DataGrid.file-details.dense DataGridRow">
+    <Setter Property="MinHeight" Value="32" />
+  </Style>
+  <Style Selector="DataGrid.file-details.dense DataGridCell">
+    <Setter Property="Padding" Value="6,2" />
+  </Style>
+
+  <!-- 设置页的分段选择：文字按钮只靠 selected 底色表达当前值，不额外造控件。 -->
+  <Style Selector="md|MdButton.segmented-choice">
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+  </Style>
+  <Style Selector="md|MdButton.segmented-choice.selected">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+  </Style>
+
   <!-- 桌面工具栏/面包屑不沿用整片品牌青：正文回到墨色，品牌色只留给主动作与状态。 -->
   <Style Selector="md|MdButton.toolbar-action">
     <Setter Property="Foreground" Value="{DynamicResource Md.Sys.Color.OnSurface.Brush}" />

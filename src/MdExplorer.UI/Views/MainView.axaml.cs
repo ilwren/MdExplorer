@@ -721,8 +721,9 @@ public partial class MainView : UserControl
             scroller.Extent.Height <= 0 || scroller.Viewport.Height <= 0)
             return;
 
+        // 自动续页受设置控制；关闭后仍可点页脚“加载更多”或按快捷键，不改变分页语义。
         var remaining = scroller.Extent.Height - (scroller.Offset.Y + scroller.Viewport.Height);
-        if (remaining <= 320)
+        if (Shell?.ShouldAutoLoadMore(remaining) == true)
             _ = browser.LoadMoreItemsCommand.ExecuteAsync(null);
     }
 

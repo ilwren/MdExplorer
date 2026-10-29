@@ -4,8 +4,8 @@
     <TargetFramework>net10.0-android</TargetFramework>
     <SupportedOSPlatformVersion>28</SupportedOSPlatformVersion>
     <ApplicationId>dev.mdexplorer.app</ApplicationId>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>0.25.0</ApplicationDisplayVersion>
+    <ApplicationVersion>2</ApplicationVersion>
+    <ApplicationDisplayVersion>0.26.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <RootNamespace>MdExplorer.Android</RootNamespace>
     <IsAotCompatible>false</IsAotCompatible>

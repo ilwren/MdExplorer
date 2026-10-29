@@ -95,6 +95,16 @@ public sealed class SettingsStore : ISettingsStore
         settings.SearchIndexRootPaths.RemoveAll(string.IsNullOrWhiteSpace);
         if (double.IsNaN(settings.DualPaneWidth) || double.IsInfinity(settings.DualPaneWidth) || settings.DualPaneWidth <= 0)
             settings.DualPaneWidth = 560;
+
+        // 可调项一律夹到实际支持的区间：手改 JSON 或旧版本缺字段都不会让界面进入无效状态。
+        settings.Density = string.Equals(settings.Density, "Compact", StringComparison.OrdinalIgnoreCase)
+            ? "Compact"
+            : "Comfortable";
+        settings.ItemPageSize = Math.Clamp(settings.ItemPageSize, 60, 480);
+        settings.RecentItemLimit = Math.Clamp(settings.RecentItemLimit, 6, 60);
+        if (!double.IsFinite(settings.PullRefreshTriggerDistance))
+            settings.PullRefreshTriggerDistance = 72;
+        settings.PullRefreshTriggerDistance = Math.Clamp(settings.PullRefreshTriggerDistance, 48, 120);
         settings.FolderViewStates ??= [];
         foreach (var key in settings.FolderViewStates
                      .Where(pair => pair.Value is null)

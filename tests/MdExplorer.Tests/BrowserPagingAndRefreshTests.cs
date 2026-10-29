@@ -50,8 +50,8 @@ public sealed class BrowserPagingAndRefreshTests : IDisposable
 
         await browser.NavigateToAsync(_manyDir, pushHistory: false);
 
-        Assert.Equal(BrowserViewModel.ItemPageSize, browser.Items.Count);
-        Assert.Equal(BrowserViewModel.ItemPageSize, browser.VisibleItemCount);
+        Assert.Equal(browser.PageSize, browser.Items.Count);
+        Assert.Equal(browser.PageSize, browser.VisibleItemCount);
         Assert.Equal(DirectoryCount, browser.TotalItemCount);
         Assert.True(browser.HasMoreItems);
         Assert.True(browser.CanLoadMoreItems);
@@ -115,7 +115,7 @@ public sealed class BrowserPagingAndRefreshTests : IDisposable
 
         browser.FilterText = string.Empty;
         Assert.Equal(DirectoryCount, browser.TotalItemCount);
-        Assert.Equal(BrowserViewModel.ItemPageSize, browser.Items.Count);
+        Assert.Equal(browser.PageSize, browser.Items.Count);
         Assert.True(browser.HasMoreItems);
     }
 
@@ -129,7 +129,7 @@ public sealed class BrowserPagingAndRefreshTests : IDisposable
 
         Assert.True(browser.IsSearchMode);
         Assert.Equal(SearchCount, browser.TotalItemCount);
-        Assert.Equal(BrowserViewModel.ItemPageSize, browser.Items.Count);
+        Assert.Equal(browser.PageSize, browser.Items.Count);
         Assert.Equal("99+", browser.SearchResultBadgeText);
         Assert.Contains("搜索到 135 项", browser.StatusText, StringComparison.Ordinal);
         Assert.Contains("已显示 120 项", browser.StatusText, StringComparison.Ordinal);
@@ -152,7 +152,7 @@ public sealed class BrowserPagingAndRefreshTests : IDisposable
         await browser.PullRefreshCommand.ExecuteAsync(null);
         Assert.False(browser.IsRefreshing);
         Assert.Equal(DirectoryCount + 1, browser.TotalItemCount);
-        Assert.Equal(BrowserViewModel.ItemPageSize, browser.Items.Count);
+        Assert.Equal(browser.PageSize, browser.Items.Count);
 
         await browser.NavigateToAsync(_startDir, pushHistory: false);
         await browser.SearchRecursiveAsync("needle");
