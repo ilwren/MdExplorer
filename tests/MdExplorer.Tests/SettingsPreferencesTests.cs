@@ -1,3 +1,4 @@
+using MdExplorer.Domain;
 using MdExplorer.Infrastructure;
 using MdExplorer.UI.Services;
 using MdExplorer.UI.ViewModels;
@@ -219,6 +220,67 @@ public sealed class SettingsPreferencesTests : IDisposable
         Assert.Equal(120d, shell.PullRefreshTriggerDistance);
         shell.SetPullRefreshTriggerDistanceCommand.Execute("not-a-number");
         Assert.Equal(120d, shell.PullRefreshTriggerDistance);
+    }
+
+    [Fact]
+    public void SecondaryPaneKeepsItsOwnViewAndSort()
+    {
+        var shell = CreateShell();
+        var settings = shell.SettingsStore.Settings;
+
+        shell.Browser.SetViewModeCommand.Execute("Details");
+        shell.Browser.SetSort(SortField.LastWriteTime, SortDirection.Descending);
+        Assert.Equal("Details", settings.ViewMode);
+        Assert.Equal("LastWriteTime", settings.SortField);
+
+        shell.SecondaryBrowser.SetViewModeCommand.Execute("Grid");
+        shell.SecondaryBrowser.SetSort(SortField.Size, SortDirection.Ascending);
+
+        Assert.True(shell.SecondaryBrowser.IsGridView);
+        Assert.Equal(SortField.Size, shell.SecondaryBrowser.CurrentSortField);
+        Assert.Equal("Grid", settings.DualPaneViewMode);
+        Assert.Equal("Size", settings.DualPaneSortField);
+        Assert.Equal("Ascending", settings.DualPaneSortDirection);
+        // 全局默认（A 的）不被 B 覆盖
+        Assert.Equal("Details", settings.ViewMode);
+        Assert.Equal("LastWriteTime", settings.SortField);
+        Assert.Equal("Descending", settings.SortDirection);
+    }
+
+    [Fact]
+    public async Task SecondaryPaneViewPreferencesPersistIndependently()
+    {
+        var first = CreateShell();
+        first.Browser.SetViewModeCommand.Execute("List");
+        first.SecondaryBrowser.SetViewModeCommand.Execute("Details");
+        first.SecondaryBrowser.SetSort(SortField.Kind, SortDirection.Descending);
+        await first.SettingsStore.SaveSettingsAsync(TestContext.Current.CancellationToken);
+
+        var second = CreateShell();
+        Assert.True(second.Browser.IsListView);
+        Assert.True(second.SecondaryBrowser.IsDetailsView);
+        Assert.Equal(SortField.Kind, second.SecondaryBrowser.CurrentSortField);
+        Assert.Equal(SortDirection.Descending, second.SecondaryBrowser.CurrentSortDirection);
+    }
+
+    [Fact]
+    public async Task InvalidSecondaryPanePreferencesFallBackToGlobalDefaults()
+    {
+        await File.WriteAllTextAsync(
+            Path.Combine(_dataDir, "settings.json"),
+            """
+            { "SchemaVersion": 1, "ViewMode": "Grid", "SortField": "Size",
+              "DualPaneViewMode": "Thumbnails", "DualPaneSortField": "Colour", "DualPaneSortDirection": "sideways" }
+            """,
+            TestContext.Current.CancellationToken);
+
+        var shell = CreateShell();
+        Assert.Null(shell.SettingsStore.Settings.DualPaneViewMode);
+        Assert.Null(shell.SettingsStore.Settings.DualPaneSortField);
+        Assert.Null(shell.SettingsStore.Settings.DualPaneSortDirection);
+        Assert.True(shell.Browser.IsGridView);
+        Assert.True(shell.SecondaryBrowser.IsGridView);
+        Assert.Equal(SortField.Size, shell.SecondaryBrowser.CurrentSortField);
     }
 
     [Fact]

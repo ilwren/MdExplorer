@@ -231,6 +231,23 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task ExtraLarge_DualPaneDetails() => await CaptureAsync(
+        "59-xlarge-dual-pane-details.png", 1920, 1080, async shell =>
+    {
+        await ArrangeDualPaneAsync(shell);
+        // B 独立切到详细信息并按大小降序；A 仍保持自己的视图与排序。
+        var primaryMode = shell.Browser.ViewMode;
+        var primarySort = shell.Browser.CurrentSortField;
+        shell.SecondaryBrowser.ViewMode = BrowserViewMode.Details;
+        shell.SecondaryBrowser.SetSort(SortField.Size, SortDirection.Descending);
+        await shell.SecondaryBrowser.WhenIdleAsync();
+        Assert.True(shell.SecondaryBrowser.IsDetailsView);
+        Assert.Equal(primaryMode, shell.Browser.ViewMode);
+        Assert.Equal(primarySort, shell.Browser.CurrentSortField);
+        Assert.Equal("Size", shell.SettingsStore.Settings.DualPaneSortField);
+    });
+
+    [AvaloniaFact]
     public async Task Large_SettingsPreferences() => await CaptureAsync(
         "58-large-settings.png", 1440, 900, shell =>
     {
@@ -282,6 +299,72 @@ public sealed class ScreenshotTests
         {
             window.Close();
         }
+    }
+
+    /// <summary>v0.27：对照窗格详细信息面必须真正替换列表/网格，选集双向镜像且排序只作用于 B。</summary>
+    [AvaloniaFact]
+    public async Task ExtraLarge_SecondaryPaneDetailsMirrorsSelectionAndSorts()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1920, 1080);
+        var window = new MainWindow { Width = 1920, Height = 1080, DataContext = shell };
+        window.Show();
+        try
+        {
+            await ArrangeDualPaneForDetailsTestAsync(shell);
+            var view = Assert.IsType<MainView>(window.Content);
+            var details = view.FindControl<DataGrid>("SecondaryFileDetails");
+            var list = view.FindControl<Control>("SecondaryFileList");
+            var grid = view.FindControl<Control>("SecondaryFileGrid");
+            Assert.NotNull(details);
+            Assert.NotNull(list);
+            Assert.NotNull(grid);
+
+            Assert.True(list!.IsVisible);
+            Assert.False(details!.IsVisible);
+
+            shell.SecondaryBrowser.ViewMode = BrowserViewMode.Details;
+            await Task.Delay(120);
+            window.CaptureRenderedFrame();
+
+            Assert.True(details.IsVisible);
+            Assert.False(list.IsVisible);
+            Assert.False(grid!.IsVisible);
+            // 详细信息面直接消费 B 会话集合，不另建副本
+            Assert.Same(shell.SecondaryBrowser.Items, details.ItemsSource);
+
+            var target = shell.SecondaryBrowser.Items.First(item => !item.IsFolder);
+            shell.SecondaryBrowser.SelectedItems.Clear();
+            shell.SecondaryBrowser.SelectedItems.Add(target);
+            await Task.Delay(80);
+            window.CaptureRenderedFrame();
+            Assert.Contains(target, details.SelectedItems.OfType<FileItemViewModel>());
+
+            var primaryMode = shell.Browser.ViewMode;
+            var primarySort = shell.Browser.CurrentSortField;
+            var primaryDirection = shell.Browser.CurrentSortDirection;
+            shell.SecondaryBrowser.ApplyColumnSort(SortField.Size);
+            Assert.Equal(SortField.Size, shell.SecondaryBrowser.CurrentSortField);
+            Assert.Equal(SortDirection.Ascending, shell.SecondaryBrowser.CurrentSortDirection);
+            Assert.Equal(primaryMode, shell.Browser.ViewMode);
+            Assert.Equal(primarySort, shell.Browser.CurrentSortField);
+            Assert.Equal(primaryDirection, shell.Browser.CurrentSortDirection);
+            Assert.Equal("Size", shell.SettingsStore.Settings.DualPaneSortField);
+            Assert.NotEqual("Size", shell.SettingsStore.Settings.SortField);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static async Task ArrangeDualPaneForDetailsTestAsync(ShellViewModel shell)
+    {
+        await shell.Browser.WhenIdleAsync();
+        await shell.ToggleDualPaneCommand.ExecuteAsync(null);
+        await shell.SecondaryBrowser.WhenIdleAsync();
+        Assert.True(shell.ShowDualPane);
+        Assert.False(string.IsNullOrWhiteSpace(shell.SecondaryBrowser.CurrentPath));
     }
 
     [AvaloniaFact]

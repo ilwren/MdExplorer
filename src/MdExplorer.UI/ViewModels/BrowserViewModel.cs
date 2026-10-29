@@ -107,6 +107,13 @@ public sealed partial class BrowserViewModel : ObservableObject
     /// <summary>对照窗格的第二会话不写主标签页持久化，避免两个 Browser 互相覆盖 OpenTabPaths。</summary>
     internal bool PersistSessionTabs { get; set; } = true;
 
+    /// <summary>
+    /// A 会话把视图/排序写回全局默认；B 会话改存 DualPane*，否则两个窗格会互相覆盖对方的呈现偏好。
+    /// </summary>
+    internal bool PersistSharedViewPreferences { get; set; } = true;
+
+    private bool _applyingViewPreferences;
+
     /// <summary>双窗格中只有活动会话可以驱动共享预览；非活动会话导航/改选集不得抢占预览。</summary>
     internal bool DrivesSharedPreview { get; set; } = true;
 
@@ -333,8 +340,15 @@ public sealed partial class BrowserViewModel : ObservableObject
         OnPropertyChanged(nameof(IsListView));
         OnPropertyChanged(nameof(IsGridView));
         OnPropertyChanged(nameof(IsDetailsView));
-        if (_applyingFolderViewPreferences)
+        if (_applyingFolderViewPreferences || _applyingViewPreferences)
             return;
+
+        if (!PersistSharedViewPreferences)
+        {
+            _settingsStore.Settings.DualPaneViewMode = value.ToString();
+            _ = SaveSettingsAsync();
+            return;
+        }
 
         if (IsFolderViewMemoryEnabled)
         {
@@ -439,9 +453,29 @@ public sealed partial class BrowserViewModel : ObservableObject
         await SaveSettingsAsync().ConfigureAwait(true);
     }
 
+    /// <summary>B 会话启动时套用自己的视图/排序；未记录时跟随全局默认，且不写回全局偏好。</summary>
+    internal void ApplyIndependentViewPreferences(string? viewMode, string? sortField, string? sortDirection)
+    {
+        var settings = _settingsStore.Settings;
+        _applyingViewPreferences = true;
+        try
+        {
+            ViewMode = ParseViewMode(viewMode ?? settings.ViewMode);
+            _currentSortField = ParseSort(sortField ?? settings.SortField);
+            _currentSortDirection = ParseSortDirection(sortDirection ?? settings.SortDirection);
+            SortFieldLabel = SortFieldText(_currentSortField);
+            RaiseSortGlyphs();
+        }
+        finally
+        {
+            _applyingViewPreferences = false;
+        }
+    }
+
     private void ApplyFolderViewPreferences(string path)
     {
-        if (!IsFolderViewMemoryEnabled)
+        // 按文件夹记忆只属于主窗格：B 用独立的 DualPane* 偏好，避免覆盖 A 的目录记忆。
+        if (!IsFolderViewMemoryEnabled || !PersistSharedViewPreferences)
             return;
 
         var settings = _settingsStore.Settings;
@@ -477,7 +511,8 @@ public sealed partial class BrowserViewModel : ObservableObject
 
     private void CaptureCurrentFolderViewPreferences()
     {
-        if (!IsFolderViewMemoryEnabled || _applyingFolderViewPreferences || IsSearchMode || CurrentPath is null)
+        if (!IsFolderViewMemoryEnabled || !PersistSharedViewPreferences ||
+            _applyingFolderViewPreferences || IsSearchMode || CurrentPath is null)
             return;
 
         var states = _settingsStore.Settings.FolderViewStates;
@@ -1361,6 +1396,16 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         _currentSortField = field;
         _currentSortDirection = direction;
+        if (!PersistSharedViewPreferences)
+        {
+            _settingsStore.Settings.DualPaneSortField = field.ToString();
+            _settingsStore.Settings.DualPaneSortDirection = direction.ToString();
+            SortFieldLabel = SortFieldText(field);
+            RaiseSortGlyphs();
+            _ = SaveSettingsAsync();
+            RefilterAndSort();
+            return;
+        }
         if (IsFolderViewMemoryEnabled)
         {
             CaptureCurrentFolderViewPreferences();

@@ -1032,6 +1032,7 @@
                         <md:MdIconButton Icon="{x:Static md:MdSymbols.SwapVert}" Click="OnSecondaryToggleSortDirection"
                                          AutomationProperties.Name="切换对照窗格排序方向" />
                         <md:MdIconButton Icon="{x:Static md:MdSymbols.GridView}" Command="{Binding SecondaryBrowser.ToggleViewModeCommand}"
+                                         ToolTip.Tip="切换对照窗格视图（列表 / 网格 / 详细信息）"
                                          AutomationProperties.Name="切换对照窗格视图" />
                       </StackPanel>
                     </md:MdScrollViewer>
@@ -1045,7 +1046,7 @@
                                              RefreshCommand="{Binding SecondaryBrowser.PullRefreshCommand}"
                                              PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
                                              RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"
-                                             IsVisible="{Binding !SecondaryBrowser.IsGridView}"
+                                             IsVisible="{Binding SecondaryBrowser.IsListView}"
                                              AutomationProperties.Name="对照窗格文件列表，下拉刷新">
                         <md:MdList x:Name="SecondaryFileList" Classes="file-list" Classes.dense="{Binding IsCompactDensity}" SelectionMode="Multiple" Variant="Segmented" ItemSpacing="2"
                                  ItemsSource="{Binding SecondaryBrowser.Items}"
@@ -1071,6 +1072,90 @@
                             <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                           </md:MdList.ItemsPanel>
                         </md:MdList>
+                      </md:MdRefreshIndicator>
+                      <!-- 对照窗格详细信息：与 A 侧共用同一 VM 排序/选集管线，但列头字形和排序只作用于 B。 -->
+                      <md:MdRefreshIndicator IsRefreshing="{Binding SecondaryBrowser.IsRefreshing, Mode=TwoWay}"
+                                             RefreshCommand="{Binding SecondaryBrowser.PullRefreshCommand}"
+                                             PullInstruction="下拉刷新" ReleaseInstruction="释放刷新"
+                                             RefreshingText="正在刷新…" TriggerDistance="{Binding PullRefreshTriggerDistance}" Displacement="48"
+                                             IsVisible="{Binding SecondaryBrowser.IsDetailsView}"
+                                             AutomationProperties.Name="对照窗格文件详情，下拉刷新">
+                        <DataGrid x:Name="SecondaryFileDetails" Classes="file-details" Classes.dense="{Binding IsCompactDensity}"
+                                  ItemsSource="{Binding SecondaryBrowser.Items}"
+                                  SelectionMode="Extended"
+                                  SelectionChanged="OnSecondaryDetailsSelectionChanged"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserSortColumns="True"
+                                  CanUserResizeColumns="True"
+                                  CanUserReorderColumns="False"
+                                  GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column"
+                                  ContextMenu="{StaticResource ItemMenu}"
+                                  Sorting="OnSecondaryDetailsSorting"
+                                  Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
+                          <DataGrid.Columns>
+                            <DataGridTemplateColumn Width="*" MinWidth="140" SortMemberPath="Name" CanUserSort="True">
+                              <DataGridTemplateColumn.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
+                                  <TextBlock Text="名称" VerticalAlignment="Center" />
+                                  <TextBlock Text="{Binding SecondaryBrowser.NameSortGlyph}" VerticalAlignment="Center" />
+                                </StackPanel>
+                              </DataGridTemplateColumn.Header>
+                              <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:FileItemViewModel">
+                                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="6,0" VerticalAlignment="Center">
+                                    <Image Source="{Binding Thumbnail}" Width="24" Height="24" Stretch="UniformToFill"
+                                           IsVisible="{Binding HasThumbnail}" VerticalAlignment="Center" />
+                                    <md:MdIcon Glyph="{Binding Glyph}" Size="20" Foreground="{Binding GlyphBrush}"
+                                               IsVisible="{Binding ShowGlyph}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                  </StackPanel>
+                                </DataTemplate>
+                              </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Width="96" SortMemberPath="Size" CanUserSort="True">
+                              <DataGridTemplateColumn.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
+                                  <TextBlock Text="大小" VerticalAlignment="Center" />
+                                  <TextBlock Text="{Binding SecondaryBrowser.SizeSortGlyph}" VerticalAlignment="Center" />
+                                </StackPanel>
+                              </DataGridTemplateColumn.Header>
+                              <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:FileItemViewModel">
+                                  <TextBlock Text="{Binding SizeText}" Margin="6,0" VerticalAlignment="Center" />
+                                </DataTemplate>
+                              </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Width="120" SortMemberPath="Kind" CanUserSort="True">
+                              <DataGridTemplateColumn.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
+                                  <TextBlock Text="类型" VerticalAlignment="Center" />
+                                  <TextBlock Text="{Binding SecondaryBrowser.KindSortGlyph}" VerticalAlignment="Center" />
+                                </StackPanel>
+                              </DataGridTemplateColumn.Header>
+                              <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:FileItemViewModel">
+                                  <TextBlock Text="{Binding ShortKindText}" Margin="6,0" VerticalAlignment="Center"
+                                             TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding KindText}" />
+                                </DataTemplate>
+                              </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Width="150" SortMemberPath="LastWriteTime" CanUserSort="True">
+                              <DataGridTemplateColumn.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="4" x:DataType="vm:ShellViewModel">
+                                  <TextBlock Text="修改时间" VerticalAlignment="Center" />
+                                  <TextBlock Text="{Binding SecondaryBrowser.ModifiedSortGlyph}" VerticalAlignment="Center" />
+                                </StackPanel>
+                              </DataGridTemplateColumn.Header>
+                              <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:FileItemViewModel">
+                                  <TextBlock Text="{Binding ModifiedText}" Margin="6,0" VerticalAlignment="Center" />
+                                </DataTemplate>
+                              </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                          </DataGrid.Columns>
+                        </DataGrid>
                       </md:MdRefreshIndicator>
 
                       <StackPanel IsVisible="{Binding SecondaryBrowser.IsEmpty}" HorizontalAlignment="Center"

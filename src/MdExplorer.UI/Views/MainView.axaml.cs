@@ -84,9 +84,10 @@ public partial class MainView : UserControl
         FileDetails.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         SecondaryFileList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         SecondaryFileGrid.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
+        SecondaryFileDetails.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
 
         // 拖拽源：主/对照窗格共用阈值判定，避免普通点击被误判为拖动。
-        foreach (var control in new Control[] { FileList, FileGrid, FileDetails, SecondaryFileList, SecondaryFileGrid })
+        foreach (var control in new Control[] { FileList, FileGrid, FileDetails, SecondaryFileList, SecondaryFileGrid, SecondaryFileDetails })
         {
             control.AddHandler(PointerPressedEvent, OnDragPointerPressed, RoutingStrategies.Tunnel);
             control.AddHandler(PointerMovedEvent, OnDragPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -149,10 +150,12 @@ public partial class MainView : UserControl
             // DataGrid.SelectedItems 为只读 IList（不可绑定整集），选集与 VM 手动双向同步
             vm.Browser.SelectedItems.CollectionChanged += OnBrowserSelectionChanged;
             vm.Browser.Breadcrumbs.CollectionChanged += OnBreadcrumbsChanged;
+            vm.SecondaryBrowser.SelectedItems.CollectionChanged += OnSecondarySelectionChanged;
             vm.SecondaryBrowser.Breadcrumbs.CollectionChanged += OnSecondaryBreadcrumbsChanged;
             ScheduleBreadcrumbEndScroll();
             ScheduleSecondaryBreadcrumbEndScroll();
             vm.Browser.PropertyChanged += OnBrowserPropertyChanged;
+            vm.SecondaryBrowser.PropertyChanged += OnSecondaryBrowserPropertyChanged;
             ApplyWindowChromeLayout();
             _ = vm.Browser.RefreshExternalClipboardAsync();
         }
@@ -179,8 +182,10 @@ public partial class MainView : UserControl
             vm.PropertyChanged -= OnShellPropertyChanged;
             vm.Browser.SelectedItems.CollectionChanged -= OnBrowserSelectionChanged;
             vm.Browser.Breadcrumbs.CollectionChanged -= OnBreadcrumbsChanged;
+            vm.SecondaryBrowser.SelectedItems.CollectionChanged -= OnSecondarySelectionChanged;
             vm.SecondaryBrowser.Breadcrumbs.CollectionChanged -= OnSecondaryBreadcrumbsChanged;
             vm.Browser.PropertyChanged -= OnBrowserPropertyChanged;
+            vm.SecondaryBrowser.PropertyChanged -= OnSecondaryBrowserPropertyChanged;
         }
         if (TopLevel.GetTopLevel(this) is { } topLevel)
             topLevel.RemoveHandler(TopLevel.BackRequestedEvent, OnBackRequested);
@@ -687,6 +692,7 @@ public partial class MainView : UserControl
         if (Shell is not { } shell)
             return null;
         if (ReferenceEquals(sender, SecondaryFileList) || ReferenceEquals(sender, SecondaryFileGrid) ||
+            ReferenceEquals(sender, SecondaryFileDetails) ||
             ReferenceEquals(sender, SecondaryDropArea) || ReferenceEquals(sender, SecondaryBreadcrumbBar))
             return shell.SecondaryBrowser;
         return shell.Browser;
@@ -1492,6 +1498,61 @@ public partial class MainView : UserControl
         finally { _syncingDetailsSelection = false; }
     }
 
+    // ---------- 对照窗格详细信息：选集与排序独立于 A，但共用同一 Browser VM 管线 ----------
+    private bool _syncingSecondaryDetailsSelection;
+
+    private void OnSecondaryDetailsSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_syncingSecondaryDetailsSelection || Shell is not { } shell) return;
+        _syncingSecondaryDetailsSelection = true;
+        try
+        {
+            var target = shell.SecondaryBrowser.SelectedItems;
+            target.Clear();
+            foreach (var item in SecondaryFileDetails.SelectedItems)
+                if (item is FileItemViewModel vm)
+                    target.Add(vm);
+        }
+        finally { _syncingSecondaryDetailsSelection = false; }
+    }
+
+    private void OnSecondarySelectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        MirrorSecondarySelectionToDetails();
+
+    private void MirrorSecondarySelectionToDetails()
+    {
+        if (_syncingSecondaryDetailsSelection || Shell is not { } shell || !shell.SecondaryBrowser.IsDetailsView) return;
+        _syncingSecondaryDetailsSelection = true;
+        try
+        {
+            SecondaryFileDetails.SelectedItems.Clear();
+            foreach (var vm in shell.SecondaryBrowser.SelectedItems)
+                SecondaryFileDetails.SelectedItems.Add(vm);
+        }
+        finally { _syncingSecondaryDetailsSelection = false; }
+    }
+
+    private void OnSecondaryBrowserPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(BrowserViewModel.IsDetailsView) or nameof(BrowserViewModel.ViewMode))
+            MirrorSecondarySelectionToDetails();
+    }
+
+    private void OnSecondaryDetailsSorting(object? sender, DataGridColumnEventArgs e)
+    {
+        var field = e.Column.SortMemberPath switch
+        {
+            "Name" => SortField.Name,
+            "Size" => SortField.Size,
+            "Kind" => SortField.Kind,
+            "LastWriteTime" => SortField.LastWriteTime,
+            _ => (SortField?)null,
+        };
+        if (field is { } f && Shell is { } shell)
+            shell.SecondaryBrowser.ApplyColumnSort(f);
+        e.Handled = true;
+    }
+
     /// <summary>详细信息点列头：排序统一收回 VM 管线（自然序/文件夹在前），控件自排被 Handled 拦截。</summary>
     private void OnDetailsSorting(object? sender, DataGridColumnEventArgs e)
     {
@@ -1550,7 +1611,9 @@ public partial class MainView : UserControl
     {
         if (Shell is { ShowDualPane: true, IsSecondaryPaneActive: true } shell)
         {
-            if (shell.SecondaryBrowser.IsGridView)
+            if (shell.SecondaryBrowser.IsDetailsView)
+                SecondaryFileDetails.Focus();
+            else if (shell.SecondaryBrowser.IsGridView)
                 SecondaryFileGrid.Focus();
             else
                 SecondaryFileList.Focus();

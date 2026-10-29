@@ -97,6 +97,10 @@ public sealed class SettingsStore : ISettingsStore
             settings.DualPaneWidth = 560;
 
         // 可调项一律夹到实际支持的区间：手改 JSON 或旧版本缺字段都不会让界面进入无效状态。
+        // 对照窗格的独立呈现偏好：留空表示跟随全局；非法值一律收回 null，避免写入无法识别的模式。
+        settings.DualPaneViewMode = NormalizeChoice(settings.DualPaneViewMode, ["List", "Grid", "Details"]);
+        settings.DualPaneSortField = NormalizeChoice(settings.DualPaneSortField, ["Name", "Size", "Kind", "LastWriteTime"]);
+        settings.DualPaneSortDirection = NormalizeChoice(settings.DualPaneSortDirection, ["Ascending", "Descending"]);
         settings.Density = string.Equals(settings.Density, "Compact", StringComparison.OrdinalIgnoreCase)
             ? "Compact"
             : "Comfortable";
@@ -124,6 +128,9 @@ public sealed class SettingsStore : ISettingsStore
             string.IsNullOrWhiteSpace(connection.TargetNodeId));
         return settings;
     }
+
+    private static string? NormalizeChoice(string? value, string[] allowed) =>
+        allowed.FirstOrDefault(option => string.Equals(option, value, StringComparison.OrdinalIgnoreCase));
 
     public async Task SaveSettingsAsync(CancellationToken cancellationToken)
     {

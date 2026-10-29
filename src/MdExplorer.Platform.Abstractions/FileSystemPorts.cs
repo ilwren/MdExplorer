@@ -317,6 +317,9 @@ public sealed class AppSettings
     public double PreviewPaneWidth { get; set; } = 316;   // Expanded+ 预览卡宽度（同上）
     public bool DualPaneEnabled { get; set; }             // XL 双窗格偏好；窄于 XL 时仅保留 B 会话而不显示
     public string? DualPanePath { get; set; }             // 对照窗格 B 上次所在文件夹（本地路径或 storage URI）
+    public string? DualPaneViewMode { get; set; }         // B 独立视图（list/grid/details）；null 表示跟随全局默认
+    public string? DualPaneSortField { get; set; }        // B 独立排序字段；null 表示跟随全局默认
+    public string? DualPaneSortDirection { get; set; }    // B 独立排序方向；null 表示跟随全局默认
     public double DualPaneWidth { get; set; } = 560;      // 对照窗格 B 宽度（MaterialGridSplitter 拖后回写）
     public bool ConfirmBeforeTrash { get; set; } = true;    // 移入回收站前确认；永久删除始终确认
     public bool WatchFolderChanges { get; set; } = true;   // 外部增删改时自动刷新当前文件夹

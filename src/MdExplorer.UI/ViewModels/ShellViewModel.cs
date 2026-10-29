@@ -99,6 +99,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         Browser = CreateBrowserSession(services);
         SecondaryBrowser = CreateBrowserSession(services);
         SecondaryBrowser.PersistSessionTabs = false;
+        SecondaryBrowser.PersistSharedViewPreferences = false;
+        SecondaryBrowser.ApplyIndependentViewPreferences(
+            services.SettingsStore.Settings.DualPaneViewMode,
+            services.SettingsStore.Settings.DualPaneSortField,
+            services.SettingsStore.Settings.DualPaneSortDirection);
         SecondaryBrowser.DrivesSharedPreview = false;
         SubscribeBrowserSession(Browser, isPrimary: true);
         SubscribeBrowserSession(SecondaryBrowser, isPrimary: false);
