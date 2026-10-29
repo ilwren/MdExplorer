@@ -412,8 +412,9 @@ public sealed class ScreenshotTests
 
             await Task.Delay(120);
             window.CaptureRenderedFrame();
-            Assert.False(editor!.IsVisible);
-            Assert.True(breadcrumb!.IsVisible);
+            // IsVisible 是本地属性、不向下继承，所以判“实际可见”而不是判子控件自己的值。
+            Assert.False(editor!.IsEffectivelyVisible);
+            Assert.True(breadcrumb!.IsEffectivelyVisible);
 
             shell.ActivateSecondaryPane();
             shell.SecondaryBrowser.BeginEditAddressCommand.Execute(null);
@@ -421,12 +422,13 @@ public sealed class ScreenshotTests
             window.CaptureRenderedFrame();
 
             var state = $"editingB={shell.SecondaryBrowser.IsAddressEditing}, editingA={shell.Browser.IsAddressEditing}, " +
-                        $"editor={editor.IsVisible}, breadcrumb={breadcrumb.IsVisible}";
-            Assert.True(editor.IsVisible, state);
-            Assert.False(breadcrumb.IsVisible, state);
+                        $"editor={editor.IsEffectivelyVisible}, breadcrumb={breadcrumb.IsEffectivelyVisible}, " +
+                        $"pill={shell.ShowSecondaryBreadcrumbBar}";
+            Assert.True(editor.IsEffectivelyVisible, state);
+            Assert.False(breadcrumb.IsEffectivelyVisible, state);
             Assert.Equal(shell.SecondaryBrowser.CurrentPath, editor.Text);
             // A 侧保持自己的面包屑，不被 B 的编辑态牵连
-            Assert.True(primaryBreadcrumb.IsVisible, state);
+            Assert.True(primaryBreadcrumb.IsEffectivelyVisible, state);
             Assert.True(shell.ShowBreadcrumbBar, state);
         }
         finally
