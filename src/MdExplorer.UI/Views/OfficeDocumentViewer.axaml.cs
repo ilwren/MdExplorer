@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Media;
+using Avalonia.Threading;
 using MdExplorer.UI.Preview;
 using DocxViewerControl = OfficeViewer.Avalonia.Docx.DocxViewer;
 using PdfViewerControl = OfficeViewer.Avalonia.Pdf.PdfViewer;
@@ -36,6 +37,8 @@ public sealed partial class OfficeDocumentViewer : UserControl
     private Control? _viewer;
     private OfficePreviewFormat? _format;
     private bool _syncingSheetIndex;
+    private bool _isAttached;
+    private bool _releaseScheduled;
 
     public OfficeDocumentViewer()
     {
@@ -101,6 +104,7 @@ public sealed partial class OfficeDocumentViewer : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _isAttached = true;
         if (_viewer is null && Document is not null)
             ReplaceViewer(Document);
         else
@@ -109,7 +113,20 @@ public sealed partial class OfficeDocumentViewer : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        ReleaseViewer();
+        _isAttached = false;
+        var viewer = _viewer;
+        if (viewer is not null && !_releaseScheduled)
+        {
+            _releaseScheduled = true;
+            // 关窗/切页的当前帧可能仍在呈现第三方控件树；等这一轮布局/渲染工作
+            // 落定后再拆控件。若控件在此之前重新挂载，则保留原实例直接续用。
+            Dispatcher.UIThread.Post(() =>
+            {
+                _releaseScheduled = false;
+                if (!_isAttached && ReferenceEquals(_viewer, viewer))
+                    ReleaseViewer();
+            }, DispatcherPriority.Background);
+        }
         base.OnDetachedFromVisualTree(e);
     }
 

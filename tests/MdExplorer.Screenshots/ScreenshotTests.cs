@@ -15,6 +15,8 @@ using MdExplorer.UI.Views;
 using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(MdExplorer.Screenshots.TestAppBuilder))]
+// 所有截图共用同一个 Avalonia 应用、主题与 Skia 渲染面；禁止测试并行，避免窗口/主题相互污染。
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace MdExplorer.Screenshots;
 
