@@ -320,12 +320,14 @@ public sealed class AppSettings
     public double DualPaneWidth { get; set; } = 560;      // 对照窗格 B 宽度（MaterialGridSplitter 拖后回写）
     public bool ConfirmPermanentDelete { get; set; } = true;
     public bool WatchFolderChanges { get; set; } = true;   // 外部增删改时自动刷新当前文件夹
+    public bool NotifyOnTaskCompletion { get; set; }       // 长任务完成/失败时发送操作系统通知（默认关，需用户显式开启）
     public List<string> OpenTabPaths { get; set; } = [];   // 上次会话的浏览器标签页（按显示顺序）
     public int ActiveTabIndex { get; set; }                // OpenTabPaths 中上次活动标签的下标
     public List<string> RecentFolderPaths { get; set; } = []; // 最近访问文件夹（最新优先，仅本地路径）
     public List<string> RecentFilePaths { get; set; } = [];   // 最近打开文件（最新优先，仅本地路径）
     public bool UseSearchIndex { get; set; } = true;          // 文件名索引总开关；关闭时递归搜索回落实时扫描
     public List<string> SearchIndexRootPaths { get; set; } = []; // 用户显式加入的本地索引根（不预置任何目录）
+    public AutomationWorkflowDefinition AutomationWorkflow { get; set; } = AutomationWorkflowDefinition.CreateDefault();
 }
 
 /// <summary>设置与收藏的持久化端口。</summary>

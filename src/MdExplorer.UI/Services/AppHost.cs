@@ -27,7 +27,8 @@ public static class AppHost
         ISystemClipboardService SystemClipboard,
         IFileNameIndexService SearchIndex,
         IStorageInsightsService StorageInsights,
-        ITextFileService TextFiles);
+        ITextFileService TextFiles,
+        ISystemNotificationService SystemNotifications);
 
     /// <param name="dataDirectory">设置/收藏落点；为空时按平台默认（LocalApplicationData/MdExplorer）。</param>
     /// <param name="startFolder">初始文件夹；为空时桌面=用户主目录，Android=个人目录。</param>
@@ -36,7 +37,8 @@ public static class AppHost
         string? dataDirectory = null,
         string? startFolder = null,
         IFileLauncherService? launcher = null,
-        ISystemClipboardService? systemClipboard = null)
+        ISystemClipboardService? systemClipboard = null,
+        ISystemNotificationService? systemNotifications = null)
     {
         var dataDir = dataDirectory ?? DefaultDataDirectory();
         Directory.CreateDirectory(dataDir);
@@ -87,7 +89,8 @@ public static class AppHost
             systemClipboard ?? new AvaloniaSystemClipboardService(),
             searchIndex,
             new StorageInsightsService(),
-            new LocalTextFileService());
+            new LocalTextFileService(),
+            systemNotifications ?? new MdSystemNotificationServiceAdapter());
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);

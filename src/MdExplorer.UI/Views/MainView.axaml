@@ -377,6 +377,14 @@
                 <TextBlock FontSize="11" Text="存储" HorizontalAlignment="Center" />
               </StackPanel>
             </md:MdButton>
+            <md:MdButton Classes="rail-entry" Classes.active="{Binding IsAutomationPage}" Variant="Text" Height="64" ContainerHeight="56" Padding="0" Command="{Binding GoAutomationCommand}">
+              <StackPanel HorizontalAlignment="Center" Spacing="3">
+                <Border Classes="rail-indicator" Width="56" Height="32" HorizontalAlignment="Center">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.AccountTree}" Size="21" />
+                </Border>
+                <TextBlock FontSize="11" Text="自动化" HorizontalAlignment="Center" />
+              </StackPanel>
+            </md:MdButton>
             <md:MdButton Classes="rail-entry" Classes.active="{Binding IsTrashPage}" Variant="Text" Height="64" ContainerHeight="56" Padding="0" Command="{Binding GoTrashCommand}"
                          IsVisible="{Binding Capabilities.CanMoveToTrash}">
               <StackPanel HorizontalAlignment="Center" Spacing="3">
@@ -462,6 +470,7 @@
           <views:HomeView IsVisible="{Binding IsHome}" />
           <views:SearchCenterView IsVisible="{Binding IsSearchCenterPage}" />
           <views:StorageInsightsView IsVisible="{Binding IsStorageInsightsPage}" />
+          <views:AutomationView IsVisible="{Binding IsAutomationPage}" />
           <views:ArchiveWorkbenchView IsVisible="{Binding IsArchiveWorkbenchPage}" />
           <Border IsVisible="{Binding IsDocumentWorkbenchPage}" Background="Transparent">
             <views:DocumentWorkbenchView DataContext="{Binding DocumentWorkbench}" />

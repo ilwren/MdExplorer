@@ -12,6 +12,9 @@
     <PackageReference Include="Md3.Avalonia.DataGrid" />
     <PackageReference Include="Md3.Avalonia.Extra" />
     <PackageReference Include="Md3.Avalonia.Icons" />
+    <PackageReference Include="Md3.Avalonia.NodifyM" />
+    <PackageReference Include="Md3.Avalonia.Notifications" />
+    <PackageReference Include="NodifyM.Avalonia" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="PDFtoImage" />
     <ProjectReference Include="..\MdExplorer.Domain\MdExplorer.Domain.csproj" />

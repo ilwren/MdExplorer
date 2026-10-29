@@ -123,9 +123,11 @@ public interface IDialogs
     /// 在任务中心队列中运行文件写操作：自动处理串行排队、进度上报、单项取消、结果提示与错误明细留档。
     /// 返回操作结果供调用方决定刷新。只有调用方能精确界定失败子集时才传
     /// <paramref name="retryFailed"/>；处理函数收到上一轮结果并自行启动一个新的任务，避免整批盲目重跑。
+    /// <paramref name="suppressSystemNotification"/> 用于工作流自身已有显式通知节点时，避免任务完成再重复通知。
     /// </summary>
     Task<OperationOutcome> RunOperationAsync(
         string title,
         Func<IProgress<OperationProgress>, CancellationToken, Task<OperationOutcome>> operation,
-        Func<OperationOutcome, Task>? retryFailed = null);
+        Func<OperationOutcome, Task>? retryFailed = null,
+        bool suppressSystemNotification = false);
 }

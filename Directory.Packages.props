@@ -16,6 +16,10 @@
     <PackageVersion Include="Md3.Avalonia.Markdown" Version="0.5.0-preview.2" />
     <PackageVersion Include="Md3.Avalonia.DataGrid" Version="0.5.0-preview.2" />
     <PackageVersion Include="Md3.Avalonia.Extra" Version="0.5.0-preview.2" />
+    <PackageVersion Include="Md3.Avalonia.NodifyM" Version="0.5.0-preview.2" />
+    <PackageVersion Include="Md3.Avalonia.Notifications" Version="0.5.0-preview.2" />
+    <!-- NodifyM.Avalonia 12.0.0（MIT）显式 IsAotCompatible；Md3 卫星包只提供 MD3 主题。 -->
+    <PackageVersion Include="NodifyM.Avalonia" Version="12.0.0" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <!-- PDF 预览：PDFtoImage（MIT，PDFium 光栅化；net10.0/net10.0-android，IsAotCompatible）；
          5.2.1 的 SkiaSharp 3.119 线与 Avalonia 12.1.2 对齐，避免 5.3+ 的 SkiaSharp 4.x 程序集冲突 -->

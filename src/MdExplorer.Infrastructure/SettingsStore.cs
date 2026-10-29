@@ -101,6 +101,17 @@ public sealed class SettingsStore : ISettingsStore
                      .Select(pair => pair.Key)
                      .ToArray())
             settings.FolderViewStates.Remove(key);
+
+        settings.AutomationWorkflow ??= MdExplorer.Domain.AutomationWorkflowDefinition.CreateDefault();
+        settings.AutomationWorkflow.Name ??= "整理当前文件夹";
+        settings.AutomationWorkflow.Nodes ??= [];
+        settings.AutomationWorkflow.Connections ??= [];
+        settings.AutomationWorkflow.Nodes.RemoveAll(static node =>
+            node is null || string.IsNullOrWhiteSpace(node.Id));
+        settings.AutomationWorkflow.Connections.RemoveAll(static connection =>
+            connection is null ||
+            string.IsNullOrWhiteSpace(connection.SourceNodeId) ||
+            string.IsNullOrWhiteSpace(connection.TargetNodeId));
         return settings;
     }
 

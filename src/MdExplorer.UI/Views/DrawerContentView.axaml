@@ -59,6 +59,12 @@
           <TextBlock Text="存储洞察" FontSize="14.5" VerticalAlignment="Center" />
         </StackPanel>
       </md:MdButton>
+      <md:MdButton Classes="nav-entry" Classes.active="{Binding IsAutomationPage}" Variant="Text" Command="{Binding GoAutomationCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.AccountTree}" Size="22" />
+          <TextBlock Text="自动化" FontSize="14.5" VerticalAlignment="Center" />
+        </StackPanel>
+      </md:MdButton>
 
       <Border Height="10" />
       <ItemsControl ItemsSource="{Binding Places}">

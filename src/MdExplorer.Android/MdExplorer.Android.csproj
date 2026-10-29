@@ -5,7 +5,7 @@
     <SupportedOSPlatformVersion>28</SupportedOSPlatformVersion>
     <ApplicationId>dev.mdexplorer.app</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>0.19.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>0.21.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <RootNamespace>MdExplorer.Android</RootNamespace>
     <IsAotCompatible>false</IsAotCompatible>
@@ -16,6 +16,7 @@
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <!-- 直接引用以确保宿主选中 net10.0-android 资产与 Android PDFium/Skia 原生库（UI 项目本身是 net10.0） -->
     <PackageReference Include="PDFtoImage" />
+    <PackageReference Include="Md3.Avalonia.Notifications" />
     <ProjectReference Include="..\MdExplorer.UI\MdExplorer.UI.csproj" />
   </ItemGroup>
 </Project>

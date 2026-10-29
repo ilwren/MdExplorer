@@ -281,6 +281,77 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task Large_AutomationEditor()
+    {
+        var shell = await CreateShellAsync();
+        shell.SetViewportSize(1440, 900);
+        shell.GoAutomationCommand.Execute(null);
+        Assert.Equal(ShellPage.Automation, shell.Page);
+        Assert.True(shell.Automation.IsWorkflowValid, shell.Automation.ValidationText);
+        Assert.Equal(4, shell.Automation.Nodes.Count);
+        Assert.Equal(3, shell.Automation.Connections.Count);
+
+        var window = new MainWindow { Width = 1440, Height = 900, DataContext = shell };
+        var view = Assert.IsType<MainView>(window.Content);
+        window.Show();
+        try
+        {
+            Control? editor = null;
+            Control[] nodeControls = [];
+            for (int i = 0; i < 100; i++)
+            {
+                window.CaptureRenderedFrame();
+                editor = view.GetVisualDescendants()
+                    .OfType<Control>()
+                    .FirstOrDefault(control => control.Name == "AutomationEditor");
+                nodeControls = view.GetVisualDescendants()
+                    .OfType<Control>()
+                    .Where(control => control.GetType().FullName == "NodifyM.Avalonia.Controls.Node")
+                    .ToArray();
+                if (editor is not null && editor.Bounds.Width > 500 && nodeControls.Length == 4)
+                    break;
+                await Task.Delay(50);
+            }
+
+            Assert.NotNull(editor);
+            Assert.True(editor!.Bounds.Width > 500 && editor.Bounds.Height > 400,
+                $"自动化画布应有真实布局尺寸，实际 {editor.Bounds}。");
+            Assert.Equal(4, nodeControls.Length);
+            Assert.All(nodeControls, node => Assert.True(
+                node.Bounds.Width > 100 && node.Bounds.Height > 40,
+                $"节点容器应已实现，实际 {node.Bounds}。"));
+
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            frame!.Save(Path.Combine(OutputDir, "42-large-automation.png"));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Compact_AutomationEditor() => await CaptureAsync("43-compact-automation.png", 390, 844, shell =>
+    {
+        shell.GoAutomationCommand.Execute(null);
+        Assert.Equal(ShellPage.Automation, shell.Page);
+        Assert.True(shell.Automation.IsWorkflowValid, shell.Automation.ValidationText);
+        return Task.CompletedTask;
+    });
+
+    [AvaloniaFact]
+    public async Task Large_AutomationEditorDark() => await CaptureAsync(
+        "44-large-automation-dark.png", 1440, 900,
+        shell =>
+        {
+            shell.GoAutomationCommand.Execute(null);
+            Assert.Equal(ShellPage.Automation, shell.Page);
+            return Task.CompletedTask;
+        },
+        themeMode: "Dark");
+
+    [AvaloniaFact]
     public async Task Large_AddressBar() => await CaptureAsync("19-large-address.png", 1440, 900, shell =>
     {
         shell.Browser.BeginEditAddressCommand.Execute(null);

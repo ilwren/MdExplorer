@@ -169,6 +169,33 @@
       </Border>
 
       <Border Classes="card">
+      <StackPanel Spacing="12">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="h3" Text="系统通知" />
+          <TextBlock Grid.Column="1" Classes="caption" Text="{Binding SystemNotificationPlatformText}" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding SystemNotificationSupportText}" />
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="长任务完成时通知" />
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="失败任务会立即提醒；成功任务仅在运行至少 3 秒后提醒，短操作仍只显示应用内提示" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding NotifyOnTaskCompletion}" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding SystemNotificationStatusText}" />
+        <md:MdButton Variant="Tonal" HorizontalAlignment="Left"
+                     Command="{Binding SendTestSystemNotificationCommand}"
+                     IsEnabled="{Binding !IsSendingTestSystemNotification}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.NotificationsActive}" Size="19" />
+            <TextBlock Text="发送测试通知" VerticalAlignment="Center" />
+          </StackPanel>
+        </md:MdButton>
+      </StackPanel>
+      </Border>
+
+      <Border Classes="card">
       <StackPanel Spacing="8">
         <TextBlock Classes="h3" Text="关于" />
         <TextBlock Classes="body">

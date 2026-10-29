@@ -14,7 +14,7 @@ using MdExplorer.UI.Preview;
 
 namespace MdExplorer.UI.ViewModels;
 
-public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter, StorageInsights, ArchiveWorkbench, DocumentWorkbench }
+public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter, StorageInsights, ArchiveWorkbench, DocumentWorkbench, Automation }
 public enum SizeClass { Compact, Medium, Expanded, Large, ExtraLarge }
 internal enum DialogKind { None, Prompt, Confirm, Conflict, Message, Progress, BatchRename }
 
@@ -53,6 +53,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     /// <summary>独立文档工作台：持有文本编辑与 PDF 阅读状态，页面切换时不随预览选集重建。</summary>
     public DocumentWorkbenchViewModel DocumentWorkbench { get; }
+
+    /// <summary>NodifyM 自动化工作流编辑器；图定义持久化在设置中，运行走本 Shell 的任务中心。</summary>
+    public AutomationViewModel Automation { get; }
     public PlatformCapabilities Capabilities => _services.Capabilities;
     public ISettingsStore SettingsStore => _services.SettingsStore;
 
@@ -99,6 +102,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         SecondaryBrowser.DrivesSharedPreview = false;
         SubscribeBrowserSession(Browser, isPrimary: true);
         SubscribeBrowserSession(SecondaryBrowser, isPrimary: false);
+        Automation = new AutomationViewModel(
+            services,
+            this,
+            () => Browser.IsSearchMode ? null : Browser.CurrentPath,
+            RefreshBrowsersAfterAutomationAsync,
+            Notify);
         Preview.ArchiveWorkbenchRequested += async (_, path) => await OpenArchiveWorkbenchAsync(path).ConfigureAwait(true);
         Preview.DocumentWorkbenchRequested += async (_, item) => await OpenDocumentWorkbenchAsync(item).ConfigureAwait(true);
         FavoriteItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFavorites));
@@ -158,6 +167,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _reduceMotion = s.ReduceMotion;
         _rememberFolderView = s.RememberFolderView;
         _watchFolderChanges = s.WatchFolderChanges;
+        _notifyOnTaskCompletion = s.NotifyOnTaskCompletion;
         _useSearchIndex = s.UseSearchIndex;
         _isDualPaneEnabled = s.DualPaneEnabled;
         RefreshSearchIndexRoots();
@@ -427,6 +437,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         ShellPage.StorageInsights => "存储洞察",
         ShellPage.ArchiveWorkbench => string.IsNullOrWhiteSpace(ArchiveName) ? "压缩包" : ArchiveName,
         ShellPage.DocumentWorkbench => string.IsNullOrWhiteSpace(DocumentWorkbench.Title) ? "文档" : DocumentWorkbench.Title,
+        ShellPage.Automation => "自动化",
         _ => ActiveBrowser.IsSearchMode ? "搜索结果" : ActiveBrowser.CurrentFolderName,
     };
 
@@ -448,6 +459,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsStorageInsightsPage => Page == ShellPage.StorageInsights;
     public bool IsArchiveWorkbenchPage => Page == ShellPage.ArchiveWorkbench;
     public bool IsDocumentWorkbenchPage => Page == ShellPage.DocumentWorkbench;
+    public bool IsAutomationPage => Page == ShellPage.Automation;
 
     public bool IsCompact => SizeClass == SizeClass.Compact;
     public bool IsMedium => SizeClass == SizeClass.Medium;
@@ -486,6 +498,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsStorageInsightsPage));
         OnPropertyChanged(nameof(IsArchiveWorkbenchPage));
         OnPropertyChanged(nameof(IsDocumentWorkbenchPage));
+        OnPropertyChanged(nameof(IsAutomationPage));
         OnPropertyChanged(nameof(ShowPreviewPaneEffective));
         NotifyDualPaneState();
         ApplyActivePanePreviewSource();
@@ -788,6 +801,23 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         }
 
         await RefreshHomeAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private void GoAutomation()
+    {
+        Page = ShellPage.Automation;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        Automation.RefreshRuntimeState();
+    }
+
+    private async Task RefreshBrowsersAfterAutomationAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Browser.CurrentPath))
+            await Browser.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
+        if (_secondaryBrowserInitialized && !string.IsNullOrWhiteSpace(SecondaryBrowser.CurrentPath))
+            await SecondaryBrowser.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
     }
 
     public async Task OpenFolderAsync(string path)
@@ -2720,8 +2750,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _showPreviewPane = true;
     [ObservableProperty] private bool _reduceMotion;
     [ObservableProperty] private bool _rememberFolderView;
+    [ObservableProperty] private bool _notifyOnTaskCompletion;
+    [ObservableProperty] private bool _isSendingTestSystemNotification;
+    [ObservableProperty] private string _systemNotificationStatusText = "尚未发送测试通知。";
 
     public string ThemeModeText => ThemeMode switch { "Light" => "浅色", "Dark" => "深色", _ => "跟随系统" };
+    public string SystemNotificationPlatformText => _services.SystemNotifications.PlatformName;
+    public string SystemNotificationSupportText => _services.SystemNotifications.SupportDescription;
 
     public event EventHandler? ThemeSettingsChanged;
 
@@ -2787,6 +2822,78 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _ = SaveAsync();
         Browser.SetWatchEnabled(value);
         SecondaryBrowser.SetWatchEnabled(value);
+    }
+
+    partial void OnNotifyOnTaskCompletionChanged(bool value)
+    {
+        _services.SettingsStore.Settings.NotifyOnTaskCompletion = value;
+        _ = SaveAsync();
+    }
+
+    [RelayCommand]
+    private async Task SendTestSystemNotificationAsync()
+    {
+        if (IsSendingTestSystemNotification)
+            return;
+
+        IsSendingTestSystemNotification = true;
+        SystemNotificationStatusText = "正在向操作系统发送测试通知…";
+        try
+        {
+            var result = await _services.SystemNotifications.ShowAsync(
+                "Eidoria 测试通知",
+                "系统通知已接入。长任务和自动化流程可以把结果送到这里。",
+                CancellationToken.None).ConfigureAwait(true);
+            SystemNotificationStatusText = result.Success
+                ? "测试通知已提交；请在系统通知中心确认。"
+                : $"测试通知未发送：{result.Message}";
+            Notify(result.Success ? "测试系统通知已发送" : "系统通知发送失败，详情见设置");
+        }
+        catch (OperationCanceledException)
+        {
+            SystemNotificationStatusText = "测试通知已取消。";
+        }
+        finally
+        {
+            IsSendingTestSystemNotification = false;
+        }
+    }
+
+    private void MaybeNotifyTaskCompleted(OperationTaskViewModel task, OperationOutcome outcome, bool suppress)
+    {
+        if (suppress || !NotifyOnTaskCompletion || outcome.Cancelled)
+            return;
+
+        var duration = (task.FinishedAt ?? DateTimeOffset.Now) - task.StartedAt;
+        if (outcome.Errors.Count == 0 && duration < TimeSpan.FromSeconds(3))
+            return;
+
+        var title = outcome.Errors.Count > 0 ? "Eidoria 任务未完全完成" : "Eidoria 任务已完成";
+        var summary = !string.IsNullOrWhiteSpace(task.ResultSummaryText)
+            ? task.ResultSummaryText
+            : task.Detail;
+        var body = string.IsNullOrWhiteSpace(summary) ? task.Title : $"{task.Title} · {summary}";
+        _ = SendTaskSystemNotificationAsync(title, body);
+    }
+
+    private async Task SendTaskSystemNotificationAsync(string title, string body)
+    {
+        try
+        {
+            var result = await _services.SystemNotifications.ShowAsync(title, body, CancellationToken.None)
+                .ConfigureAwait(true);
+            SystemNotificationStatusText = result.Success
+                ? "最近一次任务通知已提交到操作系统。"
+                : $"最近一次任务通知未发送：{result.Message}";
+        }
+        catch (OperationCanceledException)
+        {
+            // 通知是旁路能力，取消不影响已经结束的文件任务。
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException)
+        {
+            SystemNotificationStatusText = $"最近一次任务通知未发送：{ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -3079,7 +3186,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public async Task<OperationOutcome> RunOperationAsync(
         string title,
         Func<IProgress<OperationProgress>, CancellationToken, Task<OperationOutcome>> operation,
-        Func<OperationOutcome, Task>? retryFailed = null)
+        Func<OperationOutcome, Task>? retryFailed = null,
+        bool suppressSystemNotification = false)
     {
         var task = new OperationTaskViewModel(title);
         task.SetRetryHandler(retryFailed);
@@ -3126,6 +3234,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
         task.Complete(outcome);
         RefreshTaskCenterSummary();
+        MaybeNotifyTaskCompleted(task, outcome, suppressSystemNotification);
         if (outcome.Cancelled)
         {
             Notify("已取消");
