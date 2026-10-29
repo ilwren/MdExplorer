@@ -939,7 +939,7 @@
                       Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" ClipToBounds="True"
                       PointerPressed="OnSecondaryPanePointerPressed" GotFocus="OnSecondaryPaneGotFocus">
                 <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
-                  <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="12,10,8,4">
+                  <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="12,10,8,4">
                     <md:MdIcon Glyph="{x:Static md:MdSymbols.VerticalSplit}" Size="20" VerticalAlignment="Center"
                                Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -947,12 +947,30 @@
                       <TextBlock Classes="caption" Text="{Binding SecondaryBrowser.CurrentFolderName}" VerticalAlignment="Center"
                                  TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SecondaryBrowser.CurrentPath}" />
                     </StackPanel>
-                    <Border Grid.Column="2" CornerRadius="99" Padding="8,3" VerticalAlignment="Center"
+                    <!-- 搜索岛放在标题行：560dp 的工具栏已放满 12 个动作按钮，塞进工具栏会折行或裁切。 -->
+                    <md:MdButton Grid.Column="2" Classes="search-island" Variant="Tonal" Height="34" Width="42" MinWidth="42" Padding="0"
+                                 Command="{Binding SecondaryBrowser.OpenSearchPanelCommand}"
+                                 ToolTip.Tip="{Binding SecondaryBrowser.SearchIslandText}"
+                                 AutomationProperties.Name="{Binding SecondaryBrowser.SearchIslandText}">
+                      <Grid Width="26" Height="22">
+                        <md:MdIcon Glyph="{x:Static md:MdSymbols.Search}" Size="17"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border MinWidth="15" Height="15" CornerRadius="8" Padding="3,0"
+                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}"
+                                IsVisible="{Binding SecondaryBrowser.HasActiveSearch}">
+                          <TextBlock Text="{Binding SecondaryBrowser.SearchResultBadgeText}" FontSize="8.5" FontWeight="Bold"
+                                     Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                      </Grid>
+                    </md:MdButton>
+                    <Border Grid.Column="3" CornerRadius="99" Padding="8,3" VerticalAlignment="Center"
                             Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
                       <TextBlock Classes="caption" Text="{Binding SecondaryPaneBadgeText}"
                                  Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
                     </Border>
-                    <md:MdIconButton Grid.Column="3" Icon="{x:Static md:MdSymbols.Close}"
+                    <md:MdIconButton Grid.Column="4" Icon="{x:Static md:MdSymbols.Close}"
                                      Command="{Binding ToggleDualPaneCommand}" AutomationProperties.Name="关闭对照窗格" />
                   </Grid>
 
@@ -1051,23 +1069,6 @@
                         <md:MdIconButton Icon="{x:Static md:MdSymbols.GridView}" Command="{Binding SecondaryBrowser.ToggleViewModeCommand}"
                                          ToolTip.Tip="切换对照窗格视图（列表 / 网格 / 详细信息）"
                                          AutomationProperties.Name="切换对照窗格视图" />
-                        <md:MdButton Classes="search-island" Variant="Tonal" Height="38" Width="44" MinWidth="44" Padding="0"
-                                     Command="{Binding SecondaryBrowser.OpenSearchPanelCommand}"
-                                     ToolTip.Tip="{Binding SecondaryBrowser.SearchIslandText}"
-                                     AutomationProperties.Name="{Binding SecondaryBrowser.SearchIslandText}">
-                          <Grid Width="28" Height="24">
-                            <md:MdIcon Glyph="{x:Static md:MdSymbols.Search}" Size="18"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            <Border MinWidth="15" Height="15" CornerRadius="8" Padding="3,0"
-                                    HorizontalAlignment="Right" VerticalAlignment="Top"
-                                    Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}"
-                                    IsVisible="{Binding SecondaryBrowser.HasActiveSearch}">
-                              <TextBlock Text="{Binding SecondaryBrowser.SearchResultBadgeText}" FontSize="8.5" FontWeight="Bold"
-                                         Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}"
-                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                          </Grid>
-                        </md:MdButton>
                       </WrapPanel>
                     </md:MdScrollViewer>
                   </Border>
