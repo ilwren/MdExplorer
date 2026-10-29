@@ -201,9 +201,9 @@
     </DataTemplate>
     <!-- 对照窗格自己的紧凑标签：B 不进入窗口顶部全局标签轨，只在本窗格头部横向排布。 -->
     <DataTemplate x:Key="SecondaryTabTemplate" x:DataType="vm:BrowserTabViewModel">
-      <Border Height="30" MinWidth="96" MaxWidth="180" Padding="9,0,4,0" CornerRadius="10" Classes="secondary-tab"
-              Tapped="OnSecondaryTabTapped" Cursor="Hand" ToolTip.Tip="{Binding Path}"
-              Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}">
+      <Border Height="30" MinWidth="96" MaxWidth="180" Padding="9,0,4,0" CornerRadius="10"
+              Classes="secondary-tab" Classes.active="{Binding IsActive}"
+              Tapped="OnSecondaryTabTapped" Cursor="Hand" ToolTip.Tip="{Binding Path}">
         <Border.ContextMenu>
           <ContextMenu>
             <MenuItem Header="复制标签页" Tag="{Binding}" Click="OnSecondaryDuplicateTabClick" />

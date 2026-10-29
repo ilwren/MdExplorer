@@ -290,16 +290,22 @@ public sealed class ScreenshotTests
         "73-xlarge-dual-pane-tabs.png", 1920, 1080, async shell =>
     {
         await ArrangeDualPaneForDetailsTestAsync(shell);
+        // 先交换目录再开第二个标签，屏幕上才能同时看到两个不同名字的 B 标签。
+        var primaryBeforeSwap = shell.Browser.CurrentPath;
+        var secondaryBeforeSwap = shell.SecondaryBrowser.CurrentPath;
+        await shell.SwapPanesCommand.ExecuteAsync(null);
+        Assert.Equal(secondaryBeforeSwap, shell.Browser.CurrentPath);
+        Assert.Equal(primaryBeforeSwap, shell.SecondaryBrowser.CurrentPath);
+
         await shell.SecondaryBrowser.OpenInNewTabAsync(DocumentsDir);
         await shell.SecondaryBrowser.WhenIdleAsync();
         Assert.True(shell.SecondaryBrowser.HasMultipleTabs);
         Assert.True(shell.ShowSecondaryTabs);
         Assert.False(shell.Browser.HasMultipleTabs); // A 只有一个标签，全局标签轨不受 B 影响
-        var primaryPath = shell.Browser.CurrentPath;
-        await shell.SwapPanesCommand.ExecuteAsync(null);
-        Assert.Equal(DocumentsDir, shell.Browser.CurrentPath);
-        Assert.Equal(primaryPath, shell.SecondaryBrowser.CurrentPath);
-        Assert.True(shell.ShowDualPane);
+        Assert.Equal(DocumentsDir, shell.SecondaryBrowser.CurrentPath);
+        Assert.NotEqual(
+            shell.SecondaryBrowser.Tabs[0].Title,
+            shell.SecondaryBrowser.Tabs[1].Title);
     });
 
     [AvaloniaFact]

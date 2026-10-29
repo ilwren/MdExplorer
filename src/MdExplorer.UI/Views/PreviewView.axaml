@@ -135,27 +135,27 @@
                 </StackPanel>
               </StackPanel>
 
-              <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding MediaProgressPercent}" Height="4"
-                                            IsVisible="{Binding CanPlayMediaInApp}" />
               <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding CanPlayMediaInApp}">
                 <TextBlock Classes="caption" Text="{Binding MediaPositionText}" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Classes="caption" Text="{Binding MediaDurationText}" VerticalAlignment="Center" />
               </Grid>
+              <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding MediaProgressPercent}" Height="4"
+                                            Margin="0,-6,0,0" IsVisible="{Binding CanPlayMediaInApp}" />
 
-              <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding CanPlayMediaInApp}" HorizontalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding CanPlayMediaInApp}" HorizontalAlignment="Center">
                 <md:MdIconButton Icon="{x:Static md:MdSymbols.Replay10}" Command="{Binding SeekMediaBackwardCommand}"
-                                 AutomationProperties.Name="后退 10 秒" />
+                                 Variant="Outlined" AutomationProperties.Name="后退 10 秒" />
                 <md:MdIconButton Icon="{x:Static md:MdSymbols.PlayArrow}" Command="{Binding ToggleMediaPlaybackCommand}"
-                                 IsVisible="{Binding !IsMediaPlaying}" AutomationProperties.Name="播放" />
+                                 Variant="Filled" IsVisible="{Binding !IsMediaPlaying}" AutomationProperties.Name="播放" />
                 <md:MdIconButton Icon="{x:Static md:MdSymbols.Pause}" Command="{Binding ToggleMediaPlaybackCommand}"
-                                 IsVisible="{Binding IsMediaPlaying}" AutomationProperties.Name="暂停" />
+                                 Variant="Filled" IsVisible="{Binding IsMediaPlaying}" AutomationProperties.Name="暂停" />
                 <md:MdIconButton Icon="{x:Static md:MdSymbols.Forward10}" Command="{Binding SeekMediaForwardCommand}"
-                                 AutomationProperties.Name="前进 10 秒" />
+                                 Variant="Outlined" AutomationProperties.Name="前进 10 秒" />
                 <md:MdIconButton Icon="{x:Static md:MdSymbols.Stop}" Command="{Binding StopMediaPlaybackCommand}"
-                                 AutomationProperties.Name="停止" />
+                                 Variant="Outlined" AutomationProperties.Name="停止" />
               </StackPanel>
 
-              <TextBlock Classes="caption" Text="{Binding MediaBackendDiagnostic}" TextWrapping="Wrap"
+              <TextBlock Classes="caption" Text="{Binding MediaBackendDiagnostic}" TextWrapping="Wrap" Margin="0,0,4,0"
                          Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
             </StackPanel>
           </Border>

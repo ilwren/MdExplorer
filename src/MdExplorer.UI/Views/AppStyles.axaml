@@ -142,6 +142,16 @@
     <Setter Property="BoxShadow" Value="0 5 18 #10000000" />
   </Style>
 
+  <!-- 对照窗格标签（v0.30）：非活动用低对比表面，活动标签抬高到 secondary container。 -->
+  <Style Selector="Border.secondary-tab">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}" />
+  </Style>
+  <Style Selector="Border.secondary-tab.active">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}" />
+  </Style>
+  <Style Selector="Border.secondary-tab:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}" />
+  </Style>
   <Style Selector="Border.card">
     <Setter Property="Background" Value="{DynamicResource Md.Sys.Color.Surface.Brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
