@@ -1524,7 +1524,8 @@ public sealed class ScreenshotTests
             Assert.False(shell.Preview.ShowFrameVideoSurface);
             Assert.False(shell.Preview.HasMediaProbe); // 闸门在时不重复报“探测不通过”
             Assert.Equal("默认用系统播放器打开", shell.Preview.MediaStateText);
-        }));
+        }),
+        static () => new FramePushVideoStub());
 
     // 探测说“系统接不了”时的界面：没有播放按钮，只有事实与原因。
     [AvaloniaFact]

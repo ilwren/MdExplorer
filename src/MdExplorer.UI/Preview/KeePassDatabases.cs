@@ -648,7 +648,9 @@ public static class KeePassReader
             throw new InvalidDataException("密码库内容缺少 KeePassFile 根节点。");
 
         var ns = root.Name.Namespace;
-        var name = root.Element(ns + "Meta")?.Element(ns + "Name")?.Value;
+        var meta = root.Element(ns + "Meta");
+        // KDBX 的库名在 Meta/DatabaseName；早期手写库有时只写 Meta/Name。
+        var name = meta?.Element(ns + "DatabaseName")?.Value ?? meta?.Element(ns + "Name")?.Value;
         var entries = new List<KeePassEntryNode>();
         var truncated = false;
         var groupElement = root.Element(ns + "Root")?.Element(ns + "Group");

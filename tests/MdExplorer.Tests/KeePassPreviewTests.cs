@@ -574,12 +574,19 @@ public sealed class KeePassPreviewTests : IDisposable
         preview.SelectKeePassGroup(preview.KeePassGroups.First(group => group.Name == "Internet"));
         Assert.Equal("邮箱", Assert.Single(preview.KeePassEntries).Title);
 
-        // 关闭预览：条目、密文、主密码一起放掉。
-        shell.IsPreviewPageOpen = false;
+        // 关闭预览栏（Expanded+ 的关闭按钮就走这里）：条目、密文、主密码一起放掉。
+        shell.ShowPreviewPane = false;
         Assert.False(preview.HasKeePass);
         Assert.Empty(preview.KeePassEntries);
         Assert.Empty(preview.KeePassFields);
         Assert.True(preview.IsPayloadReleased);
         Assert.False(preview.ShowKeePassSecrets);
+
+        // 重新打开：按当前选集重新读库，回到锁定态（解出来的条目不会留在内存里）。
+        shell.ShowPreviewPane = true;
+        for (var attempt = 0; attempt < 100 && !preview.IsKeePassLocked; attempt++)
+            await Task.Delay(20);
+        Assert.True(preview.IsKeePassLocked);
+        Assert.False(preview.HasKeePass);
     }
 }
