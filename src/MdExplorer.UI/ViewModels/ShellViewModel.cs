@@ -2894,6 +2894,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _playVideoInline;
     [ObservableProperty] private bool _mediaAutoPlay;
     [ObservableProperty] private bool _showMediaDiagnostics = true;
+    /// <summary>端侧 AI 总开关（默认关）。这一版只影响「允许以后用」，不改变任何现有功能。</summary>
+    [ObservableProperty] private bool _enableLocalAi;
     [ObservableProperty] private bool _isSendingTestSystemNotification;
     [ObservableProperty] private int _itemPageSize = BrowserViewModel.DefaultItemPageSize;
     [ObservableProperty] private bool _enablePullRefresh = true;
