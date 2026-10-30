@@ -166,10 +166,18 @@ jobs:
       - name: Install Android workload
         run: dotnet workload install android
       - name: Publish APK
-        run: >-
-          dotnet publish src/MdExplorer.Android -c Release
-          -p:PublishTrimmed=true -p:RunAOTCompilation=true
-          -o artifacts/android
+        run: |
+          set -o pipefail
+          # 与 ubuntu 构建同理：Actions 日志在沙箱里取不到，落盘一份随 ci-artifacts 回传。
+          dotnet publish src/MdExplorer.Android -c Release \
+            -p:PublishTrimmed=true -p:RunAOTCompilation=true \
+            -o artifacts/android 2>&1 | tee android-output.txt
+      - name: Publish android log (回传 ci-artifacts 分支)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/publish-artifacts.sh logs-android android-output.txt
       - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v4
