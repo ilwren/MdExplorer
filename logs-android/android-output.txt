@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 2.75 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 3.63 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 8 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 3 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 10.56 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Android/MdExplorer.Android.csproj (in 12.38 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.14 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 1.14 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 1.14 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 4 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 4.76 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Android/MdExplorer.Android.csproj (in 7.27 sec).
   MdExplorer.Domain -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/bin/Release/net10.0/MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/bin/Release/net10.0/MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/bin/Release/net10.0/MdExplorer.Application.dll
@@ -31,136 +31,136 @@ ILLink : warning IL2035: Md3.Avalonia.Controls.MdSymbolFontResolver.TryConfigure
   [1/111] MdExplorer.Domain.dll -> MdExplorer.Domain.dll.so
   [2/111] _Microsoft.Android.Resource.Designer.dll -> _Microsoft.Android.Resource.Designer.dll.so
   [3/111] MdExplorer.Application.dll -> MdExplorer.Application.dll.so
-  [4/111] MdExplorer.Infrastructure.dll -> MdExplorer.Infrastructure.dll.so
   [1/111] _Microsoft.Android.Resource.Designer.dll -> _Microsoft.Android.Resource.Designer.dll.so
+  [4/111] MdExplorer.Infrastructure.dll -> MdExplorer.Infrastructure.dll.so
   [5/111] MdExplorer.Platform.Abstractions.dll -> MdExplorer.Platform.Abstractions.dll.so
   [2/111] MdExplorer.Application.dll -> MdExplorer.Application.dll.so
   [6/111] MdExplorer.UI.dll -> MdExplorer.UI.dll.so
   [7/111] MdExplorer.Android.dll -> MdExplorer.Android.dll.so
+  [8/111] Avalonia.DesignerSupport.dll -> Avalonia.DesignerSupport.dll.so
   [3/111] MdExplorer.Domain.dll -> MdExplorer.Domain.dll.so
-  [8/111] Avalonia.Markup.Xaml.dll -> Avalonia.Markup.Xaml.dll.so
-  [9/111] Avalonia.DesignerSupport.dll -> Avalonia.DesignerSupport.dll.so
-  [4/111] MdExplorer.Infrastructure.dll -> MdExplorer.Infrastructure.dll.so
+  [9/111] Avalonia.Markup.Xaml.dll -> Avalonia.Markup.Xaml.dll.so
   [10/111] Avalonia.Markup.dll -> Avalonia.Markup.dll.so
+  [4/111] MdExplorer.Infrastructure.dll -> MdExplorer.Infrastructure.dll.so
   [11/111] Avalonia.Metal.dll -> Avalonia.Metal.dll.so
   [5/111] MdExplorer.Platform.Abstractions.dll -> MdExplorer.Platform.Abstractions.dll.so
-  [12/111] Avalonia.Controls.dll -> Avalonia.Controls.dll.so
-  [13/111] Avalonia.OpenGL.dll -> Avalonia.OpenGL.dll.so
+  [12/111] Avalonia.OpenGL.dll -> Avalonia.OpenGL.dll.so
+  [13/111] Avalonia.Controls.dll -> Avalonia.Controls.dll.so
   [14/111] Avalonia.Vulkan.dll -> Avalonia.Vulkan.dll.so
   [15/111] Avalonia.dll -> Avalonia.dll.so
   [6/111] MdExplorer.UI.dll -> MdExplorer.UI.dll.so
   [16/111] Avalonia.Android.dll -> Avalonia.Android.dll.so
-  [17/111] Avalonia.Base.dll -> Avalonia.Base.dll.so
-  [18/111] Avalonia.HarfBuzz.dll -> Avalonia.HarfBuzz.dll.so
-  [19/111] Avalonia.Controls.DataGrid.dll -> Avalonia.Controls.DataGrid.dll.so
-  [20/111] Avalonia.Fonts.Inter.dll -> Avalonia.Fonts.Inter.dll.so
+  [17/111] Avalonia.Controls.DataGrid.dll -> Avalonia.Controls.DataGrid.dll.so
+  [18/111] Avalonia.Fonts.Inter.dll -> Avalonia.Fonts.Inter.dll.so
   [7/111] MdExplorer.Android.dll -> MdExplorer.Android.dll.so
-  [21/111] AvaloniaEdit.dll -> AvaloniaEdit.dll.so
-  [22/111] Avalonia.Skia.dll -> Avalonia.Skia.dll.so
-  [23/111] Avalonia.Remote.Protocol.dll -> Avalonia.Remote.Protocol.dll.so
+  [19/111] Avalonia.HarfBuzz.dll -> Avalonia.HarfBuzz.dll.so
+  [20/111] AvaloniaEdit.dll -> AvaloniaEdit.dll.so
+  [21/111] Avalonia.Remote.Protocol.dll -> Avalonia.Remote.Protocol.dll.so
+  [22/111] Avalonia.Base.dll -> Avalonia.Base.dll.so
+  [23/111] Avalonia.Skia.dll -> Avalonia.Skia.dll.so
   [24/111] ColorDocument.Avalonia.dll -> ColorDocument.Avalonia.dll.so
   [25/111] ColorTextBlock.Avalonia.dll -> ColorTextBlock.Avalonia.dll.so
   [26/111] CommunityToolkit.Mvvm.dll -> CommunityToolkit.Mvvm.dll.so
   [27/111] HarfBuzzSharp.dll -> HarfBuzzSharp.dll.so
-  [28/111] Markdown.Avalonia.dll -> Markdown.Avalonia.dll.so
-  [29/111] MaterialColorUtilities.dll -> MaterialColorUtilities.dll.so
+  [28/111] MaterialColorUtilities.dll -> MaterialColorUtilities.dll.so
+  [29/111] Markdown.Avalonia.dll -> Markdown.Avalonia.dll.so
   [30/111] Md3.Avalonia.AvaloniaEdit.dll -> Md3.Avalonia.AvaloniaEdit.dll.so
-  [31/111] Md3.Avalonia.DataGrid.dll -> Md3.Avalonia.DataGrid.dll.so
-  [32/111] Md3.Avalonia.dll -> Md3.Avalonia.dll.so
+  [31/111] Md3.Avalonia.dll -> Md3.Avalonia.dll.so
+  [32/111] Md3.Avalonia.DataGrid.dll -> Md3.Avalonia.DataGrid.dll.so
   [33/111] Md3.Avalonia.Extra.dll -> Md3.Avalonia.Extra.dll.so
   [34/111] Md3.Avalonia.Icons.dll -> Md3.Avalonia.Icons.dll.so
   [35/111] Md3.Avalonia.Markdown.dll -> Md3.Avalonia.Markdown.dll.so
   [36/111] Md3.Avalonia.NodifyM.dll -> Md3.Avalonia.NodifyM.dll.so
   [37/111] Md3.Avalonia.Notifications.dll -> Md3.Avalonia.Notifications.dll.so
-  [39/111] OfficeViewer.Avalonia.dll -> OfficeViewer.Avalonia.dll.so
   [38/111] NodifyM.Avalonia.dll -> NodifyM.Avalonia.dll.so
-  [40/111] PDFtoImage.dll -> PDFtoImage.dll.so
-  [41/111] SkiaSharp.dll -> SkiaSharp.dll.so
+  [39/111] PDFtoImage.dll -> PDFtoImage.dll.so
+  [40/111] OfficeViewer.Avalonia.dll -> OfficeViewer.Avalonia.dll.so
+  [41/111] System.Reactive.dll -> System.Reactive.dll.so
   [42/111] Xamarin.AndroidX.Activity.dll -> Xamarin.AndroidX.Activity.dll.so
-  [43/111] System.Reactive.dll -> System.Reactive.dll.so
+  [43/111] SkiaSharp.dll -> SkiaSharp.dll.so
   [44/111] Xamarin.AndroidX.AppCompat.dll -> Xamarin.AndroidX.AppCompat.dll.so
-  [45/111] Xamarin.AndroidX.Core.dll -> Xamarin.AndroidX.Core.dll.so
+  [45/111] Xamarin.AndroidX.DocumentFile.dll -> Xamarin.AndroidX.DocumentFile.dll.so
   [46/111] Xamarin.AndroidX.CustomView.dll -> Xamarin.AndroidX.CustomView.dll.so
-  [47/111] Xamarin.AndroidX.DocumentFile.dll -> Xamarin.AndroidX.DocumentFile.dll.so
-  [8/111] Avalonia.Base.dll -> Avalonia.Base.dll.so
+  [47/111] Xamarin.AndroidX.Core.dll -> Xamarin.AndroidX.Core.dll.so
   [48/111] Xamarin.AndroidX.DrawerLayout.dll -> Xamarin.AndroidX.DrawerLayout.dll.so
-  [49/111] Xamarin.AndroidX.Fragment.dll -> Xamarin.AndroidX.Fragment.dll.so
+  [8/111] Avalonia.Base.dll -> Avalonia.Base.dll.so
+  [49/111] Xamarin.AndroidX.Lifecycle.LiveData.Core.dll -> Xamarin.AndroidX.Lifecycle.LiveData.Core.dll.so
   [50/111] Xamarin.AndroidX.Lifecycle.Common.Jvm.dll -> Xamarin.AndroidX.Lifecycle.Common.Jvm.dll.so
-  [51/111] Xamarin.AndroidX.Lifecycle.LiveData.Core.dll -> Xamarin.AndroidX.Lifecycle.LiveData.Core.dll.so
+  [51/111] Xamarin.AndroidX.Fragment.dll -> Xamarin.AndroidX.Fragment.dll.so
   [52/111] Xamarin.AndroidX.Lifecycle.ViewModel.Android.dll -> Xamarin.AndroidX.Lifecycle.ViewModel.Android.dll.so
-  [53/111] Xamarin.AndroidX.SavedState.SavedState.Android.dll -> Xamarin.AndroidX.SavedState.SavedState.Android.dll.so
-  [54/111] Xamarin.AndroidX.Loader.dll -> Xamarin.AndroidX.Loader.dll.so
-  [55/111] Xamarin.AndroidX.NavigationEvent.Android.dll -> Xamarin.AndroidX.NavigationEvent.Android.dll.so
-  [56/111] Xamarin.Kotlin.StdLib.dll -> Xamarin.Kotlin.StdLib.dll.so
-  [57/111] Xamarin.AndroidX.Window.dll -> Xamarin.AndroidX.Window.dll.so
+  [53/111] Xamarin.AndroidX.NavigationEvent.Android.dll -> Xamarin.AndroidX.NavigationEvent.Android.dll.so
+  [54/111] Xamarin.AndroidX.SavedState.SavedState.Android.dll -> Xamarin.AndroidX.SavedState.SavedState.Android.dll.so
+  [55/111] Xamarin.AndroidX.Loader.dll -> Xamarin.AndroidX.Loader.dll.so
+  [56/111] Xamarin.AndroidX.Window.dll -> Xamarin.AndroidX.Window.dll.so
+  [57/111] Xamarin.Kotlin.StdLib.dll -> Xamarin.Kotlin.StdLib.dll.so
   [58/111] Xamarin.KotlinX.Coroutines.Core.Jvm.dll -> Xamarin.KotlinX.Coroutines.Core.Jvm.dll.so
-  [59/111] System.Collections.Specialized.dll -> System.Collections.Specialized.dll.so
-  [60/111] System.Collections.Immutable.dll -> System.Collections.Immutable.dll.so
+  [59/111] System.Collections.Immutable.dll -> System.Collections.Immutable.dll.so
+  [60/111] System.Collections.Concurrent.dll -> System.Collections.Concurrent.dll.so
   [61/111] System.Collections.NonGeneric.dll -> System.Collections.NonGeneric.dll.so
+  [62/111] System.Collections.Specialized.dll -> System.Collections.Specialized.dll.so
+  [63/111] System.ComponentModel.Annotations.dll -> System.ComponentModel.Annotations.dll.so
   [9/111] Avalonia.Controls.dll -> Avalonia.Controls.dll.so
-  [62/111] System.ComponentModel.Annotations.dll -> System.ComponentModel.Annotations.dll.so
-  [63/111] System.Collections.Concurrent.dll -> System.Collections.Concurrent.dll.so
-  [64/111] System.ComponentModel.Primitives.dll -> System.ComponentModel.Primitives.dll.so
+  [64/111] System.ComponentModel.TypeConverter.dll -> System.ComponentModel.TypeConverter.dll.so
+  [65/111] System.ComponentModel.Primitives.dll -> System.ComponentModel.Primitives.dll.so
+  [66/111] System.Collections.dll -> System.Collections.dll.so
   [10/111] Avalonia.DesignerSupport.dll -> Avalonia.DesignerSupport.dll.so
-  [65/111] System.Collections.dll -> System.Collections.dll.so
-  [66/111] System.ComponentModel.TypeConverter.dll -> System.ComponentModel.TypeConverter.dll.so
   [67/111] System.ComponentModel.dll -> System.ComponentModel.dll.so
   [68/111] System.Console.dll -> System.Console.dll.so
-  [69/111] System.Diagnostics.StackTrace.dll -> System.Diagnostics.StackTrace.dll.so
-  [70/111] System.Diagnostics.Process.dll -> System.Diagnostics.Process.dll.so
-  [71/111] System.Drawing.Primitives.dll -> System.Drawing.Primitives.dll.so
+  [69/111] System.Diagnostics.Process.dll -> System.Diagnostics.Process.dll.so
+  [70/111] System.Diagnostics.DiagnosticSource.dll -> System.Diagnostics.DiagnosticSource.dll.so
+  [71/111] System.Diagnostics.StackTrace.dll -> System.Diagnostics.StackTrace.dll.so
   [11/111] Avalonia.Markup.Xaml.dll -> Avalonia.Markup.Xaml.dll.so
-  [72/111] System.Diagnostics.DiagnosticSource.dll -> System.Diagnostics.DiagnosticSource.dll.so
+  [72/111] System.Drawing.Primitives.dll -> System.Drawing.Primitives.dll.so
   [73/111] System.Drawing.dll -> System.Drawing.dll.so
   [74/111] System.Formats.Asn1.dll -> System.Formats.Asn1.dll.so
   [75/111] System.IO.Compression.Brotli.dll -> System.IO.Compression.Brotli.dll.so
-  [12/111] Avalonia.Markup.dll -> Avalonia.Markup.dll.so
   [76/111] System.IO.Compression.ZipFile.dll -> System.IO.Compression.ZipFile.dll.so
-  [77/111] System.IO.FileSystem.DriveInfo.dll -> System.IO.FileSystem.DriveInfo.dll.so
-  [13/111] Avalonia.Metal.dll -> Avalonia.Metal.dll.so
-  [78/111] System.IO.Compression.dll -> System.IO.Compression.dll.so
+  [77/111] System.IO.Compression.dll -> System.IO.Compression.dll.so
+  [12/111] Avalonia.Markup.dll -> Avalonia.Markup.dll.so
+  [78/111] System.IO.FileSystem.DriveInfo.dll -> System.IO.FileSystem.DriveInfo.dll.so
   [79/111] System.IO.FileSystem.Watcher.dll -> System.IO.FileSystem.Watcher.dll.so
   [80/111] System.IO.Pipelines.dll -> System.IO.Pipelines.dll.so
   [81/111] System.IO.Pipes.dll -> System.IO.Pipes.dll.so
-  [14/111] Avalonia.OpenGL.dll -> Avalonia.OpenGL.dll.so
+  [13/111] Avalonia.Metal.dll -> Avalonia.Metal.dll.so
   [82/111] System.Memory.dll -> System.Memory.dll.so
-  [15/111] Avalonia.Vulkan.dll -> Avalonia.Vulkan.dll.so
+  [14/111] Avalonia.OpenGL.dll -> Avalonia.OpenGL.dll.so
   [83/111] System.Linq.Expressions.dll -> System.Linq.Expressions.dll.so
   [84/111] System.Net.NameResolution.dll -> System.Net.NameResolution.dll.so
+  [15/111] Avalonia.Vulkan.dll -> Avalonia.Vulkan.dll.so
+  [85/111] System.Net.Http.dll -> System.Net.Http.dll.so
+  [86/111] System.Net.Requests.dll -> System.Net.Requests.dll.so
+  [87/111] System.Net.Primitives.dll -> System.Net.Primitives.dll.so
   [16/111] Avalonia.dll -> Avalonia.dll.so
-  [85/111] System.Net.Primitives.dll -> System.Net.Primitives.dll.so
-  [86/111] System.Net.Http.dll -> System.Net.Http.dll.so
-  [87/111] System.Net.Requests.dll -> System.Net.Requests.dll.so
-  [88/111] System.ObjectModel.dll -> System.ObjectModel.dll.so
-  [89/111] System.Net.Sockets.dll -> System.Net.Sockets.dll.so
+  [88/111] System.Net.Sockets.dll -> System.Net.Sockets.dll.so
+  [89/111] System.ObjectModel.dll -> System.ObjectModel.dll.so
   [90/111] System.Linq.dll -> System.Linq.dll.so
-  [17/111] Avalonia.Android.dll -> Avalonia.Android.dll.so
   [91/111] System.Runtime.InteropServices.dll -> System.Runtime.InteropServices.dll.so
   [92/111] System.Private.Xml.Linq.dll -> System.Private.Xml.Linq.dll.so
   [93/111] System.Private.Uri.dll -> System.Private.Uri.dll.so
   [94/111] System.Private.Xml.dll -> System.Private.Xml.dll.so
-  [95/111] System.Text.Encoding.Extensions.dll -> System.Text.Encoding.Extensions.dll.so
-  [96/111] System.Runtime.dll -> System.Runtime.dll.so
+  [17/111] Avalonia.Android.dll -> Avalonia.Android.dll.so
+  [95/111] System.Runtime.dll -> System.Runtime.dll.so
+  [96/111] System.Text.Encoding.Extensions.dll -> System.Text.Encoding.Extensions.dll.so
   [97/111] System.Security.Cryptography.dll -> System.Security.Cryptography.dll.so
   [98/111] System.Runtime.Numerics.dll -> System.Runtime.Numerics.dll.so
   [99/111] System.Text.Encodings.Web.dll -> System.Text.Encodings.Web.dll.so
-  [18/111] AvaloniaEdit.dll -> AvaloniaEdit.dll.so
   [100/111] System.Threading.Thread.dll -> System.Threading.Thread.dll.so
   [101/111] System.Threading.dll -> System.Threading.dll.so
-  [102/111] System.Web.HttpUtility.dll -> System.Web.HttpUtility.dll.so
-  [103/111] System.Xml.Linq.dll -> System.Xml.Linq.dll.so
+  [102/111] System.Xml.Linq.dll -> System.Xml.Linq.dll.so
+  [103/111] System.Web.HttpUtility.dll -> System.Web.HttpUtility.dll.so
+  [18/111] AvaloniaEdit.dll -> AvaloniaEdit.dll.so
   [104/111] System.Text.RegularExpressions.dll -> System.Text.RegularExpressions.dll.so
-  [105/111] System.Text.Json.dll -> System.Text.Json.dll.so
-  [19/111] Avalonia.Controls.DataGrid.dll -> Avalonia.Controls.DataGrid.dll.so
-  [106/111] System.Xml.ReaderWriter.dll -> System.Xml.ReaderWriter.dll.so
+  [105/111] System.Xml.ReaderWriter.dll -> System.Xml.ReaderWriter.dll.so
+  [106/111] System.Text.Json.dll -> System.Text.Json.dll.so
   [107/111] System.dll -> System.dll.so
   [108/111] Mono.Android.Runtime.dll -> Mono.Android.Runtime.dll.so
+  [19/111] Avalonia.Controls.DataGrid.dll -> Avalonia.Controls.DataGrid.dll.so
   [20/111] Avalonia.Fonts.Inter.dll -> Avalonia.Fonts.Inter.dll.so
   [21/111] Avalonia.HarfBuzz.dll -> Avalonia.HarfBuzz.dll.so
   [109/111] Java.Interop.dll -> Java.Interop.dll.so
   [22/111] Avalonia.Remote.Protocol.dll -> Avalonia.Remote.Protocol.dll.so
-  [110/111] Mono.Android.dll -> Mono.Android.dll.so
   [23/111] Avalonia.Skia.dll -> Avalonia.Skia.dll.so
+  [110/111] Mono.Android.dll -> Mono.Android.dll.so
   [24/111] ColorDocument.Avalonia.dll -> ColorDocument.Avalonia.dll.so
   [25/111] ColorTextBlock.Avalonia.dll -> ColorTextBlock.Avalonia.dll.so
   [26/111] CommunityToolkit.Mvvm.dll -> CommunityToolkit.Mvvm.dll.so
@@ -179,9 +179,9 @@ ILLink : warning IL2035: Md3.Avalonia.Controls.MdSymbolFontResolver.TryConfigure
   [39/111] OfficeViewer.Avalonia.dll -> OfficeViewer.Avalonia.dll.so
   [40/111] PDFtoImage.dll -> PDFtoImage.dll.so
   [41/111] SkiaSharp.dll -> SkiaSharp.dll.so
-  [111/111] System.Private.CoreLib.dll -> System.Private.CoreLib.dll.so
   [42/111] System.Reactive.dll -> System.Reactive.dll.so
   [43/111] Xamarin.AndroidX.Activity.dll -> Xamarin.AndroidX.Activity.dll.so
+  [111/111] System.Private.CoreLib.dll -> System.Private.CoreLib.dll.so
   [44/111] Xamarin.AndroidX.AppCompat.dll -> Xamarin.AndroidX.AppCompat.dll.so
   [45/111] Xamarin.AndroidX.Core.dll -> Xamarin.AndroidX.Core.dll.so
   [46/111] Xamarin.AndroidX.CustomView.dll -> Xamarin.AndroidX.CustomView.dll.so
