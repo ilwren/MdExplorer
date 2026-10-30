@@ -112,24 +112,25 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </md:MdScrollViewer>
-          <!-- 原生画面：画面由平台解码器画在这块窗口里（Android TextureView）。
-               它不能被 Avalonia 内容覆盖，所以卡片不做圆角裁剪，浮层也不会盖在它上面。 -->
-          <Border IsVisible="{Binding ShowNativeVideoSurface}" VerticalAlignment="Top" Height="280"
-                  Background="#000000" CornerRadius="12" ClipToBounds="True">
-            <media:MediaSurfaceHost Renderer="{Binding VideoRenderer}" AutomationProperties.Name="视频画面" />
-          </Border>
-          <!-- 推帧画面：后端（Linux appsink / 未来的 MF 帧服务）把帧推给宿主，Avalonia 自己画。
-               与原生画面互斥：只有 RendererKind=FramePush 的后端才走这里。 -->
-          <Border IsVisible="{Binding ShowFrameVideoSurface}" VerticalAlignment="Top" Height="280"
-                  Background="#000000" CornerRadius="12" ClipToBounds="True">
-            <media:MediaFrameSurface Source="{Binding VideoFrameSource}" AutomationProperties.Name="视频画面（推帧）" />
-          </Border>
-          <!-- 内嵌音视频：能力位为真才出现播放控件，否则只留后端诊断与“系统应用打开”。 -->
+          <!-- 内嵌音视频：能力位为真才出现播放控件，否则只留后端诊断与“系统应用打开”。
+               画面放在这张卡片里面而不是平级叠放——平放时会和下面的控制面板互相盖住
+               （v0.32 只有 Android 用到画面，问题被遮挡掩盖了）。 -->
           <Border IsVisible="{Binding IsMedia}" VerticalAlignment="Top"
                   Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
                   BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
                   CornerRadius="16" Padding="14">
             <StackPanel Spacing="10">
+              <!-- 原生画面：画面由平台解码器画在这块窗口里（Android TextureView）。 -->
+              <Border IsVisible="{Binding ShowNativeVideoSurface}" Height="280"
+                      Background="#000000" CornerRadius="12" ClipToBounds="True">
+                <media:MediaSurfaceHost Renderer="{Binding VideoRenderer}" AutomationProperties.Name="视频画面" />
+              </Border>
+              <!-- 推帧画面：后端（Linux appsink / 未来的 MF 帧服务）把帧推给宿主，Avalonia 自己画。
+                   与原生画面互斥：只有 RendererKind=FramePush 的后端才走这里。 -->
+              <Border IsVisible="{Binding ShowFrameVideoSurface}" Height="280"
+                      Background="#000000" CornerRadius="12" ClipToBounds="True">
+                <media:MediaFrameSurface Source="{Binding VideoFrameSource}" AutomationProperties.Name="视频画面（推帧）" />
+              </Border>
               <StackPanel Orientation="Horizontal" Spacing="10">
                 <Border Width="44" Height="44" CornerRadius="12"
                         Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}">

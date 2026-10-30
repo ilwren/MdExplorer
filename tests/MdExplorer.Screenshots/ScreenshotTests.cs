@@ -1541,8 +1541,16 @@ public sealed class ScreenshotTests
             shell.Browser.SelectedItems.Add(next);
             shell.OnFileOpened(next);
             for (var i = 0; i < 80 && (shell.Preview.Image is null || !shell.Preview.HasItem); i++)
+            {
+                window.CaptureRenderedFrame();
                 await Task.Delay(25);
-            window.CaptureRenderedFrame();
+            }
+            // 展开高度是动画；无头渲染只在 CaptureRenderedFrame 时推进时间轴，所以要主动推帧。
+            for (var i = 0; i < 40; i++)
+            {
+                window.CaptureRenderedFrame();
+                await Task.Delay(20);
+            }
 
             Assert.False(floating.IsMinimized);
             Assert.True(floating.IsOpen);
