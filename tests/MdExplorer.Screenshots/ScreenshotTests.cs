@@ -364,10 +364,11 @@ public sealed class ScreenshotTests
         },
         afterShow: async window =>
         {
-            // 端侧 AI 卡在设置页中段：直接把卡片滚进视口，比「滚到底再猜」稳。
-            var title = window.GetVisualDescendants().OfType<TextBlock>()
-                .First(block => block.Text == "本地 AI");
-            title.BringIntoView();
+            // 端侧 AI 卡在设置页中段：把卡片**最后**一个入口滚进视口，
+            // 卡片本身就会整体落在视口里（只 BringIntoView 标题会把卡片挤到屏幕外）。
+            var lastEntry = window.GetVisualDescendants().OfType<Button>()
+                .First(button => button.Content as string == "打开模型目录");
+            lastEntry.BringIntoView();
             for (var frame = 0; frame < 15; frame++)
             {
                 window.CaptureRenderedFrame();
