@@ -1149,7 +1149,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 
 | 2026-10-29 | **v0.31 三端系统媒体栈 + 播放前能力探测**：Windows 接 WinRT `MediaPlayer`（Media Foundation）、Linux 接系统 GStreamer `playbin`（P/Invoke），Android 沿用系统 `MediaPlayer` 并新增 `MediaExtractor`/`MediaCodec` 能力探测；`IMediaPlaybackService` 新增 `RendererKind` 契约与可选 `IMediaProbe`，UI 对未知/不支持/含视频轨分别给出事实文案。本版不捆绑任何第三方原生媒体库，视频画面仍交系统应用。 | push run `40903621804` / PR run `40903635978`（sha `c6e5d45`）六 Job 全绿：220 单元测试 Ubuntu/Windows 双跑（新增探测与渲染模式 3 例）、73 截图测试分四进程 19/18/18/18、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK；真机与桌面会话的播放呈现待验收 |
 
-| 2026-10-29 | **v0.32 Android 内嵌视频画面**：核实 Avalonia Android 已实现 `INativeControlHostImpl` 后，用 `TextureView` 作原生画面宿主接管视频输出（`MediaPlayer.SetSurface`），新增 `IMediaVideoRenderer` 平台无关端口与 UI 侧 `MediaSurfaceBridge`/`MediaSurfaceHost`；视频可播判定改为“能力位 + 画面通道”双条件，Android 探测对含视频轨且解码器齐全的文件改报可播并附分辨率。Windows/Linux 视频仍交系统应用。 | push/PR CI 六 Job；新增 2 例断言原生画面后端与“有声无画”拒绝；真机播放待验收 |
+| 2026-10-29 | **v0.32 Android 内嵌视频画面**：核实 Avalonia Android 已实现 `INativeControlHostImpl` 后，用 `TextureView` 作原生画面宿主接管视频输出（`MediaPlayer.SetSurface`），新增 `IMediaVideoRenderer` 平台无关端口与 UI 侧 `MediaSurfaceBridge`/`MediaSurfaceHost`；视频可播判定改为“能力位 + 画面通道”双条件，Android 探测对含视频轨且解码器齐全的文件改报可播并附分辨率。Windows/Linux 视频仍交系统应用。 | push run `41011884151` / PR run `41011889991`（sha `5ec8c2c`）六 Job 全绿：223 单元测试 Ubuntu/Windows 双跑（新增原生画面、有声无画、探测否决 3 例）、74 截图测试分四进程 19/19/18/18、PNG 64→65（新增 `74-large-media-probe-rejected`）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK（含 trimming/AOT） |
 
 ### F. 文档变更规则
 

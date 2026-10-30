@@ -172,9 +172,10 @@
                                Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
                     <TextBlock Classes="caption" Text="{Binding MediaProbeText}" TextWrapping="Wrap" />
                   </StackPanel>
+                  <!-- 拒绝原因是要被读的文字，用 OnSurface 而不是 OnSurfaceVariant（后者在 tonal 底上对比不足）。 -->
                   <TextBlock Classes="caption" Text="{Binding MediaProbeReasonText}" TextWrapping="Wrap" Margin="21,0,0,0"
                              IsVisible="{Binding HasMediaProbeReason}"
-                             Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
+                             Foreground="{DynamicResource Md.Sys.Color.OnSurface.Brush}" />
                 </StackPanel>
               </Border>
               <TextBlock Classes="caption" Text="{Binding MediaBackendDiagnostic}" TextWrapping="Wrap" Margin="0,0,4,0"
