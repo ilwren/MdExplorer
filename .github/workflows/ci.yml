@@ -175,6 +175,25 @@ jobs:
           name: mdexplorer-linux-x64-aot
           path: artifacts/linux-x64-aot
 
+  real-model-embedding:
+    name: Real model embedding (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      MDEXPLORER_RUN_REAL_MODEL_TESTS: "1"
+      MDEXPLORER_MODELS: ${{ runner.temp }}/mdexplorer-real-models
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Download pinned BGE and MiniLM weights
+        run: scripts/fetch-ai-models.sh --dir "$MDEXPLORER_MODELS"
+      - name: Verify downloaded model files
+        run: scripts/fetch-ai-models.sh --dir "$MDEXPLORER_MODELS" --verify
+      - name: Run real-weight CPU inference and ranking tests
+        run: dotnet test tests/MdExplorer.Tests -c Release --filter FullyQualifiedName~RealModelEmbeddingTests
+
   android:
     name: Android APK (debug-signed)
     runs-on: ubuntu-latest
