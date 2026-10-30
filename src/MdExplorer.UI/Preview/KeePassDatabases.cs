@@ -190,7 +190,8 @@ public static class KeePassReader
                 var id = reader.ReadByte();
                 var size = reader.ReadInt32();
                 if (size < 0 || size > 16 * 1024 * 1024 || stream.Position + size > stream.Length)
-                    throw new InvalidDataException("密码库头的字段长度异常。");
+                    throw new InvalidDataException(
+                        $"密码库头的字段长度异常（字段 {id}，长度 {size}，位置 {stream.Position}，总长 {stream.Length}）。");
                 if (id == 0)
                     break;
                 var value = reader.ReadBytes(size);
@@ -213,7 +214,8 @@ public static class KeePassReader
                     throw new InvalidDataException("密码库头不完整。");
                 var size = reader.ReadUInt16();
                 if (stream.Position + size > stream.Length)
-                    throw new InvalidDataException("密码库头的字段长度异常。");
+                    throw new InvalidDataException(
+                        $"密码库头的字段长度异常（字段 {id}，长度 {size}，位置 {stream.Position}，总长 {stream.Length}）。");
                 var value = reader.ReadBytes(size);
                 switch (id)
                 {
@@ -795,6 +797,7 @@ public static class KeePassReader
                 offset += 4;
                 if (keyLength > 256 || offset + keyLength > data.Length)
                     throw new InvalidDataException("KDF 参数的键名长度异常。");
+                var keyStart = offset;
                 var key = Encoding.UTF8.GetString(data, offset, (int)keyLength);
                 offset += (int)keyLength;
                 if (offset + 4 > data.Length)
@@ -808,7 +811,8 @@ public static class KeePassReader
                 {
                     0x04 or 0x08 or 0x0C or 0x0D or 0x18 or 0x42 =>
                         data.AsSpan(offset, (int)valueLength).ToArray(),
-                    _ => throw new InvalidDataException("KDF 参数里出现未知类型。"),
+                    _ => throw new InvalidDataException(
+                        $"KDF 参数里出现未知类型 0x{type:X2}（版本 {version:X4}，位置 {keyStart}，键长 {keyLength}，总长 {data.Length}）。"),
                 };
                 offset += (int)valueLength;
             }

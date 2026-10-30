@@ -1467,9 +1467,10 @@ public sealed class ScreenshotTests
         async () => await CaptureAsync("76-large-video-frame-push.png", 1440, 900, async shell =>
         {
             // v0.36 起视频默认不在应用内出画面：先看到「两个显式入口」，用户选内嵌后才出画面。
-            await SelectByNameAsync(shell, "演示视频.mp4", () => shell.Preview.ShowInlineVideoGate);
+            await SelectByNameAsync(shell, "演示视频.mp4", () => shell.Preview.IsVideoMedia);
             Assert.True(shell.Preview.IsVideoMedia);
-            Assert.True(shell.Preview.ShowInlineVideoGate);
+            Assert.True(shell.Preview.ShowInlineVideoGate,
+                $"inline={shell.Preview.PlayVideoInline} state={shell.Preview.MediaStateText}");
             Assert.False(shell.Preview.ShowFrameVideoSurface);
             shell.Preview.EnableInlineVideoCommand.Execute(null);
             Assert.False(shell.Preview.ShowInlineVideoGate);
@@ -1514,8 +1515,11 @@ public sealed class ScreenshotTests
     public async Task Large_VideoInlineGate() => await WithStubMediaAsync(async () =>
         await CaptureAsync("79-large-video-inline-gate.png", 1440, 900, async shell =>
         {
-            await SelectByNameAsync(shell, "演示视频.mp4", () => shell.Preview.ShowInlineVideoGate);
-            Assert.True(shell.Preview.ShowInlineVideoGate);
+            await SelectByNameAsync(shell, "演示视频.mp4", () => shell.Preview.IsVideoMedia);
+            Assert.True(
+                shell.Preview.ShowInlineVideoGate,
+                $"video={shell.Preview.IsVideoMedia} inline={shell.Preview.PlayVideoInline} " +
+                $"state={shell.Preview.MediaStateText} backend={shell.Preview.MediaBackendName}");
             Assert.False(shell.Preview.CanPlayMediaInApp);
             Assert.False(shell.Preview.ShowFrameVideoSurface);
             Assert.False(shell.Preview.HasMediaProbe); // 闸门在时不重复报“探测不通过”
