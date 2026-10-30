@@ -142,6 +142,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             OnPropertyChanged(nameof(HasSearchIndexRoots));
             OnPropertyChanged(nameof(SearchIndexRootCountText));
             OnPropertyChanged(nameof(SearchIndexStateText));
+            OnPropertyChanged(nameof(CanBuildSemanticSearchIndex));
         };
         SearchCenterResults.CollectionChanged += (_, _) =>
         {
@@ -881,6 +882,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         IsDrawerOpen = false;
         IsPreviewPageOpen = false;
         await RefreshSearchIndexAsync().ConfigureAwait(true);
+        await RefreshSemanticSearchIndexAsync().ConfigureAwait(true);
     }
 
     [RelayCommand]
@@ -2555,8 +2557,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     // ---------- 搜索中心 / 文件名索引 ----------
     [ObservableProperty] private bool _useSearchIndex = true;
+    [ObservableProperty] private bool _isSemanticSearchMode;
     [ObservableProperty] private string _searchCenterQuery = string.Empty;
     [ObservableProperty] private string _searchCenterKindFilter = "All";
+    [ObservableProperty] private string _semanticSearchIndexStatusText = "尚未建立 AI 语义索引";
+    [ObservableProperty] private int _semanticSearchIndexedItemCount;
+    [ObservableProperty] private bool _semanticSearchIndexIsCurrent;
+    [ObservableProperty] private bool _semanticSearchIndexIsPartial;
+    [ObservableProperty] private long _semanticSearchIndexBytes;
+    [ObservableProperty] private string _semanticSearchIndexUpdatedText = "尚未建立";
     [ObservableProperty] private bool _isSearchCenterBusy;
     [ObservableProperty] private string _searchCenterStatusText = "输入关键词开始搜索";
     [ObservableProperty] private int _searchIndexEntryCount;
@@ -2567,6 +2576,30 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     public bool HasSearchIndexRoots => SearchIndexRoots.Count > 0;
     public bool HasSearchCenterResults => SearchCenterResults.Count > 0;
+    public bool HasSemanticSearchIndex => SemanticSearchIndexedItemCount > 0 || SemanticSearchIndexBytes > 0;
+    public string SemanticSearchIndexCountText => SemanticSearchIndexedItemCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+    public string SemanticSearchIndexSizeText => Formatting.Bytes(SemanticSearchIndexBytes);
+    public string SemanticSearchIndexSummaryText =>
+        $"{SemanticSearchIndexCountText} 项 · {SemanticSearchIndexSizeText} · {SemanticSearchIndexUpdatedText}";
+    public bool IsKeywordSearchMode => !IsSemanticSearchMode;
+    public string SearchCenterSearchPlaceholderText => IsSemanticSearchMode
+        ? "用自然语言描述要找的文件或笔记"
+        : "搜索已索引文件名";
+    public string SearchCenterModeHintText => !IsSemanticSearchMode
+        ? "按名称匹配已加入索引的文件与文件夹。"
+        : !EnableLocalAi
+            ? "请先到设置启用本地 AI；所有嵌入推理均在本机运行，不上传内容。"
+            : !HasLocalAiTextModel
+                ? "请先按设置页命令下载 BGE small zh 或 MiniLM 文本模型。"
+                : !UseSearchIndex || !HasSearchIndexRoots
+                    ? "请先启用文件名索引、加入本地文件夹并建立文件名索引。"
+                    : !SearchIndexIsCurrent
+                        ? "文件名索引需要先重建，之后才能建立 AI 向量索引。"
+                        : $"只在本机索引文件名与受限文本摘要，不保存原文或上传内容。{SemanticSearchIndexStatusText}";
+    public bool CanBuildSemanticSearchIndex => EnableLocalAi && HasLocalAiTextModel &&
+        UseSearchIndex && HasSearchIndexRoots && SearchIndexIsCurrent && !IsSearchCenterBusy;
+    public bool HasLocalAiTextModel => LocalAiModels.Any(model =>
+        model.Installed && (model.Id is "text-embed-zh" or "text-embed-en"));
     public bool ShowSearchCenterEmpty => !IsSearchCenterBusy && SearchCenterResults.Count == 0;
     public string SearchIndexRootCountText => SearchIndexRoots.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
     public string SearchIndexEntryCountText => SearchIndexEntryCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
@@ -2590,7 +2623,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         _services.SettingsStore.Settings.UseSearchIndex = value;
         OnPropertyChanged(nameof(SearchIndexStateText));
+        OnPropertyChanged(nameof(SearchCenterModeHintText));
+        OnPropertyChanged(nameof(CanBuildSemanticSearchIndex));
         _ = SaveAsync();
+        _ = RefreshSemanticSearchIndexAsync();
+    }
+
+    partial void OnIsSemanticSearchModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsKeywordSearchMode));
+        OnPropertyChanged(nameof(SearchCenterSearchPlaceholderText));
+        OnPropertyChanged(nameof(SearchCenterModeHintText));
+        SearchCenterStatusText = value
+            ? "AI 语义搜索：先建立文件名索引与 AI 向量索引，再输入自然语言描述。"
+            : "输入文件名关键词开始搜索";
     }
 
     partial void OnSearchCenterKindFilterChanged(string value)
@@ -2604,7 +2650,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             OnPropertyChanged(name);
     }
 
-    partial void OnIsSearchCenterBusyChanged(bool value) => OnPropertyChanged(nameof(ShowSearchCenterEmpty));
+    partial void OnIsSearchCenterBusyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowSearchCenterEmpty));
+        OnPropertyChanged(nameof(CanBuildSemanticSearchIndex));
+    }
 
     public async Task RefreshSearchIndexAsync()
     {
@@ -2628,6 +2678,51 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(SearchIndexEntryCountText));
         OnPropertyChanged(nameof(SearchIndexSizeText));
         OnPropertyChanged(nameof(SearchIndexStateText));
+        OnPropertyChanged(nameof(SearchCenterModeHintText));
+        OnPropertyChanged(nameof(CanBuildSemanticSearchIndex));
+    }
+
+    private async Task RefreshSemanticSearchIndexAsync()
+    {
+        try
+        {
+            var stats = await _services.SemanticSearch.GetStatsAsync(CancellationToken.None).ConfigureAwait(true);
+            SemanticSearchIndexedItemCount = stats.IndexedItemCount;
+            SemanticSearchIndexBytes = stats.IndexBytes;
+            SemanticSearchIndexIsCurrent = stats.IsCurrent;
+            SemanticSearchIndexIsPartial = stats.IsPartial;
+            SemanticSearchIndexUpdatedText = stats.UpdatedAt is { } updated
+                ? Formatting.FullDateTime(updated)
+                : "尚未建立";
+
+            if (!EnableLocalAi)
+                SemanticSearchIndexStatusText = "请先在设置中启用本地 AI";
+            else if (stats.ModelNames.Count == 0)
+                SemanticSearchIndexStatusText = "未检测到 BGE / MiniLM 文本模型，请先下载轻量包";
+            else if (!UseSearchIndex || !HasSearchIndexRoots)
+                SemanticSearchIndexStatusText = "先建立文件名索引并加入本地文件夹";
+            else if (!SearchIndexIsCurrent)
+                SemanticSearchIndexStatusText = "文件名索引已过期，请先重建";
+            else if (stats.IsCurrent)
+                SemanticSearchIndexStatusText = $"已就绪 · {stats.IndexedItemCount:N0} 项 · {string.Join(" / ", stats.ModelNames)}";
+            else if (stats.IndexedItemCount > 0)
+                SemanticSearchIndexStatusText = "AI 向量索引已过期，请重建";
+            else
+                SemanticSearchIndexStatusText = "尚未建立 AI 语义索引";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            SemanticSearchIndexStatusText = "AI 语义索引不可读取";
+            SemanticSearchIndexIsCurrent = false;
+        }
+        OnPropertyChanged(nameof(SemanticSearchIndexStatusText));
+        OnPropertyChanged(nameof(SearchCenterModeHintText));
+        OnPropertyChanged(nameof(SemanticSearchIndexUpdatedText));
+        OnPropertyChanged(nameof(SemanticSearchIndexCountText));
+        OnPropertyChanged(nameof(SemanticSearchIndexSizeText));
+        OnPropertyChanged(nameof(SemanticSearchIndexSummaryText));
+        OnPropertyChanged(nameof(HasSemanticSearchIndex));
+        OnPropertyChanged(nameof(CanBuildSemanticSearchIndex));
     }
 
     private void RefreshSearchIndexRoots()
@@ -2647,6 +2742,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     [RelayCommand]
     private void SetSearchCenterKind(string kind) => SearchCenterKindFilter = kind;
+
+    [RelayCommand]
+    private void SetSearchCenterMode(string mode) => IsSemanticSearchMode =
+        string.Equals(mode, "Semantic", StringComparison.OrdinalIgnoreCase);
 
     [RelayCommand]
     private async Task RunSearchCenterSearchAsync()
@@ -2676,9 +2775,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
         var query = SearchCenterQuery.Trim();
         var kinds = SearchCenterKinds();
-        if (query.Length == 0 && kinds is null)
+        if (query.Length == 0 && (IsSemanticSearchMode || kinds is null))
         {
-            SearchCenterStatusText = "输入关键词或选择类型";
+            SearchCenterStatusText = IsSemanticSearchMode ? "输入自然语言描述开始 AI 搜索" : "输入关键词或选择类型";
+            return;
+        }
+
+        if (IsSemanticSearchMode)
+        {
+            await RunSemanticSearchAsync(query, kinds, cts).ConfigureAwait(true);
             return;
         }
 
@@ -2716,6 +2821,99 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             if (ReferenceEquals(_searchCenterCts, cts))
                 IsSearchCenterBusy = false;
         }
+    }
+
+    private async Task RunSemanticSearchAsync(string query, IReadOnlySet<FileKind>? kinds, CancellationTokenSource cts)
+    {
+        await RefreshSemanticSearchIndexAsync().ConfigureAwait(true);
+        if (!EnableLocalAi)
+        {
+            SearchCenterStatusText = "AI 搜索已关闭；请先在设置启用本地 AI";
+            return;
+        }
+        if (!HasLocalAiTextModel)
+        {
+            SearchCenterStatusText = "未检测到文本嵌入模型；请先下载 BGE small zh 或 MiniLM";
+            return;
+        }
+        if (!SemanticSearchIndexIsCurrent)
+        {
+            SearchCenterStatusText = SemanticSearchIndexStatusText;
+            return;
+        }
+
+        IsSearchCenterBusy = true;
+        SearchCenterStatusText = "正在本机计算语义相似度…";
+        try
+        {
+            var hits = await _services.SemanticSearch.SearchAsync(
+                    query, kinds, SearchResultLimit, cts.Token)
+                .ConfigureAwait(true);
+            foreach (var hit in hits)
+            {
+                SearchCenterResults.Add(new FileItemViewModel(hit.Item)
+                {
+                    IsFavorite = _services.SettingsStore.IsFavorite(hit.Item.FullPath),
+                    SearchScoreText = $"语义 {hit.Score:P0}",
+                });
+            }
+
+            SearchCenterStatusText = hits.Count == 0
+                ? "没有足够相似的结果；可换个描述，或扩展并重建索引"
+                : $"{hits.Count} 项 · 本机语义检索 · {hits[0].ModelName}{(SemanticSearchIndexIsPartial ? " · 索引有上限" : string.Empty)}";
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            SearchCenterStatusText = "AI 搜索已取消";
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+        {
+            SearchCenterStatusText = $"AI 搜索暂不可用：{ex.Message}";
+        }
+        finally
+        {
+            if (ReferenceEquals(_searchCenterCts, cts))
+                IsSearchCenterBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RebuildSemanticSearchIndexAsync()
+    {
+        if (!CanBuildSemanticSearchIndex)
+        {
+            await RefreshSemanticSearchIndexAsync().ConfigureAwait(true);
+            Notify(SemanticSearchIndexStatusText);
+            return;
+        }
+
+        var outcome = await RunOperationAsync("正在建立本地 AI 语义索引…", async (progress, ct) =>
+        {
+            var stats = await _services.SemanticSearch.RebuildAsync(progress, ct).ConfigureAwait(false);
+            return new OperationOutcome(stats.IndexedItemCount, [], []);
+        }).ConfigureAwait(true);
+
+        await RefreshSemanticSearchIndexAsync().ConfigureAwait(true);
+        if (outcome.Success)
+            SearchCenterStatusText = $"AI 语义索引已更新 · {SemanticSearchIndexedItemCount:N0} 项";
+    }
+
+    [RelayCommand]
+    private async Task ClearSemanticSearchIndexAsync()
+    {
+        if (!await ConfirmAsync(
+                "清除 AI 语义索引？",
+                "只删除本机保存的 AI 向量索引，不会删除用户文件或文件名索引。",
+                "清除 AI 索引",
+                destructive: true).ConfigureAwait(true))
+            return;
+
+        _searchCenterCts?.Cancel();
+        await _services.SemanticSearch.ClearAsync(CancellationToken.None).ConfigureAwait(true);
+        SearchCenterResults.Clear();
+        await RefreshSemanticSearchIndexAsync().ConfigureAwait(true);
+        SearchCenterStatusText = "AI 语义索引已清除";
+        Notify("已清除 AI 语义索引");
     }
 
     private IReadOnlySet<FileKind>? SearchCenterKinds() => SearchCenterKindFilter switch
@@ -2785,6 +2983,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _services.SettingsStore.Settings.SearchIndexRootPaths = roots;
         await SaveAsync().ConfigureAwait(true);
         await RefreshSearchIndexAsync().ConfigureAwait(true);
+        await RefreshSemanticSearchIndexAsync().ConfigureAwait(true);
         SearchCenterStatusText = "索引根已更新，重建后生效";
         Notify("已加入文件名索引");
         return true;
@@ -2803,6 +3002,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         await SaveAsync().ConfigureAwait(true);
         SearchCenterResults.Clear();
         await RefreshSearchIndexAsync().ConfigureAwait(true);
+        await RefreshSemanticSearchIndexAsync().ConfigureAwait(true);
         SearchCenterStatusText = "索引根已更新，重建后生效";
         Notify($"已移除索引根：{root.Name}");
     }
@@ -2828,6 +3028,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         }).ConfigureAwait(true);
 
         await RefreshSearchIndexAsync().ConfigureAwait(true);
+        await RefreshSemanticSearchIndexAsync().ConfigureAwait(true);
         if (outcome.Success)
             SearchCenterStatusText = $"索引已更新 · {SearchIndexEntryCountText} 项";
     }
@@ -2836,18 +3037,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     private async Task ClearSearchIndexAsync()
     {
         if (!await ConfirmAsync(
-                "清除文件名索引？",
-                "只删除保存在本机应用数据目录中的索引快照，不会删除任何文件。索引根配置会保留。",
+                "清除本地搜索索引？",
+                "只删除本机应用数据目录中的文件名索引与 AI 向量索引，不会删除任何用户文件。索引根配置会保留。",
                 "清除索引",
                 destructive: true).ConfigureAwait(true))
             return;
 
         _searchCenterCts?.Cancel();
         await _services.SearchIndex.ClearAsync(CancellationToken.None).ConfigureAwait(true);
+        await _services.SemanticSearch.ClearAsync(CancellationToken.None).ConfigureAwait(true);
         SearchCenterResults.Clear();
         await RefreshSearchIndexAsync().ConfigureAwait(true);
-        SearchCenterStatusText = "索引已清除";
-        Notify("已清除文件名索引");
+        await RefreshSemanticSearchIndexAsync().ConfigureAwait(true);
+        SearchCenterStatusText = "本地搜索索引已清除";
+        Notify("已清除文件名与 AI 语义索引");
     }
 
     private static string? TryNormalizeSearchIndexRoot(string? path)
@@ -2894,7 +3097,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _playVideoInline;
     [ObservableProperty] private bool _mediaAutoPlay;
     [ObservableProperty] private bool _showMediaDiagnostics = true;
-    /// <summary>端侧 AI 总开关（默认关）。这一版只影响「允许以后用」，不改变任何现有功能。</summary>
+    /// <summary>端侧 AI 总开关（默认关）；关闭后语义索引保留在本机，但不进行推理或检索。</summary>
     [ObservableProperty] private bool _enableLocalAi;
     [ObservableProperty] private bool _isSendingTestSystemNotification;
     [ObservableProperty] private int _itemPageSize = BrowserViewModel.DefaultItemPageSize;
@@ -3058,7 +3261,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         Preview.RefreshSettings();
     }
 
-    // ---------- 端侧 AI（第一切片：模型分发与状态，推理未接线） ----------
+    // ---------- 端侧 AI（本地模型分发 + 语义搜索） ----------
 
     /// <summary>清单里每个模型在本机的落地情况；设置页直接绑它。</summary>
     public ObservableCollection<AiModelStatusModel> LocalAiModels { get; } = [];
@@ -3078,7 +3281,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     [ObservableProperty] private string _localAiStatusText = string.Empty;
 
-    /// <summary>装了至少一个模型才谈得上「能用」；这里只报事实，不做任何推理。</summary>
+    /// <summary>装了至少一个模型才允许尝试端侧 AI 推理；推理仍由语义搜索显式触发。</summary>
     public bool HasLocalAiModel => LocalAiModels.Any(model => model.Installed);
 
     /// <summary>重新扫一遍模型目录（只查文件，不加载权重）。</summary>
@@ -3110,6 +3313,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(LocalAiDownloadCommandText));
         OnPropertyChanged(nameof(LocalAiOptionalModelsText));
         OnPropertyChanged(nameof(HasLocalAiModel));
+        OnPropertyChanged(nameof(HasLocalAiTextModel));
+        OnPropertyChanged(nameof(CanBuildSemanticSearchIndex));
+        _ = RefreshSemanticSearchIndexAsync();
     }
 
     [RelayCommand]
@@ -3156,6 +3362,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _services.SettingsStore.Settings.EnableLocalAi = value;
         _ = SaveAsync();
         RefreshLocalAiState();
+        _ = RefreshSemanticSearchIndexAsync();
     }
 
     partial void OnItemPageSizeChanged(int value)

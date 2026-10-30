@@ -312,7 +312,7 @@
           <StackPanel>
             <TextBlock Classes="body" Text="启用端侧 AI" />
             <TextBlock Classes="caption" TextWrapping="Wrap"
-                       Text="所有推理都在本机完成：不上传文件、不发起网络请求、不采集统计。模型权重需先用仓库里的脚本下载（本版只做了模型分发与状态，推理尚未接线）" />
+                       Text="AI 语义搜索在本机运行，不上传文件、不发起网络请求、不采集统计。先下载默认文本模型，再到搜索中心建立 AI 索引；目前索引文件名与小型纯文本/Markdown 摘要。" />
           </StackPanel>
           <md:MdSwitch Grid.Column="1" IsChecked="{Binding EnableLocalAi}" VerticalAlignment="Center" />
         </Grid>

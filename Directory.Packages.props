@@ -31,6 +31,9 @@
          AES 与哈希走 .NET 内置实现。MIT（BouncyCastle 的 C# 移植），纯托管、无反射绑定。
          刻意不用 KeePassLib / ModernKeePassLib（GPL）。 -->
     <PackageVersion Include="BouncyCastle.Cryptography" Version="2.5.1" />
+    <!-- 端侧语义搜索：ONNX Runtime（MIT；CPU provider，Android/Linux/Windows）+ 纯托管 WordPiece tokenizer（MIT）。 -->
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
+    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />

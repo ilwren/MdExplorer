@@ -25,6 +25,10 @@ public sealed partial class FileItemViewModel(FileItem model) : ObservableObject
         ? Formatting.DateTime(Model.LastWriteTime, DateTimeOffset.Now)
         : Formatting.Bytes(Model.Length);
 
+    /// <summary>语义搜索命中附带余弦相似度；关键词搜索留空。</summary>
+    public string? SearchScoreText { get; init; }
+    public bool HasSearchScore => !string.IsNullOrWhiteSpace(SearchScoreText);
+
     /// <summary>搜索结果中展示父目录（普通浏览时由 Browser 关闭）。</summary>
     // 详细信息视图列（纯显示字符串；排序由 Browser 的 FileItemOrdering 管线负责）
     public string SizeText => Model.IsFolder ? "—" : Formatting.Bytes(Model.Length);

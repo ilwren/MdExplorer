@@ -27,6 +27,7 @@ public static class AppHost
         IReadOnlyList<AuthorizedRoot> PersistedRoots,
         ISystemClipboardService SystemClipboard,
         IFileNameIndexService SearchIndex,
+        ISemanticSearchService SemanticSearch,
         IStorageInsightsService StorageInsights,
         ITextFileService TextFiles,
         ISystemNotificationService SystemNotifications,
@@ -70,6 +71,9 @@ public static class AppHost
             : new TrashService();
         var searchIndex = new FileNameIndexService(dataDir, store);
         var search = new IndexedSearchService(searchIndex, new SearchService(), store);
+        var aiModels = new AiModelCatalog(AiModelCatalog.ResolveDirectory(dataDir));
+        var embeddings = new OnnxTextEmbeddingService(aiModels);
+        var semanticSearch = new SemanticSearchService(dataDir, searchIndex, store, embeddings);
 
         var start = startFolder
                     ?? knownFolders.Get(KnownFolder.Home)
@@ -103,12 +107,13 @@ public static class AppHost
             AuthorizedRootsStore.Load(dataDir),
             systemClipboard ?? new AvaloniaSystemClipboardService(),
             searchIndex,
+            semanticSearch,
             new StorageInsightsService(),
             new DelegatingTextFileService(new LocalTextFileService(), new StorageTextFileService(fileSystem)),
             systemNotifications ?? new MdSystemNotificationServiceAdapter(),
             MediaPlaybackFactory?.Invoke() ?? new UnsupportedMediaPlaybackService(DefaultMediaDiagnostic),
-            // 端侧 AI 的模型目录：只扫描文件，不初始化任何推理运行时。
-            new AiModelCatalog(AiModelCatalog.ResolveDirectory(dataDir)));
+            // 端侧 AI 的模型目录：只扫描文件；ONNX Session 在用户调用本地语义搜索时才延迟建立。
+            aiModels);
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);

@@ -296,6 +296,34 @@ public interface IFileNameIndexService
     IAsyncEnumerable<FileItem> SearchAsync(SearchSpec spec, CancellationToken cancellationToken);
 }
 
+/// <summary>端侧语义搜索索引状态。向量仅保存在应用数据目录，不包含原始文件文本。</summary>
+public sealed record SemanticSearchStats(
+    int IndexedItemCount,
+    long IndexBytes,
+    DateTimeOffset? UpdatedAt,
+    bool IsCurrent,
+    bool IsPartial,
+    bool IsEnabled,
+    IReadOnlyList<string> ModelNames);
+
+/// <summary>语义检索命中；Score 为归一化向量的 cosine similarity。</summary>
+public sealed record SemanticSearchHit(FileItem Item, float Score, string ModelName);
+
+/// <summary>完全离线的文本语义索引。仅在用户启用本地 AI、装有文本模型并显式建索引后运行。</summary>
+public interface ISemanticSearchService
+{
+    Task<SemanticSearchStats> GetStatsAsync(CancellationToken cancellationToken);
+
+    /// <summary>从现有文件名索引覆盖的本地根重建；取消/失败时保留上一份完整向量快照。</summary>
+    Task<SemanticSearchStats> RebuildAsync(IProgress<OperationProgress>? progress, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<SemanticSearchHit>> SearchAsync(
+        string query, IReadOnlySet<FileKind>? kinds, int maxResults, CancellationToken cancellationToken);
+
+    /// <summary>删除本地语义向量；不会触碰用户文件或文本文件名索引。</summary>
+    Task ClearAsync(CancellationToken cancellationToken);
+}
+
 /// <summary>单个文件夹被记住的呈现方式（与全局默认 ViewMode/Sort* 分开保存）。</summary>
 public sealed class FolderViewPreferences
 {

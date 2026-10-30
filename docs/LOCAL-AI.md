@@ -1,6 +1,6 @@
 # 本地 AI 接入计划与可行性评估
 
-状态：**A0 落地（模型分发 + 应用侧状态），推理未接线**（2026-10-30，v0.37）。
+状态：**A0 模型分发已落地；A2 本地文本语义搜索已接线**（v0.38，2026-10-30）。真实下载权重后的检索质量/时延仍待设备验收。
 范围：全部**本地推理**——无云端 API、无遥测、不发起任何网络请求。取模型是显式的、用户自己动手的一次性动作（`scripts/fetch-ai-models.*`），应用本体离线可用。插件侧通道见 `docs/PLUGIN-SYSTEM.md` §5。
 
 > 这一版不吹能力：设置页只说「装没装、占多大、缺几个文件」，没有装模型时明确写「现在不可用」，不会出现按下去没反应的 AI 按钮。
@@ -25,8 +25,8 @@
 
 | 运行时 | 许可 | AOT | 三平台 | 结论 |
 |---|---|---|---|---|
-| **ONNX Runtime**（`Microsoft.ML.OnnxRuntime`） | MIT | 可用但非一等公民：Native AOT 下要自己管修剪根与原生库加载 | win-x64 / linux-x64 / android-arm64 均有预编译 | A2 嵌入 / ASR / VLM 候选；尚未加入运行时 |
-| **Microsoft.ML.Tokenizers** | MIT | 纯托管，AOT 友好 | 全平台 | 与 ONNX 配套做 BERT/WordPiece 分词 |
+| **ONNX Runtime**（`Microsoft.ML.OnnxRuntime`） | MIT | 使用 CPU 路径；本次接入后需由 AOT/Android CI 验证，真实模型首次运行仍需设备验收 | Windows/Linux x64、Android arm64 | **A2 已接入**，CPU 执行量化 BERT embedding |
+| **Microsoft.ML.Tokenizers** | MIT | 纯托管，BERT WordPiece | 全平台 | **A2 已接入**，从模型随包 `vocab.txt` 构造分词器 |
 | llama.cpp（`LLamaSharp`） | MIT | 需原生库，AOT 可用 | 三平台有 binding | 留给 A5（对话），且仅桌面 |
 | sherpa-onnx | Apache-2.0 | 原生库，AOT 可用 | 三平台 | 备选 ASR/TTS；当前 ASR 清单选 ONNX Whisper tiny |
 | 系统 TTS | 随系统 | — | Windows SAPI / Linux speech-dispatcher / Android TextToSpeech | A1，零依赖 |
@@ -73,20 +73,22 @@ file|<id>|<仓库内路径>
 
 > 权重只在用户机器上下载，不进入本仓库；`models/` 已在 `.gitignore` 里。
 
-## 4. 应用侧现状（v0.37 第一切片）
+## 4. 应用侧现状（v0.38：A2 第一片）
 
-- `AiModelCatalog`（`src/MdExplorer.Infrastructure/Ai/AiModelCatalog.cs`）：只做**文件存在性与体积**扫描，不加载权重、不初始化运行时——设置页打开它没有推理开销。
-- 设置页新增「本地 AI」卡：总开关（默认关）、状态行（「尚未下载任何模型，端侧 AI 现在不可用」/「1/5 个模型就绪 · 已占用 22.8 MiB」）、逐模型行（名称、用途、状态、许可）、下载命令（可复制）、模型目录（可直接打开）、重新检查。
-- `AppSettings.EnableLocalAi` 落盘；`MDEXPLORER_MODELS` 可覆盖目录。
-- **这一版没有推理**：开关打开也只表示「允许以后用」，不会出现任何 AI 按钮。
+- `AiModelCatalog` 仍只做文件存在性/体积扫描；模型 Session 不在启动或设置页初始化。`OnnxTextEmbeddingService` 在用户显式建立 AI 索引/搜索时才按需加载 ONNX Session 与本地 `vocab.txt`。
+- **模型路由**：中文查询优先 BGE small zh v1.5（512 维）；无中文字符时优先 MiniLM L6 v2（384 维）；某模型没安装则回退已安装的另一个。BERT 使用 `[CLS]`/`[SEP]`，动态序列长度最长 128，masked mean pooling + L2 normalize；BGE 查询加检索指令前缀。
+- **搜索中心**新增「关键词 / AI 语义」模式和「建立 / 更新 AI 索引」。必须先配置并重建现有文件名索引、在设置中打开本地 AI、下载文本模型，再显式生成向量索引；索引文件变化、根集合变化或模型版本变化都会使 AI 索引过期并要求重建。
+- 语义索引只覆盖用户加入的本地根，最多 20,000 项；保存路径/文件类型/大小/时间和每个可用文本模型的 int8 量化向量，不保存原始正文。文件名与父目录始终参与；仅对受支持的纯文本扩展名、≤2 MiB 文件最多读取前 4,000 字符作为摘要；不读 PDF、Office、压缩包、图片或 SAF。命中前再次核验文件时间/大小，stale 项不会被返回。`清除本地搜索索引` 同时清除文件名与 AI 向量快照。
+- `AppSettings.EnableLocalAi` 默认关闭；关闭时保留本机 AI 向量文件但不运行推理/搜索。`MDEXPLORER_MODELS` 仍可覆盖模型目录。设置卡与搜索中心说明数据只在本机处理。
+- **验收边界**：CI 使用确定性的假 embedding 覆盖重建、排序、清除与开关；尚未下载真实权重，真实 BGE/MiniLM tokenizer 与 ONNX 输出、中文/英文搜索质量、建索引耗时和设备内存/延迟仍待人工设备验收。
 
-## 5. 分期计划（下载项已列入，运行时未接线）
+## 5. 后续计划
 
-1. **A2 文本嵌入与语义文件搜索**：`ITextEmbeddingService`（`EmbedAsync(text) → float[]`，批量 + 取消），Infrastructure 侧 `OnnxTextEmbeddingService`：ONNX Runtime + Tokenizers，输入 `input_ids`/`attention_mask`/`token_type_ids`，masked mean pooling + L2 normalize；复用现有索引根，新增 `<path, mtime, size, chunkIndex, vector>`；查询余弦排序，模型缺失则入口隐藏。
-2. **A3 图像搜索/标签**：先做图文双塔 SigLIP（比 VLM 生成文本轻而且检索目标更匹配），图片/查询嵌入共享向量库；再评估 YAMNet 将 521 类声音标签与音频元数据入索引。分开返回「语义相似」和「分类标签」，不写文件、不改 EXIF。
-3. **A4 音频转写**：先接 Whisper tiny q4f16：平台解码音频为单声道 16 kHz → log-Mel → greedy decoder；文件长度/时长设上限、取消/进度/导出 SRT；不支持的媒体容器就走「系统应用打开」。Whisper 上设备前测中文误识率与速度；若纯英语语音并追求更低延迟，再看 Moonshine。
-4. **A5 图像问答（可选）**：SmolVLM-256M q4f16 当前需要视觉 encoder / embed_tokens / decoder 三个 ONNX session、处理器 resize/patch 切图与生成循环；先只桌面试验，测峰值内存、速度及中文效果，再决定 Android 是否开放。
-5. **通用预算**：文本单文件 ≤64 块、每块 ≤512 token；一次索引 ≤200k 块。所有模型缺失/初始化失败时入口隐藏并指出原因。验收要涵盖 100 文件准确率、1000 文件索引耗时、单次查询/转写时延与 Android 峰值内存。
+1. **A2 后续打磨**：在真实模型下对比 token IDs/embedding 与 Transformers.js 或 sentence-transformers，校准 BERT basic tokenizer、BGE query 前缀与阈值；为大索引增加增量更新与可调上限，并测试低内存 Android。
+2. **A3 图像搜索/标签**：先做图文双塔 SigLIP（比 VLM 生成文本轻且检索目标更匹配），图片/查询嵌入共享向量库；再评估 YAMNet 将 521 类声音标签与音频元数据入索引。分开返回「语义相似」和「分类标签」，不写文件、不改 EXIF。
+3. **A4 音频转写**：接 Whisper tiny q4f16：平台解码音频为单声道 16 kHz → log-Mel → greedy decoder；文件长度/时长设上限、取消/进度/导出 SRT；不支持的媒体容器就走「系统应用打开」。
+4. **A5 图像问答（可选）**：SmolVLM-256M q4f16 需要视觉 encoder / embed_tokens / decoder 三个 ONNX session、处理器 resize/patch 切图与生成循环；先测峰值内存、速度及中文效果，再决定 Android 是否开放。
+5. **验收**：真实模型下测 100/1,000 文件索引耗时、中文/英文查询 top-k 质量、冷/热查询延迟与 Android 峰值内存；本地模型缺失/损坏或 ONNX Session 初始化失败都必须明确报错且不退化成假语义结果。
 
 ## 6. 隐私与安全边界
 
