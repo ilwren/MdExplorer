@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 980 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 980 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 978 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 7 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 3.51 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 5.21 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 817 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 817 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 856 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 2 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 5.11 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 6.59 sec).
   MdExplorer.Domain -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/bin/Release/net10.0/MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/bin/Release/net10.0/MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/bin/Release/net10.0/MdExplorer.Application.dll
@@ -14,15 +14,15 @@
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(137,33): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(186,9): warning CA1416: This call site is reachable on all platforms. 'Conversion.SavePng(Stream, byte[], Index, string?, RenderOptions)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
   MdExplorer.UI -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/bin/Release/net10.0/MdExplorer.UI.dll
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(148,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(619,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(884,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(957,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1022,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1073,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1113,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1312,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1840,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(149,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(620,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(885,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(958,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1023,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1074,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1114,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1313,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1864,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
   MdExplorer.Screenshots -> /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll
 
 Build succeeded.
@@ -31,47 +31,41 @@ Build succeeded.
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(140,29): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageSizes(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(137,33): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(186,9): warning CA1416: This call site is reachable on all platforms. 'Conversion.SavePng(Stream, byte[], Index, string?, RenderOptions)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(148,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(619,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(884,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(957,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1022,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1073,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1113,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1312,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1840,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(149,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(620,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(885,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(958,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1023,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1074,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1114,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1313,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
+/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(1864,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
     13 Warning(s)
     0 Error(s)
 
-Time Elapsed 00:00:35.03
-Discovered 75 screenshot tests; running in 4 isolated processes.
+Time Elapsed 00:00:33.19
+Discovered 76 screenshot tests; running in 4 isolated processes.
 === Screenshot partition 1/4: 19 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3307).
+Blame: Attaching crash dump utility to process dotnet (3086).
 
-Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 25 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 23 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 2/4: 19 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3507).
+Blame: Attaching crash dump utility to process dotnet (3292).
 
-Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 18 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 15 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 3/4: 19 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3701).
-[xUnit.net 00:00:01.71]     MdExplorer.Screenshots.ScreenshotTests.Compact_FloatingPreviewExpandsWhenAnotherImageIsTapped [FAIL]
-  Failed MdExplorer.Screenshots.ScreenshotTests.Compact_FloatingPreviewExpandsWhenAnotherImageIsTapped [123 ms]
-  Error Message:
-   Assert.True() Failure
-Expected: True
-Actual:   False
-  Stack Trace:
-     at MdExplorer.Screenshots.ScreenshotTests.<>c.<<Compact_FloatingPreviewExpandsWhenAnotherImageIsTapped>b__75_0>d.MoveNext() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs:line 1492
---- End of stack trace from previous location ---
-   at MdExplorer.Screenshots.ScreenshotTests.CaptureAsync(String fileName, Double width, Double height, Func`2 arrange, String themeMode, Boolean androidAccess, Func`2 afterShow) in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs:line 107
-   at MdExplorer.Screenshots.ScreenshotTests.Compact_FloatingPreviewExpandsWhenAnotherImageIsTapped() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs:line 1487
---- End of stack trace from previous location ---
+Blame: Attaching crash dump utility to process dotnet (3477).
 
-Failed!  - Failed:     1, Passed:    18, Skipped:     0, Total:    19, Duration: 32 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 30 s - MdExplorer.Screenshots.dll (net10.0)
+=== Screenshot partition 4/4: 19 tests ===
+Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Blame: Attaching crash dump utility to process dotnet (3694).
+
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 21 s - MdExplorer.Screenshots.dll (net10.0)
