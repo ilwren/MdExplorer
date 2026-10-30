@@ -1,42 +1,23 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:01.60]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [11 ms]
-  Error Message:
-   Assert.Equal() Failure: Values differ
-Expected: 2
-Actual:   4
-  Stack Trace:
-     at MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 430
-   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
-   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
-[xUnit.net 00:00:01.64]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [44 ms]
+[xUnit.net 00:00:02.10]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [FAIL]
+  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [20 ms]
   Error Message:
    Assert.Equal() Failure: Strings differ
-           ↓ (pos 0)
-Expected: "••••••••"
-Actual:   "s1"
-           ↑ (pos 0)
+Expected: "测试库"
+Actual:   null
   Stack Trace:
-     at MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 569
---- End of stack trace from previous location ---
-[xUnit.net 00:00:02.48]     MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewKeepsCheapTextPayload [FAIL]
-  Failed MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewKeepsCheapTextPayload [7 ms]
-  Error Message:
-   Assert.NotNull() Failure: Value is null
-  Stack Trace:
-     at MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewKeepsCheapTextPayload() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/SearchIslandAndPreviewTabsTests.cs:line 102
---- End of stack trace from previous location ---
-[xUnit.net 00:00:03.19]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen [1 s]
-  Error Message:
-   MdExplorer.UI.Preview.KeePassUnlockException : 主密码不正确，或此密码库还需要密钥文件（内置预览暂不支持密钥文件）。
-  Stack Trace:
-     at MdExplorer.UI.Preview.KeePassReader.ReadV4(Byte[] data, Header header, Byte[] key, Byte[] hmacKey, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/KeePassDatabases.cs:line 372
-   at MdExplorer.UI.Preview.KeePassReader.Read(Byte[] data, String password, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/KeePassDatabases.cs:line 145
-   at MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 467
+     at MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 431
    at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
    at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+[xUnit.net 00:00:02.13]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
+  Failed MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [36 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 579
+--- End of stack trace from previous location ---
 
-Failed!  - Failed:     4, Passed:   255, Skipped:     0, Total:   259, Duration: 2 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     2, Passed:   257, Skipped:     0, Total:   259, Duration: 3 s - MdExplorer.Tests.dll (net10.0)
