@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 1.2 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 1.24 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.25 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 13 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 3.32 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 5.03 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 980 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 980 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 978 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 7 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 3.51 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 5.21 sec).
   MdExplorer.Domain -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/bin/Release/net10.0/MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/bin/Release/net10.0/MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/bin/Release/net10.0/MdExplorer.Application.dll
@@ -43,25 +43,25 @@ Build succeeded.
     13 Warning(s)
     0 Error(s)
 
-Time Elapsed 00:00:38.25
+Time Elapsed 00:00:35.03
 Discovered 75 screenshot tests; running in 4 isolated processes.
 === Screenshot partition 1/4: 19 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3385).
+Blame: Attaching crash dump utility to process dotnet (3307).
 
 Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 25 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 2/4: 19 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3587).
+Blame: Attaching crash dump utility to process dotnet (3507).
 
 Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 18 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 3/4: 19 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3780).
-[xUnit.net 00:00:01.62]     MdExplorer.Screenshots.ScreenshotTests.Compact_FloatingPreviewExpandsWhenAnotherImageIsTapped [FAIL]
+Blame: Attaching crash dump utility to process dotnet (3701).
+[xUnit.net 00:00:01.71]     MdExplorer.Screenshots.ScreenshotTests.Compact_FloatingPreviewExpandsWhenAnotherImageIsTapped [FAIL]
   Failed MdExplorer.Screenshots.ScreenshotTests.Compact_FloatingPreviewExpandsWhenAnotherImageIsTapped [123 ms]
   Error Message:
    Assert.True() Failure
@@ -74,4 +74,4 @@ Actual:   False
    at MdExplorer.Screenshots.ScreenshotTests.Compact_FloatingPreviewExpandsWhenAnotherImageIsTapped() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs:line 1487
 --- End of stack trace from previous location ---
 
-Failed!  - Failed:     1, Passed:    18, Skipped:     0, Total:    19, Duration: 30 s - MdExplorer.Screenshots.dll (net10.0)
+Failed!  - Failed:     1, Passed:    18, Skipped:     0, Total:    19, Duration: 32 s - MdExplorer.Screenshots.dll (net10.0)
