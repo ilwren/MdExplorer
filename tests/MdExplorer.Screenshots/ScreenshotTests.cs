@@ -1452,6 +1452,28 @@ public sealed class ScreenshotTests
             Assert.NotNull(surface);
             Assert.True(surface!.HasFrame);
             Assert.Equal(new PixelSize(640, 360), surface.FrameSize);
+
+            // v0.34 反馈：Large 下后端名与“打开”按钮右侧被裁掉。这两条断言直接量右边缘，
+            // 横向 StackPanel 把长文本撑出父级时（无限宽度）会立刻失败。
+            var backend = window.GetVisualDescendants().OfType<TextBlock>()
+                .First(t => t.Text == shell.Preview.MediaBackendName);
+            var card = backend.FindAncestorOfType<Border>();
+            Assert.NotNull(card);
+            var backendRight = backend.TranslatePoint(new Point(backend.Bounds.Width, 0), card!);
+            Assert.NotNull(backendRight);
+            Assert.True(backendRight!.Value.X <= card!.Bounds.Width + 0.5,
+                $"后端名右边缘 {backendRight.Value.X:0.#} 超出媒体卡片 {card.Bounds.Width:0.#}");
+
+            var openLabel = window.GetVisualDescendants().OfType<TextBlock>()
+                .First(t => t.Text == "打开" && t.IsEffectivelyVisible);
+            var openButton = openLabel.FindAncestorOfType<Button>();
+            Assert.NotNull(openButton);
+            var previewView = openButton!.FindAncestorOfType<PreviewView>();
+            Assert.NotNull(previewView);
+            var buttonRight = openButton.TranslatePoint(new Point(openButton.Bounds.Width, 0), previewView!);
+            Assert.NotNull(buttonRight);
+            Assert.True(buttonRight!.Value.X <= previewView!.Bounds.Width + 0.5,
+                $"“打开”按钮右边缘 {buttonRight.Value.X:0.#} 超出预览视图 {previewView.Bounds.Width:0.#}");
             return Task.CompletedTask;
         }),
         static () => new FramePushVideoStub());

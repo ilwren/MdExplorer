@@ -131,7 +131,9 @@
                       Background="#000000" CornerRadius="12" ClipToBounds="True">
                 <media:MediaFrameSurface Source="{Binding VideoFrameSource}" AutomationProperties.Name="视频画面（推帧）" />
               </Border>
-              <StackPanel Orientation="Horizontal" Spacing="10">
+              <!-- 后端名可能很长（例如“推帧假后端（FramePushVideoStub）”）。横向 StackPanel 会给子元素
+                   无限宽度，长文本只能被父级裁掉；改用 Grid 的 * 列把它约束住，再显式换行/省略。 -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <Border Width="44" Height="44" CornerRadius="12"
                         Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}">
                   <Panel>
@@ -143,11 +145,13 @@
                                Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
                   </Panel>
                 </Border>
-                <StackPanel VerticalAlignment="Center" Spacing="1">
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
                   <TextBlock Classes="body" Text="{Binding MediaStateText}" TextWrapping="Wrap" />
-                  <TextBlock Classes="caption" Text="{Binding MediaBackendName}" />
+                  <TextBlock Classes="caption" Text="{Binding MediaBackendName}" TextWrapping="Wrap"
+                             MaxLines="2" TextTrimming="CharacterEllipsis"
+                             ToolTip.Tip="{Binding MediaBackendName}" />
                 </StackPanel>
-              </StackPanel>
+              </Grid>
 
               <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding CanPlayMediaInApp}">
                 <TextBlock Classes="caption" Text="{Binding MediaPositionText}" VerticalAlignment="Center" />
@@ -223,23 +227,23 @@
           <md:MdButton Variant="Filled" Height="42" MinWidth="116" Margin="0,0,8,6" Command="{Binding OpenCommand}">
             <StackPanel Orientation="Horizontal" Spacing="7">
               <md:MdIcon Glyph="{x:Static md:MdSymbols.OpenInNew}" Size="18" />
-              <TextBlock Text="打开" VerticalAlignment="Center" />
+              <TextBlock Text="打开" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </StackPanel>
           </md:MdButton>
-          <md:MdButton Variant="Tonal" Height="42" MinWidth="132" Margin="0,0,8,6"
+          <md:MdButton Variant="Tonal" Height="42" Margin="0,0,8,6"
                        Command="{Binding OpenDocumentWorkbenchCommand}"
                        IsVisible="{Binding CanOpenDocumentWorkbench}">
             <StackPanel Orientation="Horizontal" Spacing="7">
               <md:MdIcon Glyph="{x:Static md:MdSymbols.Description}" Size="18" />
-              <TextBlock Text="文档工作台" VerticalAlignment="Center" />
+              <TextBlock Text="文档工作台" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </StackPanel>
           </md:MdButton>
-          <md:MdButton Variant="Tonal" Height="42" MinWidth="132" Margin="0,0,0,6"
+          <md:MdButton Variant="Tonal" Height="42" Margin="0,0,0,6"
                        Command="{Binding OpenArchiveWorkbenchCommand}"
                        IsVisible="{Binding CanOpenArchiveWorkbench}">
             <StackPanel Orientation="Horizontal" Spacing="7">
               <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderZip}" Size="18" />
-              <TextBlock Text="压缩包工作台" VerticalAlignment="Center" />
+              <TextBlock Text="压缩包工作台" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </StackPanel>
           </md:MdButton>
         </WrapPanel>

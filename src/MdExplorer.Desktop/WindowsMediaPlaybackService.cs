@@ -1,56 +1,88 @@
 #if WINDOWS
-using Windows.Media.Core;
+using System.Diagnostics;
+using Windows.Graphics.Imaging;
+using Windows.Media.Editing;
 using MdExplorer.Platform.Abstractions;
 // 平台抽象里也有一个 MediaPlaybackState；不整体 using Windows.Media.Playback，避免同名类型二义。
 using WinRtMediaPlayer = Windows.Media.Playback.MediaPlayer;
 using WinRtAudioCategory = Windows.Media.Playback.MediaPlayerAudioCategory;
 using WinRtState = Windows.Media.Playback.MediaPlaybackState;
+using WinRtBuffer = Windows.Storage.Streams.Buffer;
 
 namespace MdExplorer.Desktop;
 
 /// <summary>
-/// Windows 系统解码：直接使用 Media Foundation 之上的 WinRT <see cref="WinRtMediaPlayer"/>。
-/// 音频没有画面宿主问题，所以这里先把三端里最容易漏的一端补上；
-/// 视频画面需要 Surface/HWND 宿主（MediaPlayer 自己不会画进 Avalonia），本版如实报 None。
-/// 整套调用都在 try/catch 里：WinRT 在未打包桌面进程、精简系统或缺少媒体功能包时会抛，
-/// 此时能力位保持 false 并给出可执行建议，绝不假装能播。
+/// Windows 系统解码：直接使用 Media Foundation 之上的 WinRT <see cref="WinRtMediaPlayer"/> 播音频，
+/// 视频画面走「宿主帧呈现」——用 <see cref="MediaComposition"/> 按播放位置取缩略帧，
+/// 解成 BGRA 交给 <see cref="IMediaFrameSink"/>，由 Avalonia 自己画。
+/// <para>
+/// 为什么不把画面交给 <see cref="WinRtMediaPlayer"/>：它没有把视频画进外部 HWND/位图的 API，
+/// 帧服务模式（<c>IsVideoFrameServerEnabled</c>）只能拷贝到 D3D Surface，需要自带 D3D 互操作组件；
+/// 而 <c>IMFMediaEngine</c> 要手写 COM vtable。两者都要在真机上验证才知道对不对，
+/// 本版选择只用 WinRT 投影就能做到的取帧路线，代价是帧率低（约 12 fps，远低于原生播放）。
+/// </para>
 /// </summary>
-internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMediaProbe, IMediaPlaybackPoller
+internal sealed class WindowsMediaPlaybackService
+    : IMediaPlaybackService, IMediaProbe, IMediaPlaybackPoller, IMediaVideoFrameSource
 {
-    private readonly WinRtMediaPlayer _player = new();
+    /// <summary>取帧目标尺寸：预览窗格够用，同时让每次取帧的解码开销可控。</summary>
+    private const int FrameWidth = 480;
+    private const int FrameHeight = 270;
+
+    /// <summary>取帧周期。取一帧要 20–60 ms，90 ms 的节奏既能动起来也不会把 CPU 占满。</summary>
+    private static readonly TimeSpan FramePeriod = TimeSpan.FromMilliseconds(90);
+
+    private readonly WinRtMediaPlayer? _player;
     private readonly object _gate = new();
+    private readonly SemaphoreSlim _compositionGate = new(1, 1);
     private string? _path;
     private bool _ready;
     private bool _disposed;
+
+    private MediaComposition? _composition;
+    private string? _compositionPath;
+
+    private IMediaFrameSink? _frameSink;
+    private CancellationTokenSource? _frameCts;
+    private Thread? _frameThread;
 
     public WindowsMediaPlaybackService()
     {
         try
         {
-            _player.AudioCategory = WinRtAudioCategory.Media;
-            _player.MediaOpened += (_, _) =>
+            _player = new WinRtMediaPlayer();
+            Player.AudioCategory = WinRtAudioCategory.Media;
+            Player.MediaOpened += (_, _) =>
             {
                 _ready = true;
                 State = MediaPlaybackState.Paused;
                 RaiseChanged();
             };
-            _player.MediaEnded += (_, _) =>
+            Player.MediaEnded += (_, _) =>
             {
                 State = MediaPlaybackState.Ended;
+                StopFramePump();
                 RaiseChanged();
             };
-            _player.MediaFailed += (_, args) =>
+            Player.MediaFailed += (_, args) =>
             {
                 LastError = $"Media Foundation 打不开该文件：{args.ErrorMessage}";
                 State = MediaPlaybackState.Failed;
+                StopFramePump();
                 RaiseChanged();
             };
-            _player.PlaybackSession.PlaybackStateChanged += (_, _) =>
+            Player.PlaybackSession.PlaybackStateChanged += (_, _) =>
             {
-                if (_player.PlaybackSession.PlaybackState is WinRtState.Playing)
+                if (Player.PlaybackSession.PlaybackState is WinRtState.Playing)
+                {
                     State = MediaPlaybackState.Playing;
+                    StartFramePump();
+                }
                 else if (State == MediaPlaybackState.Playing)
+                {
                     State = MediaPlaybackState.Paused;
+                    StopFramePump();
+                }
                 RaiseChanged();
             };
         }
@@ -64,50 +96,73 @@ internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMedi
     public string? Unavailable { get; }
 
     public MediaPlaybackCapabilities Capabilities => Unavailable is null
-        ? new(true, false, "Windows Media Foundation",
-            "音频由系统 Media Foundation 解码；视频画面需要原生宿主，本版交系统应用打开。")
+        ? new(true, true, "Windows Media Foundation",
+            "音频由系统 Media Foundation 解码；视频画面以约 12 fps 的缩略帧呈现（MediaComposition 取帧），" +
+            "完整播放请用系统应用打开。")
         : new(false, false, "none", $"Windows 媒体栈不可用：{Unavailable}");
 
-    public MediaRendererKind RendererKind => MediaRendererKind.None;
+    public MediaRendererKind RendererKind =>
+        Unavailable is null ? MediaRendererKind.FramePush : MediaRendererKind.None;
 
     public MediaPlaybackState State { get; private set; } = MediaPlaybackState.Idle;
-    public TimeSpan Position => _ready ? _player.PlaybackSession.Position : TimeSpan.Zero;
-    public TimeSpan Duration => _ready ? _player.PlaybackSession.NaturalDuration : TimeSpan.Zero;
+    public TimeSpan Position => _ready ? Player.PlaybackSession.Position : TimeSpan.Zero;
+    public TimeSpan Duration => _ready ? Player.PlaybackSession.NaturalDuration : TimeSpan.Zero;
+
+    /// <summary>构造期失败后 <see cref="_player"/> 为 null，所有入口都先看 <see cref="Unavailable"/>。</summary>
+    private WinRtMediaPlayer Player => _player!;
     public int VolumePercent { get; private set; } = 100;
     public string? LastError { get; private set; }
 
     public event EventHandler? PlaybackChanged;
 
-    public Task<bool> OpenAsync(string path, CancellationToken cancellationToken)
+    public async Task<bool> OpenAsync(string path, CancellationToken cancellationToken)
     {
-        if (_disposed || Unavailable is not null)
+        if (_disposed || _player is null || Unavailable is not null)
         {
             LastError = Capabilities.Diagnostic;
             State = MediaPlaybackState.Failed;
             RaiseChanged();
-            return Task.FromResult(false);
+            return false;
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        StopFramePump();
         try
         {
             lock (_gate)
             {
-                _player.Source = MediaSource.CreateFromUri(new Uri(path));
+                Player.Source = MediaSourceFromPath(path);
                 _path = path;
                 _ready = false;
+                // 换文件必须丢掉上一个文件的取帧组合：留着它会在播新音频时把旧视频的帧推上去。
+                _composition = null;
+                _compositionPath = null;
                 LastError = null;
                 State = MediaPlaybackState.Opening;
             }
+
+            // 有视频轨的文件先把取帧用的组合建好；建不出来就只当音频播（并如实记录原因）。
+            if (LooksLikeVideo(path))
+            {
+                try
+                {
+                    await EnsureCompositionAsync(path).ConfigureAwait(true);
+                }
+                catch (Exception ex) when (IsPlatformFailure(ex))
+                {
+                    LastError = $"视频画面不可用：{ex.Message}";
+                }
+            }
+
             RaiseChanged();
-            return Task.FromResult(true);
+            return true;
         }
         catch (Exception ex) when (IsPlatformFailure(ex) || ex is UriFormatException)
         {
             LastError = $"无法打开：{ex.Message}";
             State = MediaPlaybackState.Failed;
             RaiseChanged();
-            return Task.FromResult(false);
+            return false;
         }
     }
 
@@ -116,8 +171,9 @@ internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMedi
         cancellationToken.ThrowIfCancellationRequested();
         if (_disposed || _path is null)
             return Task.CompletedTask;
-        _player.Play();
+        Player.Play();
         State = MediaPlaybackState.Playing;
+        StartFramePump();
         RaiseChanged();
         return Task.CompletedTask;
     }
@@ -126,8 +182,9 @@ internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMedi
     {
         if (_disposed || _path is null)
             return Task.CompletedTask;
-        _player.Pause();
+        Player.Pause();
         State = MediaPlaybackState.Paused;
+        StopFramePump();
         RaiseChanged();
         return Task.CompletedTask;
     }
@@ -136,8 +193,9 @@ internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMedi
     {
         if (_disposed || _path is null)
             return Task.CompletedTask;
-        _player.Pause();
-        _player.PlaybackSession.Position = TimeSpan.Zero;
+        StopFramePump();
+        Player.Pause();
+        Player.PlaybackSession.Position = TimeSpan.Zero;
         State = MediaPlaybackState.Stopped;
         RaiseChanged();
         return Task.CompletedTask;
@@ -150,7 +208,7 @@ internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMedi
         var duration = Duration;
         var target = position < TimeSpan.Zero ? TimeSpan.Zero
             : duration > TimeSpan.Zero && position > duration ? duration : position;
-        _player.PlaybackSession.Position = target;
+        Player.PlaybackSession.Position = target;
         RaiseChanged();
         return Task.CompletedTask;
     }
@@ -160,7 +218,7 @@ internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMedi
         VolumePercent = Math.Clamp(percent, 0, 100);
         if (_disposed)
             return;
-        try { _player.Volume = VolumePercent / 100.0; }
+        try { Player.Volume = VolumePercent / 100.0; }
         catch (Exception ex) when (IsPlatformFailure(ex)) { }
         RaiseChanged();
     }
@@ -172,11 +230,195 @@ internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMedi
             RaiseChanged();
     }
 
+    // ---------- 帧推送（IMediaVideoFrameSource） ----------
+
+    /// <summary>宿主交出帧呈现面：已有文件时立刻开始取帧，否则等下一次播放。</summary>
+    public bool AttachFrameSink(IMediaFrameSink sink)
+    {
+        if (_disposed || Unavailable is not null || sink is null)
+            return false;
+        _frameSink = sink;
+        StartFramePump();
+        return true;
+    }
+
+    public void DetachFrameSink()
+    {
+        StopFramePump();
+        _frameSink = null;
+    }
+
+    private void StartFramePump()
+    {
+        if (_frameSink is not { } sink || _composition is null || _frameThread is not null || _disposed)
+            return;
+        _frameCts = new CancellationTokenSource();
+        var token = _frameCts.Token;
+        _frameThread = new Thread(() => PumpFrames(sink, token))
+        {
+            IsBackground = true,
+            Name = "MdExplorer Windows frames",
+        };
+        _frameThread.Start();
+    }
+
+    private void StopFramePump()
+    {
+        var cts = _frameCts;
+        var thread = _frameThread;
+        _frameCts = null;
+        _frameThread = null;
+        if (cts is null)
+            return;
+        try { cts.Cancel(); }
+        catch (ObjectDisposedException) { }
+
+        // 取帧线程可能正卡在一次 WinRT 解码调用里，Join 超时也不能丢下它去 Dispose CTS：
+        // 那样线程下一次碰 token.WaitHandle 就会抛 ObjectDisposedException 打死进程。
+        var joined = false;
+        try { joined = thread is null || thread.Join(500); }
+        catch (ThreadStateException) { joined = thread?.IsAlive != true; }
+        if (joined)
+            cts.Dispose();
+    }
+
     /// <summary>
-    /// 预判只看容器清单：Windows 的解码器由系统组件与已安装扩展决定，
-    /// 逐个文件真开一遍会带来可见延迟。文案里必须点明 HEVC 扩展与 DTS/AC-3 的现实缺口。
+    /// 取帧循环：把播放器当前位置当作时间轴，向 <see cref="MediaComposition"/> 要一帧缩略图。
+    /// 位置几乎没变就跳过，避免同一帧重复解码；任何平台异常都只让这一帧失败，不终止播放。
     /// </summary>
-    public Task<MediaProbeResult> ProbeAsync(string path, CancellationToken cancellationToken)
+    private void PumpFrames(IMediaFrameSink sink, CancellationToken token)
+    {
+        var lastPosition = TimeSpan.MinValue;
+        while (!token.IsCancellationRequested)
+        {
+            var started = Stopwatch.GetTimestamp();
+            try
+            {
+                if (State is MediaPlaybackState.Playing or MediaPlaybackState.Paused or MediaPlaybackState.Opening)
+                {
+                    var position = Player.PlaybackSession.Position;
+                    if (lastPosition == TimeSpan.MinValue ||
+                        Math.Abs((position - lastPosition).TotalMilliseconds) >= 40)
+                    {
+                        var frame = GrabFrameAsync(position, token).GetAwaiter().GetResult();
+                        if (frame is { } raw)
+                        {
+                            sink.PresentFrame(raw.Pixels, raw.Width, raw.Height, raw.Stride);
+                            lastPosition = position;
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex) when (IsPlatformFailure(ex))
+            {
+                LastError = $"取帧失败：{ex.Message}";
+            }
+
+            var elapsed = Stopwatch.GetElapsedTime(started);
+            var wait = FramePeriod - elapsed;
+            if (wait <= TimeSpan.Zero)
+                continue;
+            try
+            {
+                if (token.WaitHandle.WaitOne(wait))
+                    return;
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+        }
+    }
+
+    /// <summary>取某一时刻的画面。返回 null 表示这一帧取不到（不影响音频继续播）。</summary>
+    private async Task<RawFrame?> GrabFrameAsync(TimeSpan position, CancellationToken token)
+    {
+        var composition = _composition;
+        if (composition is null)
+            return null;
+
+        var duration = SafeDuration(composition);
+        if (duration > TimeSpan.Zero)
+        {
+            // 片尾取帧会失败，留一点余量。
+            var limit = duration - TimeSpan.FromMilliseconds(80);
+            if (position > limit) position = limit;
+        }
+        if (position < TimeSpan.Zero) position = TimeSpan.Zero;
+
+        using var stream = await composition
+            .GetThumbnailAsync(position, FrameWidth, FrameHeight, VideoFramePrecision.NearestFrame)
+            .AsTask(token)
+            .ConfigureAwait(false);
+        var decoder = await BitmapDecoder.CreateAsync(stream).AsTask(token).ConfigureAwait(false);
+        using var bitmap = await decoder
+            .GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore)
+            .AsTask(token)
+            .ConfigureAwait(false);
+
+        var width = bitmap.PixelWidth;
+        var height = bitmap.PixelHeight;
+        if (width <= 0 || height <= 0)
+            return null;
+
+        var tight = width * 4 * height;
+        var buffer = new WinRtBuffer((uint)tight);
+        bitmap.CopyToBuffer(buffer);
+        Windows.Security.Cryptography.CryptographicBuffer.CopyToByteArray(buffer, out var copy);
+        if (copy is null || copy.Length < tight)
+            return null;
+
+        // SoftwareBitmap 一般是紧凑的，但只要解码器补过行尾，就按实际长度反推行距，
+        // 免得把一行像素错位地画出来。
+        var stride = copy.Length % height == 0 && copy.Length / height >= width * 4
+            ? copy.Length / height
+            : width * 4;
+        return new RawFrame(copy, width, height, stride);
+    }
+
+    private static TimeSpan SafeDuration(MediaComposition composition)
+    {
+        try { return composition.Duration; }
+        catch (Exception ex) when (IsPlatformFailure(ex)) { return TimeSpan.Zero; }
+    }
+
+    private async Task<MediaComposition> EnsureCompositionAsync(string path)
+    {
+        if (_composition is not null && string.Equals(_compositionPath, path, StringComparison.Ordinal))
+            return _composition;
+
+        await _compositionGate.WaitAsync().ConfigureAwait(true);
+        try
+        {
+            if (_composition is not null && string.Equals(_compositionPath, path, StringComparison.Ordinal))
+                return _composition;
+
+            var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(path).AsTask().ConfigureAwait(true);
+            var clip = await MediaClip.CreateFromFileAsync(file).AsTask().ConfigureAwait(true);
+            var composition = new MediaComposition();
+            composition.Clips.Add(clip);
+            _composition = composition;
+            _compositionPath = path;
+            // 宿主的帧呈现面可能比组合先就绪（AttachFrameSink 时 _composition 还是 null），
+            // 这里补一次起泵，否则第一帧要等到用户按播放才出现。
+            StartFramePump();
+            return composition;
+        }
+        finally
+        {
+            _compositionGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 预判：视频容器会真的建一次取帧组合——系统打不开轨道就如实说“不能内嵌播”，
+    /// 而不是等用户按下播放才发现只有声音。
+    /// </summary>
+    public async Task<MediaProbeResult> ProbeAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var extension = Path.GetExtension(path).ToLowerInvariant();
@@ -184,19 +426,54 @@ internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMedi
         var audioContainers = new[] { ".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg", ".opus", ".wma" };
 
         if (videoContainers.Contains(extension))
-            return Task.FromResult(new MediaProbeResult(
-                false, true, true, "含视频轨（系统容器清单内）",
-                "视频画面需要原生宿主，本版交系统应用打开；HEVC 需系统扩展、DTS/AC-3 默认缺失。"));
+        {
+            if (Unavailable is not null)
+                return new MediaProbeResult(false, true, true, "含视频轨", Capabilities.Diagnostic);
+            try
+            {
+                await EnsureCompositionAsync(path).ConfigureAwait(true);
+                return new MediaProbeResult(
+                    true, true, true,
+                    $"视频 · 系统解码 · 缩略帧约 {1000 / (int)FramePeriod.TotalMilliseconds} fps",
+                    "画面由 MediaComposition 逐帧取出后交给 Avalonia 绘制，帧率低于原生播放；" +
+                    "HEVC 需系统扩展、DTS/AC-3 默认缺失，完整播放请用系统应用打开。");
+            }
+            catch (Exception ex) when (IsPlatformFailure(ex))
+            {
+                return new MediaProbeResult(
+                    false, true, true, "含视频轨（系统解码器打不开）",
+                    $"Media Foundation 无法为该文件建立取帧组合：{ex.Message}");
+            }
+        }
 
         if (audioContainers.Contains(extension))
-            return Task.FromResult(new MediaProbeResult(
+            return new MediaProbeResult(
                 true, false, true, $"音频 · {extension.TrimStart('.').ToUpperInvariant()}（系统容器清单内）",
-                null));
+                null);
 
-        return Task.FromResult(new MediaProbeResult(
+        return new MediaProbeResult(
             false, false, false, "容器不在系统清单内",
-            "Windows Media Foundation 对这些容器没有内置支持，可用系统应用打开。"));
+            "Windows Media Foundation 对这些容器没有内置支持，可用系统应用打开。");
     }
+
+    /// <summary>
+    /// MediaPlayer 的 Source 只接受流或 URI。Windows 路径里的反斜杠会让 <see cref="Uri"/> 直接抛
+    /// <see cref="UriFormatException"/>（`new Uri(@"C:\a.mp4")` 不是合法 URI），所以统一先转成
+    /// file URI；空格与中文由 <see cref="Uri"/> 自己转义，UNC 路径按 `file://server/share` 处理。
+    /// </summary>
+    private static global::Windows.Media.Core.MediaSource MediaSourceFromPath(string path) =>
+        global::Windows.Media.Core.MediaSource.CreateFromUri(LocalFileUri(path));
+
+    private static Uri LocalFileUri(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        return normalized.StartsWith("//", StringComparison.Ordinal)
+            ? new Uri("file:" + normalized)
+            : new Uri("file:///" + normalized.TrimStart('/'));
+    }
+
+    private static bool LooksLikeVideo(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() is ".mp4" or ".m4v" or ".mov" or ".mkv" or ".webm" or ".avi" or ".wmv";
 
     private void RaiseChanged() => PlaybackChanged?.Invoke(this, EventArgs.Empty);
 
@@ -208,15 +485,26 @@ internal sealed class WindowsMediaPlaybackService : IMediaPlaybackService, IMedi
             or NotSupportedException
             or InvalidOperationException
             or UnauthorizedAccessException
-            or FileNotFoundException;
+            or FileNotFoundException
+            or IOException
+            or ArgumentException;
+
+    /// <summary>一帧紧凑 BGRA 画面。</summary>
+    private readonly record struct RawFrame(byte[] Pixels, int Width, int Height, int Stride);
 
     public ValueTask DisposeAsync()
     {
         if (_disposed)
             return ValueTask.CompletedTask;
         _disposed = true;
-        try { _player.Dispose(); }
-        catch (Exception ex) when (IsPlatformFailure(ex)) { }
+        StopFramePump();
+        _composition = null;
+        _compositionPath = null;
+        if (_player is { } player)
+        {
+            try { player.Dispose(); }
+            catch (Exception ex) when (IsPlatformFailure(ex)) { }
+        }
         return ValueTask.CompletedTask;
     }
 }
