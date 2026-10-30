@@ -1,56 +1,49 @@
   Determining projects to restore...
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\MdExplorer.Application.csproj (in 4.65 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\MdExplorer.Infrastructure.csproj (in 5.68 sec).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\MdExplorer.Platform.Abstractions.csproj (in 23 ms).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\MdExplorer.Domain.csproj (in 23 ms).
-  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj (in 20.09 sec).
-  Restored D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj (in 23.54 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\MdExplorer.Infrastructure.csproj (in 2.47 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\MdExplorer.Domain.csproj (in 2.47 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\MdExplorer.Application.csproj (in 2.47 sec).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\MdExplorer.Platform.Abstractions.csproj (in 3 ms).
+  Restored D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj (in 14.18 sec).
+  Restored D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj (in 19.26 sec).
   MdExplorer.Domain -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Domain\bin\Release\net10.0\MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Platform.Abstractions\bin\Release\net10.0\MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Application\bin\Release\net10.0\MdExplorer.Application.dll
 D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\TrashService.cs(23,34): warning CA1416: This call site is reachable on all platforms. 'WindowsTrash.MoveToTrash(string)' is only supported on: 'windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\MdExplorer.Infrastructure.csproj]
   MdExplorer.Infrastructure -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.Infrastructure\bin\Release\net10.0\MdExplorer.Infrastructure.dll
 D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\Preview\PreviewProviders.cs(138,20): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj]
-D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\Preview\PreviewProviders.cs(161,29): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageSizes(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj]
 D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\Preview\PreviewProviders.cs(158,33): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj]
+D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\Preview\PreviewProviders.cs(161,29): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageSizes(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj]
 D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\Preview\PreviewProviders.cs(207,9): warning CA1416: This call site is reachable on all platforms. 'Conversion.SavePng(Stream, byte[], Index, string?, RenderOptions)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\MdExplorer.UI.csproj]
   MdExplorer.UI -> D:\a\MdExplorer\MdExplorer\src\MdExplorer.UI\bin\Release\net10.0\MdExplorer.UI.dll
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\StorageTextFileTests.cs(143,85): warning CS9113: Parameter 'parent' is unread. [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserClipboardAndTransferTests.cs(140,39): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserClipboardAndTransferTests.cs(159,37): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
-D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserClipboardAndTransferTests.cs(175,39): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserNavigationAndTasksTests.cs(114,19): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
+D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserClipboardAndTransferTests.cs(175,39): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
+D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserPagingAndRefreshTests.cs(177,43): warning xUnit2009: Do not use Assert.True() to check for substrings. Use Assert.StartsWith instead. (https://xunit.net/xunit.analyzers/rules/xUnit2009) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
+D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(428,24): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserViewModeAndSortTests.cs(116,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserViewModeAndSortTests.cs(117,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserViewModeAndSortTests.cs(118,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserViewModeAndSortTests.cs(152,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
-D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\BrowserPagingAndRefreshTests.cs(177,43): warning xUnit2009: Do not use Assert.True() to check for substrings. Use Assert.StartsWith instead. (https://xunit.net/xunit.analyzers/rules/xUnit2009) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
-D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\OpenDocumentPreviewTests.cs(83,9): warning xUnit2009: Do not use Assert.True() to check for substrings. Use Assert.StartsWith instead. (https://xunit.net/xunit.analyzers/rules/xUnit2009) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
-D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(428,24): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(457,65): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(470,24): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(480,24): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(485,53): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
+D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(492,51): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
+D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(495,51): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
+D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\OpenDocumentPreviewTests.cs(83,9): warning xUnit2009: Do not use Assert.True() to check for substrings. Use Assert.StartsWith instead. (https://xunit.net/xunit.analyzers/rules/xUnit2009) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\PreviewRegistryTests.cs(63,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\PreviewRegistryTests.cs(93,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\StorageDelegationTests.cs(193,38): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
-D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(492,51): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
-D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs(495,51): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\StorageDelegationTests.cs(201,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
-D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\SearchIslandAndPreviewTabsTests.cs(188,19): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
 D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\StorageDelegationTests.cs(265,15): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
+D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\SearchIslandAndPreviewTabsTests.cs(188,19): warning xUnit1051: Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive. (https://xunit.net/xunit.analyzers/rules/xUnit1051) [D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\MdExplorer.Tests.csproj]
   MdExplorer.Tests -> D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\bin\Release\net10.0\MdExplorer.Tests.dll
 Test run for D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\bin\Release\net10.0\MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:01.58]     MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewKeepsCheapTextPayload [FAIL]
-  Failed MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewKeepsCheapTextPayload [147 ms]
-  Error Message:
-   Assert.NotNull() Failure: Value is null
-  Stack Trace:
-     at MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewKeepsCheapTextPayload() in D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\SearchIslandAndPreviewTabsTests.cs:line 102
---- End of stack trace from previous location ---
-[xUnit.net 00:00:01.94]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [81 ms]
+[xUnit.net 00:00:02.24]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
+  Failed MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [95 ms]
   Error Message:
    Assert.Equal() Failure: Strings differ
            ↓ (pos 0)
@@ -60,8 +53,8 @@ Actual:   "s1"
   Stack Trace:
      at MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault() in D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs:line 569
 --- End of stack trace from previous location ---
-[xUnit.net 00:00:01.95]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [8 ms]
+[xUnit.net 00:00:02.25]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [FAIL]
+  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [9 ms]
   Error Message:
    Assert.Equal() Failure: Values differ
 Expected: 2
@@ -70,7 +63,7 @@ Actual:   4
      at MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues() in D:\a\MdExplorer\MdExplorer\tests\MdExplorer.Tests\KeePassPreviewTests.cs:line 430
    at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
    at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
-[xUnit.net 00:00:04.55]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen [FAIL]
+[xUnit.net 00:00:05.01]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen [FAIL]
   Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen [2 s]
   Error Message:
    MdExplorer.UI.Preview.KeePassUnlockException : 主密码不正确，或此密码库还需要密钥文件（内置预览暂不支持密钥文件）。
@@ -81,4 +74,4 @@ Actual:   4
    at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
    at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
 
-Failed!  - Failed:     4, Passed:   255, Skipped:     0, Total:   259, Duration: 4 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     3, Passed:   256, Skipped:     0, Total:   259, Duration: 5 s - MdExplorer.Tests.dll (net10.0)
