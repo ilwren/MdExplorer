@@ -748,9 +748,10 @@ public sealed class ScreenshotTests
     public async Task Compact_OpenDocumentSheetPreview() => await CaptureAsync(
         "78-compact-ods-preview.png", 390, 844, async shell =>
     {
-        shell.IsPreviewPageOpen = true;
         await shell.OpenFolderAsync(DocumentsDir);
         await shell.Browser.WhenIdleAsync();
+        // 打开预览要在导航之后：进入目录会收起预览页，先置位会被导航重置。
+        shell.IsPreviewPageOpen = true;
         await SelectByNameAsync(shell, "季度销量.ods", () => shell.Preview.HasMarkdown);
         Assert.Contains("## 工作表 · 一季度", shell.Preview.MarkdownText, StringComparison.Ordinal);
     });
