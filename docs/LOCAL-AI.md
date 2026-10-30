@@ -69,7 +69,7 @@ file|<id>|<仓库内路径>
 | Whisper tiny multilingual (`Xenova/whisper-tiny` ONNX 导出) | Apache-2.0（导出仓库模型卡；上游 OpenAI 源代码 MIT） | 按实际下载仓库的 Apache-2.0 元数据遵循，保留 upstream notices |
 | YAMNet ONNX (`andrelgomes/yamnet-onnx`) | Apache-2.0（导出仓库） | 声音事件分类；模型权重 16 MB |
 | SmolVLM-256M-Instruct ONNX | Apache-2.0（官方模型卡） | 多文件三图，包含视觉编码器与文本生成模型 |
-| ONNX Runtime / Microsoft.ML.Tokenizers | MIT | 运行时依赖，AOT 前需再跑一次发布验证 |
+| ONNX Runtime / Microsoft.ML.Tokenizers | MIT | Linux Native AOT 与 Android trim/AOT 发布通过 CI；Android APK 还会实检 ONNX ELF 依赖与 16 KiB 对齐 |
 
 > 权重只在用户机器上下载，不进入本仓库；`models/` 已在 `.gitignore` 里。
 
@@ -80,7 +80,8 @@ file|<id>|<仓库内路径>
 - **搜索中心**新增「关键词 / AI 语义」模式和「建立 / 更新 AI 索引」。必须先配置并重建现有文件名索引、在设置中打开本地 AI、下载文本模型，再显式生成向量索引；索引文件变化、根集合变化或模型版本变化都会使 AI 索引过期并要求重建。
 - 语义索引只覆盖用户加入的本地根，最多 20,000 项；保存路径/文件类型/大小/时间和每个可用文本模型的 int8 量化向量，不保存原始正文。文件名与父目录始终参与；仅对受支持的纯文本扩展名、≤2 MiB 文件最多读取前 4,000 字符作为摘要；不读 PDF、Office、压缩包、图片或 SAF。命中前再次核验文件时间/大小，stale 项不会被返回。`清除本地搜索索引` 同时清除文件名与 AI 向量快照。
 - `AppSettings.EnableLocalAi` 默认关闭；关闭时保留本机 AI 向量文件但不运行推理/搜索。`MDEXPLORER_MODELS` 仍可覆盖模型目录。设置卡与搜索中心说明数据只在本机处理。
-- **验收边界**：CI 使用确定性的假 embedding 覆盖重建、排序、清除与开关；尚未下载真实权重，真实 BGE/MiniLM tokenizer 与 ONNX 输出、中文/英文搜索质量、建索引耗时和设备内存/延迟仍待人工设备验收。
+- **Android 原生库解析修正**：Microsoft.ML.OnnxRuntime 的桌面 Linux RID 原生库可能通过共享 `net10.0` 资产图混入 Android APK，并与 Android AAR 内的 Bionic 库发生重名冲突。Android app head 的窄作用域 MSBuild target 只移除 `linux-*` 的 native copy/publish 项；Linux/Windows 依赖不受影响。CI 会解包 arm64 APK，拒绝 glibc/Linux 依赖，并验证 ONNX ELF 的每个 `LOAD` 段均按 16 KiB 对齐。
+- **验收边界**：CI 使用确定性的假 embedding 覆盖重建、排序、持久化、模型版本失效、清除与开关；Linux Native AOT、Android trimming/AOT 发布及 APK 原生库检查均通过。尚未下载真实权重，BGE/MiniLM 实际 ONNX 推理、中文/英文搜索质量、建索引耗时和设备内存/延迟仍待实机验收。
 
 ## 5. 后续计划
 
@@ -99,9 +100,9 @@ file|<id>|<仓库内路径>
 
 ## 7. 风险与未验证项
 
-- **ONNX Runtime 的 Native AOT/Android 打包尚未实测**：A2 接线时必须让 CI 的 linux-x64 AOT 与 Android trim/AOT Job 通过，否则退回「桌面开、Android 关」。
+- **没有实际设备推理证据**：CI 已验证 Linux Native AOT、Android trimming/AOT 发布，以及 APK 内是 Bionic ONNX 库且 16 KiB 页面对齐；仍未在真机上加载模型、执行推理或测性能。
 - **模型仓库路径可能漂移**：清单里的 HF 路径写的是 `Xenova/*` 镜像仓库；脚本失败时会打印完整 URL 与镜像提示，改清单即可，不需要重编译（应用读的是编译进去的同一份文件，改完重编一次）。
-- **没有真机推理证据**：本版完全不跑推理，所以也就没有性能数字。A2 落地时要给出「1000 个文件的索引耗时 / 单次查询延迟 / 内存在 Android 上的实测」。
+- **没有真机推理证据**：本仓还没有在设备上使用下载权重执行真实推理，因此没有搜索质量或性能数字；验收需补「100/1000 个文件索引耗时、单次查询延迟与 Android 峰值内存」。
 - **int8 量化的精度损失**未评估：先按官方量化版发布，检索质量不达标再换 fp32（体积 ×4）。
 
 ## 8. 参考
@@ -115,4 +116,6 @@ file|<id>|<仓库内路径>
 - YAMNet ONNX (AudioSet 521 类，16 MB) 模型卡/Apache-2.0：<https://huggingface.co/andrelgomes/yamnet-onnx>
 - Hugging Face Hub model tree API（ONNX q4f16 文件大小快照）：<https://huggingface.co/api/models/HuggingFaceTB/SmolVLM-256M-Instruct/tree/main/onnx?expand=false> / <https://huggingface.co/api/models/Xenova/whisper-tiny/tree/main?recursive=true&expand=false>
 - ONNX Runtime 许可与 Native AOT 说明：<https://github.com/microsoft/onnxruntime>
+- .NET Android 中 ONNX Linux RID 与 Android AAR 冲突及 workaround：<https://github.com/microsoft/onnxruntime/issues/29270>
+- Android 16 KiB 页面对齐要求：<https://developer.android.com/guide/practices/page-sizes>
 - Microsoft.ML.Tokenizers：<https://github.com/dotnet/machinelearning>
