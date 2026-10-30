@@ -1456,7 +1456,7 @@ public sealed class ScreenshotTests
             // v0.34 反馈：Large 下后端名与“打开”按钮右侧被裁掉。这两条断言直接量右边缘，
             // 横向 StackPanel 把长文本撑出父级时（无限宽度）会立刻失败。
             var backend = window.GetVisualDescendants().OfType<TextBlock>()
-                .First(t => t.Text == shell.Preview.MediaBackendName);
+                .First(t => t.Text is { } text && text.Contains("FramePushVideoStub", StringComparison.Ordinal));
             var card = backend.FindAncestorOfType<Border>();
             Assert.NotNull(card);
             var backendRight = backend.TranslatePoint(new Point(backend.Bounds.Width, 0), card!);
