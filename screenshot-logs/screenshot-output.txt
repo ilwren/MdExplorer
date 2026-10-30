@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.12 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 1.12 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 7 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 9 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 3.85 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 5.09 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 1.36 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.36 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 1.36 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 148 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 4.44 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 7.83 sec).
   MdExplorer.Domain -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/bin/Release/net10.0/MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/bin/Release/net10.0/MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/bin/Release/net10.0/MdExplorer.Application.dll
@@ -43,29 +43,29 @@ Build succeeded.
     13 Warning(s)
     0 Error(s)
 
-Time Elapsed 00:00:37.17
+Time Elapsed 00:00:32.28
 Discovered 76 screenshot tests; running in 4 isolated processes.
 === Screenshot partition 1/4: 19 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3287).
+Blame: Attaching crash dump utility to process dotnet (3105).
 
-Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 26 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 24 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 2/4: 19 tests ===
+Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Blame: Attaching crash dump utility to process dotnet (3306).
+
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 16 s - MdExplorer.Screenshots.dll (net10.0)
+=== Screenshot partition 3/4: 19 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
 Blame: Attaching crash dump utility to process dotnet (3490).
 
-Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 19 s - MdExplorer.Screenshots.dll (net10.0)
-=== Screenshot partition 3/4: 19 tests ===
-Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
-A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3681).
-
-Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 33 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 30 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 4/4: 19 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3883).
+Blame: Attaching crash dump utility to process dotnet (3689).
 
-Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 26 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 21 s - MdExplorer.Screenshots.dll (net10.0)
