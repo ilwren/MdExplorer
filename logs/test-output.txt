@@ -1,7 +1,7 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:02.73]     MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewReleasesHeavyPayloadAndReopenReloads [FAIL]
-  Failed MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewReleasesHeavyPayloadAndReopenReloads [5 ms]
+[xUnit.net 00:00:03.09]     MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewReleasesHeavyPayloadAndReopenReloads [FAIL]
+  Failed MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewReleasesHeavyPayloadAndReopenReloads [16 ms]
   Error Message:
    Assert.True() Failure
 Expected: True
@@ -10,4 +10,4 @@ Actual:   False
      at MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewReleasesHeavyPayloadAndReopenReloads() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/SearchIslandAndPreviewTabsTests.cs:line 99
 --- End of stack trace from previous location ---
 
-Failed!  - Failed:     1, Passed:   249, Skipped:     0, Total:   250, Duration: 1 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:   249, Skipped:     0, Total:   250, Duration: 2 s - MdExplorer.Tests.dll (net10.0)
