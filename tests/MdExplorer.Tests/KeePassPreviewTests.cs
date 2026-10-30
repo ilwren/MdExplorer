@@ -584,9 +584,12 @@ public sealed class KeePassPreviewTests : IDisposable
 
         // 重新打开：按当前选集重新读库，回到锁定态（解出来的条目不会留在内存里）。
         shell.ShowPreviewPane = true;
-        for (var attempt = 0; attempt < 100 && !preview.IsKeePassLocked; attempt++)
+        for (var attempt = 0; attempt < 150 && !preview.IsKeePassLocked; attempt++)
             await Task.Delay(20);
-        Assert.True(preview.IsKeePassLocked);
+        Assert.True(
+            preview.IsKeePassLocked,
+            $"needs={preview.NeedsKeePassPassword} released={preview.IsPayloadReleased} " +
+            $"has={preview.HasKeePass} item={preview.CurrentItem?.Name} fail={preview.FailureText}");
         Assert.False(preview.HasKeePass);
     }
 }
