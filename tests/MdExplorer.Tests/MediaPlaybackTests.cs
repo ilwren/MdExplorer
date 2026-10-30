@@ -182,6 +182,98 @@ public sealed class MediaPlaybackTests
         Assert.Contains("未接入", nonePreview.MediaRendererText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task NativeSurfaceBackendPlaysVideoAndHandsTheRendererToTheHost()
+    {
+        var backend = new FakeNativeSurfaceBackend();
+        var preview = CreatePreview(backend);
+        await preview.LoadAsync(Item("clip.mp4", FileKind.Video));
+
+        Assert.True(preview.CanPlayMediaInApp);
+        Assert.True(preview.ShowNativeVideoSurface);
+        Assert.Same(backend, preview.VideoRenderer);
+        Assert.Equal("画面：平台原生 Surface", preview.MediaRendererText);
+
+        // 音频项不该出现视频画面宿主的占位
+        await preview.LoadAsync(Item("song.m4a", FileKind.Audio));
+        Assert.False(preview.ShowNativeVideoSurface);
+    }
+
+    [Fact]
+    public async Task VideoCapableBackendWithoutRendererStillRefusesVideo()
+    {
+        // 有 CanPlayVideo 但交付不了画面（RendererKind=None）时不许播，否则就是“有声无画”的假播放。
+        var preview = CreatePreview(new VideoWithoutRendererBackend());
+        await preview.LoadAsync(Item("clip.mp4", FileKind.Video));
+
+        Assert.False(preview.CanPlayMediaInApp);
+        Assert.False(preview.ShowNativeVideoSurface);
+        Assert.Null(preview.VideoRenderer);
+        Assert.Contains("未接入", preview.MediaRendererText, StringComparison.Ordinal);
+    }
+
+    private sealed class FakeNativeSurfaceBackend : IMediaPlaybackService, IMediaVideoRenderer
+    {
+        public MediaPlaybackCapabilities Capabilities { get; } =
+            new(true, true, "fake.native", "假原生画面后端。");
+        public MediaRendererKind RendererKind => MediaRendererKind.NativeSurface;
+        public MediaPlaybackState State { get; private set; } = MediaPlaybackState.Idle;
+        public TimeSpan Position => TimeSpan.Zero;
+        public TimeSpan Duration => TimeSpan.Zero;
+        public int VolumePercent => 100;
+        public string? LastError => null;
+        public object? AttachedSurface { get; private set; }
+
+        public event EventHandler? PlaybackChanged;
+
+        public Task<bool> OpenAsync(string path, CancellationToken cancellationToken)
+        {
+            State = MediaPlaybackState.Paused;
+            PlaybackChanged?.Invoke(this, EventArgs.Empty);
+            return Task.FromResult(true);
+        }
+
+        public Task PlayAsync(CancellationToken cancellationToken)
+        {
+            State = MediaPlaybackState.Playing;
+            PlaybackChanged?.Invoke(this, EventArgs.Empty);
+            return Task.CompletedTask;
+        }
+
+        public Task PauseAsync() => Task.CompletedTask;
+        public Task StopAsync() => Task.CompletedTask;
+        public Task SeekAsync(TimeSpan position) => Task.CompletedTask;
+        public void SetVolume(int percent) { }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public bool AttachVideoSurface(object surface)
+        {
+            AttachedSurface = surface;
+            return true;
+        }
+
+        public void DetachVideoSurface() => AttachedSurface = null;
+    }
+
+    private sealed class VideoWithoutRendererBackend : IMediaPlaybackService
+    {
+        public MediaPlaybackCapabilities Capabilities { get; } = new(true, true, "fake.lie", "声称能播视频但交不出画面。");
+        public MediaRendererKind RendererKind => MediaRendererKind.None;
+        public MediaPlaybackState State => MediaPlaybackState.Idle;
+        public TimeSpan Position => TimeSpan.Zero;
+        public TimeSpan Duration => TimeSpan.Zero;
+        public int VolumePercent => 100;
+        public string? LastError => null;
+        public event EventHandler? PlaybackChanged { add { } remove { } }
+        public Task<bool> OpenAsync(string path, CancellationToken cancellationToken) => Task.FromResult(true);
+        public Task PlayAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PauseAsync() => Task.CompletedTask;
+        public Task StopAsync() => Task.CompletedTask;
+        public Task SeekAsync(TimeSpan position) => Task.CompletedTask;
+        public void SetVolume(int percent) { }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
     private sealed class FakeMediaPlaybackService(bool canPlayAudio, bool canPlayVideo)
         : IMediaPlaybackService, IMediaProbe
     {

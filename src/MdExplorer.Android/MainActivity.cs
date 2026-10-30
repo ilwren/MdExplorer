@@ -4,6 +4,7 @@ using Android.OS;
 using Android.Runtime;
 using Avalonia;
 using Avalonia.Android;
+using MdExplorer.UI.Media;
 using MdExplorer.UI.Services;
 using AvaloniaApp = MdExplorer.UI.App;
 
@@ -29,6 +30,8 @@ public sealed class MainActivity : AvaloniaMainActivity
         _current = this;
         // 内嵌播放后端必须在 AppHost.Build（Avalonia 初始化）之前注册。
         AppHost.MediaPlaybackFactory = static () => new AndroidMediaPlaybackService();
+        // 视频画面走宿主托管的原生窗口：TextureView 由 Avalonia 的 NativeControlHost 挂进视觉树并按控件定位。
+        MediaSurfaceBridge.Factory = static parent => new AndroidVideoSurfaceAttachment(parent);
         MdSystemNotificationServiceAdapter.PlatformPreparation = static cancellationToken =>
             _current?.RequestNotificationPermissionAsync(cancellationToken)
             ?? Task.FromException(new InvalidOperationException("Android 前台 Activity 尚未就绪，无法请求通知权限。"));

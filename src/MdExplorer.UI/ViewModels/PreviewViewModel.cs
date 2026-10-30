@@ -70,10 +70,20 @@ public sealed partial class PreviewViewModel(
     public bool IsMedia => CurrentItem is { IsFolder: false, Kind: FileKind.Audio or FileKind.Video };
     public bool IsAudioMedia => CurrentItem is { IsFolder: false, Kind: FileKind.Audio };
     public bool IsVideoMedia => CurrentItem is { IsFolder: false, Kind: FileKind.Video };
-    /// <summary>当前后端能否在应用内播放这个媒体（音频看 CanPlayAudio，视频看 CanPlayVideo）。</summary>
+    /// <summary>
+    /// 当前后端能否在应用内播放这个媒体。音频只看 CanPlayAudio；
+    /// 视频还要求后端真的能交付画面（<see cref="MediaRendererKind.None"/> 时不能播，
+    /// 否则会出现“有声音没画面”的假播放）。
+    /// </summary>
     public bool CanPlayMediaInApp =>
         _media is { } media && IsMedia &&
-        (IsAudioMedia ? media.Capabilities.CanPlayAudio : media.Capabilities.CanPlayVideo);
+        (IsAudioMedia
+            ? media.Capabilities.CanPlayAudio
+            : media.Capabilities.CanPlayVideo && media.RendererKind != MediaRendererKind.None);
+    /// <summary>后端需要宿主的原生画面窗口（Android TextureView / Windows HWND）。</summary>
+    public IMediaVideoRenderer? VideoRenderer => _media as IMediaVideoRenderer;
+    public bool ShowNativeVideoSurface =>
+        IsVideoMedia && CanPlayMediaInApp && _media?.RendererKind == MediaRendererKind.NativeSurface;
     public bool IsMediaPlaying => _media?.State == MediaPlaybackState.Playing;
     public string MediaBackendName => _media?.Capabilities.BackendName ?? "none";
     /// <summary>系统解码器对这个文件的预判（事实来自平台，不是按扩展名猜）。</summary>
@@ -218,6 +228,8 @@ public sealed partial class PreviewViewModel(
         OnPropertyChanged(nameof(IsAudioMedia));
         OnPropertyChanged(nameof(IsVideoMedia));
         OnPropertyChanged(nameof(CanPlayMediaInApp));
+        OnPropertyChanged(nameof(ShowNativeVideoSurface));
+        OnPropertyChanged(nameof(VideoRenderer));
         OnPropertyChanged(nameof(IsMediaPlaying));
         OnPropertyChanged(nameof(MediaStateText));
         OnPropertyChanged(nameof(MediaPositionText));

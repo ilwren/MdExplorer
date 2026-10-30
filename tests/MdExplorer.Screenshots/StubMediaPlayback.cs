@@ -14,7 +14,8 @@ internal sealed class StubMediaPlayback : IMediaPlaybackService
         BackendName: "截图假后端（StubMediaPlayback）",
         Diagnostic: "截图环境没有真实解码器；真机由平台后端播放。");
 
-    public MediaRendererKind RendererKind => MediaRendererKind.FramePush;
+    // 无头环境没有原生画面宿主，截图里视频项保持“不可内嵌播放”，不显示空的画面框。
+    public MediaRendererKind RendererKind => MediaRendererKind.None;
 
     public MediaPlaybackState State { get; private set; } = MediaPlaybackState.Idle;
     public TimeSpan Position { get; private set; } = TimeSpan.FromSeconds(42);

@@ -1,18 +1,25 @@
 using Android.Media;
+using Android.Views;
 using MdExplorer.Platform.Abstractions;
 
 namespace MdExplorer.Android;
 
 /// <summary>
-/// Android 内嵌播放：用系统 <see cref="MediaPlayer"/> 播放音频轨。
-/// 第一切片只做音频——视频画面需要 SurfaceView/TextureView 与 Avalonia 合成的专门桥接，
-/// 在没有真机验证前不声称支持；视频文件仍走“系统应用打开”，能力位如实为 false。
+/// Android 内嵌播放：用系统 <see cref="MediaPlayer"/> 同时负责解封装、解码与音画同步。
+/// <para>
+/// 音频不需要任何宿主帮助；视频画面由宿主提供 <see cref="TextureView"/> 的 <see cref="Surface"/>
+/// （见 <see cref="AndroidVideoSurfaceAttachment"/>），这里只负责在画面就绪时 <c>SetSurface</c>。
+/// 也就是说：这一端不解析容器、不解码、不做同步，全部交给 MediaPlayer——
+/// 换来的是零原生依赖，代价是容器/编码覆盖由设备决定（AVI/FLV/WMV 系统不认）。
+/// </para>
 /// </summary>
-public sealed class AndroidMediaPlaybackService : IMediaPlaybackService, IMediaPlaybackPoller, IMediaProbe
+public sealed class AndroidMediaPlaybackService : IMediaPlaybackService, IMediaPlaybackPoller, IMediaProbe, IMediaVideoRenderer
 {
     private readonly MediaPlayer _player = new();
     private readonly object _gate = new();
     private string? _path;
+    private Surface? _surface;
+    private bool _videoAttached;
     private bool _prepared;
     private bool _disposed;
 
@@ -33,15 +40,13 @@ public sealed class AndroidMediaPlaybackService : IMediaPlaybackService, IMediaP
 
     public MediaPlaybackCapabilities Capabilities { get; } = new(
         CanPlayAudio: true,
-        CanPlayVideo: false,
+        CanPlayVideo: true,
         BackendName: "Android MediaPlayer",
-        Diagnostic: "音频在应用内播放；视频画面请用系统应用打开（本版未提供内嵌视频画面）。");
+        Diagnostic: "音频与视频都由设备自带的 MediaPlayer 解码，画面画在预览卡里的 TextureView 上；"
+                    + "系统不认的容器（AVI/FLV/WMV）仍交系统应用打开。");
 
-    /// <summary>
-    /// 当前只把音频接进 Avalonia：视频画面要么走 MediaPlayer + SurfaceView 的原生宿主，
-    /// 要么走 MediaCodec + ImageReader 的帧回调；两者都未在本版接线，所以如实报 None。
-    /// </summary>
-    public MediaRendererKind RendererKind => MediaRendererKind.None;
+    /// <summary>画面交给宿主托管的原生窗口，后端不产出帧。</summary>
+    public MediaRendererKind RendererKind => MediaRendererKind.NativeSurface;
 
     public MediaPlaybackState State { get; private set; } = MediaPlaybackState.Idle;
     public TimeSpan Position => _prepared ? TimeSpan.FromMilliseconds(_player.CurrentPosition) : TimeSpan.Zero;
@@ -55,13 +60,6 @@ public sealed class AndroidMediaPlaybackService : IMediaPlaybackService, IMediaP
     {
         if (_disposed)
             return Task.FromResult(false);
-        if (FileKindIsVideo(path))
-        {
-            LastError = "Android 内嵌播放当前只支持音频；视频请用系统应用打开。";
-            State = MediaPlaybackState.Failed;
-            RaiseChanged();
-            return Task.FromResult(false);
-        }
 
         lock (_gate)
         {
@@ -72,6 +70,9 @@ public sealed class AndroidMediaPlaybackService : IMediaPlaybackService, IMediaP
                 _path = path;
                 _player.SetDataSource(path);
                 _player.SetVolume(VolumePercent / 100f, VolumePercent / 100f);
+                // 画面可能先于文件就绪（TextureView 先建好），也可能晚到；两边都尝试接一次。
+                if (_surface is not null)
+                    _player.SetSurface(_surface);
                 _player.Prepare();
                 _prepared = true;
                 LastError = null;
@@ -169,6 +170,7 @@ public sealed class AndroidMediaPlaybackService : IMediaPlaybackService, IMediaP
             extractor.SetDataSource(path);
             var videoMime = default(string);
             var audioMime = default(string);
+            string? size = null;
             for (var i = 0; i < extractor.TrackCount; i++)
             {
                 using var format = extractor.GetTrackFormat(i);
@@ -176,9 +178,18 @@ public sealed class AndroidMediaPlaybackService : IMediaPlaybackService, IMediaP
                 if (mime is null)
                     continue;
                 if (mime.StartsWith("video/", StringComparison.Ordinal))
-                    videoMime ??= mime;
+                {
+                    if (videoMime is null)
+                    {
+                        videoMime = mime;
+                        if (format.ContainsKey(MediaFormat.KeyWidth) && format.ContainsKey(MediaFormat.KeyHeight))
+                            size = $"{format.GetInteger(MediaFormat.KeyWidth)}×{format.GetInteger(MediaFormat.KeyHeight)}";
+                    }
+                }
                 else if (mime.StartsWith("audio/", StringComparison.Ordinal))
+                {
                     audioMime ??= mime;
+                }
             }
 
             if (videoMime is null && audioMime is null)
@@ -190,14 +201,14 @@ public sealed class AndroidMediaPlaybackService : IMediaPlaybackService, IMediaP
             {
                 var videoDecodable = HasDecoder(videoMime);
                 var audioDecodable = audioMime is null || HasDecoder(audioMime);
-                var track = Describe(videoMime, audioMime);
+                var track = size is null ? Describe(videoMime, audioMime) : $"{Describe(videoMime, audioMime)} · {size}";
                 if (!videoDecodable || !audioDecodable)
                     return Task.FromResult(new MediaProbeResult(
                         false, true, audioMime is not null, $"系统解码器缺少对应组件 · {track}",
                         "设备未提供该编码的解码器；可用系统应用打开，或安装带软件解码器的播放器。"));
                 return Task.FromResult(new MediaProbeResult(
-                    false, true, audioMime is not null, $"含视频轨 · {track}",
-                    "视频画面需要原生宿主（SurfaceView/ImageReader），本版尚未接线；音频可内嵌播放，画面请用系统应用打开。"));
+                    true, true, audioMime is not null, $"视频 · {track}",
+                    size is null ? null : "画面将由设备解码后画在预览卡内；拖动进度或切后台时画面可能短暂黑屏。"));
             }
 
             if (!HasDecoder(audioMime!))
@@ -254,10 +265,50 @@ public sealed class AndroidMediaPlaybackService : IMediaPlaybackService, IMediaP
 
     private void RaiseChanged() => PlaybackChanged?.Invoke(this, EventArgs.Empty);
 
-    private static bool FileKindIsVideo(string path)
+    /// <summary>
+    /// 宿主把 TextureView 的 Surface 交过来。允许在 <c>Prepare</c> 之前到达（暂存，打开时再设），
+    /// 也允许在播放中到达（切清晰度、旋转屏幕后重建画面）。
+    /// </summary>
+    public bool AttachVideoSurface(object surface)
     {
-        var extension = Path.GetExtension(path);
-        return extension.ToLowerInvariant() is ".mp4" or ".mkv" or ".webm" or ".avi" or ".mov" or ".m4v" or ".3gp";
+        if (surface is not Surface androidSurface)
+            return false;
+        lock (_gate)
+        {
+            if (_disposed)
+                return false;
+            _surface = androidSurface;
+            _videoAttached = true;
+            if (_prepared)
+            {
+                try { _player.SetSurface(androidSurface); }
+                catch (Java.Lang.IllegalStateException)
+                {
+                    // 播放器正在切换状态；保留下一次 Open/SetSurface 的机会，不把异常丢给 UI 线程。
+                }
+            }
+        }
+        RaiseChanged();
+        return true;
+    }
+
+    public void DetachVideoSurface()
+    {
+        lock (_gate)
+        {
+            if (!_videoAttached)
+                return;
+            _videoAttached = false;
+            _surface = null;
+            if (_prepared && !_disposed)
+            {
+                try { _player.SetSurface(null); }
+                catch (Java.Lang.IllegalStateException)
+                {
+                }
+            }
+        }
+        RaiseChanged();
     }
 
     public ValueTask DisposeAsync()

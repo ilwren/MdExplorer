@@ -91,6 +91,24 @@ public interface IMediaPlaybackService : IAsyncDisposable
 }
 
 /// <summary>
+/// 需要宿主提供原生画面窗口的后端实现它（<see cref="MediaRendererKind.NativeSurface"/>）。
+/// <para>
+/// <paramref name="surface"/> 是平台对象，由宿主侧的桥接交出：Android 为
+/// <c>Android.Views.Surface</c>（来自 TextureView 的 SurfaceTexture），Windows 为 HWND。
+/// 跨平台端口刻意只用 <see cref="object"/>，避免抽象层反向依赖平台类型；
+/// 实现必须校验类型，不是自己认识的对象就返回 false，而不是抛异常。
+/// </para>
+/// </summary>
+public interface IMediaVideoRenderer
+{
+    /// <summary>宿主画面就绪。返回是否被后端接受（例如播放器还没 Prepare 时也应接受并暂存）。</summary>
+    bool AttachVideoSurface(object surface);
+
+    /// <summary>宿主画面销毁或控件脱离视觉树。</summary>
+    void DetachVideoSurface();
+}
+
+/// <summary>
 /// 没有位置回调的后端（如 Android MediaPlayer）实现它，宿主定时器调用即可把进度推给 UI。
 /// 支持回调的后端不必实现。
 /// </summary>

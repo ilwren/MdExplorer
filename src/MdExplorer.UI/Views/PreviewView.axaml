@@ -6,6 +6,7 @@
              xmlns:ae="using:AvaloniaEdit"
              xmlns:vm="using:MdExplorer.UI.ViewModels"
              xmlns:views="using:MdExplorer.UI.Views"
+             xmlns:media="using:MdExplorer.UI.Media"
              x:Class="MdExplorer.UI.Views.PreviewView"
              x:DataType="vm:PreviewViewModel"
              Background="Transparent">
@@ -111,6 +112,12 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </md:MdScrollViewer>
+          <!-- 原生画面：画面由平台解码器画在这块窗口里（Android TextureView）。
+               它不能被 Avalonia 内容覆盖，所以卡片不做圆角裁剪，浮层也不会盖在它上面。 -->
+          <Border IsVisible="{Binding ShowNativeVideoSurface}" VerticalAlignment="Top" Height="280"
+                  Background="#000000" CornerRadius="12" ClipToBounds="True">
+            <media:MediaSurfaceHost Renderer="{Binding VideoRenderer}" AutomationProperties.Name="视频画面" />
+          </Border>
           <!-- 内嵌音视频：能力位为真才出现播放控件，否则只留后端诊断与“系统应用打开”。 -->
           <Border IsVisible="{Binding IsMedia}" VerticalAlignment="Top"
                   Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"

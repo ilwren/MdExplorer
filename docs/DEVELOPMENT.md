@@ -683,6 +683,18 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 >
 > 已知边界：WinRT `MediaPlayer` 在未打包桌面进程与精简系统上可能不可用（已按构造期捕获降级）；GStreamer 插件缺失时打开会失败并显示原因，但错误文本来自平台、不统一；Android 的 `MediaPlayer` 没有位置回调，全靠宿主定时器轮询。三者都只有单元测试与编译证据，**真实播放、A/V 同步与设备差异仍须真机/桌面会话验收**。
 
+> **v0.32 Android 内嵌视频画面（原生画面宿主，已落地到代码，真机待验收）**：v0.31 三端只到音频，因为“画面归谁画”没有答案。本版给出答案并只在一端落地：**画面归平台，宿主只提供窗口**。
+>
+> 先核实可行性再动手：Avalonia 的 Android 顶层实现了 `INativeControlHostImpl`（`AndroidNativeControlHostImpl`），`NativeControlHost.CreateNativeControlCore` 收到的父句柄是 `AndroidViewControlHandle`，子 View 会被 `AddView` 进 `AvaloniaView`（ViewGroup）并由 `ShowInBounds` 按控件坐标定位——也就是说**不需要自制合成器**，`NativeControlHost` 就能把原生视图摆到 Avalonia 布局里。
+>
+> 选 `TextureView` 而不是 `SurfaceView`：SurfaceView 是独立窗口层，永远压在 Avalonia 之上，卡片的圆角、背景与任何浮层都盖不住它；TextureView 参与普通视图合成，能被裁剪、能被 Avalonia 内容覆盖。代价是要硬件加速（Avalonia 的 GL 后端满足）且多一次纹理拷贝。画面对象取 `SurfaceTexture` 包成 `Surface` 交给 `MediaPlayer.SetSurface`。
+>
+> 跨平台端口只加了两个成员，都刻意不引用平台类型：`IMediaVideoRenderer.AttachVideoSurface(object surface) / DetachVideoSurface()`（平台对象用 `object` 传，实现方负责类型校验），以及 UI 侧 `MediaSurfaceBridge.Factory` + `IMediaSurfaceAttachment`（`NativeControlHost` 只认这两个，不认 Android/Windows 具体类型）。`MediaSurfaceHost` 负责三件事：画面就绪时把对象交给后端、画面被系统收回时通知后端、切换后端时把已就绪的画面对接给新后端。**没注册工厂时它回落成 `NativeControlHost` 的默认空控件，绝不会假装有画面。**
+>
+> 视频可播的判定也收紧了：`CanPlayMediaInApp` 对视频要求 `CanPlayVideo && RendererKind != None`——只有能力位没有画面通道的后端算“不能播”，否则就是“有声无画”的假播放。Android 的探测同步升级：有视频轨且编解码器齐全时改为 `CanPlay=true` 并附带分辨率，容器不认/缺解码器仍是两种不同文案。
+>
+> 本版边界：只有 Android 有画面，Windows（需要 HWND 子窗口或 D3D 帧服务）与 Linux（Wayland 只能 `appsink` 取帧）仍交系统应用；原生画面在 Avalonia 视觉上不可被浮层覆盖（TextureView 参与合成，但它的内容仍是独立图层），拖动进度或切后台可能出现短暂黑屏；`RenderTargetBitmap` 截图抓不到原生画面内容。**没有任何真机证据**，编译与单元测试只能证明接线正确。
+
 ### 6.9 Phase 2 候选池（先定边界不排期）
 
 双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文档工作台后续切片（PDF 目录/文搜与 SAF 文本安全写回）、自动化第二切片（多工作流、显式来源文件夹与 SAF 安全原语；分支/定时触发须先另立安全模型）、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
@@ -1136,6 +1148,8 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | 2026-10-29 | **v0.30 对照窗格标签与交换 + SAF 文本安全写回 + 内嵌音视频端口**：B 新增本地标签轨（点标签只切 B 的活动标签、`ShowSecondaryTabs` 单标签时收起）、B 标题行溢出菜单与 `SwapPanesCommand`；平台抽象新增 `IFileSystemService.OpenWriteAsync`，抽出共用 `TextFileCodec` 并新增 `StorageTextFileService` + `DelegatingTextFileService`，SAF 文本改为“校验指纹 → 就地覆盖 → 写后复核 → 失败尽力恢复”且不宣称原子，文档工作台去掉 SAF 只读限制；新增 `IMediaPlaybackService`/`IMediaPlaybackPoller` 端口，Android 用系统 `MediaPlayer` 提供音频内嵌播放，桌面无后端时由 `UnsupportedMediaPlaybackService` 明确自述。 | push run `40896788791` / PR run `40896801552`（sha `6a81eed`）六 Job 全绿：217 单元测试 Ubuntu/Windows 双跑（新增 `StorageTextFileTests` 5 例、`MediaPlaybackTests` 5 例）、72 截图测试分四进程 18/18/18/18 全过（新增 `71-large-audio-playback`、`72-compact-audio-playback`、`73-xlarge-dual-pane-tabs`，PNG 61→64）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK |
 
 | 2026-10-29 | **v0.31 三端系统媒体栈 + 播放前能力探测**：Windows 接 WinRT `MediaPlayer`（Media Foundation）、Linux 接系统 GStreamer `playbin`（P/Invoke），Android 沿用系统 `MediaPlayer` 并新增 `MediaExtractor`/`MediaCodec` 能力探测；`IMediaPlaybackService` 新增 `RendererKind` 契约与可选 `IMediaProbe`，UI 对未知/不支持/含视频轨分别给出事实文案。本版不捆绑任何第三方原生媒体库，视频画面仍交系统应用。 | push run `40903621804` / PR run `40903635978`（sha `c6e5d45`）六 Job 全绿：220 单元测试 Ubuntu/Windows 双跑（新增探测与渲染模式 3 例）、73 截图测试分四进程 19/18/18/18、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK；真机与桌面会话的播放呈现待验收 |
+
+| 2026-10-29 | **v0.32 Android 内嵌视频画面**：核实 Avalonia Android 已实现 `INativeControlHostImpl` 后，用 `TextureView` 作原生画面宿主接管视频输出（`MediaPlayer.SetSurface`），新增 `IMediaVideoRenderer` 平台无关端口与 UI 侧 `MediaSurfaceBridge`/`MediaSurfaceHost`；视频可播判定改为“能力位 + 画面通道”双条件，Android 探测对含视频轨且解码器齐全的文件改报可播并附分辨率。Windows/Linux 视频仍交系统应用。 | push/PR CI 六 Job；新增 2 例断言原生画面后端与“有声无画”拒绝；真机播放待验收 |
 
 ### F. 文档变更规则
 
