@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 1.19 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.19 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 1.19 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 3 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 6.87 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 8.43 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 859 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 859 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 859 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 5 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 4.99 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 4.56 sec).
   MdExplorer.Domain -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/bin/Release/net10.0/MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/bin/Release/net10.0/MdExplorer.Platform.Abstractions.dll
   MdExplorer.Application -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/bin/Release/net10.0/MdExplorer.Application.dll
@@ -45,26 +45,26 @@ Build succeeded.
     14 Warning(s)
     0 Error(s)
 
-Time Elapsed 00:00:37.99
+Time Elapsed 00:00:37.83
 Discovered 79 screenshot tests; running in 4 isolated processes.
 === Screenshot partition 1/4: 20 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3068).
+Blame: Attaching crash dump utility to process dotnet (3304).
 
-Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 29 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 30 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 2/4: 20 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3275).
+Blame: Attaching crash dump utility to process dotnet (3509).
 
-Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 23 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 25 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 3/4: 20 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3472).
-[xUnit.net 00:00:28.09]     MdExplorer.Screenshots.ScreenshotTests.Large_VideoInlineGate [FAIL]
-  Failed MdExplorer.Screenshots.ScreenshotTests.Large_VideoInlineGate [120 ms]
+Blame: Attaching crash dump utility to process dotnet (3708).
+[xUnit.net 00:00:30.08]     MdExplorer.Screenshots.ScreenshotTests.Large_VideoInlineGate [FAIL]
+  Failed MdExplorer.Screenshots.ScreenshotTests.Large_VideoInlineGate [118 ms]
   Error Message:
    video=True inline=False state=此平台暂不支持内嵌播放 backend=截图假后端（StubMediaPlayback）
   Stack Trace:
@@ -76,4 +76,4 @@ Blame: Attaching crash dump utility to process dotnet (3472).
    at MdExplorer.Screenshots.ScreenshotTests.Large_VideoInlineGate() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs:line 1515
 --- End of stack trace from previous location ---
 
-Failed!  - Failed:     1, Passed:    19, Skipped:     0, Total:    20, Duration: 27 s - MdExplorer.Screenshots.dll (net10.0)
+Failed!  - Failed:     1, Passed:    19, Skipped:     0, Total:    20, Duration: 28 s - MdExplorer.Screenshots.dll (net10.0)
