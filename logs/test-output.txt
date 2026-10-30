@@ -1,7 +1,8 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:01.10]     MdExplorer.Tests.KeePassPreviewTests.Kdbx3Salsa20InnerStreamAlsoOpens [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx3Salsa20InnerStreamAlsoOpens [60 ms]
+[xUnit.net 00:00:01.61]     MdExplorer.Tests.KeePassPreviewTests.Kdbx3Salsa20InnerStreamAlsoOpens [FAIL]
+[xUnit.net 00:00:01.61]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [FAIL]
+  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx3Salsa20InnerStreamAlsoOpens [14 ms]
   Error Message:
    System.IO.InvalidDataException : 密码库头的字段长度异常。
   Stack Trace:
@@ -10,10 +11,7 @@ A total of 1 test files matched the specified pattern.
    at MdExplorer.Tests.KeePassPreviewTests.Kdbx3Salsa20InnerStreamAlsoOpens() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 478
    at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
    at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
-[xUnit.net 00:00:01.15]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [FAIL]
-[xUnit.net 00:00:01.33]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
-[xUnit.net 00:00:01.34]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4RejectsWrongPasswordWithoutLeakingContent [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [11 ms]
+  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [7 ms]
   Error Message:
    System.IO.InvalidDataException : KDF 参数里出现未知类型。
   Stack Trace:
@@ -23,7 +21,9 @@ A total of 1 test files matched the specified pattern.
    at MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 425
    at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
    at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
-  Failed MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [232 ms]
+[xUnit.net 00:00:01.69]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
+[xUnit.net 00:00:01.70]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4RejectsWrongPasswordWithoutLeakingContent [FAIL]
+  Failed MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [83 ms]
   Error Message:
    Assert.True() Failure
 Expected: True
@@ -46,15 +46,8 @@ Actual:   typeof(System.IO.InvalidDataException)
    at MdExplorer.UI.Preview.KeePassReader.DeriveKey(Header header, Byte[] composite, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/KeePassDatabases.cs:line 257
    at MdExplorer.UI.Preview.KeePassReader.Read(Byte[] data, String password, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/KeePassDatabases.cs:line 132
    at MdExplorer.Tests.KeePassPreviewTests.<>c__DisplayClass3_0.<Kdbx4RejectsWrongPasswordWithoutLeakingContent>b__0() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 455
-[xUnit.net 00:00:01.94]     MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewKeepsCheapTextPayload [FAIL]
-  Failed MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewKeepsCheapTextPayload [4 ms]
-  Error Message:
-   Assert.NotNull() Failure: Value is null
-  Stack Trace:
-     at MdExplorer.Tests.SearchIslandAndPreviewTabsTests.ClosingPreviewKeepsCheapTextPayload() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/SearchIslandAndPreviewTabsTests.cs:line 102
---- End of stack trace from previous location ---
-[xUnit.net 00:00:03.79]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen [2 s]
+[xUnit.net 00:00:03.09]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen [FAIL]
+  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4Argon2AndUncompressedPayloadsAlsoOpen [1 s]
   Error Message:
    System.IO.InvalidDataException : KDF 参数里出现未知类型。
   Stack Trace:
@@ -65,4 +58,4 @@ Actual:   typeof(System.IO.InvalidDataException)
    at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
    at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
 
-Failed!  - Failed:     6, Passed:   253, Skipped:     0, Total:   259, Duration: 2 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     5, Passed:   254, Skipped:     0, Total:   259, Duration: 2 s - MdExplorer.Tests.dll (net10.0)
