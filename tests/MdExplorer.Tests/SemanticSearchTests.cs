@@ -50,7 +50,13 @@ public sealed class SemanticSearchTests : IDisposable
         Assert.True(built.IsCurrent);
         Assert.Equal("Test embedding", Assert.Single(built.ModelNames));
 
-        var hits = await _semantic.SearchAsync(
+        // Reopen a fresh service to exercise the binary snapshot loader, not only the in-memory cache.
+        var reopened = new SemanticSearchService(_dataDir, _fileIndex, _settings, new FakeEmbeddings());
+        Assert.True((await reopened.GetStatsAsync(TestContext.Current.CancellationToken)).IsCurrent);
+        var staleRevision = new SemanticSearchService(_dataDir, _fileIndex, _settings, new FakeEmbeddings("revision-b"));
+        Assert.False((await staleRevision.GetStatsAsync(TestContext.Current.CancellationToken)).IsCurrent);
+
+        var hits = await reopened.SearchAsync(
             "find a pet note", null, 10, TestContext.Current.CancellationToken);
         var hit = Assert.Single(hits);
         Assert.Equal(notes, hit.Item.FullPath);
@@ -60,9 +66,9 @@ public sealed class SemanticSearchTests : IDisposable
         var bytes = await File.ReadAllBytesAsync(indexPath);
         Assert.DoesNotContain("feline", Encoding.Latin1.GetString(bytes), StringComparison.Ordinal);
 
-        await _semantic.ClearAsync(TestContext.Current.CancellationToken);
+        await reopened.ClearAsync(TestContext.Current.CancellationToken);
         Assert.False(File.Exists(indexPath));
-        Assert.Equal(0, (await _semantic.GetStatsAsync(TestContext.Current.CancellationToken)).IndexedItemCount);
+        Assert.Equal(0, (await reopened.GetStatsAsync(TestContext.Current.CancellationToken)).IndexedItemCount);
     }
 
     [Fact]
@@ -75,10 +81,10 @@ public sealed class SemanticSearchTests : IDisposable
             await _semantic.RebuildAsync(null, TestContext.Current.CancellationToken));
     }
 
-    private sealed class FakeEmbeddings : ITextEmbeddingService
+    private sealed class FakeEmbeddings(string revision = "revision-a") : ITextEmbeddingService
     {
         public IReadOnlyList<TextEmbeddingModel> GetAvailableModels() =>
-            [new TextEmbeddingModel("test-embed", "Test embedding", "revision-a", 2)];
+            [new TextEmbeddingModel("test-embed", "Test embedding", revision, 2)];
 
         public float[] Embed(string modelId, string text, bool isQuery, CancellationToken cancellationToken)
         {
