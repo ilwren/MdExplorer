@@ -181,12 +181,13 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MDEXPLORER_RUN_REAL_MODEL_TESTS: "1"
-      MDEXPLORER_MODELS: ${{ runner.temp }}/mdexplorer-real-models
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+      - name: Configure model directory
+        run: echo "MDEXPLORER_MODELS=$RUNNER_TEMP/mdexplorer-real-models" >> "$GITHUB_ENV"
       - name: Download pinned BGE and MiniLM weights
         run: scripts/fetch-ai-models.sh --dir "$MDEXPLORER_MODELS"
       - name: Verify downloaded model files
