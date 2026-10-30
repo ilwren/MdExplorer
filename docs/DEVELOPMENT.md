@@ -695,6 +695,18 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 >
 > 本版边界：只有 Android 有画面，Windows（需要 HWND 子窗口或 D3D 帧服务）与 Linux（Wayland 只能 `appsink` 取帧）仍交系统应用；原生画面在 Avalonia 视觉上不可被浮层覆盖（TextureView 参与合成，但它的内容仍是独立图层），拖动进度或切后台可能出现短暂黑屏；`RenderTargetBitmap` 截图抓不到原生画面内容。**没有任何真机证据**，编译与单元测试只能证明接线正确。
 
+> **v0.33 浮窗内容、滚到底补齐与推帧画面（帧通道已落地，Linux 待真机验收）**：本版处理两处用户可见问题，并把视频画面从「只有 Android」推进到「Android 原生画面 + Linux 推帧」。
+>
+> **浮窗只显示 `Preview`，而 `Preview` 由选集事件驱动**——这是 v0.32「窗口在、内容不展开」的根因面：重复点同一项、上一步把预览清空、B 窗格握着预览源时，选集都不会再喂内容，浮窗就展开成一片空白。修法两条：`OnFileOpened` 先展开浮窗，再用 `EnsurePreviewContentAsync` 显式核对内容来源（已就位时不重复解码）；`PreviewViewModel.LoadAsync` 在每处 `await` 之后校验代次，旧代次不许在停止媒体/探测返回后把新选中项的状态清掉。视图侧新增 `Preview.PropertyChanged` 监听：`CurrentItem` 一变就把被收成标题条的浮窗重新展开——只监听 `IsPreviewPageOpen` 不够，因为它从头到尾都是 true。
+>
+> **分页从「逐页追加」改为「到底补齐」**：滚到接近底部时不再只是追加一页，而是 `BeginBackgroundFill` 每批物化 24 行、每批让出 UI 线程，直到剩余条目全部就绪；`EnsureVisibleRange(可见行数估算)` 先保证一屏放得下的行已就绪，只增不减（缩小窗口不会撤掉已物化的行，否则选集、滚动位置与缩略图都会抖）。页脚保留「加载更多」的逐页语义，转圈改绑 `IsPagingBusy`（手动加载与后台补齐都算忙）。导航/筛选/刷新会抬升 `_pagingGeneration`，后台循环据此自行退出。无头单测没有消息泵，`YieldToUiAsync` 此时连续执行，避免跨线程改 `ObservableCollection` 让分页失去确定性。`RevealItemsByPaths`、全选与软刷新选集仍以完整结果集为准，随后台补齐只增不减。
+>
+> **画面通道一分为二**：`MediaRendererKind.NativeSurface`（平台画，宿主只给窗口，Android 已落地）与 `MediaRendererKind.FramePush`（后端推帧、Avalonia 画）。新增端口 `IMediaFrameSink`（BGRA8888 + 单独行距，解码器补过行尾也能正确拷贝）与 `IMediaVideoFrameSource`（`AttachFrameSink`/`DetachFrameSink`），UI 侧 `MediaFrameSurface` 用 `WriteableBitmap` 等比绘制，解码线程只拷进托管数组后交给 UI 线程，绝不阻塞解码。`CanPlayMediaInApp` 对 `FramePush` 追加「必须真的交得出帧呈现面」，否则仍是「有声无画」的假播放。
+>
+> Linux 的 GStreamer 后端据此接上 `appsink`：playbin 的 `video-sink` 指向 `appsink name=mdexplorer-vsink caps=video/x-raw,format=BGRA sync=true max-buffers=2 drop=true`，取帧线程按播放时钟拉样本、读 caps 的宽高、用 `GstMapInfo` 的前三个稳定字段取数据与长度，拷成紧凑帧后交给宿主。`appsink`/`videoconvert`/`libgstapp-1.0` 缺任何一项都只报「视频交系统应用打开」，音频完全不受影响；`GstMapInfo` 的结构体大小随版本变化，因此用一块 128 字节的原生内存而不是托管结构体，避免写越界。该后端同时补上 `IMediaProbe`（容器清单 + appsink 可用性），不再停留在「能力未知」。
+>
+> 本版边界：**Windows 仍无视频画面**——`IMFMediaEngine`/`IMFSourceReader` 需要手写 COM vtable 或自带原生组件，WinRT `MediaPlayer` 又只能把画面交给 Composition，本版不做未经真机验证的 COM 互操作，Windows 继续如实交系统应用打开。Linux 这条路径**没有任何 GUI 会话的真实播放证据**（CI 无 GStreamer 插件与显示设备），只能证明接线、契约与降级路径；A/V 同步、Wayland/X11 差异、发屏与 seek 抖动都要真机验收。推帧路径的每帧一次托管分配（`new byte[]`）在 1080p30 下约 250 MB/s，后续应换帧池。
+
 ### 6.9 Phase 2 候选池（先定边界不排期）
 
 双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文档工作台后续切片（PDF 目录/文搜与 SAF 文本安全写回）、自动化第二切片（多工作流、显式来源文件夹与 SAF 安全原语；分支/定时触发须先另立安全模型）、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
@@ -1149,6 +1161,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 
 | 2026-10-29 | **v0.31 三端系统媒体栈 + 播放前能力探测**：Windows 接 WinRT `MediaPlayer`（Media Foundation）、Linux 接系统 GStreamer `playbin`（P/Invoke），Android 沿用系统 `MediaPlayer` 并新增 `MediaExtractor`/`MediaCodec` 能力探测；`IMediaPlaybackService` 新增 `RendererKind` 契约与可选 `IMediaProbe`，UI 对未知/不支持/含视频轨分别给出事实文案。本版不捆绑任何第三方原生媒体库，视频画面仍交系统应用。 | push run `40903621804` / PR run `40903635978`（sha `c6e5d45`）六 Job 全绿：220 单元测试 Ubuntu/Windows 双跑（新增探测与渲染模式 3 例）、73 截图测试分四进程 19/18/18/18、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK；真机与桌面会话的播放呈现待验收 |
 
+| 2026-10-30 | **v0.33 浮窗内容补齐 + 滚到底后台补齐 + 推帧画面**：浮窗预览空白改为 `OnFileOpened` 显式核对内容来源 + `LoadAsync` 每处 await 校验代次 + 视图监听 `CurrentItem` 重新展开；分页滚到底改 `BeginBackgroundFill`（24 条/批、每批让出 UI 线程）并新增 `EnsureVisibleRange`；新增 `IMediaFrameSink`/`IMediaVideoFrameSource` 端口与 `MediaFrameSurface`，Linux GStreamer 用 `appsink` 取 BGRA 帧推给 Avalonia，缺插件时如实降级。 | 见本节 CI 结论（push run / PR run）|
 | 2026-10-29 | **v0.32 Android 内嵌视频画面**：核实 Avalonia Android 已实现 `INativeControlHostImpl` 后，用 `TextureView` 作原生画面宿主接管视频输出（`MediaPlayer.SetSurface`），新增 `IMediaVideoRenderer` 平台无关端口与 UI 侧 `MediaSurfaceBridge`/`MediaSurfaceHost`；视频可播判定改为“能力位 + 画面通道”双条件，Android 探测对含视频轨且解码器齐全的文件改报可播并附分辨率。Windows/Linux 视频仍交系统应用。 | push run `41011884151` / PR run `41011889991`（sha `5ec8c2c`）六 Job 全绿：223 单元测试 Ubuntu/Windows 双跑（新增原生画面、有声无画、探测否决 3 例）、74 截图测试分四进程 19/19/18/18、PNG 64→65（新增 `74-large-media-probe-rejected`）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK（含 trimming/AOT） |
 
 ### F. 文档变更规则

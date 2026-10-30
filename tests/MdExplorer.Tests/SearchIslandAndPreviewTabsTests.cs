@@ -156,7 +156,8 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         shell.OnFileOpened(file);
         Assert.True(shell.IsPreviewPageOpen);
 
-        for (var i = 0; i < 100 && !shell.Preview.HasItem; i++)
+        // HasItem 在解码之前就置位了，所以要等内容真正落地再断言。
+        for (var i = 0; i < 100 && shell.Preview.TextContent is null; i++)
             await Task.Delay(20);
 
         Assert.True(shell.Preview.HasItem);
