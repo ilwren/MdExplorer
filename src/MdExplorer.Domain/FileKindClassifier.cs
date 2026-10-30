@@ -8,6 +8,14 @@ public enum OfficeDocumentFormat
     Spreadsheet,
 }
 
+/// <summary>可由内置只读器呈现的 OpenDocument 家族（ODF 1.1/1.2 的打包与平面 XML 两种形态）。</summary>
+public enum OpenDocumentFormat
+{
+    Text,
+    Spreadsheet,
+    Presentation,
+}
+
 /// <summary>按扩展名将文件分类。纯静态表，AOT 安全；未命中归 Unknown/Text（以空扩展常见文本名兜底）。</summary>
 public static class FileKindClassifier
 {
@@ -76,6 +84,39 @@ public static class FileKindClassifier
 
     public static bool IsOfficeDocument(FileItem item) => TryGetOfficeDocumentFormat(item, out _);
 
+    /// <summary>
+    /// OpenDocument 家族：ODT/ODS/ODP 是 ZIP 包（content.xml），FODT/FODS/FODP 是单文件平面 XML；
+    /// OTT/OTS/OTP 是模板格式，内部结构与对应文档一致，同样只读呈现。
+    /// </summary>
+    public static bool TryGetOpenDocumentFormat(FileItem item, out OpenDocumentFormat format)
+    {
+        format = default;
+        if (item.IsFolder)
+            return false;
+        switch (item.Extension?.ToLowerInvariant())
+        {
+            case ".odt":
+            case ".ott":
+            case ".fodt":
+                format = OpenDocumentFormat.Text;
+                return true;
+            case ".ods":
+            case ".ots":
+            case ".fods":
+                format = OpenDocumentFormat.Spreadsheet;
+                return true;
+            case ".odp":
+            case ".otp":
+            case ".fodp":
+                format = OpenDocumentFormat.Presentation;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    public static bool IsOpenDocument(FileItem item) => TryGetOpenDocumentFormat(item, out _);
+
     /// <summary>类型的人类可读描述（预览元信息与列表详情列用）。</summary>
     public static string Describe(FileItem item)
     {
@@ -96,7 +137,14 @@ public static class FileKindClassifier
                         OfficeDocumentFormat.Presentation => "PowerPoint 演示文稿",
                         _ => "Excel 工作簿",
                     }
-                    : $"{suffix} · 文档",
+                    : TryGetOpenDocumentFormat(item, out var openFormat)
+                        ? openFormat switch
+                        {
+                            OpenDocumentFormat.Text => "OpenDocument 文本文档",
+                            OpenDocumentFormat.Presentation => "OpenDocument 演示文稿",
+                            _ => "OpenDocument 电子表格",
+                        }
+                        : $"{suffix} · 文档",
             FileKind.Archive => $"{suffix} · 压缩包",
             FileKind.Code => $"{suffix} · 源代码",
             FileKind.Data => $"{suffix} · 数据",

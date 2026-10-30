@@ -83,6 +83,7 @@ public static class BuiltInPreviewProviders
         new ImagePreviewProvider(fileSystem),
         new PdfPreviewProvider(fileSystem),
         new OfficePreviewProvider(fileSystem),
+        new OpenDocumentPreviewProvider(fileSystem),
         new MarkdownPreviewProvider(fileSystem),
         new TextPreviewProvider(fileSystem),
         new HexPreviewProvider(fileSystem),

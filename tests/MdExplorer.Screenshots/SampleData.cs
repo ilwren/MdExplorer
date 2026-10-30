@@ -45,6 +45,8 @@ internal static class SampleData
             WriteSampleDocx(Path.Combine(documents, "报告-终版.docx"));
             WriteSamplePptx(Path.Combine(documents, "产品发布会.pptx"));
             WriteSampleXlsx(Path.Combine(documents, "预算表.xlsx"));
+            WriteSampleOdt(Path.Combine(documents, "采购方案.odt"));
+            WriteSampleOds(Path.Combine(documents, "季度销量.ods"));
             File.WriteAllText(Path.Combine(documents, "todo.txt"), "- [ ] 评审布局稿\n- [x] 定版 API\n");
 
             using (var stream = File.Create(Path.Combine(pictures, "backup-2026.zip")))
@@ -387,6 +389,123 @@ internal static class SampleData
     }
 
     /// <summary>真实 XLSX 样例：两张表、共享关系、样式、数字格式与合并标题。</summary>
+    private const string OdfNamespaces =
+        "xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" " +
+        "xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\" " +
+        "xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\" " +
+        "xmlns:style=\"urn:oasis:names:tc:opendocument:xmlns:style:1.0\" " +
+        "xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" " +
+        "xmlns:xlink=\"http://www.w3.org/1999/xlink\"";
+
+    /// <summary>写一个最小可用的 ODF 包（mimetype + META-INF/manifest.xml + content.xml）。</summary>
+    private static void WriteOpenDocument(string path, string mimetype, string officeBodyName, string body)
+    {
+        var content =
+            $"<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+            $"<office:document-content {OdfNamespaces} office:version=\"1.2\">" +
+            $"<office:body><office:{officeBodyName}>{body}</office:{officeBodyName}></office:body>" +
+            "</office:document-content>";
+        var manifest =
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+            "<manifest:manifest xmlns:manifest=\"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0\">" +
+            $"<manifest:file-entry manifest:full-path=\"/\" manifest:media-type=\"{mimetype}\"/>" +
+            "<manifest:file-entry manifest:full-path=\"content.xml\" manifest:media-type=\"text/xml\"/>" +
+            "</manifest:manifest>";
+
+        using var stream = File.Create(path);
+        using var zip = new ZipArchive(stream, ZipArchiveMode.Create);
+        using (var writer = new StreamWriter(zip.CreateEntry("mimetype", CompressionLevel.NoCompression).Open(), Encoding.ASCII))
+            writer.Write(mimetype);
+        using (var writer = new StreamWriter(zip.CreateEntry("META-INF/manifest.xml").Open(), new UTF8Encoding(false)))
+            writer.Write(manifest);
+        using (var writer = new StreamWriter(zip.CreateEntry("content.xml").Open(), new UTF8Encoding(false)))
+            writer.Write(content);
+    }
+
+    /// <summary>ODT 样例：标题层级 + 正文 + 列表 + 表格，正好覆盖内置只读器还原的结构。</summary>
+    private static void WriteSampleOdt(string path) => WriteOpenDocument(
+        path,
+        "application/vnd.oasis.opendocument.text",
+        "text",
+        """
+        <text:h text:outline-level="1">办公耗材采购方案</text:h>
+        <text:p>本方案覆盖 2026 年第四季度的打印耗材、线材与备件，目标是 <text:span text:style-name="Emphasis">在预算内一次备齐</text:span>。</text:p>
+        <text:h text:outline-level="2">采购清单</text:h>
+        <text:list>
+          <text:list-item><text:p>激光打印机硒鼓 × 6</text:p></text:list-item>
+          <text:list-item><text:p>USB-C 线材 × 20</text:p></text:list-item>
+          <text:list-item><text:p>机械键盘 × 4</text:p></text:list-item>
+        </text:list>
+        <text:h text:outline-level="2">预算分配</text:h>
+        <table:table table:name="预算">
+          <table:table-row>
+            <table:table-cell><text:p>项目</text:p></table:table-cell>
+            <table:table-cell><text:p>数量</text:p></table:table-cell>
+            <table:table-cell><text:p>金额（元）</text:p></table:table-cell>
+          </table:table-row>
+          <table:table-row>
+            <table:table-cell><text:p>硒鼓</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="6"><text:p>6</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="4200"><text:p>4,200</text:p></table:table-cell>
+          </table:table-row>
+          <table:table-row>
+            <table:table-cell><text:p>线材</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="20"><text:p>20</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="980"><text:p>980</text:p></table:table-cell>
+          </table:table-row>
+          <table:table-row>
+            <table:table-cell><text:p>键盘</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="4"><text:p>4</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="1560"><text:p>1,560</text:p></table:table-cell>
+          </table:table-row>
+        </table:table>
+        <text:p>合计 6,740 元，留出 10% 作为应急额度。</text:p>
+        """);
+
+    /// <summary>ODS 样例：两张工作表的数字与文本混排，用来验证重复列与多表结构。</summary>
+    private static void WriteSampleOds(string path) => WriteOpenDocument(
+        path,
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "spreadsheet",
+        """
+        <table:table table:name="一季度">
+          <table:table-row>
+            <table:table-cell><text:p>城市</text:p></table:table-cell>
+            <table:table-cell><text:p>一月</text:p></table:table-cell>
+            <table:table-cell><text:p>二月</text:p></table:table-cell>
+            <table:table-cell><text:p>三月</text:p></table:table-cell>
+          </table:table-row>
+          <table:table-row>
+            <table:table-cell><text:p>上海</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="1820"><text:p>1,820</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="1640"><text:p>1,640</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="2050"><text:p>2,050</text:p></table:table-cell>
+          </table:table-row>
+          <table:table-row>
+            <table:table-cell><text:p>杭州</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="960"><text:p>960</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="1120"><text:p>1,120</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="1310"><text:p>1,310</text:p></table:table-cell>
+          </table:table-row>
+          <table:table-row>
+            <table:table-cell><text:p>成都</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="740"><text:p>740</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="820"><text:p>820</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="905"><text:p>905</text:p></table:table-cell>
+          </table:table-row>
+        </table:table>
+        <table:table table:name="季度合计">
+          <table:table-row>
+            <table:table-cell><text:p>季度</text:p></table:table-cell>
+            <table:table-cell><text:p>销量</text:p></table:table-cell>
+          </table:table-row>
+          <table:table-row>
+            <table:table-cell><text:p>Q1</text:p></table:table-cell>
+            <table:table-cell office:value-type="float" office:value="12365"><text:p>12,365</text:p></table:table-cell>
+          </table:table-row>
+        </table:table>
+        """);
+
     private static void WriteSampleXlsx(string path)
     {
         const string styles = """

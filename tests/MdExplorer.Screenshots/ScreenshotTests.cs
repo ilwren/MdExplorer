@@ -731,6 +731,30 @@ public sealed class ScreenshotTests
         Assert.Contains("明细", shell.Preview.OfficeStatusText);
     });
 
+    // OpenDocument 家族：内置只读器把结构还原成 Markdown，再由既有渲染器呈现，不依赖 LibreOffice。
+    [AvaloniaFact]
+    public async Task Large_OpenDocumentTextPreview() => await CaptureAsync(
+        "77-large-odt-preview.png", 1440, 900, async shell =>
+    {
+        await shell.OpenFolderAsync(DocumentsDir);
+        await shell.Browser.WhenIdleAsync();
+        await SelectByNameAsync(shell, "采购方案.odt", () => shell.Preview.HasMarkdown);
+        Assert.Contains("# 办公耗材采购方案", shell.Preview.MarkdownText, StringComparison.Ordinal);
+        Assert.Contains("| 项目 | 数量 | 金额（元） |", shell.Preview.MarkdownText, StringComparison.Ordinal);
+        Assert.Contains("激光打印机硒鼓 × 6", shell.Preview.MarkdownText, StringComparison.Ordinal);
+    });
+
+    [AvaloniaFact]
+    public async Task Compact_OpenDocumentSheetPreview() => await CaptureAsync(
+        "78-compact-ods-preview.png", 390, 844, async shell =>
+    {
+        shell.IsPreviewPageOpen = true;
+        await shell.OpenFolderAsync(DocumentsDir);
+        await shell.Browser.WhenIdleAsync();
+        await SelectByNameAsync(shell, "季度销量.ods", () => shell.Preview.HasMarkdown);
+        Assert.Contains("## 工作表 · 一季度", shell.Preview.MarkdownText, StringComparison.Ordinal);
+    });
+
     [AvaloniaFact]
     public async Task Large_DocumentWorkbenchPdfDirect() => await CaptureAsync(
         "53-large-pdf-direct-workbench.png", 1440, 900, async shell =>
