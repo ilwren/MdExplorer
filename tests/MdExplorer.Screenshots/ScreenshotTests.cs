@@ -358,16 +358,21 @@ public sealed class ScreenshotTests
             shell.RefreshLocalAiCommand.Execute(null);
             Assert.True(shell.LocalAiModels.First(model => model.Id == "text-embed-zh").Installed);
             Assert.Contains("1/2", shell.LocalAiStatusText, StringComparison.Ordinal);
+            // 刷新会弹一条同文案的提示条；这张图要拍的是卡片本身，别让提示条盖住下面的内容。
+            shell.IsSnackbarVisible = false;
             await Task.CompletedTask;
         },
         afterShow: async window =>
         {
-            // 端侧 AI 卡在设置页靠下：滚到底才能拍到。
-            var scroller = window.GetVisualDescendants().OfType<ScrollViewer>()
-                .OrderByDescending(view => view.Extent.Height)
-                .First();
-            scroller.Offset = new Vector(0, Math.Max(0, scroller.Extent.Height - scroller.Viewport.Height));
-            await Task.Delay(150);
+            // 端侧 AI 卡在设置页中段：直接把卡片滚进视口，比「滚到底再猜」稳。
+            var title = window.GetVisualDescendants().OfType<TextBlock>()
+                .First(block => block.Text == "本地 AI");
+            title.BringIntoView();
+            for (var frame = 0; frame < 15; frame++)
+            {
+                window.CaptureRenderedFrame();
+                await Task.Delay(20);
+            }
         });
 
     /// <summary>Large 常驻抽屉：品牌区必须固定在顶部，只有导航列表随滚动移动。</summary>
