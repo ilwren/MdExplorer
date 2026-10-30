@@ -709,6 +709,20 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 >
 > 本版边界：**Windows 仍无视频画面**——`IMFMediaEngine`/`IMFSourceReader` 需要手写 COM vtable 或自带原生组件，WinRT `MediaPlayer` 又只能把画面交给 Composition，本版不做未经真机验证的 COM 互操作，Windows 继续如实交系统应用打开。Linux 这条路径**没有任何 GUI 会话的真实播放证据**（CI 无 GStreamer 插件与显示设备），只能证明接线、契约与降级路径；A/V 同步、Wayland/X11 差异、发屏与 seek 抖动都要真机验收。推帧路径的每帧一次托管分配（`new byte[]`）在 1080p30 下约 250 MB/s，后续应换帧池。
 
+> **v0.34 Windows 视频画面（MediaComposition 取帧，真机待验收）**：三端最后一块拼上——Windows 不再「有声无画」。
+>
+> 为什么不是把画面直接交给 `MediaPlayer`：WinRT `MediaPlayer` 没有把视频画进外部 HWND/位图的 API；帧服务模式（`IsVideoFrameServerEnabled`）只能拷到 D3D Surface，要自带 D3D 互操作；`IMFMediaEngine`/`IMFSourceReader` 要手写 COM vtable。三条都得真机验证，本版不赌。
+>
+> 实际路线：音频仍由 `MediaPlayer`（Media Foundation）解码，画面用 `MediaComposition` + `MediaClip.CreateFromFileAsync` 按 `PlaybackSession.Position` 调 `GetThumbnailAsync(pos, 480, 270, VideoFramePrecision.NearestFrame)`，`BitmapDecoder.GetSoftwareBitmapAsync(Bgra8, Ignore)` → `CopyToBuffer` → `CryptographicBuffer.CopyToByteArray` → `IMediaFrameSink.PresentFrame`。`RendererKind` 报 `FramePush`，与 Linux appsink 共用同一条宿主通道 `MediaFrameSurface`——UI 一行没改，这正是 v0.33 把「画面交付方式」立成契约的回报。取帧节拍 90 ms（约 12 fps），位置差 <40 ms 跳过重复解码，片尾留 80 ms 余量。
+>
+> 三个必须一起收的坑：①**换文件要清空取帧组合**，否则播新音频时会把上一个视频的帧推上去；②取帧线程 `Join(500)` 超时后**不能** `Dispose` 那个 CTS——线程下一次碰 `WaitHandle` 就抛 `ObjectDisposedException`（`InvalidOperationException` 的子类，会被平台异常过滤器接住，但线程不该这么死）；③`MediaPlayer` 的构造移进 `try`，WinRT 媒体栈缺失时仍落到 `Unavailable` 文案，而不是在宿主启动期把进程带走。另外 `MediaSource.CreateFromUri` 必须收 file URI：Windows 路径的反斜杠会让 `new Uri(path)` 直接抛 `UriFormatException`，UNC 走 `file://server/share`。
+>
+> 能力与降级仍按 v0.32 的双条件：`CanPlayVideo` 只在 WinRT 栈可用时为 true；探测对视频容器**真的建一次取帧组合**，建不出来就 `CanPlay=false` 并写清原因——只有音轨的 `.mp4` 也照此拒绝，宁可不播，也不给「有声无画」。`.mkv/.webm` 能不能真出画取决于系统装没装对应解码器。
+>
+> 同一版修掉 Large 下预览右缘的硬裁：媒体后端名原来放在横向 `StackPanel` 里（子元素拿无限宽度，长文本只能被父级切掉），改成 `Grid` 的 `*` 列 + `MaxLines=2` + 省略号 + ToolTip；「文档工作台 / 压缩包工作台」按钮去掉硬 `MinWidth`，标签加 `TextTrimming`。截图 76 补了两条量右边缘的断言（后端名不越过媒体卡片、打开按钮不越过预览视图）——「属性对、像素被切」的问题只靠肉眼复查会漏。
+>
+> 本版边界：**没有任何 Windows 真机播放证据**。CI 只能证明 Windows TFM 下编译通过、契约与降级路径正确（CI 机器无显示/音频设备，`GetThumbnailAsync` 的真实行为没跑过）。取帧是「摆姿势」不是播放：12 fps、每次取帧一次完整 seek+解码（20–60 ms）、每帧一次托管分配，1080p 下 CPU 明显高于原生播放，快进或大跨度 seek 后音画不同步可能可见；HEVC 需系统扩展、DTS/AC-3 默认缺失。要做到原生流畅播放，需要帧服务（D3D 互操作）或 `IMFMediaEngine` 的 COM 互操作，不在本版。
+
 ### 6.9 Phase 2 候选池（先定边界不排期）
 
 双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文档工作台后续切片（PDF 目录/文搜与 SAF 文本安全写回）、自动化第二切片（多工作流、显式来源文件夹与 SAF 安全原语；分支/定时触发须先另立安全模型）、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
@@ -1164,6 +1178,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | 2026-10-29 | **v0.31 三端系统媒体栈 + 播放前能力探测**：Windows 接 WinRT `MediaPlayer`（Media Foundation）、Linux 接系统 GStreamer `playbin`（P/Invoke），Android 沿用系统 `MediaPlayer` 并新增 `MediaExtractor`/`MediaCodec` 能力探测；`IMediaPlaybackService` 新增 `RendererKind` 契约与可选 `IMediaProbe`，UI 对未知/不支持/含视频轨分别给出事实文案。本版不捆绑任何第三方原生媒体库，视频画面仍交系统应用。 | push run `40903621804` / PR run `40903635978`（sha `c6e5d45`）六 Job 全绿：220 单元测试 Ubuntu/Windows 双跑（新增探测与渲染模式 3 例）、73 截图测试分四进程 19/18/18/18、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK；真机与桌面会话的播放呈现待验收 |
 
 | 2026-10-30 | **v0.33 浮窗内容补齐 + 滚到底后台补齐 + 推帧画面**：浮窗预览空白改为 `OnFileOpened` 显式核对内容来源 + `LoadAsync` 每处 await 校验代次 + 视图监听 `CurrentItem` 重新展开；分页滚到底改 `BeginBackgroundFill`（24 条/批、每批让出 UI 线程）并新增 `EnsureVisibleRange`；新增 `IMediaFrameSink`/`IMediaVideoFrameSource` 端口与 `MediaFrameSurface`，Linux GStreamer 用 `appsink` 取 BGRA 帧推给 Avalonia，缺插件时如实降级；截图 75 暴露的浮窗展开高度丢失改在 `ExpandFloatingPreview` 里显式复位。 | push run `41015929050` / PR run `41015935581`（sha `0fe2df8`）六 Job 全绿：232 单元测试 Ubuntu/Windows 双跑（新增 9 例：后台补齐 5、浮窗内容与代次 2、推帧 2）、76 截图测试分四进程各 19 全过（新增 `75-compact-floating-preview-expand`、`76-large-video-frame-push`，PNG 65→67）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK（含 trimming/AOT） |
+| 2026-10-30 | **v0.34 Windows 视频画面 + 预览右缘排版**：Windows 音频仍走 WinRT `MediaPlayer`（Media Foundation），画面改由 `MediaComposition`/`MediaClip` 按播放位置取缩略帧（480×270、90 ms、位置差 <40 ms 跳过），解成 BGRA 后经 `IMediaFrameSink.PresentFrame` 交给 `MediaFrameSurface`，`RendererKind` 报 `FramePush` 与 Linux appsink 共用一条通道；探测对视频容器真的建一次取帧组合，建不出来即 `CanPlay=false` 并给原因。同时修掉 Large 预览右缘硬裁（后端名改 `Grid` `*` 列 + 换行/省略，工作台按钮去硬 `MinWidth`），截图 76 增加两条右边缘断言。 | push run `41018948935` / PR run `41018954880`（sha `d73a3b3`）六 Job 全绿：232 单元测试 Ubuntu/Windows 双跑、76 截图测试分四进程各 19 全过（PNG 仍 67，截图 76 已换新版）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK；Windows 真机播放呈现待验收（CI 无显示/音频设备） |
 | 2026-10-29 | **v0.32 Android 内嵌视频画面**：核实 Avalonia Android 已实现 `INativeControlHostImpl` 后，用 `TextureView` 作原生画面宿主接管视频输出（`MediaPlayer.SetSurface`），新增 `IMediaVideoRenderer` 平台无关端口与 UI 侧 `MediaSurfaceBridge`/`MediaSurfaceHost`；视频可播判定改为“能力位 + 画面通道”双条件，Android 探测对含视频轨且解码器齐全的文件改报可播并附分辨率。Windows/Linux 视频仍交系统应用。 | push run `41011884151` / PR run `41011889991`（sha `5ec8c2c`）六 Job 全绿：223 单元测试 Ubuntu/Windows 双跑（新增原生画面、有声无画、探测否决 3 例）、74 截图测试分四进程 19/19/18/18、PNG 64→65（新增 `74-large-media-probe-rejected`）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK（含 trimming/AOT） |
 
 ### F. 文档变更规则

@@ -130,7 +130,7 @@ public interface IMediaFrameSink
 }
 
 /// <summary>
-/// 只能把帧推给宿主的后端实现它（Linux GStreamer appsink、未来的 Windows MF 帧服务）。
+/// 只能把帧推给宿主的后端实现它（Linux GStreamer appsink、Windows MediaComposition 取帧）。
 /// 与 <see cref="IMediaVideoRenderer"/> 并列：二者互斥，实现只能选一种，否则“画面在哪”说不清。
 /// </summary>
 public interface IMediaVideoFrameSource

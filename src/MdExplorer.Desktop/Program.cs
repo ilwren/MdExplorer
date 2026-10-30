@@ -20,8 +20,8 @@ internal static class Program
 #endif
         // 系统内置媒体栈：Windows 走 Media Foundation（WinRT MediaPlayer），
         // Linux 走发行版自带的 GStreamer；两端都不捆绑第三方原生库。
-        // 音频两端都已接线；视频画面 Linux 走 appsink 推帧（Wayland 没有可交给解码器的窗口 id），
-        // Windows 仍需要原生 HWND/帧服务宿主，本版如实交系统应用打开。
+        // 音频两端都已接线；视频画面也都在应用内：Linux 走 appsink 推帧（Wayland 没有可交给
+        // 解码器的窗口 id），Windows 走 MediaComposition 取帧。两端共用同一条 IMediaFrameSink。
 #if WINDOWS
         AppHost.MediaPlaybackFactory = static () => new WindowsMediaPlaybackService();
 #else

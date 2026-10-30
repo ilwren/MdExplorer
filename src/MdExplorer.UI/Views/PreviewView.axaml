@@ -125,7 +125,7 @@
                       Background="#000000" CornerRadius="12" ClipToBounds="True">
                 <media:MediaSurfaceHost Renderer="{Binding VideoRenderer}" AutomationProperties.Name="视频画面" />
               </Border>
-              <!-- 推帧画面：后端（Linux appsink / 未来的 MF 帧服务）把帧推给宿主，Avalonia 自己画。
+              <!-- 推帧画面：后端（Linux appsink / Windows MediaComposition 取帧）把帧推给宿主，Avalonia 自己画。
                    与原生画面互斥：只有 RendererKind=FramePush 的后端才走这里。 -->
               <Border IsVisible="{Binding ShowFrameVideoSurface}" Height="280"
                       Background="#000000" CornerRadius="12" ClipToBounds="True">
