@@ -94,6 +94,8 @@ public sealed partial class BrowserViewModel : ObservableObject
     private List<FileItem> _filteredItems = [];
     private int _visibleItemCount;
     private int _pagingGeneration;
+    // 用户滚到底之后的“后台补齐”：一次只物化一小批并让出 UI 线程，直到列表全部就绪。
+    private Task? _backgroundFillTask;
     private IDisposable? _watchSubscription;
     private bool _watchEnabled;
     private SortField _currentSortField = SortField.Name;
@@ -257,15 +259,22 @@ public sealed partial class BrowserViewModel : ObservableObject
     /// <summary>当前已物化的文件行数；与 <see cref="TotalItemCount"/> 分开，避免大文件夹首屏创建全部行 VM。</summary>
     public int VisibleItemCount => Items.Count;
     public bool HasMoreItems => _visibleItemCount < _filteredItems.Count;
-    public bool CanLoadMoreItems => HasMoreItems && !IsLoading && !IsLoadingMore;
-    public bool ShowLoadMoreFooter => HasMoreItems || IsLoadingMore;
+    public bool CanLoadMoreItems => HasMoreItems && !IsLoading && !IsLoadingMore && !IsBackgroundPaging;
+    public bool ShowLoadMoreFooter => HasMoreItems || IsLoadingMore || IsBackgroundPaging;
+    /// <summary>页脚转圈：手点“加载更多”和后台补齐都算在忙。</summary>
+    public bool IsPagingBusy => IsLoadingMore || IsBackgroundPaging;
     public string PagingStatusText => TotalItemCount == 0
         ? string.Empty
         : $"已显示 {VisibleItemCount:N0} / {TotalItemCount:N0} 项";
 
+    /// <summary>后台补齐是否正在跑；页脚据此显示转圈并禁用“加载更多”。</summary>
+    [ObservableProperty] private bool _isBackgroundPaging;
+
     partial void OnIsLoadingChanged(bool value) => RaisePagingState();
 
     partial void OnIsLoadingMoreChanged(bool value) => RaisePagingState();
+
+    partial void OnIsBackgroundPagingChanged(bool value) => RaisePagingState();
 
     partial void OnTotalItemCountChanged(int value)
     {
@@ -280,6 +289,7 @@ public sealed partial class BrowserViewModel : ObservableObject
         OnPropertyChanged(nameof(HasMoreItems));
         OnPropertyChanged(nameof(CanLoadMoreItems));
         OnPropertyChanged(nameof(ShowLoadMoreFooter));
+        OnPropertyChanged(nameof(IsPagingBusy));
         OnPropertyChanged(nameof(PagingStatusText));
     }
 
@@ -1485,6 +1495,9 @@ public sealed partial class BrowserViewModel : ObservableObject
     {
         _pagingGeneration++;
         IsLoadingMore = false;
+        // 上一轮的补齐任务靠代次自行退出；这里只把它的可见状态收回来。
+        IsBackgroundPaging = false;
+        _backgroundFillTask = null;
         _filteredItems = source.ToList();
         TotalItemCount = _filteredItems.Count;
         _visibleItemCount = 0;
@@ -1536,6 +1549,64 @@ public sealed partial class BrowserViewModel : ObservableObject
         return added;
     }
 
+    /// <summary>
+    /// 用户滚到底部时调用（v0.33）：先补齐屏幕可见范围，再把剩余条目在后台一小批一小批地物化完。
+    /// 与页脚“加载更多”不同，这条路径代表“我已经到底了”，所以它不会让用户再滚一次。
+    /// </summary>
+    public void BeginBackgroundFill()
+    {
+        if (!HasMoreItems || IsLoading || IsLoadingMore || IsBackgroundPaging)
+            return;
+        IsBackgroundPaging = true;
+        _backgroundFillTask = FillRemainingAsync(_pagingGeneration);
+    }
+
+    /// <summary>等待后台补齐结束（无补齐任务时立即完成）；单测与截图用例的确定性入口。</summary>
+    public Task WhenPagingIdleAsync() => _backgroundFillTask ?? Task.CompletedTask;
+
+    /// <summary>后台补齐每批物化的行数：够小才不会让一次布局超过一帧，够大才不会退化成逐行抖动。</summary>
+    public const int BackgroundFillBatchSize = 24;
+
+    private async Task FillRemainingAsync(int generation)
+    {
+        try
+        {
+            while (generation == _pagingGeneration && HasMoreItems)
+            {
+                var added = AppendVisibleItems(BackgroundFillBatchSize);
+                StartThumbnailsFor(added);
+                UpdatePagingStatusText();
+                await YieldToUiAsync().ConfigureAwait(true);
+            }
+        }
+        finally
+        {
+            // 导航/筛选/刷新已经把列表换掉时代次不同，旗标由 ResetVisibleItems 收尾。
+            if (generation == _pagingGeneration)
+            {
+                IsBackgroundPaging = false;
+                UpdatePagingStatusText();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 视图报告“这一屏大概放得下多少行”时调用：保证可见范围先有内容。
+    /// 只增不减——缩小窗口不会把已经物化的行撤掉，否则选集、滚动位置与缩略图都会抖。
+    /// </summary>
+    public void EnsureVisibleRange(int visibleCapacity)
+    {
+        if (visibleCapacity <= 0 || !HasMoreItems)
+            return;
+        const int overScan = 8;
+        var required = Math.Min(_filteredItems.Count, visibleCapacity + overScan);
+        if (required <= _visibleItemCount)
+            return;
+        var added = AppendVisibleItems(required - _visibleItemCount);
+        StartThumbnailsFor(added);
+        UpdatePagingStatusText();
+    }
+
     /// <summary>滚动接近底部或点击页脚时追加下一页；分小块让出 UI 线程，避免大目录一次物化卡住。</summary>
     [RelayCommand]
     private async Task LoadMoreItemsAsync()
@@ -1583,9 +1654,11 @@ public sealed partial class BrowserViewModel : ObservableObject
         }
         catch (InvalidOperationException)
         {
-            // 未启动 Avalonia Application 时退化为协程让步。
+            // 未启动 Avalonia Application：下面按“没有消息泵”处理。
         }
-        await Task.Yield();
+
+        // 没有 UI 线程时不能把批次丢到线程池：分页会跨线程改 ObservableCollection，
+        // 单测也就失去确定性。此时连续执行，批次边界照旧保留给将来接别的调度器。
     }
 
     private void LoadAllVisibleItems()

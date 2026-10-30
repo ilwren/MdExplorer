@@ -13,6 +13,7 @@ using MdExplorer.UI.Preview;
 using MdExplorer.UI.Services;
 using MdExplorer.UI.ViewModels;
 using MdExplorer.UI.Views;
+using Md3.Avalonia.Extra.Controls;
 using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(MdExplorer.Screenshots.TestAppBuilder))]
@@ -97,7 +98,8 @@ public sealed class ScreenshotTests
         double height,
         Func<ShellViewModel, Task>? arrange = null,
         string themeMode = "Light",
-        bool androidAccess = false)
+        bool androidAccess = false,
+        Func<Window, Task>? afterShow = null)
     {
         var shell = await CreateShellAsync(themeMode, androidAccess);
         shell.SetViewportSize(width, height);
@@ -135,6 +137,12 @@ public sealed class ScreenshotTests
             }
             await Task.Delay(120);
             window.CaptureRenderedFrame(); // 先热一帧让容器实现/布局稳定
+            if (afterShow is not null)
+            {
+                // 需要检查控件本身（例如浮窗状态）的用例在这里介入，拍完再落盘。
+                await afterShow(window);
+                await Task.Delay(80);
+            }
             var frame = window.CaptureRenderedFrame();
             Assert.NotNull(frame);
             frame!.Save(Path.Combine(OutputDir, fileName));
@@ -1470,6 +1478,54 @@ public sealed class ScreenshotTests
         Assert.Equal(0, shell.Preview.SelectedTabIndex);
         return Task.CompletedTask;
     });
+
+    /// <summary>
+    /// 回归 v0.32 的“浮窗在、内容不展开”：收成标题条后点另一张图，浮窗必须重新展开并换上新的图；
+    /// 预览被清空时点开文件，浮窗也不能是空白。
+    /// </summary>
+    [AvaloniaFact]
+    public async Task Compact_FloatingPreviewExpandsWhenAnotherImageIsTapped() => await CaptureAsync(
+        "75-compact-floating-preview-expand.png", 390, 844,
+        async shell =>
+        {
+            var photos = shell.Browser.Items.Where(i => i.Name.StartsWith("IMG_", StringComparison.Ordinal)).ToArray();
+            Assert.True(photos.Length >= 2);
+            shell.Browser.SelectedItems.Clear();
+            shell.Browser.SelectedItems.Add(photos[0]);
+            shell.IsPreviewPageOpen = true;
+            for (var i = 0; i < 60 && shell.Preview.Image is null; i++)
+                await Task.Delay(50);
+            Assert.True(shell.Preview.HasImage);
+        },
+        afterShow: async window =>
+        {
+            var floating = window.GetVisualDescendants().OfType<MdFloatingWindow>().Single();
+            Assert.True(floating.IsOpen);
+            Assert.True(floating.IsEffectivelyVisible);
+            Assert.False(floating.IsMinimized);
+
+            // 用户把浮窗收成标题条。
+            floating.IsMinimized = true;
+            window.CaptureRenderedFrame();
+            Assert.True(floating.IsMinimized);
+
+            // 再点开另一张图：属性没变（IsPreviewPageOpen 一直是 true），内容必须自己重新展开。
+            var shell = (ShellViewModel)window.GetVisualDescendants().OfType<MainView>().First().DataContext!;
+            var next = shell.Browser.Items.Last(i => i.Name.StartsWith("IMG_", StringComparison.Ordinal));
+            await shell.Preview.LoadAsync(null);
+            shell.Browser.SelectedItems.Clear();
+            shell.Browser.SelectedItems.Add(next);
+            shell.OnFileOpened(next);
+            for (var i = 0; i < 80 && (shell.Preview.Image is null || !shell.Preview.HasItem); i++)
+                await Task.Delay(25);
+            window.CaptureRenderedFrame();
+
+            Assert.False(floating.IsMinimized);
+            Assert.True(floating.IsOpen);
+            Assert.True(shell.Preview.HasItem);
+            Assert.NotNull(shell.Preview.Image);
+            Assert.Equal(next.Name, shell.Preview.Title);
+        });
 
     [AvaloniaFact]
     public async Task Large_SearchIslandPanel() => await CaptureAsync("23-large-search-island.png", 1440, 900, async shell =>

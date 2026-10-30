@@ -448,8 +448,13 @@ public sealed partial class PreviewViewModel(
     {
         var generation = ++_generation;
         await StopMediaIfAnyAsync().ConfigureAwait(true);
+        // 停媒体是异步的：等它返回时可能已经有更新的一次 LoadAsync 接管了预览。
+        // 旧代次若继续往下写状态，就会把新选中的文件清成空白（v0.32 反馈的浮窗空内容）。
+        if (generation != _generation)
+            return;
         SubscribeMedia();
         CurrentItem = item;
+        OnPropertyChanged(nameof(CurrentItem));
         OnPropertyChanged(nameof(CanOpenArchiveWorkbench));
         OnPropertyChanged(nameof(CanOpenDocumentWorkbench));
         RaiseQuickFacts();
@@ -485,7 +490,11 @@ public sealed partial class PreviewViewModel(
         CanOpen = !item.IsFolder;
         RaiseMediaState();
         if (IsMedia)
+        {
             await ProbeMediaAsync(item).ConfigureAwait(true);
+            if (generation != _generation)
+                return;
+        }
         SelectedTabIndex = item.IsFolder ? 1 : 0;
         Title = item.Name;
         Subtitle = FileKindClassifier.Describe(item);

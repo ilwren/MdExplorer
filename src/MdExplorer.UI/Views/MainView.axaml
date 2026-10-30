@@ -900,9 +900,10 @@
                         Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}"
                         BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
                   <StackPanel Orientation="Horizontal" Spacing="8">
-                    <md:MdCircularProgressIndicator IsVisible="{Binding Browser.IsLoadingMore}" IsIndeterminate="True"
+                    <md:MdCircularProgressIndicator IsVisible="{Binding Browser.IsPagingBusy}" IsIndeterminate="True"
                                                     Width="20" Height="20" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding Browser.PagingStatusText}" VerticalAlignment="Center"
+                               ToolTip.Tip="滚到底会自动继续加载，剩余条目在后台分批补齐"
                                Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
                     <md:MdButton Variant="Tonal" Content="加载更多" Height="34" Padding="12,0"
                                  Command="{Binding Browser.LoadMoreItemsCommand}"

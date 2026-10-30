@@ -141,6 +141,90 @@ public sealed class BrowserPagingAndRefreshTests : IDisposable
     }
 
     [Fact]
+    public async Task ReachingTheBottomFillsTheRestOfTheDirectoryInTheBackground()
+    {
+        var browser = CreateShell().Browser;
+        await browser.NavigateToAsync(_manyDir, pushHistory: false);
+        Assert.Equal(browser.PageSize, browser.Items.Count);
+        Assert.True(browser.ShowLoadMoreFooter);
+
+        // 滚到底部：不是再要一页，而是把剩余条目在后台分批补齐（v0.33）。
+        // 无头单测没有消息泵，补齐按批连续跑完；真实 UI 线程上每批之间会让出一帧。
+        browser.BeginBackgroundFill();
+        await browser.WhenPagingIdleAsync();
+
+        Assert.False(browser.IsBackgroundPaging);
+        Assert.False(browser.HasMoreItems);
+        Assert.False(browser.ShowLoadMoreFooter);
+        Assert.Equal(DirectoryCount, browser.Items.Count);
+        Assert.Equal("item-259.txt", browser.Items[^1].Name);
+        Assert.Equal("260 个项目", browser.StatusText);
+        // 补齐不许改变顺序：定位/收藏仍按完整结果集算下标。
+        Assert.Equal("item-000.txt", browser.Items[0].Name);
+    }
+
+    [Fact]
+    public async Task BackgroundFillOnlyTouchesTheFilteredResultSet()
+    {
+        var browser = CreateShell().Browser;
+        await browser.NavigateToAsync(_manyDir, pushHistory: false);
+        browser.FilterText = "item-1";
+
+        browser.BeginBackgroundFill();
+        await browser.WhenPagingIdleAsync();
+
+        Assert.Equal(browser.TotalItemCount, browser.Items.Count);
+        Assert.All(browser.Items, item => Assert.True(item.Name.StartsWith("item-1", StringComparison.Ordinal)));
+        Assert.False(browser.HasMoreItems);
+    }
+
+    [Fact]
+    public async Task SecondBackgroundFillIsANoOpOnceEverythingIsLoaded()
+    {
+        var browser = CreateShell().Browser;
+        await browser.NavigateToAsync(_manyDir, pushHistory: false);
+        browser.BeginBackgroundFill();
+        await browser.WhenPagingIdleAsync();
+        var loaded = browser.Items.Count;
+
+        browser.BeginBackgroundFill();
+        await browser.WhenPagingIdleAsync();
+
+        Assert.Equal(loaded, browser.Items.Count);
+        Assert.False(browser.IsBackgroundPaging);
+    }
+
+    [Fact]
+    public async Task VisibleRangeRequestOnlyGrowsWhatIsMaterialized()
+    {
+        var browser = CreateShell().Browser;
+        await browser.NavigateToAsync(_manyDir, pushHistory: false);
+
+        // 小屏幕：首屏已经够用，不应缩水。
+        browser.EnsureVisibleRange(10);
+        Assert.Equal(browser.PageSize, browser.Items.Count);
+
+        // 高屏：先补齐可见范围（含越界缓冲），剩余交给后台补齐。
+        browser.EnsureVisibleRange(200);
+        Assert.Equal(208, browser.Items.Count);
+        Assert.Equal("item-207.txt", browser.Items[^1].Name);
+        Assert.True(browser.HasMoreItems);
+    }
+
+    [Fact]
+    public async Task RevealStillWorksAfterBackgroundFill()
+    {
+        var browser = CreateShell().Browser;
+        await browser.NavigateToAsync(_manyDir, pushHistory: false);
+        browser.BeginBackgroundFill();
+        await browser.WhenPagingIdleAsync();
+
+        browser.RevealItemsByPaths([Path.Combine(_manyDir, "item-259.txt")]);
+        Assert.Equal(DirectoryCount, browser.Items.Count);
+        Assert.Equal("item-259.txt", browser.Items[^1].Name);
+    }
+
+    [Fact]
     public async Task PullRefreshSoftReloadsAndDoesNotExitRecursiveSearch()
     {
         var browser = CreateShell().Browser;

@@ -156,6 +156,7 @@ public partial class MainView : UserControl
             ScheduleSecondaryBreadcrumbEndScroll();
             vm.Browser.PropertyChanged += OnBrowserPropertyChanged;
             vm.SecondaryBrowser.PropertyChanged += OnSecondaryBrowserPropertyChanged;
+            vm.Preview.PropertyChanged += OnPreviewPropertyChanged;
             ApplyWindowChromeLayout();
             _ = vm.Browser.RefreshExternalClipboardAsync();
         }
@@ -186,6 +187,7 @@ public partial class MainView : UserControl
             vm.SecondaryBrowser.Breadcrumbs.CollectionChanged -= OnSecondaryBreadcrumbsChanged;
             vm.Browser.PropertyChanged -= OnBrowserPropertyChanged;
             vm.SecondaryBrowser.PropertyChanged -= OnSecondaryBrowserPropertyChanged;
+            vm.Preview.PropertyChanged -= OnPreviewPropertyChanged;
         }
         if (TopLevel.GetTopLevel(this) is { } topLevel)
             topLevel.RemoveHandler(TopLevel.BackRequestedEvent, OnBackRequested);
@@ -729,16 +731,38 @@ public partial class MainView : UserControl
     // ---------- 分页滚动 ----------
     private void OnFileScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        if (BrowserForControl(sender) is not { CanLoadMoreItems: true } browser)
+        if (BrowserForControl(sender) is not { } browser)
             return;
-        if (e.Source is not ScrollViewer scroller ||
-            scroller.Extent.Height <= 0 || scroller.Viewport.Height <= 0)
+        if (e.Source is not ScrollViewer scroller || scroller.Viewport.Height <= 0)
             return;
 
-        // 自动续页受设置控制；关闭后仍可点页脚“加载更多”或按快捷键，不改变分页语义。
+        // 先保证这一屏放得下的行都物化了；窄屏/小窗口不该等分页。
+        browser.EnsureVisibleRange(EstimateVisibleRows(browser, scroller.Viewport.Height));
+
+        if (!browser.HasMoreItems || browser.IsBackgroundPaging)
+            return;
+        if (scroller.Extent.Height <= 0)
+            return; // 还没量出内容高度，等下一次布局事件
+
+        // 到底就自动续页，并把剩余条目交给后台分批补齐：用户不必反复滚，界面也不会被整目录冻住。
+        // 自动续页受设置控制；关闭后仍可点页脚“加载更多”，不改变分页语义。
         var remaining = scroller.Extent.Height - (scroller.Offset.Y + scroller.Viewport.Height);
         if (Shell?.ShouldAutoLoadMore(remaining) == true)
-            _ = browser.LoadMoreItemsCommand.ExecuteAsync(null);
+            browser.BeginBackgroundFill();
+    }
+
+    /// <summary>按当前视图模式估算一屏能放多少行；只用来抬高已物化行数，估小了也无害。</summary>
+    private static int EstimateVisibleRows(BrowserViewModel browser, double viewportHeight)
+    {
+        if (viewportHeight <= 0)
+            return 0;
+        var rowHeight = browser.ViewMode switch
+        {
+            BrowserViewMode.Grid => 124d,
+            BrowserViewMode.Details => 38d,
+            _ => 56d,
+        };
+        return (int)Math.Ceiling(viewportHeight / rowHeight) + 4;
     }
 
     private static bool IsFileSurfaceAtTop(object? sender)
@@ -1714,6 +1738,21 @@ public partial class MainView : UserControl
     {
         if (Shell is { } shell)
             shell.IsPreviewPageOpen = false;
+    }
+
+    /// <summary>
+    /// 浮窗被收成标题条后，换一个文件再点开必须重新展开内容。
+    /// 只监听 IsPreviewPageOpen 不够：它一直是 true，属性没变化就不会有回调，
+    /// 用户看到的就是“窗口在、内容不展开”（v0.32 反馈）。
+    /// </summary>
+    private void OnPreviewPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (Shell is not { IsPreviewPageOpen: true } shell)
+            return;
+        if (e.PropertyName is not nameof(PreviewViewModel.CurrentItem))
+            return;
+        FloatingPreview.IsMinimized = false;
+        LayoutFloatingPreview(Bounds.Size);
     }
 
     private void FocusActiveFileView()

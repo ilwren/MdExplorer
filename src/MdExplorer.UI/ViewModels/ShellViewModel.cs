@@ -1148,8 +1148,31 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public void OnFileOpened(FileItemViewModel item)
     {
         _ = Browser.RecordRecentFileAsync(item.FullPath);
-        if (IsCompactOrMedium)
-            IsPreviewPageOpen = true;
+        if (!IsCompactOrMedium)
+            return;
+        IsPreviewPageOpen = true;
+        // 浮窗只显示 Preview 的内容。选集没有把这一项交给预览时（重复点同一项、
+        // 上一轮操作把预览清空、B 窗格正握着预览源），浮窗会展开成一片空白——
+        // 所以这里显式核对一次内容来源，而不是假设选集管线一定喂过。
+        _ = EnsurePreviewContentAsync(item);
+    }
+
+    /// <summary>确保共享预览真的停在 <paramref name="item"/> 上；已就位时不重复解码。</summary>
+    public async Task EnsurePreviewContentAsync(FileItemViewModel item)
+    {
+        if (Preview is { HasItem: true, CurrentItem: { } current } &&
+            BrowserViewModel.PathsEqual(current.FullPath, item.FullPath))
+            return;
+
+        try
+        {
+            await Preview.LoadAsync(item.Model).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                       or InvalidOperationException or NotSupportedException)
+        {
+            // 预览失败会落到 Preview.FailureText；这里只保证浮窗不会因异常停在半路。
+        }
     }
 
     /// <summary>类别入口：优先打开对应已知目录。</summary>
