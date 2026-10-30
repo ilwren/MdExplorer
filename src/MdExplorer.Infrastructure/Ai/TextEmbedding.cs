@@ -136,19 +136,7 @@ public sealed class OnnxTextEmbeddingService : ITextEmbeddingService, IDisposabl
             _queryPrefix = model.Id == BgeChineseId ? "为这个句子生成表示以用于检索相关文章：" : string.Empty;
 
             using (var vocab = File.OpenRead(vocabPath))
-            {
-                _tokenizer = BertTokenizer.Create(vocab, new BertOptions
-                {
-                    ApplyBasicTokenization = true,
-                    LowerCaseBeforeTokenization = true,
-                    IndividuallyTokenizeCjk = true,
-                    RemoveNonSpacingMarks = true,
-                    UnknownToken = "[UNK]",
-                    ClassificationToken = "[CLS]",
-                    SeparatorToken = "[SEP]",
-                    PaddingToken = "[PAD]",
-                });
-            }
+                _tokenizer = BertTextTokenizer.Create(vocab);
 
             var options = new SessionOptions
             {
@@ -175,7 +163,7 @@ public sealed class OnnxTextEmbeddingService : ITextEmbeddingService, IDisposabl
 
         public float[] Embed(string text, bool isQuery, CancellationToken cancellationToken)
         {
-            var normalized = NormalizeForBert(text);
+            var normalized = BertTextTokenizer.Normalize(text);
             if (isQuery && _queryPrefix.Length > 0)
                 normalized = _queryPrefix + normalized;
 
@@ -255,20 +243,6 @@ public sealed class OnnxTextEmbeddingService : ITextEmbeddingService, IDisposabl
             if (elementType == typeof(int))
                 return NamedOnnxValue.CreateFromTensor(name, new DenseTensor<int>(values.Select(value => (int)value).ToArray(), dimensions));
             throw new InvalidDataException($"ONNX 输入 {name} 使用了不支持的类型 {elementType.Name}。");
-        }
-
-        private static string NormalizeForBert(string text)
-        {
-            // BERT 的基础分词器历史上会吞掉裸换行/制表符；先换成空格，避免把两侧单词粘连。
-            var builder = new System.Text.StringBuilder(Math.Min(text.Length, 8192));
-            var count = 0;
-            foreach (var rune in text.EnumerateRunes())
-            {
-                if (count++ >= 8192)
-                    break;
-                builder.Append(Rune.IsControl(rune) ? ' ' : rune.ToString());
-            }
-            return builder.ToString();
         }
 
         public void Dispose() => _session.Dispose();
