@@ -6,9 +6,13 @@
 # 首次下载后把 SHA-256 记进 checksums.txt，之后每次跑都按它校验，坏文件不会静默进内存。
 #
 # 用法：
-#   scripts/fetch-ai-models.sh                    # 下载清单里全部模型（已存在则跳过）
+#   scripts/fetch-ai-models.sh                    # 下载默认轻量包（约 49 MB）
 #   scripts/fetch-ai-models.sh --list             # 只列出模型与许可，不下载
 #   scripts/fetch-ai-models.sh --only text-embed-zh
+#   scripts/fetch-ai-models.sh --only audio-asr-tiny
+#   scripts/fetch-ai-models.sh --only audio-classify-yamnet
+#   scripts/fetch-ai-models.sh --only image-vlm-smol
+#   scripts/fetch-ai-models.sh --all                # 同时下载可选音频与图像模型（约 316 MB）
 #   scripts/fetch-ai-models.sh --dir ./models     # 下载到指定目录（开发用）
 #   scripts/fetch-ai-models.sh --verify           # 只校验已下载文件的 SHA-256
 #   scripts/fetch-ai-models.sh --dry-run          # 打印将要下载的 URL
@@ -25,6 +29,7 @@ MANIFEST="${AI_MODELS_MANIFEST:-$SCRIPT_DIR/ai-models.manifest}"
 MIRROR="${HF_ENDPOINT:-https://huggingface.co}"
 TARGET_DIR=""
 ONLY=""
+ALL_MODELS=0
 DRY_RUN=0
 VERIFY_ONLY=0
 LIST_ONLY=0
@@ -42,6 +47,7 @@ usage() { sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --list)      LIST_ONLY=1 ;;
+    --all)       ALL_MODELS=1 ;;
     --verify)    VERIFY_ONLY=1 ;;
     --dry-run)   DRY_RUN=1 ;;
     --clean)     CLEAN=1 ;;
@@ -86,7 +92,7 @@ human() {
 
 # ── 解析清单（纯文本，bash 无需 JSON 解析器） ───────────────────────────────
 MODEL_IDS=()
-declare -A M_NAME=() M_PURPOSE=() M_LICENSE=() M_LICENSE_URL=() M_SOURCE=() M_RUNTIME=() M_MB=()
+declare -A M_NAME=() M_PURPOSE=() M_LICENSE=() M_LICENSE_URL=() M_SOURCE=() M_REVISION=() M_RUNTIME=() M_MB=() M_DEFAULT=()
 FILE_MODEL=()
 FILE_PATH=()
 
@@ -99,7 +105,7 @@ while IFS= read -r raw || [ -n "$raw" ]; do
   IFS='|' read -r -a parts <<< "$line"
   case "$kind" in
     model)
-      [ "${#parts[@]}" -eq 9 ] || die "清单行格式不对（model 需要 9 列）：$line"
+      [ "${#parts[@]}" -eq 11 ] || die "清单行格式不对（model 需要 11 列）：$line"
       id="${parts[1]}"
       [ -n "${M_NAME[$id]:-}" ] && die "清单里模型 id 重复：$id"
       MODEL_IDS+=("$id")
@@ -108,8 +114,12 @@ while IFS= read -r raw || [ -n "$raw" ]; do
       M_LICENSE[$id]="${parts[4]}"
       M_LICENSE_URL[$id]="${parts[5]}"
       M_SOURCE[$id]="${parts[6]}"
-      M_RUNTIME[$id]="${parts[7]}"
-      M_MB[$id]="${parts[8]}"
+      M_REVISION[$id]="${parts[7]}"
+      [[ "${M_REVISION[$id]}" =~ ^[0-9a-f]{40}$ ]] || die "模型 revision 必须是 40 位小写十六进制 SHA：$id"
+      M_RUNTIME[$id]="${parts[8]}"
+      M_MB[$id]="${parts[9]}"
+      M_DEFAULT[$id]="${parts[10]}"
+      case "${M_DEFAULT[$id]}" in true|false) ;; *) die "清单默认下载字段必须是 true/false：$id" ;; esac
       ;;
     file)
       [ "${#parts[@]}" -eq 3 ] || die "清单行格式不对（file 需要 3 列）：$line"
@@ -127,7 +137,11 @@ done < "$MANIFEST"
 
 wanted() {
   local id="$1"
-  [ -z "$ONLY" ] && return 0
+  if [ -z "$ONLY" ]; then
+    [ "$ALL_MODELS" -eq 1 ] && return 0
+    [ "${M_DEFAULT[$id]:-false}" = "true" ]
+    return $?
+  fi
   local item
   IFS=',' read -r -a items <<< "$ONLY"
   for item in "${items[@]}"; do
@@ -167,14 +181,16 @@ if [ "$LIST_ONLY" -eq 1 ]; then
     printf '  %-16s %s\n' "$id" "${M_NAME[$id]}"
     printf '  %-16s 用途：%s\n' "" "${M_PURPOSE[$id]}"
     printf '  %-16s 许可：%s（%s）\n' "" "${M_LICENSE[$id]}" "${M_LICENSE_URL[$id]}"
-    printf '  %-16s 仓库：%s · 运行时 %s · 约 %s MB · %s 个文件\n' "" \
-      "${M_SOURCE[$id]}" "${M_RUNTIME[$id]}" "${M_MB[$id]}" "$(files_of "$id" | wc -l | tr -d ' ')"
+    printf '  %-16s 仓库：%s · 运行时 %s · 约 %s MB · %s 个文件 · %s\n' "" \
+      "${M_SOURCE[$id]}@${M_REVISION[$id]:0:8}" "${M_RUNTIME[$id]}" "${M_MB[$id]}" "$(files_of "$id" | wc -l | tr -d ' ')" \
+      "$( [ "${M_DEFAULT[$id]}" = true ] && printf '默认轻量包' || printf '可选，需 --only/--all' )"
     if [ -n "$ONLY" ] && ! wanted "$id"; then
       printf '  %-16s （本次不处理：不在 --only 里）\n' ""
     fi
     log ""
   done
   log "镜像：$MIRROR（用 --mirror 或 HF_ENDPOINT 覆盖）"
+  log "无参数时只取默认轻量包；可选音频/图片模型要 --only <id> 或 --all。"
   exit 0
 fi
 
@@ -284,9 +300,9 @@ for id in "${MODEL_IDS[@]}"; do
 
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
-    url="$MIRROR/${M_SOURCE[$id]}/resolve/main/$rel"
+    url="$MIRROR/${M_SOURCE[$id]}/resolve/${M_REVISION[$id]}/$rel"
     dest="$TARGET_DIR/$id/$rel"
-    expected="$(hash_from_checksums "$rel" || true)"
+    expected="$(hash_from_checksums "$id/$rel" || true)"
     partial="$dest.part"
 
     if [ -f "$dest" ] && [ "$FORCE" -eq 0 ]; then
@@ -348,6 +364,6 @@ log "模型目录：$TARGET_DIR"
 log "应用会在这里找模型（也可用环境变量 MDEXPLORER_MODELS 指向别处）："
 log "  Linux/macOS: \${XDG_DATA_HOME:-\$HOME/.local/share}/MdExplorer/models"
 log "  Windows:     %LOCALAPPDATA%\\MdExplorer\\models"
-log "校验随时可重跑：$0 --verify"
+log "校验随时可重跑：$0 --verify（可用 --only 或 --all 选择范围）"
 
 [ "$total_fail" -eq 0 ] || exit 2

@@ -340,7 +340,7 @@ public sealed class ScreenshotTests
         {
             shell.GoSettingsCommand.Execute(null);
             Assert.Equal(ShellPage.Settings, shell.Page);
-            Assert.Equal(2, shell.LocalAiModels.Count);
+            Assert.Equal(5, shell.LocalAiModels.Count);
             Assert.Contains("尚未下载", shell.LocalAiStatusText, StringComparison.Ordinal);
 
             var definition = AiModelManifest.LoadEmbedded().First(model => model.Id == "text-embed-zh");
@@ -357,7 +357,7 @@ public sealed class ScreenshotTests
 
             shell.RefreshLocalAiCommand.Execute(null);
             Assert.True(shell.LocalAiModels.First(model => model.Id == "text-embed-zh").Installed);
-            Assert.Contains("1/2", shell.LocalAiStatusText, StringComparison.Ordinal);
+            Assert.Contains("1/5", shell.LocalAiStatusText, StringComparison.Ordinal);
             // 刷新会弹一条同文案的提示条；这张图要拍的是卡片本身，别让提示条盖住下面的内容。
             shell.IsSnackbarVisible = false;
             await Task.CompletedTask;

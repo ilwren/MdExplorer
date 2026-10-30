@@ -37,19 +37,28 @@ public sealed class LocalAiModelTests : IDisposable
             Assert.NotEmpty(model.License);
             Assert.StartsWith("http", model.LicenseUrl, StringComparison.Ordinal);
             Assert.Contains('/', model.Source);
+            Assert.Matches("^[0-9a-f]{40}$", model.Revision);
             Assert.Equal("onnx", model.Runtime);
             Assert.True(model.ApproxSizeMb > 0);
+            Assert.NotEqual(
+                model.Id is "image-vlm-smol" or "audio-asr-tiny" or "audio-classify-yamnet",
+                model.DownloadByDefault);
             Assert.NotEmpty(model.Files);
-            // 权重文件必须正好一个 .onnx，分词器配置若干——防止清单被复制粘贴成两份同样条目。
-            Assert.Single(model.Files, file => file.EndsWith(".onnx", StringComparison.Ordinal));
-            Assert.Contains(model.Files, file => file.EndsWith("tokenizer.json", StringComparison.Ordinal));
+            // 文本模型一般单 ONNX；VLM/ASR 会拆成多图，所以只要求至少一个权重图。
+            Assert.Contains(model.Files, file => file.EndsWith(".onnx", StringComparison.Ordinal));
+            if (model.Id == "audio-classify-yamnet")
+                Assert.DoesNotContain(model.Files, file => file.EndsWith("tokenizer.json", StringComparison.Ordinal));
+            else
+                Assert.Contains(model.Files, file => file.EndsWith("tokenizer.json", StringComparison.Ordinal));
         }
     }
 
     [Theory]
-    [InlineData("model|a|b|c|d|e|f|onnx")]                                        // model 少列
+    [InlineData("model|a|b|c|d|e|f|0000000000000000000000000000000000000000|onnx")] // model 少列
     [InlineData("file|nope|x.onnx")]                                              // file 指向未知模型
-    [InlineData("model|a|b|c|MIT|http://x|o/r|onnx|1\nmodel|a|b|c|MIT|http://x|o/r|onnx|1")] // id 重复
+    [InlineData("model|a|b|c|MIT|http://x|o/r|0000000000000000000000000000000000000000|onnx|1|true\nmodel|a|b|c|MIT|http://x|o/r|0000000000000000000000000000000000000000|onnx|1|true")] // id 重复
+    [InlineData("model|a|b|c|MIT|http://x|o/r|0000000000000000000000000000000000000000|onnx|1|maybe")] // 默认下载字段
+    [InlineData("model|a|b|c|MIT|http://x|o/r|main|onnx|1|false")]                 // 不接受浮动 revision
     [InlineData("weird|a")]                                                       // 未知类型
     public void ManifestRejectsBrokenLines(string text) =>
         Assert.Throws<InvalidDataException>(() => AiModelManifest.Parse(text));

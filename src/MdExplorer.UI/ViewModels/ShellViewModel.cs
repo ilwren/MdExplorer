@@ -3070,6 +3070,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         ? "pwsh scripts/fetch-ai-models.ps1"
         : "scripts/fetch-ai-models.sh";
 
+    public string LocalAiOptionalModelsText =>
+        "可选：Whisper tiny 语音转写约 57 MB；YAMNet 声音分类约 16 MB；SmolVLM 图片问答约 194 MB。\n" +
+        (OperatingSystem.IsWindows()
+            ? "用 -Only audio-asr-tiny / audio-classify-yamnet / image-vlm-smol 单独下载；-All 约 316 MB。"
+            : "用 --only audio-asr-tiny / audio-classify-yamnet / image-vlm-smol 单独下载；--all 约 316 MB。");
+
     [ObservableProperty] private string _localAiStatusText = string.Empty;
 
     /// <summary>装了至少一个模型才谈得上「能用」；这里只报事实，不做任何推理。</summary>
@@ -3102,6 +3108,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(LocalAiStatusText));
         OnPropertyChanged(nameof(LocalAiModelsDirectoryText));
         OnPropertyChanged(nameof(LocalAiDownloadCommandText));
+        OnPropertyChanged(nameof(LocalAiOptionalModelsText));
         OnPropertyChanged(nameof(HasLocalAiModel));
     }
 

@@ -16,6 +16,14 @@
 .EXAMPLE
   pwsh scripts/fetch-ai-models.ps1 -Only text-embed-zh -Dir D:\models
 .EXAMPLE
+  pwsh scripts/fetch-ai-models.ps1 -Only audio-asr-tiny
+.EXAMPLE
+  pwsh scripts/fetch-ai-models.ps1 -Only audio-classify-yamnet
+.EXAMPLE
+  pwsh scripts/fetch-ai-models.ps1 -Only image-vlm-smol
+.EXAMPLE
+  pwsh scripts/fetch-ai-models.ps1 -All
+.EXAMPLE
   $env:HF_ENDPOINT = 'https://hf-mirror.com'; pwsh scripts/fetch-ai-models.ps1
 #>
 [CmdletBinding()]
@@ -25,6 +33,7 @@ param(
     [switch]$Clean,
     [switch]$Force,
     [switch]$DryRun,
+    [switch]$All,
     [string]$Only,
     [string]$Dir,
     [string]$Mirror
@@ -51,11 +60,13 @@ foreach ($raw in Get-Content -LiteralPath $ManifestPath -Encoding UTF8) {
     $parts = $line.Split('|')
     switch ($parts[0]) {
         'model' {
-            if ($parts.Count -ne 9) { throw "清单行格式不对（model 需要 9 列）：$line" }
+            if ($parts.Count -ne 11) { throw "清单行格式不对（model 需要 11 列）：$line" }
+            if ($parts[7] -notmatch '^[0-9a-f]{40}$') { throw "模型 revision 必须是 40 位小写十六进制 SHA：$($parts[1])" }
             $models[$parts[1]] = [pscustomobject]@{
                 Id = $parts[1]; Name = $parts[2]; Purpose = $parts[3]
                 License = $parts[4]; LicenseUrl = $parts[5]
-                Source = $parts[6]; Runtime = $parts[7]; SizeMb = $parts[8]
+                Source = $parts[6]; Revision = $parts[7]; Runtime = $parts[8]; SizeMb = $parts[9]
+                Default = [bool]::Parse($parts[10])
                 Files = [System.Collections.Generic.List[string]]::new()
             }
         }
@@ -70,8 +81,9 @@ foreach ($raw in Get-Content -LiteralPath $ManifestPath -Encoding UTF8) {
 if ($models.Count -eq 0) { throw '清单里没有任何模型' }
 
 function Test-Wanted([string]$id) {
-    if (-not $Only) { return $true }
-    return ($Only.Split(',') -contains $id)
+    if ($Only) { return ($Only.Split(',') -contains $id) }
+    if ($All) { return $true }
+    return $models[$id].Default
 }
 
 # ── 目录 ────────────────────────────────────────────────────────────────────
@@ -122,15 +134,18 @@ if ($List) {
         Write-Host ("  {0,-16} {1}" -f $id, $m.Name)
         Write-Host ("  {0,-16} 用途：{1}" -f '', $m.Purpose)
         Write-Host ("  {0,-16} 许可：{1}（{2}）" -f '', $m.License, $m.LicenseUrl)
-        Write-Host ("  {0,-16} 仓库：{1} · 运行时 {2} · 约 {3} MB · {4} 个文件" -f '', $m.Source, $m.Runtime, $m.SizeMb, $m.Files.Count)
+        $pack = if ($m.Default) { '默认轻量包' } else { '可选，需 -Only/-All' }
+        Write-Host ("  {0,-16} 仓库：{1} · 运行时 {2} · 约 {3} MB · {4} 个文件 · {5}" -f '', ("{0}@{1}" -f $m.Source, $m.Revision.Substring(0, 8)), $m.Runtime, $m.SizeMb, $m.Files.Count, $pack)
         Write-Host ''
     }
     Write-Host "镜像：$mirrorBase（用 -Mirror 或环境变量 HF_ENDPOINT 覆盖）"
+    Write-Host '无参数时只取默认轻量包；可选音频/图片模型要 -Only <id> 或 -All。'
     exit 0
 }
 
 # ── --clean ─────────────────────────────────────────────────────────────────
 if ($Clean) {
+    $checksums = Get-ChecksumMap
     $removed = 0
     foreach ($id in $models.Keys) {
         if (-not (Test-Wanted $id)) { continue }
@@ -208,7 +223,7 @@ foreach ($id in $models.Keys) {
 
     foreach ($rel in $m.Files) {
         $key = "$id/$rel"
-        $url = "$mirrorBase/$($m.Source)/resolve/main/$rel"
+        $url = "$mirrorBase/$($m.Source)/resolve/$($m.Revision)/$rel"
         $dest = Join-Path $TargetDir (Join-Path $id $rel)
         $partial = "$dest.part"
 
@@ -269,6 +284,6 @@ Write-Host "完成：新下载 $ok 个、已就绪 $skip 个、失败 $fail 个"
 Write-Host "模型目录：$TargetDir"
 Write-Host '应用会在这里找模型（也可用环境变量 MDEXPLORER_MODELS 指向别处）：'
 Write-Host '  Windows: %LOCALAPPDATA%\MdExplorer\models'
-Write-Host "校验随时可重跑：pwsh scripts/fetch-ai-models.ps1 -Verify"
+Write-Host "校验随时可重跑：pwsh scripts/fetch-ai-models.ps1 -Verify（可用 -Only 或 -All 选择范围）"
 
 if ($fail -ne 0) { exit 2 }

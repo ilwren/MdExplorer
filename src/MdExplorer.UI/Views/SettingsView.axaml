@@ -349,7 +349,9 @@
 
             <StackPanel Spacing="4">
               <TextBlock Classes="caption" TextWrapping="Wrap"
-                         Text="下载模型（体积几十 MB，不随应用分发）：" />
+                         Text="默认轻量包约 49 MB；权重不随应用分发。" />
+              <TextBlock Classes="caption" TextWrapping="Wrap"
+                         Text="{Binding LocalAiOptionalModelsText}" />
               <Grid ColumnDefinitions="*,Auto">
                 <SelectableTextBlock Classes="mono" Text="{Binding LocalAiDownloadCommandText}"
                                      TextWrapping="Wrap" VerticalAlignment="Center" />

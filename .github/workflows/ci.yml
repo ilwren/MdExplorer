@@ -25,8 +25,14 @@ jobs:
       - name: Validate local AI model downloader (offline)
         run: |
           bash -n scripts/fetch-ai-models.sh
+          bash -n scripts/test-fetch-ai-models.sh
+          scripts/test-fetch-ai-models.sh
           scripts/fetch-ai-models.sh --list
           scripts/fetch-ai-models.sh --dir "$RUNNER_TEMP/mdexplorer-ai-dry-run" --dry-run
+          scripts/fetch-ai-models.sh --dir "$RUNNER_TEMP/mdexplorer-ai-dry-run" --all --dry-run
+          scripts/fetch-ai-models.sh --dir "$RUNNER_TEMP/mdexplorer-ai-dry-run" --only audio-asr-tiny --dry-run
+          scripts/fetch-ai-models.sh --dir "$RUNNER_TEMP/mdexplorer-ai-dry-run" --only audio-classify-yamnet --dry-run
+          scripts/fetch-ai-models.sh --dir "$RUNNER_TEMP/mdexplorer-ai-dry-run" --only image-vlm-smol --dry-run
       - name: Restore
         run: dotnet restore MdExplorer.slnx
       - name: Build
@@ -125,6 +131,10 @@ jobs:
         run: |
           ./scripts/fetch-ai-models.ps1 -List
           ./scripts/fetch-ai-models.ps1 -Dir "$env:RUNNER_TEMP/mdexplorer-ai-dry-run" -DryRun
+          ./scripts/fetch-ai-models.ps1 -Dir "$env:RUNNER_TEMP/mdexplorer-ai-dry-run" -All -DryRun
+          ./scripts/fetch-ai-models.ps1 -Dir "$env:RUNNER_TEMP/mdexplorer-ai-dry-run" -Only audio-asr-tiny -DryRun
+          ./scripts/fetch-ai-models.ps1 -Dir "$env:RUNNER_TEMP/mdexplorer-ai-dry-run" -Only audio-classify-yamnet -DryRun
+          ./scripts/fetch-ai-models.ps1 -Dir "$env:RUNNER_TEMP/mdexplorer-ai-dry-run" -Only image-vlm-smol -DryRun
       - name: Unit tests (windows only)
         if: runner.os == 'Windows'
         shell: bash

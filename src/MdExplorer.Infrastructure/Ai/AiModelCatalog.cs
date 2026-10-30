@@ -14,8 +14,10 @@ public sealed record AiModelDefinition(
     string License,
     string LicenseUrl,
     string Source,
+    string Revision,
     string Runtime,
     int ApproxSizeMb,
+    bool DownloadByDefault,
     IReadOnlyList<string> Files);
 
 /// <summary>一个模型在本机上的实际情况：装没装、占多少、缺哪些文件。</summary>
@@ -43,7 +45,7 @@ public static class AiModelManifest
     /// <summary>嵌入资源名，与 csproj 的 <c>LogicalName</c> 一致。</summary>
     public const string ResourceName = "MdExplorer.Ai.Models.manifest";
 
-    private const int ModelColumns = 9;
+    private const int ModelColumns = 11;
     private const int FileColumns = 3;
 
     public static IReadOnlyList<AiModelDefinition> LoadEmbedded()
@@ -75,6 +77,10 @@ public static class AiModelManifest
                 if (parts.Length != ModelColumns)
                     throw new InvalidDataException($"模型清单第 {lineNumber} 行格式不对（model 需要 {ModelColumns} 列）。");
                 var id = parts[1];
+                if (!System.Text.RegularExpressions.Regex.IsMatch(parts[7], "^[0-9a-f]{40}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+                    throw new InvalidDataException($"模型清单第 {lineNumber} 行 revision 必须是 40 位小写十六进制 SHA。");
+                if (!bool.TryParse(parts[10], out var downloadByDefault))
+                    throw new InvalidDataException($"模型清单第 {lineNumber} 行默认下载字段必须是 true/false。");
                 if (id.Length == 0)
                     throw new InvalidDataException($"模型清单第 {lineNumber} 行缺少模型 id。");
                 if (byId.ContainsKey(id))
@@ -89,7 +95,9 @@ public static class AiModelManifest
                     parts[5],
                     parts[6],
                     parts[7],
-                    int.TryParse(parts[8], out var mb) ? mb : 0,
+                    parts[8],
+                    int.TryParse(parts[9], out var mb) ? mb : 0,
+                    downloadByDefault,
                     []));
             }
             else if (parts[0] == "file")
