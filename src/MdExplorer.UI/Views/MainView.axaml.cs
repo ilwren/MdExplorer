@@ -217,7 +217,7 @@ public partial class MainView : UserControl
         FloatingPreview.Width = Math.Clamp(width, 300, maxWidth);
         FloatingPreview.MaxHeight = maxHeight;
         if (double.IsNaN(FloatingPreview.Height) || FloatingPreview.Height <= 0)
-            FloatingPreview.Height = Math.Min(540, maxHeight);
+            FloatingPreview.Height = DesignedPreviewHeight(size);
         else
             FloatingPreview.Height = Math.Min(FloatingPreview.Height, maxHeight);
 
@@ -620,10 +620,7 @@ public partial class MainView : UserControl
         if (e.PropertyName is nameof(ShellViewModel.IsTaskCenterOpen) && shell.IsTaskCenterOpen)
             AnimateIn(TaskCenterCard, 0, 12);
         if (e.PropertyName is nameof(ShellViewModel.IsPreviewPageOpen) && shell.IsPreviewPageOpen)
-        {
-            FloatingPreview.IsMinimized = false;
-            LayoutFloatingPreview(Bounds.Size);
-        }
+            ExpandFloatingPreview();
         if (e.PropertyName is nameof(ShellViewModel.ReduceMotion))
             ApplyMotionPreference(shell.ReduceMotion);
         if (e.PropertyName is nameof(ShellViewModel.ShowDualPane)
@@ -1751,9 +1748,27 @@ public partial class MainView : UserControl
             return;
         if (e.PropertyName is not nameof(PreviewViewModel.CurrentItem))
             return;
-        FloatingPreview.IsMinimized = false;
-        LayoutFloatingPreview(Bounds.Size);
+        ExpandFloatingPreview();
     }
+
+    /// <summary>
+    /// 把浮窗恢复到“展开且开着”的状态。只写 <c>IsMinimized=false</c> 不够：
+    /// MdFloatingWindow 的展开距离取自它自己记下的展开高度，而这个值在
+    /// “先收起、再换文件”的时序里可能已经被抹掉（或控件当时还没量出高度），
+    /// 结果就是属性是 false、窗口却仍停在标题条高度——正是 v0.32 反馈的现象。
+    /// 所以这里连高度一起显式复位。
+    /// </summary>
+    private void ExpandFloatingPreview()
+    {
+        FloatingPreview.IsMinimized = false;
+        FloatingPreview.IsOpen = true;
+        LayoutFloatingPreview(Bounds.Size);
+        FloatingPreview.Height = DesignedPreviewHeight(Bounds.Size);
+    }
+
+    /// <summary>浮窗展开时的设计高度：540 DIP，但不超过窗口留给它的空间。</summary>
+    private static double DesignedPreviewHeight(Size size) =>
+        Math.Max(360, Math.Min(540, size.Height - 96));
 
     private void FocusActiveFileView()
     {

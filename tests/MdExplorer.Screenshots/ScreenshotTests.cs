@@ -1554,6 +1554,9 @@ public sealed class ScreenshotTests
 
             Assert.False(floating.IsMinimized);
             Assert.True(floating.IsOpen);
+            // 属性回到 false 不算修好：窗口必须真的回到展开高度，内容也必须在。
+            Assert.True(floating.Bounds.Height > 400,
+                $"浮窗展开后仍只有 {floating.Bounds.Height:0} 高");
             Assert.True(shell.Preview.HasItem);
             Assert.NotNull(shell.Preview.Image);
             Assert.Equal(next.Name, shell.Preview.Title);
