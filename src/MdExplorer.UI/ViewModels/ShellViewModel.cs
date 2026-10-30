@@ -584,7 +584,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         }
     }
 
-    partial void OnIsPreviewPageOpenChanged(bool value) => OnPropertyChanged(nameof(ShowPreviewPageNow));
+    partial void OnIsPreviewPageOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowPreviewPageNow));
+        // 浮窗/预览页一关就把重负载放掉（直接 PDF 控件与位图都是按页分配的），
+        // 重新打开时再按当前选集把内容取回来。
+        if (!value)
+        {
+            Preview.ReleaseHeavyContent();
+            return;
+        }
+
+        // 只有上一轮真的放掉过负载才重载；正常打开走既有选集管线，别在这里抢跑解码。
+        if (Preview.IsPayloadReleased && Browser.SelectedItems.Count > 0)
+            _ = EnsurePreviewContentAsync(Browser.SelectedItems[0]);
+    }
 
     /// <summary>由视图在尺寸变化时调用（开发文档 §7：MD3 五档断点）。</summary>
     public void SetViewportSize(double widthDip, double heightDip)
@@ -1160,7 +1174,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     /// <summary>确保共享预览真的停在 <paramref name="item"/> 上；已就位时不重复解码。</summary>
     public async Task EnsurePreviewContentAsync(FileItemViewModel item)
     {
-        if (Preview is { HasItem: true, CurrentItem: { } current } &&
+        if (Preview is { HasItem: true, IsPayloadReleased: false, CurrentItem: { } current } &&
             BrowserViewModel.PathsEqual(current.FullPath, item.FullPath))
             return;
 
@@ -2948,6 +2962,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _services.SettingsStore.Settings.ShowPreviewPane = value;
         _ = SaveAsync();
         RefreshPreviewVisibility();
+        // Expanded+ 的预览栏是常驻列：关掉它等于关掉预览，重负载必须显式释放，
+        // 否则第三方直接 PDF 控件会把整本页面树留在内存里。
+        if (!value)
+        {
+            Preview.ReleaseHeavyContent();
+            return;
+        }
+
+        if (Preview.IsPayloadReleased && Browser.SelectedItems.Count > 0)
+            _ = EnsurePreviewContentAsync(Browser.SelectedItems[0]);
     }
 
     partial void OnReduceMotionChanged(bool value)

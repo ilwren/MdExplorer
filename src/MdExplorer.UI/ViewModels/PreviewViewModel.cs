@@ -50,6 +50,11 @@ public sealed partial class PreviewViewModel(
     [ObservableProperty] private int _officeSheetCount;
     [ObservableProperty] private int _officeSheetIndex;
     [ObservableProperty] private bool _officeViewerLoadFailed;
+    /// <summary>
+    /// 关闭预览时把重量级负载（位图、PDF 字节、第三方直接控件）放掉了，内容需要重载。
+    /// 文本类内容只占几百 KB，不必跟着一起丢。
+    /// </summary>
+    public bool IsPayloadReleased { get; private set; }
 
     public bool HasImage => Image is not null;
     public bool HasText => TextContent is not null;
@@ -454,6 +459,46 @@ public sealed partial class PreviewViewModel(
     }
 
 
+    /// <summary>
+    /// 关闭预览（Compact 的浮窗关闭、Expanded+ 的预览栏关闭）时调用：直接控件是按页建控件树的，
+    /// 100+ 页 PDF 会把提交内存顶到 ~1 GB 且关闭后不回落；位图与 PDF 字节同样要显式放掉。
+    /// 文本类内容保留，重开预览不必重新解码。
+    /// </summary>
+    public void ReleaseHeavyContent()
+    {
+        if (!HasItem)
+            return;
+        var hadHeavyPayload = Image is not null || OfficeDocument is not null || _pdfData is not null;
+        // 抬代次：已经在跑的加载/渲染回来后自己作废，不会把内容又塞回来。
+        _generation++;
+        _switchingPdfEngine = false;
+        Image = null;
+        _pdfData = null;
+        PdfPageCount = 0;
+        PdfPageIndex = 0;
+        OfficeDocument = null;
+        OfficeViewerLoadFailed = false;
+        OfficePageCount = 0;
+        OfficeSheetCount = 0;
+        OfficeSheetIndex = 0;
+        IsPayloadReleased = hadHeavyPayload;
+    }
+
+    /// <summary>旧位图可能还在这一帧的绘制队列里：等这一轮渲染落地后再释放。</summary>
+    partial void OnImageChanging(Bitmap? oldValue, Bitmap? newValue)
+    {
+        if (oldValue is null || ReferenceEquals(oldValue, newValue))
+            return;
+        if (global::Avalonia.Application.Current is null)
+        {
+            oldValue.Dispose();
+            return;
+        }
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(
+            oldValue.Dispose, Avalonia.Threading.DispatcherPriority.Background);
+    }
+
     public async Task LoadAsync(FileItem? item)
     {
         var generation = ++_generation;
@@ -497,6 +542,7 @@ public sealed partial class PreviewViewModel(
         }
 
         HasItem = true;
+        IsPayloadReleased = false;
         CanOpen = !item.IsFolder;
         RaiseMediaState();
         if (IsMedia)
@@ -668,10 +714,8 @@ public sealed partial class PreviewViewModel(
                 return;
             }
 
-            var previous = Image;
+            // 旧位图由 OnImageChanging 在这一帧绘制后释放，这里不再重复 Dispose。
             Image = bitmap;
-            if (previous is not null && !ReferenceEquals(previous, bitmap))
-                previous.Dispose();
         }
         catch (Exception ex)
         {

@@ -84,6 +84,31 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
     }
 
     [Fact]
+    public async Task ClosingPreviewReleasesHeavyPayloadAndReopenReloads()
+    {
+        var shell = CreateShell();
+        await shell.OpenFolderAsync(_startDir);
+        var item = shell.Browser.Items.First(entry => entry.Name == "plain.txt");
+        shell.Browser.SelectedItems.Add(item);
+        await shell.EnsurePreviewContentAsync(item);
+        Assert.True(shell.Preview.HasItem);
+        Assert.False(shell.Preview.IsPayloadReleased);
+
+        // 关闭预览（Compact 浮窗关闭、Expanded+ 预览栏关闭都走这里）：重负载必须放掉。
+        shell.IsPreviewPageOpen = false;
+        Assert.True(shell.Preview.IsPayloadReleased);
+        Assert.Null(shell.Preview.Image);
+        Assert.Null(shell.Preview.OfficeDocument);
+
+        // 重新打开预览时按当前选集自行取回内容，不要求用户重新点文件。
+        shell.IsPreviewPageOpen = true;
+        for (var attempt = 0; attempt < 100 && shell.Preview.IsPayloadReleased; attempt++)
+            await Task.Delay(20);
+        Assert.False(shell.Preview.IsPayloadReleased);
+        Assert.Equal("plain.txt", shell.Preview.Title);
+    }
+
+    [Fact]
     public async Task CompactAddressEditingGivesPathFieldTheWholeRow()
     {
         var shell = CreateShell();

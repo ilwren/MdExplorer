@@ -123,6 +123,23 @@ internal static class PdfPreviewRenderer
         WithAspectRatio: true,
         Rotation: rotation);
 
+    /// <summary>
+    /// 只数页数、不渲染。PDFium 的页树是惰性解析的，100+ 页文档也在毫秒级，
+    /// 用它来决定「能不能把原始 PDF 交给直接控件」比打开后再后悔便宜得多。
+    /// </summary>
+    internal static int CountPages(byte[] data, string? password = null)
+    {
+        Gate.Wait();
+        try
+        {
+            return Conversion.GetPageCount(data, password);
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+
     internal static async Task<PdfPreviewDocument> LoadAsync(
         byte[] data,
         CancellationToken cancellationToken,
@@ -226,11 +243,20 @@ internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPrevi
             // 加密、无效文件头或超过直接控件上限时，才进入 PDFium 整页光栅化。
             if (rasterUnavailableOnPlatform)
             {
+                // 低版本 Android 没有 PDFium 兼容视图，只能交给直接控件；但直接控件按页建控件树，
+                // 页数太多会把内存吃满又不回落，所以这里仍然守住页数闸门，超限就如实说明。
+                var pages = CountPagesOrUnknown(data);
+                if (pages > OfficeDocumentLoader.DirectPdfMaxPages)
+                    return new PreviewContent(Message:
+                        $"此 PDF 有 {pages:N0} 页，超过当前系统版本内置直接预览的 " +
+                        $"{OfficeDocumentLoader.DirectPdfMaxPages} 页上限（该版本没有 PDFium 兼容视图）；" +
+                        "可先用系统应用打开。");
                 return new PreviewContent(
                     Office: OfficeDocumentLoader.CreateDirectPdf(
                         data, OfficeDocumentLoader.DirectPdfPreviewMaxBytes));
             }
-            if (OfficeDocumentLoader.TryCreateDirectPdf(
+            if (TryUseDirectControl(data) &&
+                OfficeDocumentLoader.TryCreateDirectPdf(
                     data, OfficeDocumentLoader.DirectPdfPreviewMaxBytes, out var directPdf))
                 return new PreviewContent(Office: directPdf);
 
@@ -265,6 +291,33 @@ internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPrevi
         catch (InvalidDataException ex) when (rasterUnavailableOnPlatform)
         {
             return new PreviewContent(Message: $"无法以直接预览读取此 PDF：{ex.Message} 可先用系统应用打开。");
+        }
+    }
+
+    /// <summary>
+    /// 直接 PDF 控件按页排控件树：页数一多内存就失控。这里先用 PDFium 数一遍页数，
+    /// 只有上限内的文档才交给它；数不出来（加密/损坏）也走 PDFium 路径去拿真实原因。
+    /// </summary>
+    private static bool TryUseDirectControl(byte[] data) =>
+        OfficeDocumentLoader.IsDirectPdfCandidate(data) &&
+        OfficeDocumentLoader.CanUseDirectPdf(
+            CountPagesOrUnknown(data), data.LongLength, OfficeDocumentLoader.DirectPdfPreviewMaxBytes);
+
+    /// <summary>
+    /// 数页数；数不出来（损坏、加密、本机没有 PDFium）时返回 0，由调用方按旧行为放行——
+    /// 直接控件会自己报错，宿主再按 OfficeViewerLoadFailed 回落到 PDFium。
+    /// </summary>
+    private static int CountPagesOrUnknown(byte[] data)
+    {
+        try
+        {
+            return PdfPreviewRenderer.CountPages(data);
+        }
+        catch (Exception ex) when (ex is PdfException or PdfPasswordProtectedException
+            or DllNotFoundException or EntryPointNotFoundException or BadImageFormatException
+            or InvalidDataException or IOException)
+        {
+            return 0;
         }
     }
 }

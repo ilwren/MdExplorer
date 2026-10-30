@@ -87,6 +87,19 @@ public sealed class OfficeDocumentPreviewTests : IDisposable
         Assert.Contains("2 张工作表", xlsContent.Office?.Facts.Summary, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(1, 1_000_000L, true)]
+    [InlineData(24, 1_000_000L, true)]
+    [InlineData(25, 1_000_000L, false)]
+    [InlineData(0, 1_000_000L, true)] // 数不出页数（加密/损坏）按旧行为放行
+    [InlineData(5, 40_000_000L, false)]
+    public void DirectPdfControlStaysInsidePageAndByteBudgets(int pages, long bytes, bool expected)
+    {
+        // 直接控件按页排控件树：100+ 页 PDF 会把提交内存顶到 ~1 GB 且关闭预览后不回落，
+        // 所以超过页数/字节上限一律交给 PDFium 视图。
+        Assert.Equal(expected, OfficeDocumentLoader.CanUseDirectPdf(pages, bytes, 32L * 1024 * 1024));
+    }
+
     [Fact]
     public void DirectPdfCandidateRejectsEncryptedInvalidAndOversizedPayloads()
     {

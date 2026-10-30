@@ -58,6 +58,20 @@ public static class OfficeDocumentLoader
     /// <summary>直接 PDF 控件在文档工作台中的整文件上限，与 Office 工作台一致。</summary>
     public static long DirectPdfWorkbenchMaxBytes => WorkbenchMaxBytes;
 
+    /// <summary>
+    /// 直接 PDF 控件（OfficeViewer 的 Avalonia PdfViewer）会把每一页都排成控件树。
+    /// 100+ 页文档实测把提交内存顶到约 1 GB，而且关闭预览后不回落——所以页数超过这个上限
+    /// 一律改走 PDFium：快速预览只渲染当前页，工作台走虚拟化连续阅读（缓存 10 页 / 96 MiB）。
+    /// </summary>
+    public const int DirectPdfMaxPages = 24;
+
+    /// <summary>
+    /// 页数与字节数都合格才允许把原始 PDF 交给直接控件。页数 ≤0 表示数不出来（加密、损坏、
+    /// 本机没有 PDFium），此时沿用旧行为放行，由直接控件自己报错、宿主再回落到 PDFium。
+    /// </summary>
+    public static bool CanUseDirectPdf(int pageCount, long byteLength, long maxBytes) =>
+        pageCount <= DirectPdfMaxPages && byteLength <= maxBytes;
+
     public static string DisplayName(OfficePreviewFormat format) => format switch
     {
         OfficePreviewFormat.Docx => "Word 文档",

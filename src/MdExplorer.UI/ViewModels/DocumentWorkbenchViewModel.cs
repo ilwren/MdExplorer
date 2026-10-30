@@ -635,28 +635,54 @@ public sealed partial class DocumentWorkbenchViewModel(
     {
         if (_pdfData is null || _pdfPasswordKnown)
             return false;
+
+        // 页数闸门：直接控件按页排控件树，100+ 页会把提交内存顶到上 GB 且关闭后不回落。
+        if (!AllowsDirectPdfControl(_pdfData))
+            return false;
+
+        OfficePreviewDocument? document;
         try
         {
             if (!OfficeDocumentLoader.TryCreateDirectPdf(
-                    _pdfData, OfficeDocumentLoader.DirectPdfWorkbenchMaxBytes, out var document))
+                    _pdfData, OfficeDocumentLoader.DirectPdfWorkbenchMaxBytes, out document))
                 return false;
-
-            OfficeViewerLoadFailed = false;
-            OfficeDocument = document;
-            OfficePageCount = 0;
-            OfficeSheetCount = 0;
-            OfficeSheetIndex = 0;
-            NeedsPdfPassword = false;
-            FailureText = null;
-            StatusText = IsCompactLayout
-                ? "PDF 直接预览"
-                : "PDF 直接预览 · OfficeViewer Avalonia 原生控件";
-            RaiseOfficeState();
-            return true;
         }
         catch (InvalidDataException)
         {
             return false;
+        }
+
+        OfficeViewerLoadFailed = false;
+        OfficeDocument = document;
+        OfficePageCount = 0;
+        OfficeSheetCount = 0;
+        OfficeSheetIndex = 0;
+        NeedsPdfPassword = false;
+        FailureText = null;
+        StatusText = IsCompactLayout
+            ? "PDF 直接预览"
+            : "PDF 直接预览 · OfficeViewer Avalonia 原生控件";
+        RaiseOfficeState();
+        return true;
+    }
+
+    /// <summary>
+    /// 数得出页数就按上限判断；数不出来（损坏、加密、本机没有 PDFium）时保守放行，
+    /// 让直接控件自己报错并由 <see cref="OfficeViewerLoadFailed"/> 回落到 PDFium。
+    /// </summary>
+    private static bool AllowsDirectPdfControl(byte[] data)
+    {
+        try
+        {
+            var pageCount = PdfPreviewRenderer.CountPages(data);
+            return OfficeDocumentLoader.CanUseDirectPdf(
+                pageCount, data.LongLength, OfficeDocumentLoader.DirectPdfWorkbenchMaxBytes);
+        }
+        catch (Exception ex) when (ex is PdfException or PdfPasswordProtectedException
+            or DllNotFoundException or EntryPointNotFoundException or BadImageFormatException
+            or InvalidDataException or IOException)
+        {
+            return true;
         }
     }
 
