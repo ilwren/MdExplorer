@@ -150,3 +150,31 @@ public sealed record BatchRenameRowModel(string Original, string Proposed, strin
 {
     public bool HasError => Error is not null;
 }
+
+/// <summary>端侧 AI 模型行：只报事实（装没装、占多大、缺几个文件），不下判断。</summary>
+public sealed record AiModelStatusModel(
+    string Id,
+    string Name,
+    string Purpose,
+    string License,
+    int ApproxSizeMb,
+    bool Installed,
+    bool Partial,
+    int MissingFileCount,
+    long InstalledBytes)
+{
+    public string SizeText => Installed
+        ? Formatting.Bytes(InstalledBytes)
+        : $"约 {ApproxSizeMb.ToString(CultureInfo.InvariantCulture)} MB";
+
+    public string StatusText => Installed
+        ? $"已就绪 · {Formatting.Bytes(InstalledBytes)}"
+        : Partial
+            ? $"下载不完整 · 缺 {MissingFileCount.ToString(CultureInfo.InvariantCulture)} 个文件"
+            : "未安装";
+
+    public string LicenseText => $"许可 {License}";
+
+    /// <summary>没装或没装全都算「还没准备好」——设置页据此上色，不说「可用」。</summary>
+    public bool NeedsAttention => !Installed;
+}

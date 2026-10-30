@@ -307,6 +307,67 @@
 
       <Border Classes="card">
       <StackPanel Spacing="12">
+        <TextBlock Classes="h3" Text="本地 AI" />
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="启用端侧 AI" />
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="所有推理都在本机完成：不上传文件、不发起网络请求、不采集统计。模型权重需先用仓库里的脚本下载（本版只做了模型分发与状态，推理尚未接线）" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding EnableLocalAi}" VerticalAlignment="Center" />
+        </Grid>
+
+        <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
+                BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}"
+                BorderThickness="1" CornerRadius="12" Padding="12">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="body" Text="{Binding LocalAiStatusText}" TextWrapping="Wrap" />
+              <md:MdButton Grid.Column="1" Variant="Text" Content="重新检查"
+                           Command="{Binding RefreshLocalAiCommand}" />
+            </Grid>
+
+            <ItemsControl ItemsSource="{Binding LocalAiModels}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AiModelStatusModel">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                    <StackPanel Spacing="1">
+                      <TextBlock Classes="body" Text="{Binding Name}" />
+                      <TextBlock Classes="caption" TextWrapping="Wrap"
+                                 Text="{Binding Purpose}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="1">
+                      <TextBlock Classes="caption" HorizontalAlignment="Right"
+                                 Text="{Binding StatusText}" />
+                      <TextBlock Classes="caption" HorizontalAlignment="Right"
+                                 Text="{Binding LicenseText}" />
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <StackPanel Spacing="4">
+              <TextBlock Classes="caption" TextWrapping="Wrap"
+                         Text="下载模型（体积几十 MB，不随应用分发）：" />
+              <Grid ColumnDefinitions="*,Auto">
+                <SelectableTextBlock Classes="mono" Text="{Binding LocalAiDownloadCommandText}"
+                                     TextWrapping="Wrap" VerticalAlignment="Center" />
+                <md:MdButton Grid.Column="1" Variant="Text" Content="复制命令"
+                             Command="{Binding CopyLocalAiDownloadCommandCommand}" />
+              </Grid>
+              <TextBlock Classes="caption" TextWrapping="Wrap"
+                         Text="{Binding LocalAiModelsDirectoryText}" />
+              <md:MdButton Variant="Text" HorizontalAlignment="Left" Content="打开模型目录"
+                           Command="{Binding OpenLocalAiFolderCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+      <StackPanel Spacing="12">
         <TextBlock Classes="h3" Text="启动与最近" />
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel>

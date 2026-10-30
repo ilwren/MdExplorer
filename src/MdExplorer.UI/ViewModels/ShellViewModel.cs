@@ -180,6 +180,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _playVideoInline = s.PlayVideoInline;
         _mediaAutoPlay = s.MediaAutoPlay;
         _showMediaDiagnostics = s.ShowMediaDiagnostics;
+        _enableLocalAi = s.EnableLocalAi;
         _useSearchIndex = s.UseSearchIndex;
         _isDualPaneEnabled = s.DualPaneEnabled;
         _itemPageSize = Math.Clamp(s.ItemPageSize, 60, 480);
@@ -198,6 +199,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _appTrashQuotaBytes = Math.Clamp(s.AppTrashQuotaBytes, 200_000_000, 10_000_000_000);
         _appTrashRetentionDays = Math.Clamp(s.AppTrashRetentionDays, 1, 365);
         RefreshSearchIndexRoots();
+        RefreshLocalAiState();
     }
 
     /// <summary>Android 挂载后将打开方式切换为 Avalonia Launcher 实现。</summary>
@@ -3052,6 +3054,99 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _services.SettingsStore.Settings.ShowMediaDiagnostics = value;
         _ = SaveAsync();
         Preview.RefreshSettings();
+    }
+
+    // ---------- 端侧 AI（第一切片：模型分发与状态，推理未接线） ----------
+
+    /// <summary>清单里每个模型在本机的落地情况；设置页直接绑它。</summary>
+    public ObservableCollection<AiModelStatusModel> LocalAiModels { get; } = [];
+
+    public string LocalAiModelsDirectoryText => _services.AiModels.ModelsDirectory;
+
+    /// <summary>不同平台用不同脚本——别让 Windows 用户去跑 bash。</summary>
+    public string LocalAiDownloadCommandText => OperatingSystem.IsWindows()
+        ? "pwsh scripts/fetch-ai-models.ps1"
+        : "scripts/fetch-ai-models.sh";
+
+    [ObservableProperty] private string _localAiStatusText = string.Empty;
+
+    /// <summary>装了至少一个模型才谈得上「能用」；这里只报事实，不做任何推理。</summary>
+    public bool HasLocalAiModel => LocalAiModels.Any(model => model.Installed);
+
+    /// <summary>重新扫一遍模型目录（只查文件，不加载权重）。</summary>
+    private void RefreshLocalAiState()
+    {
+        LocalAiModels.Clear();
+        var statuses = _services.AiModels.Scan();
+        foreach (var status in statuses)
+        {
+            LocalAiModels.Add(new AiModelStatusModel(
+                status.Definition.Id,
+                status.Definition.Name,
+                status.Definition.Purpose,
+                status.Definition.License,
+                status.Definition.ApproxSizeMb,
+                status.Installed,
+                status.Partial,
+                status.MissingFiles.Count,
+                status.InstalledBytes));
+        }
+
+        var ready = statuses.Count(status => status.Installed);
+        var bytes = statuses.Sum(status => status.InstalledBytes);
+        LocalAiStatusText = ready == 0
+            ? "尚未下载任何模型，端侧 AI 现在不可用（不会假装可用）"
+            : $"{ready}/{statuses.Count} 个模型就绪 · 已占用 {Formatting.Bytes(bytes)}";
+        OnPropertyChanged(nameof(LocalAiStatusText));
+        OnPropertyChanged(nameof(LocalAiModelsDirectoryText));
+        OnPropertyChanged(nameof(LocalAiDownloadCommandText));
+        OnPropertyChanged(nameof(HasLocalAiModel));
+    }
+
+    [RelayCommand]
+    private void RefreshLocalAi()
+    {
+        RefreshLocalAiState();
+        Notify(LocalAiStatusText);
+    }
+
+    [RelayCommand]
+    private async Task CopyLocalAiDownloadCommandAsync()
+    {
+        try
+        {
+            await _services.SystemClipboard
+                .SetTextAsync(LocalAiDownloadCommandText, CancellationToken.None)
+                .ConfigureAwait(true);
+            Notify("下载命令已复制到剪贴板");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Notify("复制失败：可在终端里手动输入这条命令");
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenLocalAiFolderAsync()
+    {
+        var directory = LocalAiModelsDirectoryText;
+        try
+        {
+            Directory.CreateDirectory(directory);
+            if (!await Launcher.RevealAsync(directory, CancellationToken.None).ConfigureAwait(true))
+                Notify("系统没有可以打开这个目录的文件管理器");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Notify($"无法打开模型目录：{ex.Message}");
+        }
+    }
+
+    partial void OnEnableLocalAiChanged(bool value)
+    {
+        _services.SettingsStore.Settings.EnableLocalAi = value;
+        _ = SaveAsync();
+        RefreshLocalAiState();
     }
 
     partial void OnItemPageSizeChanged(int value)

@@ -1,0 +1,41 @@
+# Eidoria（万象屿）端侧 AI 模型清单 —— 脚本与应用共用的唯一真源。
+#
+# 为什么是纯文本而不是 JSON：`scripts/fetch-ai-models.sh`（bash）、
+# `scripts/fetch-ai-models.ps1`（PowerShell）与应用内嵌的读取器要读同一份文件，
+# 而 bash 里没有 JSON 解析器。用 `|` 分隔的行格式，三方都不需要依赖。
+#
+# 行格式：
+#   以 # 开头          -> 注释，忽略
+#   model|<字段...>    -> 模型元数据
+#     1 id            唯一标识（脚本 --only 用，应用按它落设置）
+#     2 显示名
+#     3 用途（一句话，进设置页）
+#     4 许可           SPDX 标识
+#     5 许可链接
+#     6 模型仓库       Hugging Face 仓库名（脚本按 <镜像>/<仓库>/resolve/main/<路径> 下载）
+#     7 运行时         目前只规划 onnx（ONNX Runtime）
+#     8 约体积 MB     粗略值，仅用于下载前提示
+#   file|<id>|<仓库内路径>
+#
+# 只放**权重与分词器**，不放示例、不做量化转换：下载即用，脚本只做校验与落盘。
+
+# ── 中文优先的文本嵌入：文件名/正文的语义检索 ──────────────────────────────
+# BAAI BGE small zh v1.5：24M 参数、512 上下文，中文短文本检索质量在同尺寸里最好，
+# 许可 MIT，可以随 Apache-2.0 项目分发权重。int8 量化版在 CPU 上单条推理约 5–15 ms。
+model|text-embed-zh|BGE small 中文嵌入|文件名与文本内容的语义检索（中文优先）|MIT|https://huggingface.co/BAAI/bge-small-zh-v1.5|Xenova/bge-small-zh-v1.5|onnx|26
+file|text-embed-zh|config.json
+file|text-embed-zh|tokenizer.json
+file|text-embed-zh|tokenizer_config.json
+file|text-embed-zh|special_tokens_map.json
+file|text-embed-zh|vocab.txt
+file|text-embed-zh|onnx/model_quantized.onnx
+
+# ── 英文/多语轻量嵌入：中英混排目录、英文代码与文档 ────────────────────────
+# sentence-transformers/all-MiniLM-L6-v2：Apache-2.0，384 维，英文强、多语一般。
+model|text-embed-en|MiniLM L6 v2 英文嵌入|英文与代码文件的轻量语义检索|Apache-2.0|https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2|Xenova/all-MiniLM-L6-v2|onnx|23
+file|text-embed-en|config.json
+file|text-embed-en|tokenizer.json
+file|text-embed-en|tokenizer_config.json
+file|text-embed-en|special_tokens_map.json
+file|text-embed-en|vocab.txt
+file|text-embed-en|onnx/model_quantized.onnx

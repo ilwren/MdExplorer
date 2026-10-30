@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using System.Security.Cryptography;
 using MdExplorer.Domain;
+using MdExplorer.Infrastructure.Ai;
 using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.Media;
 using MdExplorer.UI.Preview;
@@ -328,6 +329,46 @@ public sealed class ScreenshotTests
         Assert.True(shell.IsPullTrigger72);
         return Task.CompletedTask;
     });
+
+    /// <summary>
+    /// v0.37：端侧 AI 卡只报事实——装了就写「已就绪 + 实际占用」，没装就写「未安装」。
+    /// 这里用稀疏文件把中文嵌入模型「摆」成就绪态，让截图反映的是真实状态文案而不是一句口号。
+    /// </summary>
+    [AvaloniaFact]
+    public async Task Large_SettingsLocalAi() => await CaptureAsync(
+        "80-large-settings-local-ai.png", 1440, 900, async shell =>
+        {
+            shell.GoSettingsCommand.Execute(null);
+            Assert.Equal(ShellPage.Settings, shell.Page);
+            Assert.Equal(2, shell.LocalAiModels.Count);
+            Assert.Contains("尚未下载", shell.LocalAiStatusText, StringComparison.Ordinal);
+
+            var definition = AiModelManifest.LoadEmbedded().First(model => model.Id == "text-embed-zh");
+            var root = Path.Combine(shell.LocalAiModelsDirectoryText, definition.Id);
+            Directory.CreateDirectory(root);
+            foreach (var file in definition.Files)
+            {
+                var path = Path.Combine(root, file.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                using var stream = File.Create(path);
+                // 稀疏文件：不真占 23 MB，但状态行里的体积与真实模型同量级。
+                stream.SetLength(file.EndsWith(".onnx", StringComparison.Ordinal) ? 22_600_000 : 64_000);
+            }
+
+            shell.RefreshLocalAiCommand.Execute(null);
+            Assert.True(shell.LocalAiModels.First(model => model.Id == "text-embed-zh").Installed);
+            Assert.Contains("1/2", shell.LocalAiStatusText, StringComparison.Ordinal);
+            await Task.CompletedTask;
+        },
+        afterShow: async window =>
+        {
+            // 端侧 AI 卡在设置页靠下：滚到底才能拍到。
+            var scroller = window.GetVisualDescendants().OfType<ScrollViewer>()
+                .OrderByDescending(view => view.Extent.Height)
+                .First();
+            scroller.Offset = new Vector(0, Math.Max(0, scroller.Extent.Height - scroller.Viewport.Height));
+            await Task.Delay(150);
+        });
 
     /// <summary>Large 常驻抽屉：品牌区必须固定在顶部，只有导航列表随滚动移动。</summary>
     [AvaloniaFact]

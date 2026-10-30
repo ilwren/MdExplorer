@@ -1,6 +1,7 @@
 using MdExplorer.Infrastructure;
 using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.ViewModels;
+using MdExplorer.Infrastructure.Ai;
 
 namespace MdExplorer.UI.Services;
 
@@ -29,7 +30,8 @@ public static class AppHost
         IStorageInsightsService StorageInsights,
         ITextFileService TextFiles,
         ISystemNotificationService SystemNotifications,
-        IMediaPlaybackService MediaPlayback);
+        IMediaPlaybackService MediaPlayback,
+        AiModelCatalog AiModels);
 
     /// <summary>
     /// 平台内嵌播放后端的注入点。Android 宿主在 Activity 创建时注册 MediaPlayer 实现；
@@ -104,7 +106,9 @@ public static class AppHost
             new StorageInsightsService(),
             new DelegatingTextFileService(new LocalTextFileService(), new StorageTextFileService(fileSystem)),
             systemNotifications ?? new MdSystemNotificationServiceAdapter(),
-            MediaPlaybackFactory?.Invoke() ?? new UnsupportedMediaPlaybackService(DefaultMediaDiagnostic));
+            MediaPlaybackFactory?.Invoke() ?? new UnsupportedMediaPlaybackService(DefaultMediaDiagnostic),
+            // 端侧 AI 的模型目录：只扫描文件，不初始化任何推理运行时。
+            new AiModelCatalog(AiModelCatalog.ResolveDirectory(dataDir)));
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);
