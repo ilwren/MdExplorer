@@ -723,9 +723,17 @@ public interface ISettingsService { T Get<T>(...); ValueTask SetAsync(...); IObs
 >
 > 本版边界：**没有任何 Windows 真机播放证据**。CI 只能证明 Windows TFM 下编译通过、契约与降级路径正确（CI 机器无显示/音频设备，`GetThumbnailAsync` 的真实行为没跑过）。取帧是「摆姿势」不是播放：12 fps、每次取帧一次完整 seek+解码（20–60 ms）、每帧一次托管分配，1080p 下 CPU 明显高于原生播放，快进或大跨度 seek 后音画不同步可能可见；HEVC 需系统扩展、DTS/AC-3 默认缺失。要做到原生流畅播放，需要帧服务（D3D 互操作）或 `IMFMediaEngine` 的 COM 互操作，不在本版。
 
+> **v0.35 OpenDocument 只读预览（文本级还原，不用 LibreOffice）**：`.odt/.ods/.odp` 之前和 `.doc` 一样只落「暂不支持内置预览」，因为 v0.23 接入的 OfficeViewer 只认 OOXML。
+>
+> 三条路的取舍：①无头 LibreOffice——体积与许可都不合 Apache-2.0 分发，维护者也明确排除；②`OfficeIMO.OpenDocument 3.5.3`（MIT、net10.0、只依赖 OfficeIMO.Core、运行时不调 LibreOffice）能解析 ODT/ODS/ODP 并给出文档模型，但它是解析器不是渲染器，呈现仍要自己写；③内置读取器。本版选③：ODF 本来就是「ZIP 里的 `content.xml`」或单文件平面 XML，宿主已经有有界读取与禁 DTD 的 XML 预检，读取器只做文本级还原——`text:h` 按 `text:outline-level` 变标题、`text:list` 变缩进列表、`table:table` 变 Markdown 表格（含 `number-columns-repeated`/`number-rows-repeated`，单元格没有显示文本时退回 `office:value`）、`draw:page` 变幻灯片顺序并剔除 `presentation:notes`——再交给既有 Markdown 渲染器。零新依赖、AOT 安全；`.ott/.ots/.otp` 模板与 `.fodt/.fods/.fodp` 平面 XML 一并支持，`builtin.opendocument` 优先级 117 介于 Office（118）与 Markdown（110）之间。
+>
+> 诚实边界：不还原分页、字体、颜色、图片、图形、嵌入对象、公式与批注，所以预览开头第一句就说清楚，并保留「用系统应用打开」。上限全部写死在读取器里：整包 32 MiB（Android 16）、XML ≤4M 字符、输出 ≤200k 字符、表格 ≤200×32、幻灯片 ≤300、嵌套 ≤16，超出即截断并在结尾标注。若以后要更高保真，`OfficeIMO.OpenDocument`（MIT）可以替换掉内置读取器当解析前端，但 Avalonia 呈现仍得自己写。
+>
+> **KDBX（KeePass 密码库）预览：可行性结论**。GPL 边界很清楚——KeePass/KeePassLib 是 GPL-2.1+，KeePassXC 是 GPL-2/3，ModernKeePassLib 是 GPL-3，`pykeepass` 是 GPL-3，全部不能用；`kdbxweb` 虽是 MIT，但只有 JS 版本。两条可行路线：①`Pidamg.KeePass.Kdbx`（MIT，0.1.1，只依赖 MIT 的 `BouncyCastle.Cryptography`；KDBX 3.x/4.x、密码或密钥文件、AES/ChaCha20/Twofish、Argon2/AES-KDF，读写都支持），接入前必须核 AOT/trim 与 API 稳定性，并用自有端口包一层以便替换；②按公开的 KDBX 4 格式规范（KeePass 官方格式文档 + KeePassXC 文档）用 BouncyCastle 的密码学原语自写只读解析：header 变长字典 → KDF → 外层 AES-256-CBC/ChaCha20/Twofish-CBC → HMAC-SHA256 分块校验 → GZip → 内层 ChaCha20/Salsa20 保护值 → XML。文件格式本身不是受版权保护的代码，独立实现不构成 GPL 传染，但不得复制 GPL 代码、不得链接 GPL 二进制。两条路线都按「只读预览」落地：密码只驻内存、条目密码默认遮住、可显式揭示与复制、关闭即清、绝不写回。本版只给结论与设计，实现排下一版。
+
 ### 6.9 Phase 2 候选池（先定边界不排期）
 
-双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文档工作台后续切片（PDF 目录/文搜与 SAF 文本安全写回）、自动化第二切片（多工作流、显式来源文件夹与 SAF 安全原语；分支/定时触发须先另立安全模型）、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
+双窗格第二切片（B 侧地址编辑、搜索与详细信息 parity）、校验和计算与校验文件、批量重命名、文件夹大小常显、文档工作台后续切片（PDF 目录/文搜与 SAF 文本安全写回）、OpenDocument 保真度（图片/图形/分页）与 KDBX 只读预览、自动化第二切片（多工作流、显式来源文件夹与 SAF 安全原语；分支/定时触发须先另立安全模型）、图片动图播放、系统托盘与长任务后台运行、桌面右键菜单与 Shell 集成（发到/属性跳转系统面板）。
 
 ### 6.10 不做清单（防止 PR 夹带）
 
@@ -1179,6 +1187,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 
 | 2026-10-30 | **v0.33 浮窗内容补齐 + 滚到底后台补齐 + 推帧画面**：浮窗预览空白改为 `OnFileOpened` 显式核对内容来源 + `LoadAsync` 每处 await 校验代次 + 视图监听 `CurrentItem` 重新展开；分页滚到底改 `BeginBackgroundFill`（24 条/批、每批让出 UI 线程）并新增 `EnsureVisibleRange`；新增 `IMediaFrameSink`/`IMediaVideoFrameSource` 端口与 `MediaFrameSurface`，Linux GStreamer 用 `appsink` 取 BGRA 帧推给 Avalonia，缺插件时如实降级；截图 75 暴露的浮窗展开高度丢失改在 `ExpandFloatingPreview` 里显式复位。 | push run `41015929050` / PR run `41015935581`（sha `0fe2df8`）六 Job 全绿：232 单元测试 Ubuntu/Windows 双跑（新增 9 例：后台补齐 5、浮窗内容与代次 2、推帧 2）、76 截图测试分四进程各 19 全过（新增 `75-compact-floating-preview-expand`、`76-large-video-frame-push`，PNG 65→67）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK（含 trimming/AOT） |
 | 2026-10-30 | **v0.34 Windows 视频画面 + 预览右缘排版**：Windows 音频仍走 WinRT `MediaPlayer`（Media Foundation），画面改由 `MediaComposition`/`MediaClip` 按播放位置取缩略帧（480×270、90 ms、位置差 <40 ms 跳过），解成 BGRA 后经 `IMediaFrameSink.PresentFrame` 交给 `MediaFrameSurface`，`RendererKind` 报 `FramePush` 与 Linux appsink 共用一条通道；探测对视频容器真的建一次取帧组合，建不出来即 `CanPlay=false` 并给原因。同时修掉 Large 预览右缘硬裁（后端名改 `Grid` `*` 列 + 换行/省略，工作台按钮去硬 `MinWidth`），截图 76 增加两条右边缘断言。 | push run `41018948935` / PR run `41018954880`（sha `d73a3b3`）六 Job 全绿：232 单元测试 Ubuntu/Windows 双跑、76 截图测试分四进程各 19 全过（PNG 仍 67，截图 76 已换新版）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK；Windows 真机播放呈现待验收（CI 无显示/音频设备） |
+| 2026-10-30 | **v0.35 OpenDocument 只读预览**：新增内置 ODF 读取器（ZIP `content.xml` 或平面 XML），把标题层级、段落、列表、表格（含重复行列与 `office:value` 回退）与幻灯片顺序还原成 Markdown 交给既有渲染器；`builtin.opendocument` 优先级 117，覆盖 `.odt/.ods/.odp/.ott/.ots/.otp/.fodt/.fods/.fodp`，OfficeViewer 仍只负责 OOXML。有界读取 32/16 MiB、XML ≤4M 字符、输出 ≤200k 字符、表格 ≤200×32、幻灯片 ≤300，截断会明确标注；不还原版式的说明写在预览开头，系统应用打开保持可用。KDBX 的 GPL 绕行路线同期完成评估（见上）。 | push run `41021638212` / PR run `41021645627`（sha `713dabb`）六 Job 全绿：244 单元测试 Ubuntu/Windows 双跑（新增 12 例：ODF 读取器 8、提供者注册表 4）、78 截图测试分四进程 20/20/19/19 全过（新增 `77-large-odt-preview`、`78-compact-ods-preview`，PNG 67→69）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK |
 | 2026-10-29 | **v0.32 Android 内嵌视频画面**：核实 Avalonia Android 已实现 `INativeControlHostImpl` 后，用 `TextureView` 作原生画面宿主接管视频输出（`MediaPlayer.SetSurface`），新增 `IMediaVideoRenderer` 平台无关端口与 UI 侧 `MediaSurfaceBridge`/`MediaSurfaceHost`；视频可播判定改为“能力位 + 画面通道”双条件，Android 探测对含视频轨且解码器齐全的文件改报可播并附分辨率。Windows/Linux 视频仍交系统应用。 | push run `41011884151` / PR run `41011889991`（sha `5ec8c2c`）六 Job 全绿：223 单元测试 Ubuntu/Windows 双跑（新增原生画面、有声无画、探测否决 3 例）、74 截图测试分四进程 19/19/18/18、PNG 64→65（新增 `74-large-media-probe-rejected`）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK（含 trimming/AOT） |
 
 ### F. 文档变更规则
