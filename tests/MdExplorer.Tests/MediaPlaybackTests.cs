@@ -212,6 +212,28 @@ public sealed class MediaPlaybackTests
         Assert.Contains("未接入", preview.MediaRendererText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ProbeVetoesPlaybackEvenWhenBackendSaysItCould()
+    {
+        // 能力位说“能播”，但系统探测这个文件认不出来——按钮就必须消失，而不是点了才失败。
+        var media = new FakeMediaPlaybackService(canPlayAudio: true, canPlayVideo: false)
+        {
+            Probe = new MediaProbeResult(
+                false, false, false, "系统解封装器不识别该容器",
+                "Android 的 MediaExtractor 只认 3gp/mp4/ts/mkv/webm。"),
+        };
+        var preview = CreatePreview(media);
+        await preview.LoadAsync(Item("song.mp3", FileKind.Audio));
+
+        Assert.True(media.Capabilities.CanPlayAudio);
+        Assert.False(preview.CanPlayMediaInApp);
+        Assert.True(preview.HasMediaProbe);
+        Assert.Equal("此平台暂不支持内嵌播放", preview.MediaStateText);
+
+        await preview.ToggleMediaPlaybackCommand.ExecuteAsync(null);
+        Assert.Equal(0, media.OpenCount);
+    }
+
     private sealed class FakeNativeSurfaceBackend : IMediaPlaybackService, IMediaVideoRenderer
     {
         public MediaPlaybackCapabilities Capabilities { get; } =
@@ -294,8 +316,9 @@ public sealed class MediaPlaybackTests
         public Task<MediaProbeResult> ProbeAsync(string path, CancellationToken cancellationToken)
         {
             ProbeCount++;
+            // 默认预判：后端认自己的能力位，具体文件不额外限制。
             return Task.FromResult(Probe ?? new MediaProbeResult(
-                canPlayAudio && !canPlayVideo, canPlayVideo, canPlayAudio, "假后端预判"));
+                true, canPlayVideo, canPlayAudio, "假后端预判"));
         }
 
         public MediaPlaybackState State { get; private set; } = MediaPlaybackState.Idle;

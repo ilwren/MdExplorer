@@ -21,6 +21,8 @@ public sealed partial class PreviewViewModel(
     private readonly IMediaPlaybackService? _media = mediaPlayback;
     private string _mediaProbeText = string.Empty;
     private string? _mediaProbeReason;
+    // 探测说“系统接不了”时，能力位再好看也不能播——否则按钮按下去只会失败。
+    private bool _mediaProbeAllowsPlayback = true;
     private Avalonia.Threading.DispatcherTimer? _mediaTimer;
     private string? _mediaPath;
     private bool _mediaSubscribed;
@@ -76,7 +78,7 @@ public sealed partial class PreviewViewModel(
     /// 否则会出现“有声音没画面”的假播放）。
     /// </summary>
     public bool CanPlayMediaInApp =>
-        _media is { } media && IsMedia &&
+        _media is { } media && IsMedia && _mediaProbeAllowsPlayback &&
         (IsAudioMedia
             ? media.Capabilities.CanPlayAudio
             : media.Capabilities.CanPlayVideo && media.RendererKind != MediaRendererKind.None);
@@ -197,6 +199,7 @@ public sealed partial class PreviewViewModel(
     {
         _mediaProbeText = string.Empty;
         _mediaProbeReason = null;
+        _mediaProbeAllowsPlayback = true;
         if (_media is IMediaProbe probe)
         {
             try
@@ -204,6 +207,7 @@ public sealed partial class PreviewViewModel(
                 var result = await probe.ProbeAsync(item.FullPath, CancellationToken.None).ConfigureAwait(true);
                 _mediaProbeText = result.Summary;
                 _mediaProbeReason = result.Reason;
+                _mediaProbeAllowsPlayback = result.CanPlay;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                 or InvalidOperationException or NotSupportedException or ArgumentException)
@@ -216,6 +220,8 @@ public sealed partial class PreviewViewModel(
         {
             _mediaProbeText = "系统解码器能力未知（尝试播放后才知道）";
         }
+        OnPropertyChanged(nameof(CanPlayMediaInApp));
+        OnPropertyChanged(nameof(ShowNativeVideoSurface));
         OnPropertyChanged(nameof(MediaProbeText));
         OnPropertyChanged(nameof(HasMediaProbe));
         OnPropertyChanged(nameof(MediaProbeReasonText));

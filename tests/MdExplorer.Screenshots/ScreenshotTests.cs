@@ -1427,6 +1427,19 @@ public sealed class ScreenshotTests
             Assert.True(shell.Preview.IsMediaPlaying);
         }));
 
+    // 探测说“系统接不了”时的界面：没有播放按钮，只有事实与原因。
+    [AvaloniaFact]
+    public async Task Large_MediaProbeRejected() => await WithStubMediaAsync(async () =>
+        await CaptureAsync("74-large-media-probe-rejected.png", 1440, 900, async shell =>
+        {
+            await SelectByNameAsync(shell, "演示视频.mp4", () => shell.Preview.HasMediaProbe);
+            Assert.True(shell.Preview.IsVideoMedia);
+            Assert.False(shell.Preview.CanPlayMediaInApp);
+            Assert.False(shell.Preview.ShowNativeVideoSurface);
+            Assert.Contains("视频", shell.Preview.MediaProbeText, StringComparison.Ordinal);
+            Assert.Contains("画面宿主", shell.Preview.MediaProbeReasonText, StringComparison.Ordinal);
+        }));
+
     private static async Task WithStubMediaAsync(Func<Task> body)
     {
         AppHost.MediaPlaybackFactory = static () => new StubMediaPlayback();
