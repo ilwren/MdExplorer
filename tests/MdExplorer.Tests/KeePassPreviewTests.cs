@@ -7,6 +7,7 @@ using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.Preview;
 using Org.BouncyCastle.Crypto.Engines;
 using Org.BouncyCastle.Crypto.Parameters;
+using Xunit;
 
 namespace MdExplorer.Tests;
 
