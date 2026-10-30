@@ -195,9 +195,10 @@ jobs:
             -o artifacts/android 2>&1 | tee android-output.txt
       - name: Verify ONNX Runtime assets inside Android APK
         run: |
+          set -o pipefail
           apk="$(find artifacts/android -name '*.apk' -print -quit)"
           test -n "$apk"
-          python3 scripts/verify-android-onnx-apk.py "$apk"
+          python3 scripts/verify-android-onnx-apk.py "$apk" 2>&1 | tee -a android-output.txt
       - name: Publish android log (回传 ci-artifacts 分支)
         if: always()
         continue-on-error: true
