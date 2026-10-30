@@ -233,7 +233,7 @@ internal static class KdbxVectorBuilder
         buffer.AddRange(Entry(0x42, "$UUID", Argon2dUuid));
         buffer.AddRange(Entry(0x42, "S", salt));
         buffer.AddRange(Entry(0x04, "P", U32(2)));
-        buffer.AddRange(Entry(0x05, "M", U64(64 * 1024)));
+        buffer.AddRange(Entry(0x05, "M", U64(64L * 1024 * 1024))); // 单位是字节，与 Argon2 的 64 MiB 一致
         buffer.AddRange(Entry(0x05, "I", U64(iterations)));
         buffer.AddRange(Entry(0x04, "V", U32(0x13)));
         buffer.Add(0);
@@ -427,7 +427,7 @@ public sealed class KeePassPreviewTests : IDisposable
         var data = KdbxVectorBuilder.BuildV4("correct horse", KdbxVectorBuilder.SampleXml, ["s3cret-1", "s3cret-2"]);
         var database = KeePassReader.Read(data, "correct horse");
 
-        Assert.Equal(2u, database.FileVersion >> 16);
+        Assert.Equal(4u, database.FileVersion >> 16);
         Assert.Equal("测试库", database.DatabaseName);
         Assert.Equal(2, database.Entries.Count);
 

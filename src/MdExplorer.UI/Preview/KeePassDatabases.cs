@@ -641,7 +641,7 @@ public static class KeePassReader
             }
         }
 
-        ResolveProtectedValues(document, inner);
+        var protectedValues = ResolveProtectedValues(document, inner);
 
         var root = document.Root;
         if (root is null || root.Name.LocalName != "KeePassFile")
@@ -654,7 +654,7 @@ public static class KeePassReader
         var groupElement = root.Element(ns + "Root")?.Element(ns + "Group");
         var groupNode = groupElement is null
             ? new KeePassGroupNode(string.Empty, "密码库", 0, [])
-            : ParseGroup(groupElement, string.Empty, entries, ref truncated);
+            : ParseGroup(groupElement, string.Empty, entries, protectedValues, ref truncated);
 
         if (name is { Length: > 256 })
             name = name[..256];
@@ -667,14 +667,18 @@ public static class KeePassReader
     /// 把 Protected="True" 的字段就地解密。文档顺序必须与 KeePass 写入时的顺序一致，
     /// 所以这里只做一次全文档顺序遍历（含历史条目），而不是按结构分头处理。
     /// </summary>
-    private static void ResolveProtectedValues(XDocument document, IStreamCipher? inner)
+    private static HashSet<XElement> ResolveProtectedValues(XDocument document, IStreamCipher? inner)
     {
+        // 解密后就地抹掉 Protected 标记（不留“这是密码”的痕迹给后续结构遍历），
+        // 所以这里单独把受保护的元素记下来，条目行靠它决定是否遮罩。
+        var protectedElements = new HashSet<XElement>();
         foreach (var element in document.Descendants())
         {
             if (element.Name.LocalName is not ("Value" or "Binary"))
                 continue;
             if (!string.Equals(element.Attribute("Protected")?.Value, "True", StringComparison.OrdinalIgnoreCase))
                 continue;
+            protectedElements.Add(element);
             if (inner is null)
             {
                 element.Value = string.Empty;
@@ -699,10 +703,13 @@ public static class KeePassReader
             element.SetAttributeValue("Protected", null);
             CryptographicOperations.ZeroMemory(plain);
         }
+
+        return protectedElements;
     }
 
     private static KeePassGroupNode ParseGroup(
-        XElement group, string parentPath, List<KeePassEntryNode> entries, ref bool truncated)
+        XElement group, string parentPath, List<KeePassEntryNode> entries,
+        HashSet<XElement> protectedValues, ref bool truncated)
     {
         var ns = group.Name.Namespace;
         var name = Truncate(group.Element(ns + "Name")?.Value);
@@ -719,7 +726,7 @@ public static class KeePassReader
                 break;
             }
 
-            if (ParseEntry(entry, path) is { } node)
+            if (ParseEntry(entry, path, protectedValues) is { } node)
             {
                 entries.Add(node);
                 ownEntries++;
@@ -728,12 +735,13 @@ public static class KeePassReader
 
         var children = new List<KeePassGroupNode>();
         foreach (var child in group.Elements(ns + "Group"))
-            children.Add(ParseGroup(child, path, entries, ref truncated));
+            children.Add(ParseGroup(child, path, entries, protectedValues, ref truncated));
 
         return new KeePassGroupNode(path, name, ownEntries + children.Sum(c => c.EntryCount), children);
     }
 
-    private static KeePassEntryNode? ParseEntry(XElement entry, string groupPath)
+    private static KeePassEntryNode? ParseEntry(
+        XElement entry, string groupPath, HashSet<XElement> protectedValues)
     {
         var ns = entry.Name.Namespace;
         var fields = new List<KeePassField>();
@@ -745,7 +753,10 @@ public static class KeePassReader
             if (string.IsNullOrEmpty(key))
                 continue;
             var valueElement = pair.Element(ns + "Value");
-            fields.Add(new KeePassField(key, Truncate(valueElement?.Value), valueElement is null));
+            fields.Add(new KeePassField(
+                key,
+                Truncate(valueElement?.Value),
+                valueElement is not null && protectedValues.Contains(valueElement)));
         }
 
         if (fields.Count == 0)

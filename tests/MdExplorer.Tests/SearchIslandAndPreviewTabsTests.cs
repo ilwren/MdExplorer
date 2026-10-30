@@ -90,8 +90,9 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         await shell.OpenFolderAsync(_startDir);
         var item = shell.Browser.Items.First(entry => entry.Name == "plain.txt");
         shell.Browser.SelectedItems.Add(item);
-        await shell.EnsurePreviewContentAsync(item);
-        Assert.True(shell.Preview.HasItem);
+        for (var attempt = 0; attempt < 100 && shell.Preview.TextContent is null; attempt++)
+            await Task.Delay(20);
+        Assert.Equal("plain", shell.Preview.TextContent);
         Assert.False(shell.Preview.IsPayloadReleased);
 
         // 文本只有几百 KB：关闭预览不必跟着丢，重开时还是同一份内容。
@@ -99,14 +100,15 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         Assert.Null(shell.Preview.Image);
         Assert.Null(shell.Preview.OfficeDocument);
         Assert.False(shell.Preview.IsPayloadReleased);
-        Assert.NotNull(shell.Preview.TextContent);
+        Assert.Equal("plain", shell.Preview.TextContent);
 
         // 位图 / PDF / 直接控件 / 密码库这些重负载由截图测试与 KeePass 用例覆盖：
         // 普通单测没有 IPlatformRenderInterface，造不出真位图。
         shell.IsPreviewPageOpen = true;
-        await shell.EnsurePreviewContentAsync(item);
+        for (var attempt = 0; attempt < 100 && shell.Preview.TextContent is null; attempt++)
+            await Task.Delay(20);
         Assert.Equal("plain.txt", shell.Preview.Title);
-        Assert.NotNull(shell.Preview.TextContent);
+        Assert.Equal("plain", shell.Preview.TextContent);
         Assert.False(shell.Preview.IsPayloadReleased);
     }
 
