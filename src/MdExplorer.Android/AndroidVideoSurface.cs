@@ -1,4 +1,3 @@
-using Android.App;
 using Android.Graphics;
 using Android.Views;
 using Avalonia.Android;
@@ -27,9 +26,9 @@ internal sealed class AndroidVideoSurfaceAttachment : IMediaSurfaceAttachment
 
     public AndroidVideoSurfaceAttachment(IPlatformHandle parent)
     {
+        // 注意命名空间：本文件在 MdExplorer.Android 下，直接写 Application 会解析到 MdExplorer.Application。
         var context = (parent as AndroidViewControlHandle)?.View?.Context
-                      ?? (parent as AndroidViewControlHandle)?.View?.Context
-                      ?? Application.Context;
+                      ?? global::Android.App.Application.Context;
         _view = new TextureView(context);
         _view.SurfaceTextureListener = new Listener(this);
         Handle = new AndroidViewControlHandle(_view);
