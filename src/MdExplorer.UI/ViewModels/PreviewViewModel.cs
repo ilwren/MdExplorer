@@ -255,7 +255,7 @@ public sealed partial class PreviewViewModel(
     /// 视频是否在应用内嵌面板里出画面。默认关（逐帧抓取可能花屏/音画不同步），
     /// 用户可以在预览卡里对当前文件显式打开；没有注入设置时保持打开（单元测试直连 VM）。
     /// </summary>
-    public bool PlayVideoInline => _forceInlineVideo || (_settings?.Invoke().PlayVideoInline ?? true);
+    public bool PlayVideoInline => ForceInlineVideo || (_settings?.Invoke().PlayVideoInline ?? true);
 
     /// <summary>视频默认外挂时，卡片给出「用系统播放器打开 / 仍要内嵌观看」两个显式入口。</summary>
     public bool ShowInlineVideoGate =>

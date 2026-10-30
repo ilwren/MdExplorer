@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using Formatting = MdExplorer.Domain.Formatting;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
 using Org.BouncyCastle.Crypto;
