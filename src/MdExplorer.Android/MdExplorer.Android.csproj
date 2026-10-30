@@ -11,6 +11,23 @@
     <IsAotCompatible>false</IsAotCompatible>
     <!-- Release 时由 CI 打开 Trimming + RunAOTCompilation（见 ci.yml android Job） -->
   </PropertyGroup>
+  <!--
+    Microsoft.ML.OnnxRuntime also ships Linux RIDs in its shared net10.0 library asset graph.
+    The Android SDK can otherwise copy the glibc Linux libonnxruntime.so over the Android AAR's
+    Bionic library (XA4301), which builds but crashes on device. Keep the Android AAR and remove
+    only Linux native copy/publish items from this Android app head; desktop RIDs are untouched.
+    See microsoft/onnxruntime#29270.
+  -->
+  <Target Name="_RemoveLinuxOnnxNativeAssetsForAndroid"
+          Condition="$(TargetFramework.Contains('-android'))"
+          AfterTargets="ResolvePackageAssets">
+    <ItemGroup>
+      <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)"
+                            Condition="$([System.String]::Copy('%(NativeCopyLocalItems.PathInPackage)').Contains('linux-'))" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                             Condition="$([System.String]::Copy('%(ResolvedFileToPublish.PathInPackage)').Contains('linux-'))" />
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
