@@ -1,6 +1,6 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:03.19]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
+[xUnit.net 00:00:02.84]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
   Failed MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [2 s]
   Error Message:
    Assert.True() Failure
@@ -10,4 +10,4 @@ Actual:   False
      at MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 589
 --- End of stack trace from previous location ---
 
-Failed!  - Failed:     1, Passed:   258, Skipped:     0, Total:   259, Duration: 3 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:   258, Skipped:     0, Total:   259, Duration: 2 s - MdExplorer.Tests.dll (net10.0)
