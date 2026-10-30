@@ -43,6 +43,6 @@ internal static class BertTextTokenizer
     internal static IReadOnlyList<int> Encode(Stream vocabStream, string text)
     {
         var tokenizer = Create(vocabStream);
-        return tokenizer.EncodeToIds(Normalize(text));
+        return tokenizer.EncodeToIds(Normalize(text), addSpecialTokens: false);
     }
 }

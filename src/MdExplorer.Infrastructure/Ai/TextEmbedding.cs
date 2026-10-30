@@ -167,7 +167,8 @@ public sealed class OnnxTextEmbeddingService : ITextEmbeddingService, IDisposabl
             if (isQuery && _queryPrefix.Length > 0)
                 normalized = _queryPrefix + normalized;
 
-            var pieces = _tokenizer.EncodeToIds(normalized);
+            // Special tokens are added below, so ask the tokenizer for body tokens only.
+            var pieces = _tokenizer.EncodeToIds(normalized, addSpecialTokens: false);
             var available = Math.Max(1, MaxTokens - 2);
             var length = Math.Min(pieces.Count, available);
             var ids = new long[length + 2];
