@@ -3,8 +3,10 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using MdExplorer.Domain;
+using MdExplorer.Infrastructure;
 using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.Preview;
+using MdExplorer.UI.Services;
 using Org.BouncyCastle.Crypto.Engines;
 using Org.BouncyCastle.Crypto.Parameters;
 using Xunit;
@@ -44,13 +46,9 @@ internal static class KdbxVectorBuilder
         var iv = Random(16);
         var protectedKey = Random(32);
 
-        var composite = Composite(password);
-        var derived = useArgon2
-            ? Argon2(composite, Random(32), rounds)
-            : AesTransform(composite, Random(32), rounds, out _);
-        // 上面的种子是随机的，必须重算一次拿到同一个种子——改成显式变量。
         var salt = Random(32);
-        derived = useArgon2 ? Argon2(composite, salt, rounds) : AesTransform(composite, salt, rounds, out _);
+        var composite = Composite(password);
+        var derived = useArgon2 ? Argon2(composite, salt, rounds) : AesTransform(composite, salt, rounds);
 
         var key = SHA256.HashData(Concat(masterSeed, derived));
         var hmacKey = SHA512.HashData(Concat(masterSeed, derived, [0x01]));
@@ -100,7 +98,7 @@ internal static class KdbxVectorBuilder
         var startBytes = Random(32);
 
         var composite = Composite(password);
-        var derived = AesTransform(composite, transformSeed, rounds, out _);
+        var derived = AesTransform(composite, transformSeed, rounds);
         var key = SHA256.HashData(Concat(masterSeed, derived));
 
         var xml = ProtectXml(xmlWithSecrets, secrets, ProtectedStream.Salsa20(protectedKey));
@@ -279,7 +277,7 @@ internal static class KdbxVectorBuilder
         return SHA256.HashData(inner);
     }
 
-    private static byte[] AesTransform(byte[] composite, byte[] seed, ulong rounds, out int _)
+    private static byte[] AesTransform(byte[] composite, byte[] seed, ulong rounds)
     {
         using var aes = Aes.Create();
         aes.Mode = CipherMode.ECB;
@@ -379,17 +377,20 @@ internal static class KdbxVectorBuilder
     }
 
     /// <summary>内层流密码（与解析器实现互不相干的独立实现，正好互为验证）。</summary>
-    private abstract class ProtectedStream
+    private static class ProtectedStream
     {
-        public abstract byte[] Process(byte[] data);
-
         public static Func<byte[], byte[]> ChaCha20(byte[] key)
         {
             var hash = SHA512.HashData(key);
             var engine = new ChaCha7539Engine();
             engine.Init(true, new ParametersWithIV(
                 new KeyParameter(hash[..32]), hash[32..44]));
-            return engine.ProcessBytes;
+            return data =>
+            {
+                var output = new byte[data.Length];
+                engine.ProcessBytes(data, 0, data.Length, output, 0);
+                return output;
+            };
         }
 
         public static Func<byte[], byte[]> Salsa20(byte[] key)
@@ -397,7 +398,12 @@ internal static class KdbxVectorBuilder
             var engine = new Salsa20Engine();
             engine.Init(true, new ParametersWithIV(
                 new KeyParameter(SHA256.HashData(key)), Sha512Iv));
-            return engine.ProcessBytes;
+            return data =>
+            {
+                var output = new byte[data.Length];
+                engine.ProcessBytes(data, 0, data.Length, output, 0);
+                return output;
+            };
         }
     }
 }
@@ -505,7 +511,7 @@ public sealed class KeePassPreviewTests : IDisposable
         var content = await registry.Resolve(item)!.LoadAsync(item, TestContext.Current.CancellationToken);
         Assert.NotNull(content.KeePassUnlock);
         Assert.Equal("vault.kdbx", content.KeePassUnlock!.FileName);
-        Assert.Empty(content.KeePassUnlock.Data.Where(_ => false)); // 只是确认拿到的是字节而非解密结果
+        Assert.NotEmpty(content.KeePassUnlock.Data); // 拿到的是密文，解密发生在用户输入主密码之后
         Assert.Null(content.Text);
         Assert.Null(content.Message);
 
