@@ -1,23 +1,13 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:02.35]     MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues [19 ms]
+[xUnit.net 00:00:03.19]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
+  Failed MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [2 s]
   Error Message:
-   Assert.Equal() Failure: Strings differ
-Expected: "测试库"
-Actual:   null
+   Assert.True() Failure
+Expected: True
+Actual:   False
   Stack Trace:
-     at MdExplorer.Tests.KeePassPreviewTests.Kdbx4DecryptsGroupsEntriesAndProtectedValues() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 431
-   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
-   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
-[xUnit.net 00:00:02.39]     MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [FAIL]
-  Failed MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault [47 ms]
-  Error Message:
-   Assert.False() Failure
-Expected: False
-Actual:   True
-  Stack Trace:
-     at MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 579
+     at MdExplorer.Tests.KeePassPreviewTests.PreviewPanelUnlocksMasksAndReleasesVault() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/KeePassPreviewTests.cs:line 589
 --- End of stack trace from previous location ---
 
-Failed!  - Failed:     2, Passed:   257, Skipped:     0, Total:   259, Duration: 3 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:   258, Skipped:     0, Total:   259, Duration: 3 s - MdExplorer.Tests.dll (net10.0)
