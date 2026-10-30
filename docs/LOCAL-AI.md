@@ -51,10 +51,10 @@ file|<id>|<仓库内路径>
 ```
 
 - 默认目录：`MDEXPLORER_MODELS` → 否则 `<应用数据目录>/models`（Linux `~/.local/share/MdExplorer/models`、Windows `%LOCALAPPDATA%\MdExplorer\models`）。应用与脚本用的是同一套优先级。
-- 下载：`curl -C -` 断点续传、`-f` 让 4xx/5xx 直接失败（绝不把错误页当模型落盘）、小于 1 KiB 的文件判为失败。
-- 校验：首次下载记录 SHA-256；之后每次运行按记录校验，坏文件重新下载；`--verify` 只校验不下载。
-- 镜像：`HF_ENDPOINT=https://hf-mirror.com` 或 `--mirror`，给国内网络用。
-- 命令：`scripts/fetch-ai-models.sh`（Linux/macOS/WSL）、`scripts/fetch-ai-models.ps1`（Windows）。两边参数一致：`--list / --only / --dir / --verify / --dry-run / --clean / --force`。
+- 下载：先写入同目录 `.part`，`curl -C -` 断点续传、`-f` 让 4xx/5xx 直接失败；SHA-256 与大小验证通过后才原子改名，半截文件/错误页永远不会被应用看到；小于 1 KiB 的文件判为失败。`--force` 从头下；普通网络中断留下 `.part` 供续传。
+- 校验：首次完整下载记录 SHA-256；之后每次运行按记录校验，坏文件重新下载；`--verify` 只校验不下载，缺 checksum 也会返回失败，不会把「没校验」报成通过。`--clean --only <id>` 只删除指定模型及其 checksum，不影响其它已安装模型。
+- 镜像：`HF_ENDPOINT=https://hf-mirror.com` 或 `--mirror`（PowerShell `-Mirror`），给国内网络用。
+- 命令：`scripts/fetch-ai-models.sh`（Linux/macOS/WSL，GNU 风格 `--list / --only / --dir / --verify / --dry-run / --clean / --force`）、`scripts/fetch-ai-models.ps1`（Windows PowerShell 7，PowerShell 风格 `-List / -Only / -Dir / -Verify / -DryRun / -Clean / -Force`）。
 
 ### 3.3 许可链
 

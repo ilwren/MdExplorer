@@ -22,6 +22,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+      - name: Validate local AI model downloader (offline)
+        run: |
+          bash -n scripts/fetch-ai-models.sh
+          scripts/fetch-ai-models.sh --list
+          scripts/fetch-ai-models.sh --dir "$RUNNER_TEMP/mdexplorer-ai-dry-run" --dry-run
       - name: Restore
         run: dotnet restore MdExplorer.slnx
       - name: Build
@@ -114,6 +119,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+      - name: Validate local AI model downloader (offline, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/fetch-ai-models.ps1 -List
+          ./scripts/fetch-ai-models.ps1 -Dir "$env:RUNNER_TEMP/mdexplorer-ai-dry-run" -DryRun
       - name: Unit tests (windows only)
         if: runner.os == 'Windows'
         shell: bash

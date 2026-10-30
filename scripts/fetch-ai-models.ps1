@@ -12,9 +12,9 @@
 .EXAMPLE
   pwsh scripts/fetch-ai-models.ps1
 .EXAMPLE
-  pwsh scripts/fetch-ai-models.ps1 --list
+  pwsh scripts/fetch-ai-models.ps1 -List
 .EXAMPLE
-  pwsh scripts/fetch-ai-models.ps1 --only text-embed-zh --dir D:\models
+  pwsh scripts/fetch-ai-models.ps1 -Only text-embed-zh -Dir D:\models
 .EXAMPLE
   $env:HF_ENDPOINT = 'https://hf-mirror.com'; pwsh scripts/fetch-ai-models.ps1
 #>
@@ -80,7 +80,7 @@ $TargetDir =
     elseif ($env:MDEXPLORER_MODELS) { $env:MDEXPLORER_MODELS }
     elseif ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'MdExplorer\models' }
     else { Join-Path $HOME '.local/share/MdExplorer/models' }
-$TargetDir = $TargetDir.TrimEnd('\', '/')
+$TargetDir = $TargetDir.TrimEnd([char]92, [char]47)
 $ChecksumsPath = Join-Path $TargetDir 'checksums.txt'
 
 function Format-Size([long]$bytes) {
@@ -137,9 +137,19 @@ if ($Clean) {
         foreach ($rel in $models[$id].Files) {
             $path = Join-Path $TargetDir (Join-Path $id $rel)
             if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force; $removed++ }
+            if (Test-Path -LiteralPath "$path.part") { Remove-Item -LiteralPath "$path.part" -Force }
         }
     }
-    if (Test-Path -LiteralPath $ChecksumsPath) { Remove-Item -LiteralPath $ChecksumsPath -Force }
+    # 只移除所选模型的校验记录；清理中文模型不应影响仍安装的英文模型。
+    if (Test-Path -LiteralPath $ChecksumsPath) {
+        $selectedPrefixes = @($models.Keys | Where-Object { Test-Wanted $_ } | ForEach-Object { "$_/" })
+        $remaining = @($checksums.GetEnumerator() | Where-Object {
+            $key = $_.Key
+            -not ($selectedPrefixes | Where-Object { $key.StartsWith($_, [StringComparison]::Ordinal) })
+        } | Sort-Object Key | ForEach-Object { "$($_.Value)  $($_.Key)" })
+        if ($remaining.Count -gt 0) { Set-Content -LiteralPath $ChecksumsPath -Value $remaining -Encoding ascii }
+        else { Remove-Item -LiteralPath $ChecksumsPath -Force }
+    }
     Write-Host "已删除 $removed 个模型文件（目录：$TargetDir）"
     exit 0
 }
@@ -152,19 +162,19 @@ if ($Verify) {
         Write-Error "$TargetDir 里没有 checksums.txt —— 先正常跑一次下载再校验"
         exit 1
     }
-    $bad = 0; $missing = 0
+    $bad = 0; $missing = 0; $untracked = 0
     foreach ($id in $models.Keys) {
         if (-not (Test-Wanted $id)) { continue }
         foreach ($rel in $models[$id].Files) {
             $key = "$id/$rel"
             $path = Join-Path $TargetDir (Join-Path $id $rel)
             if (-not (Test-Path -LiteralPath $path)) { Write-Warning "缺少文件：$key"; $missing++; continue }
-            if (-not $checksums.ContainsKey($key)) { Write-Warning "没有记录校验和：$key"; continue }
+            if (-not $checksums.ContainsKey($key)) { Write-Warning "没有记录校验和：$key"; $untracked++; continue }
             if ((Get-Sha256 $path) -ne $checksums[$key]) { Write-Warning "校验失败：$key"; $bad++ }
         }
     }
-    if ($bad -gt 0 -or $missing -gt 0) {
-        Write-Host "校验未通过：$bad 个损坏、$missing 个缺失（可加 -Force 重新下载）"
+    if ($bad -gt 0 -or $missing -gt 0 -or $untracked -gt 0) {
+        Write-Host "校验未通过：$bad 个损坏、$missing 个缺失、$untracked 个无校验记录（可正常重跑补齐，或加 -Force 重新下载）"
         exit 2
     }
     Write-Host '校验通过：清单内文件全部与 checksums.txt 一致'
@@ -172,16 +182,16 @@ if ($Verify) {
 }
 
 # ── 下载 ────────────────────────────────────────────────────────────────────
-function Invoke-Download([string]$url, [string]$dest) {
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+function Invoke-Download([string]$url, [string]$partial) {
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $partial) | Out-Null
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if ($curl) {
-        # -C - 断点续传；-f 让 4xx/5xx 直接失败，而不是把错误页写进模型文件
-        & $curl.Source -sS -fL --retry 3 --retry-delay 2 --connect-timeout 20 -C - -o $dest $url
+        # 只对 .part 断点续传；完整且校验通过后才原子改名。
+        & $curl.Source -sS -fL --retry 3 --retry-delay 2 --connect-timeout 20 -C - -o $partial $url
         return ($LASTEXITCODE -eq 0)
     }
     try {
-        Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
+        Invoke-WebRequest -Uri $url -OutFile $partial -UseBasicParsing
         return $true
     } catch {
         Write-Warning $_.Exception.Message
@@ -200,6 +210,7 @@ foreach ($id in $models.Keys) {
         $key = "$id/$rel"
         $url = "$mirrorBase/$($m.Source)/resolve/main/$rel"
         $dest = Join-Path $TargetDir (Join-Path $id $rel)
+        $partial = "$dest.part"
 
         if ((Test-Path -LiteralPath $dest) -and -not $Force) {
             if ($checksums.ContainsKey($key)) {
@@ -209,6 +220,7 @@ foreach ($id in $models.Keys) {
                     continue
                 }
                 Write-Warning "文件与记录的校验和不一致，重新下载：$key"
+                if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial -Force }
             } else {
                 Write-Host "   已存在（本次记录校验和）  $key"
                 Save-Checksum $key (Get-Sha256 $dest)
@@ -223,19 +235,23 @@ foreach ($id in $models.Keys) {
             continue
         }
 
-        if (Invoke-Download $url $dest) {
-            $size = (Get-Item -LiteralPath $dest).Length
+        if ($Force -and (Test-Path -LiteralPath $partial)) { Remove-Item -LiteralPath $partial -Force }
+        if (Invoke-Download $url $partial) {
+            $size = (Get-Item -LiteralPath $partial).Length
             if ($size -lt 1024) {
                 Write-Warning "下载到的文件只有 $size 字节，看起来不是模型：$key"
+                Remove-Item -LiteralPath $partial -Force
                 $fail++
                 continue
             }
-            $hash = Get-Sha256 $dest
+            $hash = Get-Sha256 $partial
             if ($checksums.ContainsKey($key) -and $hash -ne $checksums[$key]) {
                 Write-Warning "校验失败：$key"
+                Remove-Item -LiteralPath $partial -Force
                 $fail++
                 continue
             }
+            Move-Item -LiteralPath $partial -Destination $dest -Force
             Save-Checksum $key $hash
             $checksums[$key] = $hash
             Write-Host ("   下载完成 {0}  {1}  sha256 {2}…" -f (Format-Size $size), $key, $hash.Substring(0, 12))

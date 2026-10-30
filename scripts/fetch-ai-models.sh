@@ -188,10 +188,23 @@ if [ "$CLEAN" -eq 1 ]; then
       rm -f "$path"
       removed=$((removed + 1))
     fi
+    # 下载中断留下的临时文件也属于模型，不应被 --clean 遗漏。
+    rm -f "$path.part"
     rmdir "$TARGET_DIR/${FILE_MODEL[$i]}/onnx" 2>/dev/null || true
     rmdir "$TARGET_DIR/${FILE_MODEL[$i]}" 2>/dev/null || true
   done
-  [ -f "$CHECKSUMS" ] && rm -f "$CHECKSUMS"
+  # 只移除所选模型的校验记录；--clean --only zh 不应让仍安装的 en 模型失去校验和。
+  if [ -f "$CHECKSUMS" ]; then
+    tmp="$(mktemp)"
+    cp "$CHECKSUMS" "$tmp"
+    for id in "${MODEL_IDS[@]}"; do
+      wanted "$id" || continue
+      filtered="$(mktemp)"
+      awk -v prefix="$id/" 'index($2, prefix) != 1' "$tmp" > "$filtered"
+      mv "$filtered" "$tmp"
+    done
+    if [ -s "$tmp" ]; then mv "$tmp" "$CHECKSUMS"; else rm -f "$tmp" "$CHECKSUMS"; fi
+  fi
   log "已删除 $removed 个模型文件（目录：$TARGET_DIR）"
   exit 0
 fi
@@ -218,6 +231,7 @@ if [ "$VERIFY_ONLY" -eq 1 ]; then
   [ -f "$CHECKSUMS" ] || die "$TARGET_DIR 里没有 checksums.txt —— 先正常跑一次下载再校验"
   bad=0
   missing=0
+  untracked=0
   for i in "${!FILE_PATH[@]}"; do
     wanted "${FILE_MODEL[$i]}" || continue
     rel="${FILE_MODEL[$i]}/${FILE_PATH[$i]}"
@@ -230,6 +244,7 @@ if [ "$VERIFY_ONLY" -eq 1 ]; then
     expected="$(hash_from_checksums "$rel" || true)"
     if [ -z "$expected" ]; then
       warn "没有记录校验和：$rel（用一次正常下载补上）"
+      untracked=$((untracked + 1))
       continue
     fi
     actual="$(sha256_of "$path")"
@@ -238,8 +253,8 @@ if [ "$VERIFY_ONLY" -eq 1 ]; then
       bad=$((bad + 1))
     fi
   done
-  if [ "$bad" -gt 0 ] || [ "$missing" -gt 0 ]; then
-    log "校验未通过：$bad 个损坏、$missing 个缺失（可加 --force 重新下载）"
+  if [ "$bad" -gt 0 ] || [ "$missing" -gt 0 ] || [ "$untracked" -gt 0 ]; then
+    log "校验未通过：$bad 个损坏、$missing 个缺失、$untracked 个无校验记录（可正常重跑补齐，或加 --force 重新下载）"
     exit 2
   fi
   log "校验通过：清单内文件全部与 checksums.txt 一致"
@@ -248,14 +263,13 @@ fi
 
 # ── 下载 ────────────────────────────────────────────────────────────────────
 download() {
-  local url="$1" dest="$2"
-  mkdir -p "$(dirname -- "$dest")"
+  local url="$1" partial="$2"
+  mkdir -p "$(dirname -- "$partial")"
   if command -v curl >/dev/null 2>&1; then
-    # -C - 断点续传；-f 让 4xx/5xx 直接失败，而不是把错误页写进模型文件；
-    # -sS 只在出错时说话，进度由脚本自己按文件大小汇报。
-    curl -sS -fL --retry 3 --retry-delay 2 --connect-timeout 20 -C - -o "$dest" "$url"
+    # 只对 .part 断点续传；完成且校验通过后才原子改名，半截/错误页永远不会被应用看到。
+    curl -sS -fL --retry 3 --retry-delay 2 --connect-timeout 20 -C - -o "$partial" "$url"
   else
-    wget -q -c -O "$dest" "$url"
+    wget -q -c -O "$partial" "$url"
   fi
 }
 
@@ -273,6 +287,7 @@ for id in "${MODEL_IDS[@]}"; do
     url="$MIRROR/${M_SOURCE[$id]}/resolve/main/$rel"
     dest="$TARGET_DIR/$id/$rel"
     expected="$(hash_from_checksums "$rel" || true)"
+    partial="$dest.part"
 
     if [ -f "$dest" ] && [ "$FORCE" -eq 0 ]; then
       if [ -n "$expected" ]; then
@@ -283,6 +298,7 @@ for id in "${MODEL_IDS[@]}"; do
           continue
         fi
         warn "文件与记录的校验和不一致，重新下载：$id/$rel"
+        rm -f "$partial"
       else
         log "   已存在（本次记录校验和）  $id/$rel"
         record_checksum "$id/$rel" "$(sha256_of "$dest")"
@@ -297,19 +313,24 @@ for id in "${MODEL_IDS[@]}"; do
       continue
     fi
 
-    if download "$url" "$dest"; then
-      size="$(wc -c < "$dest" | tr -d ' ')"
+    # --force 从头下；普通失败则保留 .part 供下次断点续传。
+    [ "$FORCE" -eq 0 ] || rm -f "$partial"
+    if download "$url" "$partial"; then
+      size="$(wc -c < "$partial" | tr -d ' ')"
       if [ "$size" -lt 1024 ]; then
         warn "下载到的文件只有 ${size} 字节，看起来不是模型：$id/$rel"
+        rm -f "$partial"
         total_fail=$((total_fail + 1))
         continue
       fi
-      actual="$(sha256_of "$dest")"
+      actual="$(sha256_of "$partial")"
       if [ -n "$expected" ] && [ "$actual" != "$expected" ]; then
         warn "校验失败（期望 ${expected:0:12}…，实际 ${actual:0:12}…）：$id/$rel"
+        rm -f "$partial"
         total_fail=$((total_fail + 1))
         continue
       fi
+      mv -f "$partial" "$dest"
       record_checksum "$id/$rel" "$actual"
       log "   下载完成 $(human "$size")  $id/$rel  sha256 ${actual:0:12}…"
       total_ok=$((total_ok + 1))
