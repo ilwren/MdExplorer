@@ -1,4 +1,31 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.28]     MdExplorer.Tests.SearchIslandAndPreviewTabsTests.StalePreviewLoadDoesNotClearTheNewerItem [FAIL]
+  Failed MdExplorer.Tests.SearchIslandAndPreviewTabsTests.StalePreviewLoadDoesNotClearTheNewerItem [7 ms]
+  Error Message:
+   System.InvalidOperationException : Unable to locate 'Avalonia.Platform.IPlatformRenderInterface'.
+  Stack Trace:
+     at Avalonia.LocatorExtensions.GetRequiredService[T](IAvaloniaDependencyResolver resolver)
+   at Avalonia.Media.Imaging.Bitmap.GetFactory()
+   at Avalonia.Media.Imaging.Bitmap.DecodeToWidth(Stream stream, Int32 width, BitmapInterpolationMode interpolationMode)
+   at MdExplorer.UI.Preview.ImagePreviewProvider.<>c__DisplayClass7_0.<LoadAsync>b__0() in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs:line 103
+   at System.Threading.Tasks.Task`1.InnerInvoke()
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at MdExplorer.UI.Preview.ImagePreviewProvider.LoadAsync(FileItem item, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs:line 103
+   at MdExplorer.UI.Preview.ImagePreviewProvider.LoadAsync(FileItem item, CancellationToken cancellationToken) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs:line 104
+   at MdExplorer.UI.ViewModels.PreviewViewModel.LoadAsync(FileItem item) in /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/ViewModels/PreviewViewModel.cs:line 518
+   at MdExplorer.Tests.SearchIslandAndPreviewTabsTests.StalePreviewLoadDoesNotClearTheNewerItem() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/SearchIslandAndPreviewTabsTests.cs:line 185
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:03.30]     MdExplorer.Tests.SearchIslandAndPreviewTabsTests.FloatingPreviewLoadsTheTappedImageEvenWhenTheSelectionDidNotFeedPreview [FAIL]
+  Failed MdExplorer.Tests.SearchIslandAndPreviewTabsTests.FloatingPreviewLoadsTheTappedImageEvenWhenTheSelectionDidNotFeedPreview [2 s]
+  Error Message:
+   Assert.NotNull() Failure: Value is null
+  Stack Trace:
+     at MdExplorer.Tests.SearchIslandAndPreviewTabsTests.FloatingPreviewLoadsTheTappedImageEvenWhenTheSelectionDidNotFeedPreview() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/SearchIslandAndPreviewTabsTests.cs:line 167
+--- End of stack trace from previous location ---
 
-Passed!  - Failed:     0, Passed:   223, Skipped:     0, Total:   223, Duration: 1 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     2, Passed:   228, Skipped:     0, Total:   230, Duration: 2 s - MdExplorer.Tests.dll (net10.0)
