@@ -200,6 +200,81 @@ public sealed class MediaPlaybackTests
     }
 
     [Fact]
+    public async Task FramePushBackendHandsTheSinkToTheHostAndRendersPushedFrames()
+    {
+        var backend = new FakeMediaPlaybackService(canPlayAudio: true, canPlayVideo: true);
+        var preview = CreatePreview(backend);
+        await preview.LoadAsync(Item("clip.mp4", FileKind.Video));
+
+        Assert.True(preview.CanPlayMediaInApp);
+        Assert.True(preview.ShowFrameVideoSurface);
+        Assert.False(preview.ShowNativeVideoSurface);
+        Assert.Same(backend, preview.VideoFrameSource);
+        Assert.Null(preview.VideoRenderer); // 两种交付方式互斥，不许同时挂两套画面
+        Assert.Equal("画面：宿主帧呈现", preview.MediaRendererText);
+
+        var sink = new RecordingFrameSink();
+        Assert.True(preview.VideoFrameSource!.AttachFrameSink(sink));
+        Assert.Same(sink, backend.Sink);
+        backend.Sink!.PresentFrame(new byte[4 * 2 * 2], 2, 2, 8);
+        Assert.Equal(1, sink.FrameCount);
+        Assert.Equal((2, 2), (sink.Width, sink.Height));
+
+        preview.VideoFrameSource.DetachFrameSink();
+        Assert.Null(backend.Sink);
+    }
+
+    [Fact]
+    public async Task FramePushClaimWithoutAFrameSinkIsNotPlayable()
+    {
+        // 后端自称推帧却交不出帧呈现面：和“有声无画”一样，不许给播放按钮。
+        var preview = CreatePreview(new FramePushWithoutSinkBackend());
+        await preview.LoadAsync(Item("clip.mp4", FileKind.Video));
+
+        Assert.False(preview.CanPlayMediaInApp);
+        Assert.False(preview.ShowFrameVideoSurface);
+        Assert.Null(preview.VideoFrameSource);
+    }
+
+    /// <summary>只记录收到了什么，不碰 UI 线程。</summary>
+    private sealed class RecordingFrameSink : IMediaFrameSink
+    {
+        public int FrameCount { get; private set; }
+        public int Width { get; private set; }
+        public int Height { get; private set; }
+        public bool Cleared { get; private set; }
+        public void PresentFrame(ReadOnlySpan<byte> bgra8888, int width, int height, int strideBytes)
+        {
+            FrameCount++;
+            Width = width;
+            Height = height;
+            Stride = strideBytes;
+        }
+        public int Stride { get; private set; }
+        public void Clear() => Cleared = true;
+    }
+
+    private sealed class FramePushWithoutSinkBackend : IMediaPlaybackService
+    {
+        public MediaPlaybackCapabilities Capabilities { get; } =
+            new(true, true, "fake.frame-push-no-sink", "声称推帧但没有帧呈现面。");
+        public MediaRendererKind RendererKind => MediaRendererKind.FramePush;
+        public MediaPlaybackState State => MediaPlaybackState.Idle;
+        public TimeSpan Position => TimeSpan.Zero;
+        public TimeSpan Duration => TimeSpan.Zero;
+        public int VolumePercent => 100;
+        public string? LastError => null;
+        public event EventHandler? PlaybackChanged { add { } remove { } }
+        public Task<bool> OpenAsync(string path, CancellationToken cancellationToken) => Task.FromResult(true);
+        public Task PlayAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PauseAsync() => Task.CompletedTask;
+        public Task StopAsync() => Task.CompletedTask;
+        public Task SeekAsync(TimeSpan position) => Task.CompletedTask;
+        public void SetVolume(int percent) { }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    [Fact]
     public async Task VideoCapableBackendWithoutRendererStillRefusesVideo()
     {
         // 有 CanPlayVideo 但交付不了画面（RendererKind=None）时不许播，否则就是“有声无画”的假播放。
@@ -297,8 +372,17 @@ public sealed class MediaPlaybackTests
     }
 
     private sealed class FakeMediaPlaybackService(bool canPlayAudio, bool canPlayVideo)
-        : IMediaPlaybackService, IMediaProbe
+        : IMediaPlaybackService, IMediaProbe, IMediaVideoFrameSource
     {
+        /// <summary>宿主交来的帧呈现面；推帧后端就是靠它把画面送进 Avalonia。</summary>
+        public IMediaFrameSink? Sink { get; private set; }
+        public bool AttachFrameSink(IMediaFrameSink sink)
+        {
+            Sink = sink;
+            return true;
+        }
+        public void DetachFrameSink() => Sink = null;
+
         public MediaPlaybackCapabilities Capabilities { get; } = new(
             canPlayAudio,
             canPlayVideo,

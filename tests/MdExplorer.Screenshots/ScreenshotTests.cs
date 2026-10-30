@@ -9,6 +9,7 @@ using Avalonia.VisualTree;
 using System.Security.Cryptography;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
+using MdExplorer.UI.Media;
 using MdExplorer.UI.Preview;
 using MdExplorer.UI.Services;
 using MdExplorer.UI.ViewModels;
@@ -1435,6 +1436,26 @@ public sealed class ScreenshotTests
             Assert.True(shell.Preview.IsMediaPlaying);
         }));
 
+    // 推帧路线的界面证据：后端把帧推给宿主，画面由 Avalonia 自己画（Linux Wayland 无窗口 id 时只能这样）。
+    [AvaloniaFact]
+    public async Task Large_VideoFramePush() => await WithStubMediaAsync(
+        async () => await CaptureAsync("76-large-video-frame-push.png", 1440, 900, async shell =>
+        {
+            await SelectByNameAsync(shell, "演示视频.mp4", () => shell.Preview.CanPlayMediaInApp);
+            Assert.True(shell.Preview.IsVideoMedia);
+            Assert.True(shell.Preview.ShowFrameVideoSurface);
+            Assert.False(shell.Preview.ShowNativeVideoSurface);
+            Assert.Equal("画面：宿主帧呈现", shell.Preview.MediaRendererText);
+        }, afterShow: window =>
+        {
+            var surface = window.GetVisualDescendants().OfType<MediaFrameSurface>().FirstOrDefault();
+            Assert.NotNull(surface);
+            Assert.True(surface!.HasFrame);
+            Assert.Equal(new PixelSize(640, 360), surface.FrameSize);
+            return Task.CompletedTask;
+        }),
+        static () => new FramePushVideoStub());
+
     // 探测说“系统接不了”时的界面：没有播放按钮，只有事实与原因。
     [AvaloniaFact]
     public async Task Large_MediaProbeRejected() => await WithStubMediaAsync(async () =>
@@ -1448,9 +1469,12 @@ public sealed class ScreenshotTests
             Assert.Contains("画面宿主", shell.Preview.MediaProbeReasonText, StringComparison.Ordinal);
         }));
 
-    private static async Task WithStubMediaAsync(Func<Task> body)
+    private static Task WithStubMediaAsync(Func<Task> body) =>
+        WithStubMediaAsync(body, static () => new StubMediaPlayback());
+
+    private static async Task WithStubMediaAsync(Func<Task> body, Func<IMediaPlaybackService> factory)
     {
-        AppHost.MediaPlaybackFactory = static () => new StubMediaPlayback();
+        AppHost.MediaPlaybackFactory = factory;
         try
         {
             await body();
@@ -1488,7 +1512,7 @@ public sealed class ScreenshotTests
         "75-compact-floating-preview-expand.png", 390, 844,
         async shell =>
         {
-            var photos = shell.Browser.Items.Where(i => i.Name.StartsWith("IMG_", StringComparison.Ordinal)).ToArray();
+            var photos = shell.Browser.Items.Where(i => i.Kind == FileKind.Image).ToArray();
             Assert.True(photos.Length >= 2);
             shell.Browser.SelectedItems.Clear();
             shell.Browser.SelectedItems.Add(photos[0]);
@@ -1511,7 +1535,7 @@ public sealed class ScreenshotTests
 
             // 再点开另一张图：属性没变（IsPreviewPageOpen 一直是 true），内容必须自己重新展开。
             var shell = (ShellViewModel)window.GetVisualDescendants().OfType<MainView>().First().DataContext!;
-            var next = shell.Browser.Items.Last(i => i.Name.StartsWith("IMG_", StringComparison.Ordinal));
+            var next = shell.Browser.Items.Last(i => i.Kind == FileKind.Image);
             await shell.Preview.LoadAsync(null);
             shell.Browser.SelectedItems.Clear();
             shell.Browser.SelectedItems.Add(next);

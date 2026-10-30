@@ -109,6 +109,40 @@ public interface IMediaVideoRenderer
 }
 
 /// <summary>
+/// 宿主提供的帧呈现面（<see cref="MediaRendererKind.FramePush"/>）。后端把解码后的画面按视频帧率推过来，
+/// 由宿主在 Avalonia 内绘制——Wayland 下拿不到窗口 id，只能用这条路线。
+/// <para>
+/// 帧数据是 BGRA8888、未预乘。实现必须允许从解码线程调用：拷贝进自己的缓冲区后立刻返回，
+/// 绝不阻塞解码线程。解码器给的缓冲区常常按对齐补行尾，所以行距单独给出。
+/// </para>
+/// </summary>
+public interface IMediaFrameSink
+{
+    /// <summary>推送一帧画面；尺寸从 0 变为有效值即表示画面开始。</summary>
+    /// <param name="bgra8888">帧缓冲起始位置。</param>
+    /// <param name="width">像素宽。</param>
+    /// <param name="height">像素高。</param>
+    /// <param name="strideBytes">每行字节数（含解码器的行尾对齐填充）。</param>
+    void PresentFrame(ReadOnlySpan<byte> bgra8888, int width, int height, int strideBytes);
+
+    /// <summary>清空画面（停止、切换文件或解码失败）。</summary>
+    void Clear();
+}
+
+/// <summary>
+/// 只能把帧推给宿主的后端实现它（Linux GStreamer appsink、未来的 Windows MF 帧服务）。
+/// 与 <see cref="IMediaVideoRenderer"/> 并列：二者互斥，实现只能选一种，否则“画面在哪”说不清。
+/// </summary>
+public interface IMediaVideoFrameSource
+{
+    /// <summary>宿主帧呈现面就绪；实现应在此之后开始推帧。返回是否接受。</summary>
+    bool AttachFrameSink(IMediaFrameSink sink);
+
+    /// <summary>宿主帧呈现面销毁或控件脱离视觉树。</summary>
+    void DetachFrameSink();
+}
+
+/// <summary>
 /// 没有位置回调的后端（如 Android MediaPlayer）实现它，宿主定时器调用即可把进度推给 UI。
 /// 支持回调的后端不必实现。
 /// </summary>

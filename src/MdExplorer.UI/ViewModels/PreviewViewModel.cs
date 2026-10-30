@@ -81,11 +81,18 @@ public sealed partial class PreviewViewModel(
         _media is { } media && IsMedia && _mediaProbeAllowsPlayback &&
         (IsAudioMedia
             ? media.Capabilities.CanPlayAudio
-            : media.Capabilities.CanPlayVideo && media.RendererKind != MediaRendererKind.None);
+            : media.Capabilities.CanPlayVideo && media.RendererKind != MediaRendererKind.None &&
+              // 推帧后端必须真的能交出帧呈现面，否则按下去只有声音没画面。
+              (media.RendererKind != MediaRendererKind.FramePush || media is IMediaVideoFrameSource));
     /// <summary>后端需要宿主的原生画面窗口（Android TextureView / Windows HWND）。</summary>
     public IMediaVideoRenderer? VideoRenderer => _media as IMediaVideoRenderer;
     public bool ShowNativeVideoSurface =>
         IsVideoMedia && CanPlayMediaInApp && _media?.RendererKind == MediaRendererKind.NativeSurface;
+    /// <summary>后端只推帧（Linux Wayland 的 appsink 路线）；画面由 Avalonia 自己画。</summary>
+    public IMediaVideoFrameSource? VideoFrameSource => _media as IMediaVideoFrameSource;
+    public bool ShowFrameVideoSurface =>
+        IsVideoMedia && CanPlayMediaInApp && _media?.RendererKind == MediaRendererKind.FramePush &&
+        VideoFrameSource is not null;
     public bool IsMediaPlaying => _media?.State == MediaPlaybackState.Playing;
     public string MediaBackendName => _media?.Capabilities.BackendName ?? "none";
     /// <summary>系统解码器对这个文件的预判（事实来自平台，不是按扩展名猜）。</summary>
@@ -222,6 +229,7 @@ public sealed partial class PreviewViewModel(
         }
         OnPropertyChanged(nameof(CanPlayMediaInApp));
         OnPropertyChanged(nameof(ShowNativeVideoSurface));
+        OnPropertyChanged(nameof(ShowFrameVideoSurface));
         OnPropertyChanged(nameof(MediaProbeText));
         OnPropertyChanged(nameof(HasMediaProbe));
         OnPropertyChanged(nameof(MediaProbeReasonText));
@@ -235,7 +243,9 @@ public sealed partial class PreviewViewModel(
         OnPropertyChanged(nameof(IsVideoMedia));
         OnPropertyChanged(nameof(CanPlayMediaInApp));
         OnPropertyChanged(nameof(ShowNativeVideoSurface));
+        OnPropertyChanged(nameof(ShowFrameVideoSurface));
         OnPropertyChanged(nameof(VideoRenderer));
+        OnPropertyChanged(nameof(VideoFrameSource));
         OnPropertyChanged(nameof(IsMediaPlaying));
         OnPropertyChanged(nameof(MediaStateText));
         OnPropertyChanged(nameof(MediaPositionText));

@@ -9,10 +9,19 @@ namespace MdExplorer.Desktop;
 /// 选择它的理由：GStreamer 是发行版自带的 LGPL 媒体栈，不用往仓库里塞 FFmpeg 二进制，
 /// 也不用自己维护原生构建链；代价是「装了哪些插件」由发行版决定，所以我们只报事实：
 /// 库缺失就能力位 false，绝不给一个看得见却不出声的播放器。
+/// <para>
+/// 视频画面走 <c>appsink</c> 取帧再推给宿主（<see cref="MediaRendererKind.FramePush"/>）：
+/// Wayland 下拿不到可交给解码器的窗口 id，原生画面宿主这条路走不通。取帧线程把 BGRA 帧
+/// 拷进托管数组后交给 <see cref="IMediaFrameSink"/>，由 Avalonia 自己画。
+/// </para>
 /// </summary>
-internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMediaPlaybackPoller
+internal sealed class GStreamerMediaPlaybackService
+    : IMediaPlaybackService, IMediaPlaybackPoller, IMediaProbe, IMediaVideoFrameSource
 {
     private const string Library = "libgstreamer-1.0.so.0";
+    private const string AppLibrary = "libgstapp-1.0.so.0";
+    private const string VideoSinkName = "mdexplorer-vsink";
+    private const int MapFlagRead = 1;
 
     // GstState / GstFormat / GstSeekFlags 的数值来自 gst/gstelement.h 与 gst/gstformat.h。
     private const int StateNull = 1;
@@ -25,6 +34,8 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
     private static readonly object InitGate = new();
     private static bool _initialized;
     private static string? _initFailure;
+    private static bool _videoAvailable;
+    private static string? _videoUnavailableReason;
 
     private readonly object _gate = new();
     private IntPtr _pipeline;
@@ -32,17 +43,26 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
     private bool _ended;
     private bool _disposed;
 
+    // 视频：取帧线程（appsink 在播放态才由 playbin 收进自己的 bin，所以由线程自己去找）。
+    private IMediaFrameSink? _frameSink;
+    private CancellationTokenSource? _framePumpCts;
+    private Thread? _framePump;
+
     public GStreamerMediaPlaybackService()
     {
         EnsureInitialized();
     }
 
     public MediaPlaybackCapabilities Capabilities => _initFailure is null
-        ? new(true, false, "GStreamer（系统媒体栈）",
-            "音频由发行版自带的 GStreamer 解码；插件缺失时打开会失败并给出原因。视频画面本版交系统应用打开。")
+        ? new(true, _videoAvailable, "GStreamer（系统媒体栈）",
+            _videoAvailable
+                ? "音视频都由发行版自带的 GStreamer 解码；视频帧经 appsink 推给宿主（Wayland 无窗口 id 也能出画面）。"
+                : $"音频由发行版自带的 GStreamer 解码；{_videoUnavailableReason}视频画面交系统应用打开。")
         : new(false, false, "none", $"GStreamer 不可用：{_initFailure}");
 
-    public MediaRendererKind RendererKind => MediaRendererKind.None;
+    /// <summary>视频帧交付方式：装齐 appsink/videoconvert 才是 <see cref="MediaRendererKind.FramePush"/>。</summary>
+    public MediaRendererKind RendererKind =>
+        _videoAvailable ? MediaRendererKind.FramePush : MediaRendererKind.None;
 
     public MediaPlaybackState State { get; private set; } = MediaPlaybackState.Idle;
     public int VolumePercent { get; private set; } = 100;
@@ -87,7 +107,12 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
             {
                 DestroyPipeline();
                 var uri = new Uri(path).AbsoluteUri.Replace("\"", "%22", StringComparison.Ordinal);
-                var launch = $"playbin uri=\"{uri}\"";
+                // 只要 appsink 可用就给 playbin 一个视频 sink：音频文件根本不会走到它，
+                // 视频文件则把每帧交给我们推给宿主。sync=true 让画面跟着音频时钟走。
+                var videoSink = _videoAvailable
+                    ? $" video-sink=\"appsink name={VideoSinkName} caps=video/x-raw,format=BGRA sync=true max-buffers=2 drop=true\""
+                    : string.Empty;
+                var launch = $"playbin uri=\"{uri}\"{videoSink}";
                 _pipeline = gst_parse_launch(launch, out var error);
                 if (_pipeline == IntPtr.Zero)
                 {
@@ -114,6 +139,7 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
                 _ended = false;
                 LastError = null;
                 State = MediaPlaybackState.Paused;
+                StartFramePumpLocked();
             }
             catch (Exception ex) when (IsPlatformFailure(ex) || ex is UriFormatException)
             {
@@ -166,6 +192,7 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
         {
             if (!_prepared || _pipeline == IntPtr.Zero)
                 return Task.CompletedTask;
+            StopFramePumpLocked();
             gst_element_set_state(_pipeline, StateNull);
             _prepared = false;
             State = MediaPlaybackState.Stopped;
@@ -237,6 +264,8 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
 
     private void DestroyPipeline()
     {
+        // 先让取帧线程停下来再拆管线：它在 appsink 上等样本，管线被拆掉后再取就是野指针。
+        StopFramePumpLocked();
         if (_pipeline == IntPtr.Zero)
             return;
         try
@@ -251,6 +280,167 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
         _prepared = false;
     }
 
+    // ---------- 帧推送（IMediaVideoFrameSource） ----------
+
+    /// <summary>宿主交出帧呈现面：下次打开文件后取帧线程就开始把画面推过去。</summary>
+    public bool AttachFrameSink(IMediaFrameSink sink)
+    {
+        if (!_videoAvailable || sink is null)
+            return false;
+        lock (_gate)
+        {
+            _frameSink = sink;
+            StartFramePumpLocked();
+        }
+        return true;
+    }
+
+    public void DetachFrameSink()
+    {
+        lock (_gate)
+        {
+            StopFramePumpLocked();
+            _frameSink = null;
+        }
+    }
+
+    /// <summary>调用方必须持有 <see cref="_gate"/>。</summary>
+    private void StartFramePumpLocked()
+    {
+        if (!_videoAvailable || _frameSink is null || _pipeline == IntPtr.Zero || _framePump is not null)
+            return;
+        var sink = _frameSink;
+        var pipeline = _pipeline;
+        _framePumpCts = new CancellationTokenSource();
+        var token = _framePumpCts.Token;
+        _framePump = new Thread(() => PumpFrames(pipeline, sink, token))
+        {
+            IsBackground = true,
+            Name = "MdExplorer GStreamer frames",
+        };
+        _framePump.Start();
+    }
+
+    /// <summary>调用方必须持有 <see cref="_gate"/>。</summary>
+    private void StopFramePumpLocked()
+    {
+        var cts = _framePumpCts;
+        var thread = _framePump;
+        _framePumpCts = null;
+        _framePump = null;
+        if (cts is null)
+            return;
+        try { cts.Cancel(); }
+        catch (ObjectDisposedException) { }
+        // 取帧线程只做非阻塞推送，不会卡在这里；给足 500ms 兜底，绝不把 UI 线程锁死。
+        try { thread?.Join(500); }
+        catch (ThreadStateException) { }
+        cts.Dispose();
+    }
+
+    /// <summary>
+    /// 取帧循环：appsink 按播放时钟交付样本，这里只做「读 caps → 拷成紧凑 BGRA → 交给宿主」。
+    /// 任何原生调用失败都直接退出，不再推帧——画面停住比崩溃或绿屏诚实。
+    /// </summary>
+    private void PumpFrames(IntPtr pipeline, IMediaFrameSink sink, CancellationToken token)
+    {
+        var appsink = IntPtr.Zero;
+        try
+        {
+            // playbin 要到播放态才把 video-sink 收进自己的 bin，所以这里等它就位（最多 5 秒）。
+            for (var attempt = 0; attempt < 100 && appsink == IntPtr.Zero && !token.IsCancellationRequested; attempt++)
+            {
+                appsink = gst_bin_get_by_name(pipeline, VideoSinkName);
+                if (appsink == IntPtr.Zero)
+                    Thread.Sleep(50);
+            }
+            if (appsink == IntPtr.Zero)
+            {
+                LastError = "GStreamer 没有把 appsink 挂进播放管线，视频画面未启动。";
+                return;
+            }
+
+            while (!token.IsCancellationRequested)
+            {
+                var sample = gst_app_sink_try_pull_sample(appsink, 200_000_000UL); // 200ms
+                if (sample == IntPtr.Zero)
+                    continue;
+                try
+                {
+                    PublishSample(sample, sink);
+                }
+                finally
+                {
+                    gst_sample_unref(sample);
+                }
+            }
+        }
+        catch (Exception ex) when (IsPlatformFailure(ex))
+        {
+            LastError = $"视频帧推送已停止：{ex.Message}";
+        }
+        finally
+        {
+            if (appsink != IntPtr.Zero)
+            {
+                try { gst_object_unref(appsink); }
+                catch (Exception ex) when (IsPlatformFailure(ex)) { }
+            }
+        }
+    }
+
+    private static void PublishSample(IntPtr sample, IMediaFrameSink sink)
+    {
+        var caps = gst_sample_get_caps(sample);
+        if (caps == IntPtr.Zero)
+            return;
+        var structure = gst_caps_get_structure(caps, 0);
+        if (structure == IntPtr.Zero)
+            return;
+        if (gst_structure_get_int(structure, "width", out var width) == 0 ||
+            gst_structure_get_int(structure, "height", out var height) == 0)
+            return;
+        if (width <= 0 || height <= 0 || width > 8192 || height > 8192)
+            return;
+
+        var buffer = gst_sample_get_buffer(sample);
+        if (buffer == IntPtr.Zero)
+            return;
+
+        // GstMapInfo 的结构体大小随版本变化，这里用一块足够大的原生内存而不是托管结构体：
+        // 只有头三个字段的偏移是稳定的（memory/flags/data/size/maxsize）。
+        var info = Marshal.AllocHGlobal(128);
+        try
+        {
+            if (gst_buffer_map(buffer, info, MapFlagRead) == 0)
+                return;
+            try
+            {
+                var data = Marshal.ReadIntPtr(info, 16);
+                var size = Marshal.ReadInt64(info, 24);
+                var rowBytes = width * 4;
+                if (data == IntPtr.Zero || size < (long)rowBytes * height)
+                    return;
+                var stride = (int)(size / height);
+                if (stride < rowBytes)
+                    stride = rowBytes;
+
+                var frame = new byte[rowBytes * height];
+                for (var y = 0; y < height; y++)
+                    Marshal.Copy(IntPtr.Add(data, y * stride), frame, y * rowBytes, rowBytes);
+                sink.PresentFrame(frame, width, height, rowBytes);
+            }
+            finally
+            {
+                gst_buffer_unmap(buffer, info);
+            }
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(info);
+        }
+    }
+
     private static void EnsureInitialized()
     {
         lock (InitGate)
@@ -261,6 +451,7 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
             {
                 gst_init(IntPtr.Zero, IntPtr.Zero);
                 _initialized = true;
+                DetectVideoSupport();
             }
             catch (Exception ex) when (IsPlatformFailure(ex))
             {
@@ -269,6 +460,79 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
                     : ex.Message;
             }
         }
+    }
+
+    /// <summary>
+    /// 视频能不能出画面，取决于发行版装没装 appsink / videoconvert 与 libgstapp。
+    /// 这里逐项核对；缺哪一项都只是“视频交系统应用打开”，不影响音频。
+    /// </summary>
+    private static void DetectVideoSupport()
+    {
+        try
+        {
+            var appsink = gst_element_factory_make("appsink", IntPtr.Zero);
+            var convert = gst_element_factory_make("videoconvert", IntPtr.Zero);
+            if (appsink != IntPtr.Zero)
+                gst_object_unref(appsink);
+            if (convert != IntPtr.Zero)
+                gst_object_unref(convert);
+
+            if (appsink == IntPtr.Zero)
+            {
+                _videoUnavailableReason = "系统缺少 appsink 插件（gst-plugins-base）；";
+                return;
+            }
+            if (convert == IntPtr.Zero)
+            {
+                _videoUnavailableReason = "系统缺少 videoconvert 插件；";
+                return;
+            }
+            if (!NativeLibrary.TryLoad(AppLibrary, out var handle) ||
+                !NativeLibrary.TryGetExport(handle, "gst_app_sink_try_pull_sample", out _))
+            {
+                _videoUnavailableReason = "系统缺少 libgstapp-1.0（gst-plugins-base）；";
+                return;
+            }
+            _videoAvailable = true;
+        }
+        catch (Exception ex) when (IsPlatformFailure(ex))
+        {
+            _videoUnavailableReason = $"GStreamer 视频插件不可用：{ex.Message}；";
+        }
+    }
+
+    /// <summary>
+    /// 预判只看容器清单：真正的解码器由 GStreamer 的插件决定，逐个文件试开会带来可见延迟。
+    /// 没有 appsink 时视频如实报“不能内嵌播”，而不是给一个只会出声的播放按钮。
+    /// </summary>
+    public Task<MediaProbeResult> ProbeAsync(string path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        var video = extension is ".mp4" or ".m4v" or ".mkv" or ".webm" or ".mov" or ".avi" or ".ts" or ".ogv" or ".flv";
+        var audio = extension is ".mp3" or ".m4a" or ".aac" or ".wav" or ".flac" or ".ogg" or ".opus" or ".oga";
+
+        if (video)
+        {
+            var label = extension.TrimStart('.').ToUpperInvariant();
+            return Task.FromResult(_videoAvailable
+                ? new MediaProbeResult(true, true, true, $"视频 · {label}（GStreamer 解码 → 帧推送）")
+                : new MediaProbeResult(
+                    false, true, true, $"视频 · {label}",
+                    $"{_videoUnavailableReason}视频画面交系统应用打开；音频仍可播。"));
+        }
+
+        if (audio)
+        {
+            var label = extension.TrimStart('.').ToUpperInvariant();
+            return Task.FromResult(_initFailure is null
+                ? new MediaProbeResult(true, false, true, $"音频 · {label}（GStreamer 解码）")
+                : new MediaProbeResult(false, false, true, $"音频 · {label}", _initFailure));
+        }
+
+        return Task.FromResult(new MediaProbeResult(
+            false, false, false, "容器不在系统清单内",
+            "GStreamer 对这个容器没有已安装的解码插件，可用系统应用打开。"));
     }
 
     private static TimeSpan? QueryPosition(IntPtr pipeline) =>
@@ -335,5 +599,38 @@ internal sealed class GStreamerMediaPlaybackService : IMediaPlaybackService, IMe
 
     [DllImport(Library)]
     private static extern void gst_object_unref(IntPtr obj);
+
+    [DllImport(Library)]
+    private static extern IntPtr gst_element_factory_make(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string factory, IntPtr name);
+
+    [DllImport(Library)]
+    private static extern IntPtr gst_bin_get_by_name(
+        IntPtr bin, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+
+    [DllImport(Library)]
+    private static extern IntPtr gst_sample_get_caps(IntPtr sample);
+
+    [DllImport(Library)]
+    private static extern IntPtr gst_caps_get_structure(IntPtr caps, uint index);
+
+    [DllImport(Library)]
+    private static extern int gst_structure_get_int(
+        IntPtr structure, [MarshalAs(UnmanagedType.LPUTF8Str)] string field, out int value);
+
+    [DllImport(Library)]
+    private static extern IntPtr gst_sample_get_buffer(IntPtr sample);
+
+    [DllImport(Library)]
+    private static extern int gst_buffer_map(IntPtr buffer, IntPtr info, int flags);
+
+    [DllImport(Library)]
+    private static extern void gst_buffer_unmap(IntPtr buffer, IntPtr info);
+
+    [DllImport(Library)]
+    private static extern void gst_sample_unref(IntPtr sample);
+
+    [DllImport(AppLibrary)]
+    private static extern IntPtr gst_app_sink_try_pull_sample(IntPtr appsink, ulong timeoutNanoseconds);
 }
 #endif

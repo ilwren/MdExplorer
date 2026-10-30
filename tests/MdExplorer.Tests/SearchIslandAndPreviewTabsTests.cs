@@ -13,7 +13,7 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
     private readonly string _childDir;
     private readonly string _needlePath;
     private readonly string _plainPath;
-    private readonly string _imagePath;
+    private readonly string _notesPath;
 
     public SearchIslandAndPreviewTabsTests()
     {
@@ -24,13 +24,9 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         _plainPath = Path.Combine(_startDir, "plain.txt");
         File.WriteAllText(_needlePath, "needle");
         File.WriteAllText(_plainPath, "plain");
-        _imagePath = Path.Combine(_startDir, "photo.png");
-        File.WriteAllBytes(_imagePath, OnePixelPng);
+        _notesPath = Path.Combine(_startDir, "notes.txt");
+        File.WriteAllText(_notesPath, "notes");
     }
-
-    // 1×1 透明 PNG：让图片预览走真实的 SkiaSharp 解码路径，而不是测试替身。
-    private static readonly byte[] OnePixelPng = Convert.FromBase64String(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
 
     public void Dispose()
     {
@@ -145,29 +141,28 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
     }
 
     [Fact]
-    public async Task FloatingPreviewLoadsTheTappedImageEvenWhenTheSelectionDidNotFeedPreview()
+    public async Task FloatingPreviewLoadsTheTappedFileEvenWhenTheSelectionDidNotFeedPreview()
     {
         var shell = CreateShell();
         await shell.OpenFolderAsync(_startDir);
-        var image = Assert.Single(shell.Browser.Items, item => item.Name == "photo.png");
+        var file = Assert.Single(shell.Browser.Items, item => item.Name == "plain.txt");
 
-        // 预览被清空（上一轮返回、切换窗格、页面切换都可能出现），此时点开图片：
+        // 预览被清空（上一轮返回、切换窗格、页面切换都可能出现），此时点开文件：
         // 浮窗不能展开成一片空白——内容必须由 OnFileOpened 自己核对。
         await shell.Preview.LoadAsync(null);
         Assert.False(shell.Preview.HasItem);
 
         shell.SetViewportSize(390, 844);
-        shell.OnFileOpened(image);
+        shell.OnFileOpened(file);
         Assert.True(shell.IsPreviewPageOpen);
 
-        for (var i = 0; i < 100 && !shell.Preview.HasImage; i++)
+        for (var i = 0; i < 100 && !shell.Preview.HasItem; i++)
             await Task.Delay(20);
 
         Assert.True(shell.Preview.HasItem);
-        Assert.NotNull(shell.Preview.Image);
-        Assert.Equal(_imagePath, shell.Preview.CurrentItem!.FullPath);
-        Assert.Equal("photo.png", shell.Preview.Title);
-        Assert.Equal(0, shell.Preview.SelectedTabIndex);
+        Assert.Equal(_plainPath, shell.Preview.CurrentItem!.FullPath);
+        Assert.Equal("plain.txt", shell.Preview.Title);
+        Assert.Equal("plain", shell.Preview.TextContent);
     }
 
     [Fact]
@@ -175,19 +170,19 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
     {
         var shell = CreateShell();
         await shell.OpenFolderAsync(_startDir);
-        var text = Assert.Single(shell.Browser.Items, item => item.Name == "plain.txt");
-        var image = Assert.Single(shell.Browser.Items, item => item.Name == "photo.png");
+        var plain = Assert.Single(shell.Browser.Items, item => item.Name == "plain.txt");
+        var needle = Assert.Single(shell.Browser.Items, item => item.Name == "notes.txt");
 
         // 两次 LoadAsync 背靠背发出（选集 Clear + Add 就是这个形状）：
         // 先发起的旧代次不许在 await 之后把新项的状态清掉。
-        var stale = shell.Preview.LoadAsync(text.Model);
-        var fresh = shell.Preview.LoadAsync(image.Model);
+        var stale = shell.Preview.LoadAsync(plain.Model);
+        var fresh = shell.Preview.LoadAsync(needle.Model);
         await Task.WhenAll(stale, fresh);
 
-        Assert.Equal(_imagePath, shell.Preview.CurrentItem!.FullPath);
+        Assert.Equal(_notesPath, shell.Preview.CurrentItem!.FullPath);
         Assert.True(shell.Preview.HasItem);
-        Assert.Equal("photo.png", shell.Preview.Title);
-        Assert.True(shell.Preview.HasImage);
+        Assert.Equal("notes.txt", shell.Preview.Title);
+        Assert.Equal("notes", shell.Preview.TextContent); // 旧项（plain）的内容不许留在新项上
     }
 
     [Fact]

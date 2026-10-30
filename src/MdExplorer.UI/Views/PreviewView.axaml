@@ -118,6 +118,12 @@
                   Background="#000000" CornerRadius="12" ClipToBounds="True">
             <media:MediaSurfaceHost Renderer="{Binding VideoRenderer}" AutomationProperties.Name="视频画面" />
           </Border>
+          <!-- 推帧画面：后端（Linux appsink / 未来的 MF 帧服务）把帧推给宿主，Avalonia 自己画。
+               与原生画面互斥：只有 RendererKind=FramePush 的后端才走这里。 -->
+          <Border IsVisible="{Binding ShowFrameVideoSurface}" VerticalAlignment="Top" Height="280"
+                  Background="#000000" CornerRadius="12" ClipToBounds="True">
+            <media:MediaFrameSurface Source="{Binding VideoFrameSource}" AutomationProperties.Name="视频画面（推帧）" />
+          </Border>
           <!-- 内嵌音视频：能力位为真才出现播放控件，否则只留后端诊断与“系统应用打开”。 -->
           <Border IsVisible="{Binding IsMedia}" VerticalAlignment="Top"
                   Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"

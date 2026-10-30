@@ -85,3 +85,113 @@ internal sealed class StubMediaPlayback : IMediaPlaybackService, IMediaProbe
 
     private void Raise() => PlaybackChanged?.Invoke(this, EventArgs.Empty);
 }
+
+/// <summary>
+/// 推帧后端的假实现（<see cref="MediaRendererKind.FramePush"/>）：不依赖任何解码器，
+/// 宿主把帧呈现面交过来时就推一张程序生成的 640×360 画面。
+/// 无头环境里没有 appink/GStreamer，这张假帧就是“推帧路线能出画面”的证据。
+/// </summary>
+internal sealed class FramePushVideoStub : IMediaPlaybackService, IMediaProbe, IMediaVideoFrameSource
+{
+    private const int FrameWidth = 640;
+    private const int FrameHeight = 360;
+
+    /// <summary>程序生成的 BGRA 画面：青绿渐变 + 底部深色条，肉眼可辨“这是渲染出来的帧”。</summary>
+    private static readonly byte[] Frame = BuildFrame();
+
+    private IMediaFrameSink? _sink;
+
+    public MediaPlaybackCapabilities Capabilities { get; } = new(
+        CanPlayAudio: true,
+        CanPlayVideo: true,
+        BackendName: "推帧假后端（FramePushVideoStub）",
+        Diagnostic: "截图环境用生成的帧代替解码器输出；真机由 Linux appsink 或 Windows 帧服务推同样的 BGRA 帧。");
+
+    public MediaRendererKind RendererKind => MediaRendererKind.FramePush;
+
+    public MediaPlaybackState State { get; private set; } = MediaPlaybackState.Idle;
+    public TimeSpan Position { get; private set; } = TimeSpan.FromSeconds(12);
+    public TimeSpan Duration { get; private set; } = TimeSpan.FromSeconds(96);
+    public int VolumePercent { get; private set; } = 80;
+    public string? LastError => null;
+
+    public event EventHandler? PlaybackChanged;
+
+    public bool AttachFrameSink(IMediaFrameSink sink)
+    {
+        _sink = sink;
+        sink.PresentFrame(Frame, FrameWidth, FrameHeight, FrameWidth * 4);
+        return true;
+    }
+
+    public void DetachFrameSink() => _sink = null;
+
+    public Task<bool> OpenAsync(string path, CancellationToken cancellationToken)
+    {
+        State = MediaPlaybackState.Paused;
+        Raise();
+        return Task.FromResult(true);
+    }
+
+    public Task PlayAsync(CancellationToken cancellationToken)
+    {
+        State = MediaPlaybackState.Playing;
+        _sink?.PresentFrame(Frame, FrameWidth, FrameHeight, FrameWidth * 4);
+        Raise();
+        return Task.CompletedTask;
+    }
+
+    public Task PauseAsync()
+    {
+        State = MediaPlaybackState.Paused;
+        Raise();
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync()
+    {
+        State = MediaPlaybackState.Stopped;
+        Position = TimeSpan.Zero;
+        Raise();
+        return Task.CompletedTask;
+    }
+
+    public Task SeekAsync(TimeSpan position)
+    {
+        Position = position < TimeSpan.Zero ? TimeSpan.Zero : position;
+        Raise();
+        return Task.CompletedTask;
+    }
+
+    public void SetVolume(int percent)
+    {
+        VolumePercent = Math.Clamp(percent, 0, 100);
+        Raise();
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    /// <summary>推帧后端的探测：这个容器它接得住，画面走帧呈现面。</summary>
+    public Task<MediaProbeResult> ProbeAsync(string path, CancellationToken cancellationToken) =>
+        Task.FromResult(new MediaProbeResult(true, true, true, "视频 · H264 + AAC · 1280×720"));
+
+    private void Raise() => PlaybackChanged?.Invoke(this, EventArgs.Empty);
+
+    private static byte[] BuildFrame()
+    {
+        var pixels = new byte[FrameWidth * FrameHeight * 4];
+        for (var y = 0; y < FrameHeight; y++)
+        {
+            for (var x = 0; x < FrameWidth; x++)
+            {
+                var offset = (y * FrameWidth + x) * 4;
+                var band = y > FrameHeight - 48;
+                pixels[offset] = band ? (byte)32 : (byte)(40 + 180 * x / FrameWidth);      // B
+                pixels[offset + 1] = band ? (byte)32 : (byte)(150 - 60 * y / FrameHeight);  // G
+                pixels[offset + 2] = band ? (byte)40 : (byte)(70 + 40 * y / FrameHeight);   // R
+                pixels[offset + 3] = 255;
+            }
+        }
+        return pixels;
+    }
+}
