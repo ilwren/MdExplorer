@@ -177,7 +177,7 @@ jobs:
 
   real-model-embedding:
     name: Real model embedding (manual)
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       MDEXPLORER_RUN_REAL_MODEL_TESTS: "1"
