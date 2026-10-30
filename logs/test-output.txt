@@ -1,4 +1,16 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.20]     MdExplorer.Tests.BertTextTokenizerTests.CjkCharactersRemainIndividuallyTokenized [FAIL]
+  Failed MdExplorer.Tests.BertTextTokenizerTests.CjkCharactersRemainIndividuallyTokenized [103 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+                     ↓ (pos 0)
+Expected: int[]     [8, 9]
+Actual:   List<int> [2, 8, 9, 3]
+                     ↑ (pos 0)
+  Stack Trace:
+     at MdExplorer.Tests.BertTextTokenizerTests.CjkCharactersRemainIndividuallyTokenized() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/BertTextTokenizerTests.cs:line 29
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
 
-Passed!  - Failed:     0, Passed:   271, Skipped:     0, Total:   271, Duration: 2 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:   276, Skipped:     0, Total:   277, Duration: 2 s - MdExplorer.Tests.dll (net10.0)
