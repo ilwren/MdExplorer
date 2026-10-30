@@ -81,7 +81,8 @@ file|<id>|<仓库内路径>
 - 语义索引只覆盖用户加入的本地根，最多 20,000 项；保存路径/文件类型/大小/时间和每个可用文本模型的 int8 量化向量，不保存原始正文。文件名与父目录始终参与；仅对受支持的纯文本扩展名、≤2 MiB 文件最多读取前 4,000 字符作为摘要；不读 PDF、Office、压缩包、图片或 SAF。命中前再次核验文件时间/大小，stale 项不会被返回。`清除本地搜索索引` 同时清除文件名与 AI 向量快照。
 - `AppSettings.EnableLocalAi` 默认关闭；关闭时保留本机 AI 向量文件但不运行推理/搜索。`MDEXPLORER_MODELS` 仍可覆盖模型目录。设置卡与搜索中心说明数据只在本机处理。
 - **Android 原生库解析修正**：Microsoft.ML.OnnxRuntime 的桌面 Linux RID 原生库可能通过共享 `net10.0` 资产图混入 Android APK，并与 Android AAR 内的 Bionic 库发生重名冲突。Android app head 的窄作用域 MSBuild target 只移除 `linux-*` 的 native copy/publish 项；Linux/Windows 依赖不受影响。CI 会解包 arm64 APK，拒绝 glibc/Linux 依赖，并验证 ONNX ELF 的每个 `LOAD` 段均按 16 KiB 对齐。
-- **验收边界**：CI 使用确定性的假 embedding 覆盖重建、排序、持久化、模型版本失效、清除与开关；Linux Native AOT、Android trimming/AOT 发布及 APK 原生库检查均通过。尚未下载真实权重，BGE/MiniLM 实际 ONNX 推理、中文/英文搜索质量、建索引耗时和设备内存/延迟仍待实机验收。
+- **验收边界**：CI 使用确定性的假 embedding 覆盖重建、排序、持久化、模型版本失效、清除与开关；另有 opt-in 的真实权重 smoke tests（检查 BGE/MiniLM ONNX 加载、输出维度、有限值、单位归一化和相关文本排序）。Linux Native AOT、Android trimming/AOT 发布及 APK 原生库检查均通过。真实权重测试已在本仓库可运行，但本次执行环境无法连接 `huggingface.co`，下载在 TLS 建连阶段失败，因此**尚无真实模型推理结果**；中文/英文搜索质量、建索引耗时和设备内存/延迟仍待实机验收。
+- **本地真实模型验证**（需 .NET 10 与可访问 Hugging Face 的网络）：`model_dir="$HOME/.local/share/MdExplorer/models"; scripts/fetch-ai-models.sh --dir "$model_dir" && scripts/fetch-ai-models.sh --dir "$model_dir" --verify && MDEXPLORER_MODELS="$model_dir" MDEXPLORER_RUN_REAL_MODEL_TESTS=1 dotnet test tests/MdExplorer.Tests -c Release --filter FullyQualifiedName~RealModelEmbeddingTests`。这会用固定 revision 下载默认 BGE + MiniLM 两个模型，并实际运行 ONNX CPU 推理；测试以相关文本对查询的余弦相似度高于无关文本为基本语义 smoke check。
 
 ## 5. 后续计划
 
