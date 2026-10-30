@@ -603,8 +603,25 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         }
 
         // 只有上一轮真的放掉过负载才重载；正常打开走既有选集管线，别在这里抢跑解码。
-        if (Preview.IsPayloadReleased && Browser.SelectedItems.Count > 0)
+        ReloadReleasedPreview();
+    }
+
+    /// <summary>
+    /// 关闭预览时放掉的负载，在重新打开时补回来：优先按当前选集，
+    /// 选集被清空（换标签、刷新目录）时退回“上一次预览的那个文件”。
+    /// </summary>
+    private void ReloadReleasedPreview()
+    {
+        if (!Preview.IsPayloadReleased)
+            return;
+        if (Browser.SelectedItems.Count > 0)
+        {
             _ = EnsurePreviewContentAsync(Browser.SelectedItems[0]);
+            return;
+        }
+
+        if (Preview.CurrentItem is { } current)
+            _ = Preview.LoadAsync(current);
     }
 
     /// <summary>由视图在尺寸变化时调用（开发文档 §7：MD3 五档断点）。</summary>
@@ -2980,8 +2997,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             return;
         }
 
-        if (Preview.IsPayloadReleased && Browser.SelectedItems.Count > 0)
-            _ = EnsurePreviewContentAsync(Browser.SelectedItems[0]);
+        ReloadReleasedPreview();
     }
 
     partial void OnReduceMotionChanged(bool value)

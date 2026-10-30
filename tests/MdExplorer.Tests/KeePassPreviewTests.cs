@@ -589,7 +589,8 @@ public sealed class KeePassPreviewTests : IDisposable
         Assert.True(
             preview.IsKeePassLocked,
             $"needs={preview.NeedsKeePassPassword} released={preview.IsPayloadReleased} " +
-            $"has={preview.HasKeePass} item={preview.CurrentItem?.Name} fail={preview.FailureText}");
+            $"has={preview.HasKeePass} item={preview.CurrentItem?.Name} fail={preview.FailureText} " +
+            $"sel={shell.Browser.SelectedItems.Count} pane={shell.ShowPreviewPane}");
         Assert.False(preview.HasKeePass);
     }
 }
