@@ -342,6 +342,9 @@ public sealed class AppSettings
     public long AppTrashQuotaBytes { get; set; } = 1_000_000_000; // Android 应用内回收站配额（200 MB–10 GB）；桌面走系统回收站
     public int AppTrashRetentionDays { get; set; } = 30;    // Android 应用内回收站保留期（1–365 天）
     public bool NotifyOnTaskCompletion { get; set; }       // 长任务完成/失败时发送操作系统通知（默认关，需用户显式开启）
+    public bool PlayVideoInline { get; set; }             // 视频默认在应用内嵌面板出画面（默认关：逐帧抓取可能花屏/不同步）
+    public bool MediaAutoPlay { get; set; }               // 选中媒体文件后自动开始播放（默认关）
+    public bool ShowMediaDiagnostics { get; set; } = true; // 预览卡里显示媒体后端名称与诊断文本
     public List<string> OpenTabPaths { get; set; } = [];   // 上次会话的浏览器标签页（按显示顺序）
     public int ActiveTabIndex { get; set; }                // OpenTabPaths 中上次活动标签的下标
     public List<string> RecentFolderPaths { get; set; } = []; // 最近访问文件夹（最新优先，仅本地路径）

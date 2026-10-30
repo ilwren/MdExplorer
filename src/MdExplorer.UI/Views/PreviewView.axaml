@@ -112,6 +112,118 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </md:MdScrollViewer>
+          <!-- KeePass 只读预览：未解锁时只要主密码；解锁后是「分组 → 条目 → 字段」三段。
+               主密码只在内存里用一次，不写盘、不进日志；受保护字段默认遮罩。 -->
+          <Border IsVisible="{Binding IsKeePassLocked}" VerticalAlignment="Top"
+                  Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
+                  BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
+                  CornerRadius="16" Padding="14">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <md:MdIcon Glyph="{x:Static md:MdSymbols.Lock}" Size="20" VerticalAlignment="Center"
+                           Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                <TextBlock Classes="body" Text="这个 KeePass 密码库已加密" TextWrapping="Wrap"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+              <TextBlock Classes="caption" TextWrapping="Wrap"
+                         Text="主密码只在本机内存里用一次，不写盘、不进日志。内置只读预览不支持密钥文件、硬件密钥与写回；需要这些请用 KeePass 客户端打开。" />
+              <md:MdTextBox Text="{Binding KeePassPassword, Mode=TwoWay}" Variant="Outlined"
+                            Label="主密码" IsPassword="True" AutomationProperties.Name="KeePass 主密码" />
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <md:MdButton Variant="Filled" Height="40" MinWidth="96"
+                             Command="{Binding UnlockKeePassCommand}">
+                  <TextBlock Text="解锁" VerticalAlignment="Center" />
+                </md:MdButton>
+                <TextBlock Classes="caption" Text="{Binding KeePassErrorText}" TextWrapping="Wrap"
+                           IsVisible="{Binding HasKeePassError}" VerticalAlignment="Center"
+                           Foreground="{DynamicResource Md.Sys.Color.OnSurface.Brush}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border IsVisible="{Binding HasKeePass}" VerticalAlignment="Top"
+                  Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
+                  BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1"
+                  CornerRadius="16" Padding="14">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock Classes="caption" Text="{Binding KeePassSummaryText}" TextWrapping="Wrap"
+                           VerticalAlignment="Center" />
+                <md:MdButton Grid.Column="1" Variant="Text" Height="34" Padding="8,0"
+                             Command="{Binding LockKeePassCommand}" AutomationProperties.Name="锁定密码库">
+                  <TextBlock Text="锁定" VerticalAlignment="Center" />
+                </md:MdButton>
+              </Grid>
+              <CheckBox Content="显示受保护字段" IsChecked="{Binding ShowKeePassSecrets, Mode=TwoWay}"
+                        AutomationProperties.Name="显示受保护字段" />
+
+              <TextBlock Classes="caption" Text="分组" />
+              <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}" CornerRadius="12"
+                      Padding="4" MaxHeight="168">
+                <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                                   AllowMouseDrag="True">
+                  <ItemsControl ItemsSource="{Binding KeePassGroups}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:KeePassGroupRowModel">
+                        <md:MdButton Variant="Text" Height="34" Padding="8,0" Click="OnKeePassGroupClick"
+                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                     Margin="{Binding IndentMargin}" AutomationProperties.Name="{Binding Name}">
+                          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBlock Classes="body" FontSize="12.5" Text="{Binding Name}"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding CountText}"
+                                       VerticalAlignment="Center" />
+                          </Grid>
+                        </md:MdButton>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </md:MdScrollViewer>
+              </Border>
+
+              <TextBlock Classes="caption" Text="{Binding SelectedKeePassGroupName, StringFormat='条目 · {0}'}" />
+              <Border Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}" CornerRadius="12"
+                      Padding="4" MaxHeight="200">
+                <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                                   AllowMouseDrag="True">
+                  <ItemsControl ItemsSource="{Binding KeePassEntries}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:KeePassEntryRowModel">
+                        <md:MdButton Variant="Text" Height="46" Padding="8,2" Click="OnKeePassEntryClick"
+                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                     AutomationProperties.Name="{Binding Title}">
+                          <StackPanel Spacing="1">
+                            <TextBlock Classes="body" FontSize="12.5" Text="{Binding Title}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Classes="caption" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis"
+                                       IsVisible="{Binding HasSubtitle}" />
+                          </StackPanel>
+                        </md:MdButton>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </md:MdScrollViewer>
+              </Border>
+
+              <TextBlock Classes="caption" Text="字段" />
+              <ItemsControl ItemsSource="{Binding KeePassFields}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:KeePassFieldRowModel">
+                    <Border BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}"
+                            BorderThickness="0,0,0,1" Padding="0,6">
+                      <Grid ColumnDefinitions="88,*" ColumnSpacing="8">
+                        <TextBlock Classes="caption" Text="{Binding Key}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                        <SelectableTextBlock Grid.Column="1" Classes="body" FontSize="12.5"
+                                             Text="{Binding Value}" TextWrapping="Wrap" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
           <!-- 内嵌音视频：能力位为真才出现播放控件，否则只留后端诊断与“系统应用打开”。
                画面放在这张卡片里面而不是平级叠放——平放时会和下面的控制面板互相盖住
                （v0.32 只有 Android 用到画面，问题被遮挡掩盖了）。 -->
@@ -130,6 +242,31 @@
               <Border IsVisible="{Binding ShowFrameVideoSurface}" Height="280"
                       Background="#000000" CornerRadius="12" ClipToBounds="True">
                 <media:MediaFrameSurface Source="{Binding VideoFrameSource}" AutomationProperties.Name="视频画面（推帧）" />
+              </Border>
+              <!-- 视频默认不在应用内出画面（花屏/不同步/CPU 都实测过）：这里给两个显式入口，
+                   用户自己决定是外挂播放器还是内嵌面板，风险写在按钮上面。 -->
+              <Border IsVisible="{Binding ShowInlineVideoGate}" CornerRadius="12" Padding="12"
+                      Background="{DynamicResource Md.Sys.Color.SurfaceContainerHigh.Brush}">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="body" Text="视频默认不在应用内出画面" TextWrapping="Wrap" />
+                  <TextBlock Classes="caption" TextWrapping="Wrap"
+                             Text="内嵌画面按帧抓取（约 12 fps）：可能花屏、音画不同步、CPU 偏高。要稳定播放请用系统播放器。" />
+                  <WrapPanel Orientation="Horizontal">
+                    <md:MdButton Variant="Filled" Height="38" Margin="0,0,8,4" Command="{Binding OpenCommand}">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <md:MdIcon Glyph="{x:Static md:MdSymbols.OpenInNew}" Size="16" />
+                        <TextBlock Text="用系统播放器打开" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </md:MdButton>
+                    <md:MdButton Variant="Outlined" Height="38" Margin="0,0,0,4"
+                                 Command="{Binding EnableInlineVideoCommand}">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="16" />
+                        <TextBlock Text="仍要内嵌观看" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </md:MdButton>
+                  </WrapPanel>
+                </StackPanel>
               </Border>
               <!-- 后端名可能很长（例如“推帧假后端（FramePushVideoStub）”）。横向 StackPanel 会给子元素
                    无限宽度，长文本只能被父级裁掉；改用 Grid 的 * 列把它约束住，再显式换行/省略。 -->
@@ -190,8 +327,10 @@
                 </StackPanel>
               </Border>
               <TextBlock Classes="caption" Text="{Binding MediaBackendDiagnostic}" TextWrapping="Wrap" Margin="0,0,4,0"
+                         IsVisible="{Binding ShowMediaDiagnostics}"
                          Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
               <TextBlock Classes="caption" Text="{Binding MediaRendererText}" TextWrapping="Wrap" Margin="0,0,4,0"
+                         IsVisible="{Binding ShowMediaDiagnostics}"
                          Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
             </StackPanel>
           </Border>

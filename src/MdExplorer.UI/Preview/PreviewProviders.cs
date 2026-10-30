@@ -20,7 +20,9 @@ public sealed record PreviewContent(
     string? Markdown = null,
     string? HighlightLanguage = null,
     PdfPreviewDocument? Pdf = null,
-    OfficePreviewDocument? Office = null);
+    OfficePreviewDocument? Office = null,
+    KeePassUnlockRequest? KeePassUnlock = null,
+    KeePassDatabase? KeePass = null);
 
 /// <summary>PDF 预览负载：原始字节仅在内存中保留，翻页时按需光栅化，避免整本同时驻留位图。</summary>
 public sealed record PdfPreviewDocument(
@@ -84,6 +86,7 @@ public static class BuiltInPreviewProviders
         new PdfPreviewProvider(fileSystem),
         new OfficePreviewProvider(fileSystem),
         new OpenDocumentPreviewProvider(fileSystem),
+        new KeePassPreviewProvider(fileSystem),
         new MarkdownPreviewProvider(fileSystem),
         new TextPreviewProvider(fileSystem),
         new HexPreviewProvider(fileSystem),

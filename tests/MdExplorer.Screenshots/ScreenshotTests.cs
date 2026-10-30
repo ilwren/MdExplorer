@@ -1466,13 +1466,20 @@ public sealed class ScreenshotTests
     public async Task Large_VideoFramePush() => await WithStubMediaAsync(
         async () => await CaptureAsync("76-large-video-frame-push.png", 1440, 900, async shell =>
         {
-            await SelectByNameAsync(shell, "演示视频.mp4", () => shell.Preview.CanPlayMediaInApp);
+            // v0.36 起视频默认不在应用内出画面：先看到「两个显式入口」，用户选内嵌后才出画面。
+            await SelectByNameAsync(shell, "演示视频.mp4", () => shell.Preview.ShowInlineVideoGate);
             Assert.True(shell.Preview.IsVideoMedia);
+            Assert.True(shell.Preview.ShowInlineVideoGate);
+            Assert.False(shell.Preview.ShowFrameVideoSurface);
+            shell.Preview.EnableInlineVideoCommand.Execute(null);
+            Assert.False(shell.Preview.ShowInlineVideoGate);
+            Assert.True(shell.Preview.CanPlayMediaInApp);
             Assert.True(shell.Preview.ShowFrameVideoSurface);
             Assert.False(shell.Preview.ShowNativeVideoSurface);
             Assert.Equal("画面：宿主帧呈现", shell.Preview.MediaRendererText);
-        }, afterShow: window =>
+        }, afterShow: async window =>
         {
+            await Task.Delay(120); // 让内嵌画面挂上帧接收器并完成一次呈现
             var surface = window.GetVisualDescendants().OfType<MediaFrameSurface>().FirstOrDefault();
             Assert.NotNull(surface);
             Assert.True(surface!.HasFrame);
@@ -1499,9 +1506,21 @@ public sealed class ScreenshotTests
             Assert.NotNull(buttonRight);
             Assert.True(buttonRight!.Value.X <= previewView!.Bounds.Width + 0.5,
                 $"“打开”按钮右边缘 {buttonRight.Value.X:0.#} 超出预览视图 {previewView.Bounds.Width:0.#}");
-            return Task.CompletedTask;
         }),
         static () => new FramePushVideoStub());
+
+    // v0.36：视频默认外挂——卡片上是两个显式入口（系统播放器 / 内嵌面板），不是一个假播放按钮。
+    [AvaloniaFact]
+    public async Task Large_VideoInlineGate() => await WithStubMediaAsync(async () =>
+        await CaptureAsync("79-large-video-inline-gate.png", 1440, 900, async shell =>
+        {
+            await SelectByNameAsync(shell, "演示视频.mp4", () => shell.Preview.ShowInlineVideoGate);
+            Assert.True(shell.Preview.ShowInlineVideoGate);
+            Assert.False(shell.Preview.CanPlayMediaInApp);
+            Assert.False(shell.Preview.ShowFrameVideoSurface);
+            Assert.False(shell.Preview.HasMediaProbe); // 闸门在时不重复报“探测不通过”
+            Assert.Equal("默认用系统播放器打开", shell.Preview.MediaStateText);
+        }));
 
     // 探测说“系统接不了”时的界面：没有播放按钮，只有事实与原因。
     [AvaloniaFact]

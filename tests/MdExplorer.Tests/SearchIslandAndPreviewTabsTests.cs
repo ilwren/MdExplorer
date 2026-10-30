@@ -84,7 +84,7 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
     }
 
     [Fact]
-    public async Task ClosingPreviewReleasesHeavyPayloadAndReopenReloads()
+    public async Task ClosingPreviewKeepsCheapTextPayload()
     {
         var shell = CreateShell();
         await shell.OpenFolderAsync(_startDir);
@@ -94,18 +94,18 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         Assert.True(shell.Preview.HasItem);
         Assert.False(shell.Preview.IsPayloadReleased);
 
-        // 关闭预览（Compact 浮窗关闭、Expanded+ 预览栏关闭都走这里）：重负载必须放掉。
+        // 文本只有几百 KB：关闭预览不必跟着丢，重开时还是同一份内容。
         shell.IsPreviewPageOpen = false;
-        Assert.True(shell.Preview.IsPayloadReleased);
         Assert.Null(shell.Preview.Image);
         Assert.Null(shell.Preview.OfficeDocument);
-
-        // 重新打开预览时按当前选集自行取回内容，不要求用户重新点文件。
-        shell.IsPreviewPageOpen = true;
-        for (var attempt = 0; attempt < 100 && shell.Preview.IsPayloadReleased; attempt++)
-            await Task.Delay(20);
         Assert.False(shell.Preview.IsPayloadReleased);
+        Assert.NotNull(shell.Preview.TextContent);
+
+        // 位图 / PDF / 直接控件 / 密码库这些重负载由截图测试与 KeePass 用例覆盖：
+        // 普通单测没有 IPlatformRenderInterface，造不出真位图。
+        shell.IsPreviewPageOpen = true;
         Assert.Equal("plain.txt", shell.Preview.Title);
+        Assert.NotNull(shell.Preview.TextContent);
     }
 
     [Fact]

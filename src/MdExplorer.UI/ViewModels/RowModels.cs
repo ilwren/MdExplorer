@@ -1,6 +1,8 @@
 using System.Globalization;
+using Avalonia;
 using Md3.Avalonia.Controls;
 using MdExplorer.Domain;
+using MdExplorer.UI.Preview;
 
 namespace MdExplorer.UI.ViewModels;
 
@@ -77,6 +79,27 @@ public sealed record MetadataRowModel(string Key, string Value);
 
 /// <summary>压缩包条目行。</summary>
 public sealed record ArchiveEntryRowModel(string Name, string SizeText);
+
+/// <summary>KeePass 分组行（按层级扁平成一条列表，用 Depth 缩进）。</summary>
+public sealed record KeePassGroupRowModel(string Path, string Name, int EntryCount, int Depth)
+{
+    public Thickness IndentMargin => new(Depth * 16, 0, 0, 0);
+    public string CountText => EntryCount.ToString("N0", CultureInfo.InvariantCulture) + " 个条目";
+}
+
+/// <summary>KeePass 条目行；只读展示，不含任何写回入口。</summary>
+public sealed record KeePassEntryRowModel(KeePassEntryNode Entry)
+{
+    public string Title => Entry.Title;
+    public string GroupPath => Entry.GroupPath;
+    public string Subtitle => string.Join(
+        " · ",
+        new[] { Entry.UserName, Entry.Url }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    public bool HasSubtitle => Subtitle.Length > 0;
+}
+
+/// <summary>KeePass 字段行；受保护字段（密码、TOTP）由 ViewModel 决定是否遮罩。</summary>
+public sealed record KeePassFieldRowModel(string Key, string Value, bool IsProtected);
 
 /// <summary>存储洞察的类型占用行。</summary>
 public sealed record StorageKindUsageModel(

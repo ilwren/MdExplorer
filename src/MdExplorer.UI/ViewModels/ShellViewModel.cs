@@ -78,7 +78,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         _services = services;
         _launcher = () => services.Launcher;
-        Preview = new PreviewViewModel(MdExplorer.UI.Preview.BuiltInPreviewProviders.Create(services.Archive, services.FileSystem), () => Launcher, services.MediaPlayback);
+        Preview = new PreviewViewModel(
+            MdExplorer.UI.Preview.BuiltInPreviewProviders.Create(services.Archive, services.FileSystem),
+            () => Launcher,
+            services.MediaPlayback,
+            () => services.SettingsStore.Settings);
         DocumentWorkbench = new DocumentWorkbenchViewModel(services.FileSystem, services.TextFiles, this, () => Launcher);
         DocumentWorkbench.CloseRequested += async (_, _) => await CloseDocumentWorkbenchAsync().ConfigureAwait(true);
         DocumentWorkbench.DocumentSaved += async (_, path) => await OnDocumentSavedAsync(path).ConfigureAwait(true);
@@ -173,6 +177,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         _rememberFolderView = s.RememberFolderView;
         _watchFolderChanges = s.WatchFolderChanges;
         _notifyOnTaskCompletion = s.NotifyOnTaskCompletion;
+        _playVideoInline = s.PlayVideoInline;
+        _mediaAutoPlay = s.MediaAutoPlay;
+        _showMediaDiagnostics = s.ShowMediaDiagnostics;
         _useSearchIndex = s.UseSearchIndex;
         _isDualPaneEnabled = s.DualPaneEnabled;
         _itemPageSize = Math.Clamp(s.ItemPageSize, 60, 480);
@@ -2865,6 +2872,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     [ObservableProperty] private bool _reduceMotion;
     [ObservableProperty] private bool _rememberFolderView;
     [ObservableProperty] private bool _notifyOnTaskCompletion;
+    [ObservableProperty] private bool _playVideoInline;
+    [ObservableProperty] private bool _mediaAutoPlay;
+    [ObservableProperty] private bool _showMediaDiagnostics = true;
     [ObservableProperty] private bool _isSendingTestSystemNotification;
     [ObservableProperty] private int _itemPageSize = BrowserViewModel.DefaultItemPageSize;
     [ObservableProperty] private bool _enablePullRefresh = true;
@@ -3005,6 +3015,27 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     {
         _services.SettingsStore.Settings.NotifyOnTaskCompletion = value;
         _ = SaveAsync();
+    }
+
+    partial void OnPlayVideoInlineChanged(bool value)
+    {
+        _services.SettingsStore.Settings.PlayVideoInline = value;
+        _ = SaveAsync();
+        Preview.RefreshSettings();
+    }
+
+    partial void OnMediaAutoPlayChanged(bool value)
+    {
+        _services.SettingsStore.Settings.MediaAutoPlay = value;
+        _ = SaveAsync();
+        Preview.RefreshSettings();
+    }
+
+    partial void OnShowMediaDiagnosticsChanged(bool value)
+    {
+        _services.SettingsStore.Settings.ShowMediaDiagnostics = value;
+        _ = SaveAsync();
+        Preview.RefreshSettings();
     }
 
     partial void OnItemPageSizeChanged(int value)

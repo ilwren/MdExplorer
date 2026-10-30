@@ -55,6 +55,56 @@ public sealed class MediaPlaybackTests
         Assert.Equal("此平台暂不支持内嵌播放", preview.MediaStateText);
     }
 
+    private static PreviewViewModel CreatePreviewWithSettings(
+        IMediaPlaybackService media, AppSettings settings) => new(
+        BuiltInPreviewProviders.Create(new ArchiveService(), new LocalFileSystemService()),
+        () => new ProcessFileLauncher(),
+        media,
+        () => settings);
+
+    [Fact]
+    public async Task VideoDefaultsToExternalPlayerUntilUserOptsIn()
+    {
+        var settings = new AppSettings { PlayVideoInline = false, MediaAutoPlay = false };
+        var media = new FakeMediaPlaybackService(canPlayAudio: true, canPlayVideo: true);
+        var preview = CreatePreviewWithSettings(media, settings);
+        await preview.LoadAsync(Item("clip.mp4", FileKind.Video));
+
+        // 默认不出画面：卡片给两个显式入口，而且不会留下一个“能播但只有声音”的假按钮。
+        Assert.True(preview.ShowInlineVideoGate);
+        Assert.False(preview.CanPlayMediaInApp);
+        Assert.False(preview.ShowFrameVideoSurface);
+        Assert.False(preview.HasMediaProbe);
+        Assert.Equal("默认用系统播放器打开", preview.MediaStateText);
+
+        // 用户显式选择内嵌后才出画面；这条对当前文件生效，换文件复位。
+        preview.EnableInlineVideoCommand.Execute(null);
+        Assert.False(preview.ShowInlineVideoGate);
+        Assert.True(preview.CanPlayMediaInApp);
+        Assert.True(preview.ShowFrameVideoSurface);
+
+        await preview.LoadAsync(Item("song.mp3", FileKind.Audio));
+        Assert.False(preview.PlayVideoInline);
+
+        // 音频不受这条偏好影响。
+        Assert.True(preview.CanPlayMediaInApp);
+    }
+
+    [Fact]
+    public async Task SettingsPreferenceCanTurnVideoInlineOnAndAutoplayFollowsIt()
+    {
+        var settings = new AppSettings { PlayVideoInline = true, MediaAutoPlay = true };
+        var media = new FakeMediaPlaybackService(canPlayAudio: true, canPlayVideo: true);
+        var preview = CreatePreviewWithSettings(media, settings);
+        await preview.LoadAsync(Item("clip.mp4", FileKind.Video));
+
+        Assert.False(preview.ShowInlineVideoGate);
+        Assert.True(preview.CanPlayMediaInApp);
+        Assert.True(preview.ShowFrameVideoSurface);
+        Assert.Equal(1, media.OpenCount); // 自动播放只在前置条件都成立时才真的开流
+        Assert.True(preview.IsMediaPlaying);
+    }
+
     [Fact]
     public async Task AudioBackendPlaysTogglesPausesAndReportsTime()
     {

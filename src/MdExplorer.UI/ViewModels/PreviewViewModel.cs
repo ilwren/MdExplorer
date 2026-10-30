@@ -16,9 +16,11 @@ namespace MdExplorer.UI.ViewModels;
 public sealed partial class PreviewViewModel(
     PreviewProviderRegistry previews,
     Func<IFileLauncherService> launcherRefresh,
-    IMediaPlaybackService? mediaPlayback = null) : ObservableObject
+    IMediaPlaybackService? mediaPlayback = null,
+    Func<AppSettings>? settings = null) : ObservableObject
 {
     private readonly IMediaPlaybackService? _media = mediaPlayback;
+    private readonly Func<AppSettings>? _settings = settings;
     private string _mediaProbeText = string.Empty;
     private string? _mediaProbeReason;
     // 探测说“系统接不了”时，能力位再好看也不能播——否则按钮按下去只会失败。
@@ -50,6 +52,160 @@ public sealed partial class PreviewViewModel(
     [ObservableProperty] private int _officeSheetCount;
     [ObservableProperty] private int _officeSheetIndex;
     [ObservableProperty] private bool _officeViewerLoadFailed;
+
+    // ── KeePass（KDBX 只读） ────────────────────────────────────────────────
+    // 密文留在 _keepassData 里等用户输密码；解锁成功后立刻丢掉，绝不留到下一次。
+    private byte[]? _keepassData;
+    private List<KeePassEntryNode> _allKeePassEntries = [];
+    [ObservableProperty] private bool _needsKeePassPassword;
+    [ObservableProperty] private string _keePassPassword = string.Empty;
+    [ObservableProperty] private string? _keePassErrorText;
+    [ObservableProperty] private bool _hasKeePass;
+    [ObservableProperty] private bool _showKeePassSecrets;
+    [ObservableProperty] private string _keePassSummaryText = string.Empty;
+    [ObservableProperty] private KeePassGroupRowModel? _selectedKeePassGroup;
+    [ObservableProperty] private KeePassEntryRowModel? _selectedKeePassEntry;
+
+    /// <summary>分组（按层级扁平，Depth 决定缩进）。</summary>
+    public ObservableCollection<KeePassGroupRowModel> KeePassGroups { get; } = [];
+    /// <summary>当前分组（含子分组）下的条目。</summary>
+    public ObservableCollection<KeePassEntryRowModel> KeePassEntries { get; } = [];
+    /// <summary>选中条目的字段；受保护字段默认遮罩。</summary>
+    public ObservableCollection<KeePassFieldRowModel> KeePassFields { get; } = [];
+    public bool IsKeePassLocked => NeedsKeePassPassword && !HasKeePass;
+    public string SelectedKeePassGroupName => SelectedKeePassGroup?.Name ?? string.Empty;
+    public bool HasKeePassError => !string.IsNullOrEmpty(KeePassErrorText);
+
+    partial void OnNeedsKeePassPasswordChanged(bool value) => OnPropertyChanged(nameof(IsKeePassLocked));
+    partial void OnHasKeePassChanged(bool value) => OnPropertyChanged(nameof(IsKeePassLocked));
+    partial void OnKeePassErrorTextChanged(string? value) => OnPropertyChanged(nameof(HasKeePassError));
+    partial void OnShowKeePassSecretsChanged(bool value) => RefreshKeePassFields();
+    partial void OnSelectedKeePassEntryChanged(KeePassEntryRowModel? value) => RefreshKeePassFields();
+    partial void OnSelectedKeePassGroupChanged(KeePassGroupRowModel? value)
+    {
+        OnPropertyChanged(nameof(SelectedKeePassGroupName));
+        RefreshKeePassEntries();
+    }
+
+    /// <summary>选中分组（含子分组）后重建条目列表；由视图的行点击处理器调用。</summary>
+    public void SelectKeePassGroup(KeePassGroupRowModel group)
+    {
+        if (group is null)
+            return;
+        SelectedKeePassGroup = group;
+        OnPropertyChanged(nameof(SelectedKeePassGroupName));
+    }
+
+    /// <summary>选中条目后重建字段表。</summary>
+    public void SelectKeePassEntry(KeePassEntryRowModel entry) => SelectedKeePassEntry = entry;
+
+    /// <summary>用面板上输入的主密码解锁；失败只给脱敏文案，原样保留密文等待重试。</summary>
+    [RelayCommand]
+    private async Task UnlockKeePassAsync()
+    {
+        if (_keepassData is not { } data || IsLoading)
+            return;
+        var password = KeePassPassword;
+        KeePassErrorText = null;
+        IsLoading = true;
+        try
+        {
+            var database = await Task.Run(() => KeePassReader.Read(data, password), CancellationToken.None)
+                .ConfigureAwait(true);
+            KeePassPassword = string.Empty;
+            _keepassData = null;
+            ApplyKeePass(database);
+        }
+        catch (Exception ex) when (ex is KeePassUnlockException or InvalidDataException or NotSupportedException
+            or IOException or ArgumentException)
+        {
+            KeePassErrorText = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    /// <summary>锁定：清掉已解出的内容与内存里的密文，再回到「等待主密码」。</summary>
+    [RelayCommand]
+    private async Task LockKeePassAsync()
+    {
+        ClearKeePassContent();
+        HasKeePass = false;
+        _keepassData = null;
+        KeePassPassword = string.Empty;
+        await LoadAsync(CurrentItem).ConfigureAwait(true);
+    }
+
+    private void ApplyKeePass(KeePassDatabase database)
+    {
+        ClearKeePassContent();
+        _allKeePassEntries = [.. database.Entries];
+        foreach (var group in Flatten(database.Root, 0))
+            KeePassGroups.Add(group);
+        SelectedKeePassGroup = KeePassGroups.Count > 0 ? KeePassGroups[0] : null;
+        RefreshKeePassEntries();
+
+        HasKeePass = true;
+        NeedsKeePassPassword = false;
+        KeePassSummaryText =
+            $"{KeePassGroups.Count:N0} 个分组 · {_allKeePassEntries.Count:N0} 个条目 · " +
+            $"KDBX {database.FileVersion >> 16}.{database.FileVersion & 0xFFFF}" +
+            (database.Truncated ? "（超出上限，已截断）" : string.Empty);
+        MetadataRows.Add(new MetadataRowModel("密码库", database.DatabaseName ?? "（未命名）"));
+        MetadataRows.Add(new MetadataRowModel("条目", $"{_allKeePassEntries.Count:N0} 个（只读）"));
+    }
+
+    private static IEnumerable<KeePassGroupRowModel> Flatten(KeePassGroupNode node, int depth)
+    {
+        yield return new KeePassGroupRowModel(node.Path, node.Name, node.EntryCount, depth);
+        foreach (var child in node.Children)
+            foreach (var row in Flatten(child, depth + 1))
+                yield return row;
+    }
+
+    private void RefreshKeePassEntries()
+    {
+        KeePassEntries.Clear();
+        var filter = SelectedKeePassGroup?.Path;
+        foreach (var entry in _allKeePassEntries)
+        {
+            if (filter is not null &&
+                !string.Equals(entry.GroupPath, filter, StringComparison.Ordinal) &&
+                !entry.GroupPath.StartsWith(filter + " / ", StringComparison.Ordinal))
+                continue;
+            KeePassEntries.Add(new KeePassEntryRowModel(entry));
+        }
+
+        SelectedKeePassEntry = KeePassEntries.Count > 0 ? KeePassEntries[0] : null;
+    }
+
+    private void RefreshKeePassFields()
+    {
+        KeePassFields.Clear();
+        if (SelectedKeePassEntry?.Entry is not { } entry)
+            return;
+        foreach (var field in entry.Fields)
+            KeePassFields.Add(new KeePassFieldRowModel(
+                field.Key,
+                field.IsProtected && !ShowKeePassSecrets ? "••••••••" : field.Value,
+                field.IsProtected));
+    }
+
+    private void ClearKeePassContent()
+    {
+        _allKeePassEntries = [];
+        KeePassGroups.Clear();
+        KeePassEntries.Clear();
+        KeePassFields.Clear();
+        SelectedKeePassGroup = null;
+        SelectedKeePassEntry = null;
+        KeePassSummaryText = string.Empty;
+        KeePassErrorText = null;
+        ShowKeePassSecrets = false;
+    }
+
     /// <summary>
     /// 关闭预览时把重量级负载（位图、PDF 字节、第三方直接控件）放掉了，内容需要重载。
     /// 文本类内容只占几百 KB，不必跟着一起丢。
@@ -84,25 +240,63 @@ public sealed partial class PreviewViewModel(
     /// </summary>
     public bool CanPlayMediaInApp =>
         _media is { } media && IsMedia && _mediaProbeAllowsPlayback &&
-        (IsAudioMedia
-            ? media.Capabilities.CanPlayAudio
-            : media.Capabilities.CanPlayVideo && media.RendererKind != MediaRendererKind.None &&
-              // 推帧后端必须真的能交出帧呈现面，否则按下去只有声音没画面。
-              (media.RendererKind != MediaRendererKind.FramePush || media is IMediaVideoFrameSource));
+        (IsAudioMedia ? media.Capabilities.CanPlayAudio : PlayVideoInline && MediaBackendCanShowVideo);
+
+    /// <summary>
+    /// 后端是否真能交付画面（不看用户偏好）：推帧后端必须真的实现帧呈现面，
+    /// 否则按下去只有声音没画面。
+    /// </summary>
+    private bool MediaBackendCanShowVideo =>
+        _media is { } media && media.Capabilities.CanPlayVideo &&
+        media.RendererKind != MediaRendererKind.None &&
+        (media.RendererKind != MediaRendererKind.FramePush || media is IMediaVideoFrameSource);
+
+    /// <summary>
+    /// 视频是否在应用内嵌面板里出画面。默认关（逐帧抓取可能花屏/音画不同步），
+    /// 用户可以在预览卡里对当前文件显式打开；没有注入设置时保持打开（单元测试直连 VM）。
+    /// </summary>
+    public bool PlayVideoInline => _forceInlineVideo || (_settings?.Invoke().PlayVideoInline ?? true);
+
+    /// <summary>视频默认外挂时，卡片给出「用系统播放器打开 / 仍要内嵌观看」两个显式入口。</summary>
+    public bool ShowInlineVideoGate =>
+        IsVideoMedia && !PlayVideoInline && _mediaProbeAllowsPlayback && MediaBackendCanShowVideo;
+
+    /// <summary>是否显示媒体后端名称与诊断长文（设置项，默认显示）。</summary>
+    public bool ShowMediaDiagnostics => _settings?.Invoke().ShowMediaDiagnostics ?? true;
     /// <summary>后端需要宿主的原生画面窗口（Android TextureView / Windows HWND）。</summary>
     public IMediaVideoRenderer? VideoRenderer => _media as IMediaVideoRenderer;
     public bool ShowNativeVideoSurface =>
-        IsVideoMedia && CanPlayMediaInApp && _media?.RendererKind == MediaRendererKind.NativeSurface;
+        IsVideoMedia && CanPlayMediaInApp && PlayVideoInline &&
+        _media?.RendererKind == MediaRendererKind.NativeSurface;
     /// <summary>后端只推帧（Linux Wayland 的 appsink 路线）；画面由 Avalonia 自己画。</summary>
     public IMediaVideoFrameSource? VideoFrameSource => _media as IMediaVideoFrameSource;
     public bool ShowFrameVideoSurface =>
-        IsVideoMedia && CanPlayMediaInApp && _media?.RendererKind == MediaRendererKind.FramePush &&
-        VideoFrameSource is not null;
+        IsVideoMedia && CanPlayMediaInApp && PlayVideoInline &&
+        _media?.RendererKind == MediaRendererKind.FramePush && VideoFrameSource is not null;
+    /// <summary>对当前文件显式改用内嵌画面（风险提示就在卡片上，用户自己选的）。</summary>
+    [ObservableProperty] private bool _forceInlineVideo;
+
+    /// <summary>对当前文件打开内嵌画面；换文件时随 <see cref="LoadAsync"/> 复位。</summary>
+    [RelayCommand]
+    private void EnableInlineVideo() => ForceInlineVideo = true;
+
+    partial void OnForceInlineVideoChanged(bool value) =>
+        OnPropertyChanged(nameof(PlayVideoInline));
+
+    /// <summary>设置变化后刷新依赖偏好的可见性（Shell 在写设置后调用）。</summary>
+    public void RefreshSettings()
+    {
+        OnPropertyChanged(nameof(PlayVideoInline));
+        OnPropertyChanged(nameof(ShowMediaDiagnostics));
+        RaiseMediaState();
+    }
+
     public bool IsMediaPlaying => _media?.State == MediaPlaybackState.Playing;
     public string MediaBackendName => _media?.Capabilities.BackendName ?? "none";
     /// <summary>系统解码器对这个文件的预判（事实来自平台，不是按扩展名猜）。</summary>
     public string MediaProbeText => _mediaProbeText;
-    public bool HasMediaProbe => IsMedia && !string.IsNullOrWhiteSpace(_mediaProbeText) && !CanPlayMediaInApp;
+    public bool HasMediaProbe =>
+        IsMedia && !ShowInlineVideoGate && !string.IsNullOrWhiteSpace(_mediaProbeText) && !CanPlayMediaInApp;
     public string MediaProbeReasonText => _mediaProbeReason ?? string.Empty;
     public bool HasMediaProbeReason => IsMedia && !string.IsNullOrWhiteSpace(_mediaProbeReason);
     /// <summary>画面交付方式：纯音频后端或未接视频时为“无画面输出”。</summary>
@@ -121,7 +315,8 @@ public sealed partial class PreviewViewModel(
         MediaPlaybackState.Stopped => "已停止",
         MediaPlaybackState.Ended => "播放结束",
         MediaPlaybackState.Failed => _media.LastError ?? "播放失败",
-        _ => CanPlayMediaInApp ? "可以播放" : "此平台暂不支持内嵌播放",
+        _ => ShowInlineVideoGate ? "默认用系统播放器打开"
+            : CanPlayMediaInApp ? "可以播放" : "此平台暂不支持内嵌播放",
     };
     public string MediaPositionText => FormatTime(_media?.Position ?? TimeSpan.Zero);
     public string MediaDurationText => FormatTime(_media?.Duration ?? TimeSpan.Zero);
@@ -264,6 +459,10 @@ public sealed partial class PreviewViewModel(
         OnPropertyChanged(nameof(HasMediaProbe));
         OnPropertyChanged(nameof(MediaProbeReasonText));
         OnPropertyChanged(nameof(HasMediaProbeReason));
+        OnPropertyChanged(nameof(PlayVideoInline));
+        OnPropertyChanged(nameof(ShowInlineVideoGate));
+        OnPropertyChanged(nameof(ShowMediaDiagnostics));
+        OnPropertyChanged(nameof(MediaStateText));
     }
 
     private void SubscribeMedia()
@@ -468,7 +667,8 @@ public sealed partial class PreviewViewModel(
     {
         if (!HasItem)
             return;
-        var hadHeavyPayload = Image is not null || OfficeDocument is not null || _pdfData is not null;
+        var hadHeavyPayload = Image is not null || OfficeDocument is not null || _pdfData is not null ||
+            HasKeePass || _keepassData is not null;
         // 抬代次：已经在跑的加载/渲染回来后自己作废，不会把内容又塞回来。
         _generation++;
         _switchingPdfEngine = false;
@@ -481,6 +681,12 @@ public sealed partial class PreviewViewModel(
         OfficePageCount = 0;
         OfficeSheetCount = 0;
         OfficeSheetIndex = 0;
+        // 密码库属于敏感内容：关闭预览就连同密文、主密码、解出的条目一起放掉。
+        ClearKeePassContent();
+        _keepassData = null;
+        KeePassPassword = string.Empty;
+        HasKeePass = false;
+        NeedsKeePassPassword = false;
         IsPayloadReleased = hadHeavyPayload;
     }
 
@@ -513,6 +719,7 @@ public sealed partial class PreviewViewModel(
         OnPropertyChanged(nameof(CanOpenArchiveWorkbench));
         OnPropertyChanged(nameof(CanOpenDocumentWorkbench));
         RaiseQuickFacts();
+        ForceInlineVideo = false;
         Image = null;
         TextContent = null;
         MarkdownText = null;
@@ -527,6 +734,11 @@ public sealed partial class PreviewViewModel(
         OfficePageCount = 0;
         OfficeSheetCount = 0;
         OfficeSheetIndex = 0;
+        ClearKeePassContent();
+        _keepassData = null;
+        KeePassPassword = string.Empty;
+        HasKeePass = false;
+        NeedsKeePassPassword = false;
         ArchiveEntries.Clear();
         MetadataRows.Clear();
         OnPropertyChanged(nameof(HasArchive));
@@ -550,6 +762,14 @@ public sealed partial class PreviewViewModel(
             await ProbeMediaAsync(item).ConfigureAwait(true);
             if (generation != _generation)
                 return;
+            // 自动播放只在设置里显式打开时生效；视频还必须内嵌出画面，
+            // 否则用户听到声音却看不到画面，比不播更糟。
+            if ((_settings?.Invoke().MediaAutoPlay ?? false) && CanPlayMediaInApp)
+            {
+                await ToggleMediaPlaybackAsync().ConfigureAwait(true);
+                if (generation != _generation)
+                    return;
+            }
         }
         SelectedTabIndex = item.IsFolder ? 1 : 0;
         Title = item.Name;
@@ -603,6 +823,12 @@ public sealed partial class PreviewViewModel(
                 MetadataRows.Add(new MetadataRowModel("渲染", OfficeDocumentLoader.EngineDescription));
                 if (office.Facts.SheetNames.Count > 0)
                     MetadataRows.Add(new MetadataRowModel("工作表", string.Join("、", office.Facts.SheetNames)));
+            }
+            if (content.KeePassUnlock is { } unlock)
+            {
+                _keepassData = unlock.Data;
+                NeedsKeePassPassword = true;
+                MetadataRows.Add(new MetadataRowModel("密码库", "KeePass KDBX · 只读解锁"));
             }
             // 媒体项的可用性/失败原因由媒体面板逐条说明；再叠一句兜底文案只会自相矛盾。
             FailureText = IsMedia ? null : content.Message;

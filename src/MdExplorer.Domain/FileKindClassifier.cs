@@ -121,6 +121,8 @@ public static class FileKindClassifier
     public static string Describe(FileItem item)
     {
         if (item.IsFolder) return "文件夹";
+        if (string.Equals(item.Extension, ".kdbx", StringComparison.OrdinalIgnoreCase))
+            return "KeePass 密码库";
         var ext = item.Extension?.TrimStart('.').ToUpperInvariant();
         var suffix = string.IsNullOrEmpty(ext) ? "文件" : $"{ext} 文件";
         return item.Kind switch
