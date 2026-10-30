@@ -104,8 +104,10 @@ public sealed class SearchIslandAndPreviewTabsTests : IDisposable
         // 位图 / PDF / 直接控件 / 密码库这些重负载由截图测试与 KeePass 用例覆盖：
         // 普通单测没有 IPlatformRenderInterface，造不出真位图。
         shell.IsPreviewPageOpen = true;
+        await shell.EnsurePreviewContentAsync(item);
         Assert.Equal("plain.txt", shell.Preview.Title);
         Assert.NotNull(shell.Preview.TextContent);
+        Assert.False(shell.Preview.IsPayloadReleased);
     }
 
     [Fact]

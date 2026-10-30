@@ -809,7 +809,7 @@ public static class KeePassReader
 
                 map[key] = type switch
                 {
-                    0x04 or 0x08 or 0x0C or 0x0D or 0x18 or 0x42 =>
+                    0x04 or 0x05 or 0x06 or 0x07 or 0x08 or 0x09 or 0x0C or 0x0D or 0x18 or 0x42 =>
                         data.AsSpan(offset, (int)valueLength).ToArray(),
                     _ => throw new InvalidDataException(
                         $"KDF 参数里出现未知类型 0x{type:X2}（版本 {version:X4}，位置 {keyStart}，键长 {keyLength}，总长 {data.Length}）。"),

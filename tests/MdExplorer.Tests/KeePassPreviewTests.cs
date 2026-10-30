@@ -202,9 +202,11 @@ internal static class KdbxVectorBuilder
         return [.. buffer];
     }
 
+    /// <summary>KDBX 3.1 的头部字段没有 id 字节（顺序固定），只有 uint16 长度前缀。</summary>
     private static byte[] V3Field(byte id, byte[] value)
     {
-        var buffer = new List<byte> { id };
+        _ = id;
+        var buffer = new List<byte>();
         var size = new byte[2];
         BinaryPrimitives.WriteUInt16LittleEndian(size, (ushort)value.Length);
         buffer.AddRange(size);
