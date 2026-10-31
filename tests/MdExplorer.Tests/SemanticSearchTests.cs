@@ -95,6 +95,14 @@ public sealed class SemanticSearchTests : IDisposable
         await _semantic.RebuildAsync(null, TestContext.Current.CancellationToken);
 
         Assert.Equal(3, _embeddings.EmbeddingCount);
+
+        // Same-length edits with a restored timestamp must still invalidate the cached vector.
+        var preservedWriteTime = File.GetLastWriteTimeUtc(changed);
+        await File.WriteAllTextAsync(changed, "bond market outlook with revised details");
+        File.SetLastWriteTimeUtc(changed, preservedWriteTime);
+        await _fileIndex.RebuildAsync(null, TestContext.Current.CancellationToken);
+        await _semantic.RebuildAsync(null, TestContext.Current.CancellationToken);
+        Assert.Equal(4, _embeddings.EmbeddingCount);
         Assert.True((await _semantic.GetStatsAsync(TestContext.Current.CancellationToken)).IsCurrent);
 
         // A model revision change invalidates every stored vector instead of reusing incompatible embeddings.

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using MdExplorer.Domain;
 using MdExplorer.Platform.Abstractions;
@@ -5,13 +6,13 @@ using MdExplorer.Platform.Abstractions;
 namespace MdExplorer.Infrastructure.Ai;
 
 /// <summary>
-/// Local semantic index for explicitly configured roots. It stores only file metadata and quantized vectors;
-/// eligible text files contribute a bounded UTF-8/Unicode prefix, but their raw contents are never persisted.
+/// Local semantic index for explicitly configured roots. It stores file metadata, a fingerprint of the embedded text,
+/// and quantized vectors; eligible text files contribute a bounded UTF-8/Unicode prefix, but raw contents are never persisted.
 /// </summary>
 public sealed class SemanticSearchService : ISemanticSearchService
 {
     private const string Magic = "EIDORIA-AISEARCH";
-    private const int FormatVersion = 1;
+    private const int FormatVersion = 2;
     private const int MaxDocuments = 20_000;
     private const int MaxTextChars = 4_000;
     private const long MaxIndexBytes = 96L * 1024 * 1024;
@@ -247,12 +248,15 @@ public sealed class SemanticSearchService : ISemanticSearchService
         foreach (var item in items)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var text = ComposeIndexText(item, cancellationToken);
+            var contentFingerprint = SHA256.HashData(Encoding.UTF8.GetBytes(text));
             byte[][] vectors;
             if (previousModelIndexes is not null && previousEntries.TryGetValue(item.FullPath, out var oldEntry) &&
-                MetadataMatches(oldEntry, item))
+                MetadataMatches(oldEntry, item) &&
+                oldEntry.ContentFingerprint.AsSpan().SequenceEqual(contentFingerprint))
             {
-                // Reuse persisted vectors for unchanged files. The index metadata is still refreshed and
-                // files are restatted below so a concurrent edit cannot be published as current.
+                // Reuse persisted vectors only when both metadata and the exact bounded text fed to the
+                // embedder match. This also catches same-size edits whose timestamp was restored.
                 vectors = new byte[models.Count][];
                 for (var modelIndex = 0; modelIndex < models.Count; modelIndex++)
                     vectors[modelIndex] = oldEntry.Vectors[previousModelIndexes[modelIndex]];
@@ -260,7 +264,6 @@ public sealed class SemanticSearchService : ISemanticSearchService
             }
             else
             {
-                var text = ComposeIndexText(item, cancellationToken);
                 vectors = new byte[models.Count][];
                 for (var modelIndex = 0; modelIndex < models.Count; modelIndex++)
                 {
@@ -298,6 +301,7 @@ public sealed class SemanticSearchService : ISemanticSearchService
                 item.IsFolder,
                 item.Length ?? 0,
                 item.LastWriteTime.UtcDateTime.Ticks,
+                contentFingerprint,
                 vectors));
         }
 
@@ -485,6 +489,9 @@ public sealed class SemanticSearchService : ISemanticSearchService
                     writer.Write(entry.IsFolder);
                     writer.Write(entry.Length);
                     writer.Write(entry.LastWriteUtcTicks);
+                    if (entry.ContentFingerprint.Length != SHA256.HashSizeInBytes)
+                        throw new InvalidDataException("AI 语义索引中的文本指纹异常。");
+                    writer.Write(entry.ContentFingerprint);
                     for (var modelIndex = 0; modelIndex < snapshot.Models.Count; modelIndex++)
                     {
                         var vector = entry.Vectors[modelIndex];
@@ -527,7 +534,8 @@ public sealed class SemanticSearchService : ISemanticSearchService
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: false);
         var magic = reader.ReadBytes(Encoding.ASCII.GetByteCount(Magic));
-        if (!magic.AsSpan().SequenceEqual(Encoding.ASCII.GetBytes(Magic)) || reader.ReadInt32() != FormatVersion)
+        var formatVersion = reader.ReadInt32();
+        if (!magic.AsSpan().SequenceEqual(Encoding.ASCII.GetBytes(Magic)) || formatVersion is < 1 or > FormatVersion)
             throw new InvalidDataException("AI 语义索引文件版本不受支持。");
         var builtAt = new DateTimeOffset(reader.ReadInt64(), TimeSpan.Zero);
         var sourceBuiltAt = new DateTimeOffset(reader.ReadInt64(), TimeSpan.Zero);
@@ -566,6 +574,11 @@ public sealed class SemanticSearchService : ISemanticSearchService
             var writeTicks = reader.ReadInt64();
             if (length < 0 || writeTicks < DateTime.MinValue.Ticks || writeTicks > DateTime.MaxValue.Ticks)
                 throw new InvalidDataException("AI 语义索引文件信息异常。");
+            var contentFingerprint = formatVersion >= 2
+                ? reader.ReadBytes(SHA256.HashSizeInBytes)
+                : Array.Empty<byte>();
+            if (formatVersion >= 2 && contentFingerprint.Length != SHA256.HashSizeInBytes)
+                throw new EndOfStreamException("AI 语义索引文本指纹被截断。");
             var vectors = new byte[modelCount][];
             for (var modelIndex = 0; modelIndex < modelCount; modelIndex++)
             {
@@ -573,7 +586,8 @@ public sealed class SemanticSearchService : ISemanticSearchService
                 if (vectors[modelIndex].Length != models[modelIndex].Dimensions)
                     throw new EndOfStreamException("AI 语义索引向量被截断。");
             }
-            entries.Add(new SemanticEntry(entryPath, name, (FileKind)kindValue, isFolder, length, writeTicks, vectors));
+            entries.Add(new SemanticEntry(entryPath, name, (FileKind)kindValue, isFolder, length, writeTicks,
+                contentFingerprint, vectors));
         }
         if (stream.Position != stream.Length)
             throw new InvalidDataException("AI 语义索引包含未识别的尾随数据。");
@@ -695,6 +709,7 @@ public sealed class SemanticSearchService : ISemanticSearchService
         bool IsFolder,
         long Length,
         long LastWriteUtcTicks,
+        byte[] ContentFingerprint,
         byte[][] Vectors);
 
     private sealed record SemanticCandidate(SemanticEntry Entry, float Score);
