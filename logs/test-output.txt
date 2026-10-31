@@ -1,8 +1,19 @@
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/bin/Release/net10.0/MdExplorer.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-[xUnit.net 00:00:03.47]     MdExplorer.Tests.RealModelEmbeddingTests.MiniLmEnglishEmbedsRelatedTextCloserThanUnrelatedText [SKIP]
+[xUnit.net 00:00:02.48]     MdExplorer.Tests.PreviewRegistryTests.TextPreview_DetectsLegacySimplifiedChineseWithoutBom [FAIL]
+  Failed MdExplorer.Tests.PreviewRegistryTests.TextPreview_DetectsLegacySimplifiedChineseWithoutBom [26 ms]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "匡숭渡응청唐쫘쯤"
+Not found: "文件预览没有乱码"
+  Stack Trace:
+     at MdExplorer.Tests.PreviewRegistryTests.TextPreview_DetectsLegacySimplifiedChineseWithoutBom() in /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Tests/PreviewRegistryTests.cs:line 149
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:02.49]     MdExplorer.Tests.RealModelEmbeddingTests.RealModelsRankLocalFixtureFilesByNaturalLanguageIntent [SKIP]
+[xUnit.net 00:00:02.49]     MdExplorer.Tests.RealModelEmbeddingTests.MiniLmEnglishEmbedsRelatedTextCloserThanUnrelatedText [SKIP]
+[xUnit.net 00:00:02.49]     MdExplorer.Tests.RealModelEmbeddingTests.BgeChineseEmbedsRelatedTextCloserThanUnrelatedText [SKIP]
+  Skipped MdExplorer.Tests.RealModelEmbeddingTests.RealModelsRankLocalFixtureFilesByNaturalLanguageIntent [1 ms]
   Skipped MdExplorer.Tests.RealModelEmbeddingTests.MiniLmEnglishEmbedsRelatedTextCloserThanUnrelatedText [1 ms]
-[xUnit.net 00:00:03.48]     MdExplorer.Tests.RealModelEmbeddingTests.BgeChineseEmbedsRelatedTextCloserThanUnrelatedText [SKIP]
   Skipped MdExplorer.Tests.RealModelEmbeddingTests.BgeChineseEmbedsRelatedTextCloserThanUnrelatedText [1 ms]
 
-Passed!  - Failed:     0, Passed:   279, Skipped:     2, Total:   281, Duration: 3 s - MdExplorer.Tests.dll (net10.0)
+Failed!  - Failed:     1, Passed:   284, Skipped:     3, Total:   288, Duration: 2 s - MdExplorer.Tests.dll (net10.0)
