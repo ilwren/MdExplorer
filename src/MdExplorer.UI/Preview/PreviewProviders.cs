@@ -530,20 +530,25 @@ internal static class PreviewTextReader
                 controls++;
         }
 
-        var score = han * 8 + kana * 12 + hangul * 10 + latin - controls * 30;
+        var score = han * 8 + kana * 10 + hangul * 8 + latin - controls * 30;
         score += codePage switch
         {
-            932 => kana * 8,
-            949 => hangul * 4,
-            936 => simplified * 4,
-            950 => traditional * 4,
+            932 => kana > han ? kana * 8 : 0,
+            949 => hangul > han * 4 ? hangul * 8 : 0,
+            936 => simplified * 16,
+            950 => traditional * 8,
             _ => 0,
         };
+        var language = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
         if (CultureInfo.CurrentCulture.Name.StartsWith("zh-TW", StringComparison.OrdinalIgnoreCase) ||
             CultureInfo.CurrentCulture.Name.StartsWith("zh-HK", StringComparison.OrdinalIgnoreCase))
             score += codePage == 950 ? 12 : 0;
-        else if (CultureInfo.CurrentCulture.TwoLetterISOLanguageName == "zh")
+        else if (language == "zh")
             score += codePage == 936 ? 12 : 0;
+        else if (language == "ja")
+            score += codePage == 932 ? 12 : 0;
+        else if (language == "ko")
+            score += codePage == 949 ? 12 : 0;
         return score;
     }
 

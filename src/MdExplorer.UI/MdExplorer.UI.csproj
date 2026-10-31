@@ -16,7 +16,6 @@
     <PackageReference Include="Md3.Avalonia.Notifications" />
     <PackageReference Include="NodifyM.Avalonia" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
-    <PackageReference Include="System.Text.Encoding.CodePages" />
     <PackageReference Include="PDFtoImage" />
     <PackageReference Include="OfficeViewer.Avalonia" />
     <PackageReference Include="BouncyCastle.Cryptography" />
