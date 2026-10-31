@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Avalonia.Media.Imaging;
 using MdExplorer.Domain;
@@ -22,7 +23,8 @@ public sealed record PreviewContent(
     PdfPreviewDocument? Pdf = null,
     OfficePreviewDocument? Office = null,
     KeePassUnlockRequest? KeePassUnlock = null,
-    KeePassDatabase? KeePass = null);
+    KeePassDatabase? KeePass = null,
+    string? TextEncoding = null);
 
 /// <summary>PDF 预览负载：原始字节仅在内存中保留，翻页时按需光栅化，避免整本同时驻留位图。</summary>
 public sealed record PdfPreviewDocument(
@@ -325,17 +327,25 @@ internal sealed class PdfPreviewProvider(IFileSystemService fileSystem) : IPrevi
     }
 }
 
-/// <summary>文本类预览的统一读取（前 512KB + 截断提示，与既有 UX 一致）。</summary>
+/// <summary>文本类预览的统一读取：识别 BOM、UTF-8、常见无 BOM Unicode 与本地传统代码页。</summary>
 internal static class PreviewTextReader
 {
     internal const long TextLimit = 512 * 1024;
+    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+    private const string CommonSimplified = "的一是不了人我在有他这为之大来以个中上们到说国和地也子时道出而要于就下得可你年生自会那后能对着事其里所去行过家十用发天如然作方成者多日都三小军二无同么经法当起与好看学进种将还分此心前面又定见只主没公从力本明";
+    private const string CommonTraditional = "的一是不了人我在有他這為之大來以個中上們到說國和地也子時道出而要於就下得可你年生自會那後能對著事其裡所去行過家十用發天如然作方成者多日都三小軍二無同麼經法當起與好看學進種將還分此心前面又定見只主沒公從力本明";
+    private static readonly HashSet<int> CommonSimplifiedRunes = RuneSet(CommonSimplified);
+    private static readonly HashSet<int> CommonTraditionalRunes = RuneSet(CommonTraditional);
 
-    internal static async Task<string> ReadAsync(IFileSystemService fileSystem, FileItem item, CancellationToken cancellationToken)
+    static PreviewTextReader() => Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+    internal static async Task<(string Text, string Encoding)> ReadAsync(
+        IFileSystemService fileSystem, FileItem item, CancellationToken cancellationToken)
     {
         await using var stream = await fileSystem.OpenReadAsync(item.FullPath, cancellationToken).ConfigureAwait(true);
-        // 存储提供者流可能不可寻址：长度以条目元数据为准，读取循环填满（单次 Read 不保证填满）
+        // 存储提供者流可能不可寻址：长度以条目元数据为准，读取循环填满（单次 Read 不保证填满）。
         var total = item.Length ?? (stream.CanSeek ? stream.Length : -1);
-        var buffer = new byte[total >= 0 ? Math.Min(TextLimit, total) : TextLimit];
+        var buffer = new byte[total >= 0 ? (int)Math.Min(TextLimit, total) : (int)TextLimit];
         var read = 0;
         while (read < buffer.Length)
         {
@@ -343,11 +353,235 @@ internal static class PreviewTextReader
             if (n == 0) break;
             read += n;
         }
-        var text = Encoding.UTF8.GetString(buffer, 0, read);
-        if (total > TextLimit)
+
+        var truncated = total > TextLimit || (total < 0 && read == buffer.Length);
+        var (text, encoding) = Decode(buffer.AsSpan(0, read).ToArray(), truncated);
+        if (truncated)
             text += $"\n\n…（仅预览前 {Formatting.Bytes(TextLimit)}，文件共 {Formatting.Bytes(item.Length)}）";
-        return text;
+        return (text, encoding);
     }
+
+    internal static (string Text, string Encoding) Decode(byte[] bytes, bool truncated = false)
+    {
+        var (bomEncoding, bomLength, bomName) = DetectBom(bytes);
+        if (bomEncoding is not null)
+            return (DecodeWithFallback(bomEncoding, bytes, bomLength, truncated), bomName!);
+
+        var unicodeGuess = GuessBomlessUnicode(bytes);
+        if (unicodeGuess.Encoding is not null &&
+            TryDecode(unicodeGuess.Encoding, bytes, 0, truncated, out var unicodeText))
+            return (unicodeText, unicodeGuess.Name! + "（推测）");
+
+        if (TryDecode(StrictUtf8, bytes, 0, truncated, out var utf8Text))
+            return (utf8Text, "UTF-8（无 BOM）");
+
+        var bestText = (string?)null;
+        var bestCodePage = 0;
+        var bestScore = int.MinValue;
+        var bestPreference = int.MaxValue;
+        var hasCjk = false;
+        foreach (var candidate in LegacyEncodings())
+        {
+            if (!TryDecode(candidate, bytes, 0, truncated, out var text))
+                continue;
+            hasCjk |= CountCjk(text) > 0;
+            var score = Score(candidate.CodePage, text);
+            var preference = CandidatePreference(candidate.CodePage);
+            if (score < bestScore || (score == bestScore && preference >= bestPreference))
+                continue;
+            bestText = text;
+            bestCodePage = candidate.CodePage;
+            bestScore = score;
+            bestPreference = preference;
+        }
+
+        if (bestText is not null)
+        {
+            var suffix = hasCjk || bestCodePage != CultureInfo.CurrentCulture.TextInfo.ANSICodePage
+                ? "（推测）"
+                : "（系统代码页推测）";
+            return (bestText, EncodingLabel(bestCodePage) + suffix);
+        }
+
+        // 不把无法识别的字节静默显示成一串 UTF-8 替换字符；标签明确提示这是最后的兜底。
+        return (Encoding.UTF8.GetString(bytes), "UTF-8（无法可靠识别，可能含乱码）");
+    }
+
+    private static (Encoding? Encoding, int BomLength, string? Name) DetectBom(byte[] bytes)
+    {
+        if (bytes.Length >= 4 && bytes[0] == 0xFF && bytes[1] == 0xFE && bytes[2] == 0x00 && bytes[3] == 0x00)
+            return (new UTF32Encoding(false, false, true), 4, "UTF-32 LE");
+        if (bytes.Length >= 4 && bytes[0] == 0x00 && bytes[1] == 0x00 && bytes[2] == 0xFE && bytes[3] == 0xFF)
+            return (new UTF32Encoding(true, false, true), 4, "UTF-32 BE");
+        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            return (StrictUtf8, 3, "UTF-8 BOM");
+        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+            return (new UnicodeEncoding(false, false, true), 2, "UTF-16 LE");
+        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+            return (new UnicodeEncoding(true, false, true), 2, "UTF-16 BE");
+        return (null, 0, null);
+    }
+
+    private static (Encoding? Encoding, string? Name) GuessBomlessUnicode(byte[] bytes)
+    {
+        var sampleLength = Math.Min(bytes.Length, 4096);
+        if (sampleLength < 8)
+            return (null, null);
+        var lanes = new int[4];
+        for (var i = 0; i < sampleLength; i++)
+            if (bytes[i] == 0)
+                lanes[i & 3]++;
+        var groups = sampleLength / 4;
+        if (groups >= 2 && lanes[1] > groups / 2 && lanes[2] > groups / 2 && lanes[3] > groups / 2)
+            return (new UTF32Encoding(false, false, true), "UTF-32 LE");
+        if (groups >= 2 && lanes[0] > groups / 2 && lanes[1] > groups / 2 && lanes[2] > groups / 2)
+            return (new UTF32Encoding(true, false, true), "UTF-32 BE");
+
+        var pairs = sampleLength / 2;
+        if (pairs >= 4)
+        {
+            var evenZeros = lanes[0] + lanes[2];
+            var oddZeros = lanes[1] + lanes[3];
+            if (oddZeros > pairs / 2 && evenZeros < pairs / 10)
+                return (new UnicodeEncoding(false, false, true), "UTF-16 LE");
+            if (evenZeros > pairs / 2 && oddZeros < pairs / 10)
+                return (new UnicodeEncoding(true, false, true), "UTF-16 BE");
+        }
+        return (null, null);
+    }
+
+    private static IReadOnlyList<Encoding> LegacyEncodings()
+    {
+        var codePages = new List<int>();
+        var localeCodePage = CultureInfo.CurrentCulture.TextInfo.ANSICodePage;
+        if (localeCodePage is > 0 and not 65001 and not 1200 and not 1201)
+            codePages.Add(localeCodePage);
+        codePages.AddRange([936, 950, 932, 949, 1252, 1251, 1250, 1253, 1254, 1255, 1256, 1257, 1258]);
+        var encodings = new List<Encoding>();
+        foreach (var codePage in codePages.Distinct())
+        {
+            try
+            {
+                encodings.Add(Encoding.GetEncoding(codePage, EncoderFallback.ExceptionFallback,
+                    DecoderFallback.ExceptionFallback));
+            }
+            catch (ArgumentException)
+            {
+                // Some platforms omit a legacy code page; continue with the remaining installed providers.
+            }
+        }
+        return encodings;
+    }
+
+    private static bool TryDecode(Encoding encoding, byte[] bytes, int offset, bool truncated, out string text)
+    {
+        var length = bytes.Length - offset;
+        var maxTrim = truncated ? Math.Min(4, length) : 0;
+        for (var trim = 0; trim <= maxTrim; trim++)
+        {
+            try
+            {
+                text = encoding.GetString(bytes, offset, length - trim);
+                return true;
+            }
+            catch (DecoderFallbackException)
+            {
+                // If this is a bounded preview, discard only an incomplete trailing code unit/sequence.
+            }
+        }
+        text = string.Empty;
+        return false;
+    }
+
+    private static string DecodeWithFallback(Encoding encoding, byte[] bytes, int offset, bool truncated)
+    {
+        if (TryDecode(encoding, bytes, offset, truncated, out var text))
+            return text;
+        var replacement = (Encoding)encoding.Clone();
+        replacement.DecoderFallback = DecoderFallback.ReplacementFallback;
+        return replacement.GetString(bytes, offset, bytes.Length - offset);
+    }
+
+    private static int Score(int codePage, string text)
+    {
+        var han = 0;
+        var kana = 0;
+        var hangul = 0;
+        var latin = 0;
+        var controls = 0;
+        var simplified = 0;
+        var traditional = 0;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            var value = rune.Value;
+            if (value is >= 0x3400 and <= 0x9FFF or >= 0xF900 and <= 0xFAFF)
+            {
+                han++;
+                if (CommonSimplifiedRunes.Contains(value)) simplified++;
+                if (CommonTraditionalRunes.Contains(value)) traditional++;
+            }
+            else if (value is >= 0x3040 and <= 0x30FF)
+                kana++;
+            else if (value is >= 0xAC00 and <= 0xD7AF)
+                hangul++;
+            else if (Rune.IsLetterOrDigit(rune) || Rune.IsPunctuation(rune) || Rune.IsWhiteSpace(rune))
+                latin++;
+            else if (Rune.IsControl(rune))
+                controls++;
+        }
+
+        var score = han * 8 + kana * 12 + hangul * 10 + latin - controls * 30;
+        score += codePage switch
+        {
+            932 => kana * 8,
+            949 => hangul * 4,
+            936 => simplified * 4,
+            950 => traditional * 4,
+            _ => 0,
+        };
+        if (CultureInfo.CurrentCulture.Name.StartsWith("zh-TW", StringComparison.OrdinalIgnoreCase) ||
+            CultureInfo.CurrentCulture.Name.StartsWith("zh-HK", StringComparison.OrdinalIgnoreCase))
+            score += codePage == 950 ? 12 : 0;
+        else if (CultureInfo.CurrentCulture.TwoLetterISOLanguageName == "zh")
+            score += codePage == 936 ? 12 : 0;
+        return score;
+    }
+
+    private static HashSet<int> RuneSet(string text)
+    {
+        var runes = new HashSet<int>();
+        foreach (var rune in text.EnumerateRunes())
+            runes.Add(rune.Value);
+        return runes;
+    }
+
+    private static int CountCjk(string text)
+    {
+        var count = 0;
+        foreach (var rune in text.EnumerateRunes())
+            if (rune.Value is >= 0x3040 and <= 0x30FF or >= 0x3400 and <= 0x9FFF or >= 0xAC00 and <= 0xD7AF)
+                count++;
+        return count;
+    }
+
+    private static int CandidatePreference(int codePage) => codePage switch
+    {
+        936 => 0,
+        950 => 1,
+        932 => 2,
+        949 => 3,
+        1252 => 4,
+        _ => 5,
+    };
+
+    private static string EncodingLabel(int codePage) => codePage switch
+    {
+        932 => "Shift-JIS",
+        936 => "GBK / Windows-936",
+        949 => "Windows-949",
+        950 => "Big5",
+        _ => $"Windows-{codePage}",
+    };
 }
 
 internal sealed class MarkdownPreviewProvider(IFileSystemService fileSystem) : IPreviewProvider
@@ -358,8 +592,11 @@ internal sealed class MarkdownPreviewProvider(IFileSystemService fileSystem) : I
         string.Equals(item.Extension, ".md", StringComparison.OrdinalIgnoreCase)
         || string.Equals(item.Extension, ".markdown", StringComparison.OrdinalIgnoreCase);
 
-    public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken) =>
-        new(Markdown: await PreviewTextReader.ReadAsync(fileSystem, item, cancellationToken).ConfigureAwait(true));
+    public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
+    {
+        var preview = await PreviewTextReader.ReadAsync(fileSystem, item, cancellationToken).ConfigureAwait(true);
+        return new PreviewContent(Markdown: preview.Text, TextEncoding: preview.Encoding);
+    }
 }
 
 internal sealed class TextPreviewProvider(IFileSystemService fileSystem) : IPreviewProvider
@@ -370,10 +607,10 @@ internal sealed class TextPreviewProvider(IFileSystemService fileSystem) : IPrev
 
     public async Task<PreviewContent> LoadAsync(FileItem item, CancellationToken cancellationToken)
     {
-        var text = await PreviewTextReader.ReadAsync(fileSystem, item, cancellationToken).ConfigureAwait(true);
+        var preview = await PreviewTextReader.ReadAsync(fileSystem, item, cancellationToken).ConfigureAwait(true);
         // 代码走编辑器呈现（行号+高亮）；HighlightLanguage 为 "" 表示无对应高亮定义时纯文本编辑器
         var language = item.Kind == FileKind.Code ? SourceLanguages.ForExtension(item.Extension) ?? "" : null;
-        return new PreviewContent(Text: text, HighlightLanguage: language);
+        return new PreviewContent(Text: preview.Text, HighlightLanguage: language, TextEncoding: preview.Encoding);
     }
 }
 

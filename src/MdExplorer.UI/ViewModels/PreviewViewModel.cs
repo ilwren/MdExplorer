@@ -40,6 +40,7 @@ public sealed partial class PreviewViewModel(
     [ObservableProperty] private string? _textContent;
     [ObservableProperty] private string? _markdownText;
     [ObservableProperty] private string? _highlightLanguage;
+    [ObservableProperty] private string? _previewEncoding;
     [ObservableProperty] private string? _failureText;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _canOpen;
@@ -214,6 +215,8 @@ public sealed partial class PreviewViewModel(
 
     public bool HasImage => Image is not null;
     public bool HasText => TextContent is not null;
+    public bool HasPreviewEncoding => !string.IsNullOrWhiteSpace(PreviewEncoding);
+    public string PreviewEncodingText => HasPreviewEncoding ? $"编码 · {PreviewEncoding}" : string.Empty;
     public bool HasMarkdown => MarkdownText is not null;
     /// <summary>代码呈现（编辑器：行号/高亮）——HighlightLanguage 非空即进入，包括 ""（无高亮定义）。</summary>
     public bool ShowSource => HighlightLanguage is not null;
@@ -605,6 +608,12 @@ public sealed partial class PreviewViewModel(
 
     partial void OnMarkdownTextChanged(string? value) => OnPropertyChanged(nameof(HasMarkdown));
 
+    partial void OnPreviewEncodingChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasPreviewEncoding));
+        OnPropertyChanged(nameof(PreviewEncodingText));
+    }
+
     partial void OnHighlightLanguageChanged(string? value)
     {
         OnPropertyChanged(nameof(ShowSource));
@@ -724,6 +733,7 @@ public sealed partial class PreviewViewModel(
         TextContent = null;
         MarkdownText = null;
         HighlightLanguage = null;
+        PreviewEncoding = null;
         FailureText = null;
         _pdfData = null;
         _switchingPdfEngine = false;
@@ -797,6 +807,7 @@ public sealed partial class PreviewViewModel(
             TextContent = content.Text;
             MarkdownText = content.Markdown;
             HighlightLanguage = content.HighlightLanguage;
+            PreviewEncoding = content.TextEncoding;
             if (content.Entries is not null)
             {
                 foreach (var entry in content.Entries)

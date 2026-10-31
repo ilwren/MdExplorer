@@ -1,3 +1,4 @@
+using System.Text;
 using MdExplorer.Domain;
 using MdExplorer.Infrastructure;
 using MdExplorer.UI.Preview;
@@ -109,6 +110,61 @@ public sealed class PreviewRegistryTests
             Assert.Null(content.Pdf);
             Assert.Null(content.Office);
             Assert.Contains("PDF", content.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Theory]
+    [InlineData("utf8-no-bom", "UTF-8（无 BOM）")]
+    [InlineData("utf16-le-bom", "UTF-16 LE")]
+    [InlineData("utf16-be-bom", "UTF-16 BE")]
+    [InlineData("utf16-le-no-bom", "UTF-16 LE（推测）")]
+    public async Task TextPreview_DetectsUnicodeEncoding(string variant, string expectedEncoding)
+    {
+        const string expectedText = "编码识别测试 · 中文文本";
+        var bytes = variant switch
+        {
+            "utf8-no-bom" => new UTF8Encoding(false).GetBytes(expectedText),
+            "utf16-le-bom" => Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(expectedText)).ToArray(),
+            "utf16-be-bom" => Encoding.BigEndianUnicode.GetPreamble().Concat(Encoding.BigEndianUnicode.GetBytes(expectedText)).ToArray(),
+            "utf16-le-no-bom" => Encoding.Unicode.GetBytes("ASCII text without BOM"),
+            _ => throw new ArgumentOutOfRangeException(nameof(variant)),
+        };
+        var expected = variant == "utf16-le-no-bom" ? "ASCII text without BOM" : expectedText;
+        var result = await LoadTextPreviewAsync(bytes);
+        Assert.Contains(expected, result.Text, StringComparison.Ordinal);
+        Assert.Equal(expectedEncoding, result.Encoding);
+    }
+
+    [Fact]
+    public async Task TextPreview_DetectsLegacySimplifiedChineseWithoutBom()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var bytes = Encoding.GetEncoding(936).GetBytes("文件预览没有乱码");
+        var result = await LoadTextPreviewAsync(bytes);
+
+        Assert.Contains("文件预览没有乱码", result.Text, StringComparison.Ordinal);
+        Assert.StartsWith("GBK", result.Encoding, StringComparison.Ordinal);
+    }
+
+    private static async Task<(string Text, string? Encoding)> LoadTextPreviewAsync(byte[] bytes)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"eidoria-preview-encoding-{Guid.NewGuid():N}.txt");
+        await File.WriteAllBytesAsync(path, bytes);
+        try
+        {
+            var item = new FileItem(
+                FileLocator.FromPath(path), Path.GetFileName(path), FileKind.Text,
+                bytes.Length, new DateTimeOffset(File.GetLastWriteTimeUtc(path)),
+                IsHidden: false, IsSymlink: false, ".txt");
+            var registry = BuiltIns();
+            var provider = Assert.IsAssignableFrom<IPreviewProvider>(registry.Resolve(item));
+            Assert.Equal("builtin.text", provider.Id);
+            var preview = await provider.LoadAsync(item, TestContext.Current.CancellationToken);
+            return (preview.Text ?? string.Empty, preview.TextEncoding);
         }
         finally
         {

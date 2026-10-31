@@ -113,6 +113,18 @@ public sealed class SemanticSearchTests : IDisposable
     }
 
     [Fact]
+    public async Task RebuildRejectsNonFiniteModelEmbeddings()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_root, "note.txt"), "local text");
+        await _fileIndex.RebuildAsync(null, TestContext.Current.CancellationToken);
+        var invalid = new SemanticSearchService(_dataDir, _fileIndex, _settings,
+            new FakeEmbeddings(emitInvalidVector: true));
+
+        await Assert.ThrowsAsync<InvalidDataException>(async () =>
+            await invalid.RebuildAsync(null, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task SemanticIndexRequiresExplicitLocalAiEnablement()
     {
         _settings.Settings.EnableLocalAi = false;
@@ -122,7 +134,7 @@ public sealed class SemanticSearchTests : IDisposable
             await _semantic.RebuildAsync(null, TestContext.Current.CancellationToken));
     }
 
-    private sealed class FakeEmbeddings(string revision = "revision-a") : ITextEmbeddingService
+    private sealed class FakeEmbeddings(string revision = "revision-a", bool emitInvalidVector = false) : ITextEmbeddingService
     {
         private int _embeddingCount;
         public int EmbeddingCount => Volatile.Read(ref _embeddingCount);
@@ -134,6 +146,8 @@ public sealed class SemanticSearchTests : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             Interlocked.Increment(ref _embeddingCount);
+            if (emitInvalidVector)
+                return [float.NaN, 0f];
             return text.Contains("pet", StringComparison.OrdinalIgnoreCase) ||
                    text.Contains("feline", StringComparison.OrdinalIgnoreCase)
                 ? [1f, 0f]

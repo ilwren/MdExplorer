@@ -20,7 +20,7 @@ namespace MdExplorer.UI.Media;
 /// </para>
 /// <para>
 /// 线程约定：<see cref="PresentFrame"/> 可能从解码线程调用。实现先拷进自己的数组再切回 UI 线程，
-/// 解码线程不会因为等待渲染而阻塞；同一尺寸的连续帧复用同一块位图，避免每帧分配。
+/// 解码线程不会因为等待渲染而阻塞；UI 调度只保留最新待绘帧，避免渲染稍慢时积压过期画面。
 /// </para>
 /// </summary>
 public sealed class MediaFrameSurface : Control, IMediaFrameSink
@@ -35,6 +35,9 @@ public sealed class MediaFrameSurface : Control, IMediaFrameSink
 
     private WriteableBitmap? _bitmap;
     private IMediaVideoFrameSource? _attached;
+    private readonly object _pendingFrameGate = new();
+    private PendingFrame? _pendingFrame;
+    private bool _frameDispatchPending;
 
     static MediaFrameSurface()
     {
@@ -63,15 +66,17 @@ public sealed class MediaFrameSurface : Control, IMediaFrameSink
     /// <inheritdoc />
     public void PresentFrame(ReadOnlySpan<byte> bgra8888, int width, int height, int strideBytes)
     {
-        if (width <= 0 || height <= 0)
+        if (width <= 0 || height <= 0 || width > 8192 || height > 8192)
             return;
-        var rowBytes = width * 4;
+        var rowBytes = checked(width * 4);
+        var frameLength = (long)rowBytes * height;
         var stride = strideBytes > 0 ? strideBytes : rowBytes;
-        if (stride < rowBytes || bgra8888.Length < (long)stride * (height - 1) + rowBytes)
+        if (frameLength > 64L * 1024 * 1024 || stride < rowBytes ||
+            bgra8888.Length < (long)stride * (height - 1) + rowBytes)
             return;
 
-        // 解码线程只负责拷贝成紧凑帧；渲染排到 UI 线程，绝不在这里等。
-        var frame = new byte[rowBytes * height];
+        // 解码线程只负责拷贝紧凑帧；UI 调度只保留最新待绘帧，不能让慢绘制把整段视频排成消息队列。
+        var frame = new byte[(int)frameLength];
         if (stride == rowBytes)
         {
             bgra8888[..frame.Length].CopyTo(frame);
@@ -82,13 +87,23 @@ public sealed class MediaFrameSurface : Control, IMediaFrameSink
                 bgra8888.Slice(y * stride, rowBytes).CopyTo(frame.AsSpan(y * rowBytes, rowBytes));
         }
 
-        if (Dispatcher.UIThread.CheckAccess())
+        var runOnUiThread = false;
+        var postToUiThread = false;
+        lock (_pendingFrameGate)
         {
-            PresentCore(frame, width, height);
-            return;
+            _pendingFrame = new PendingFrame(frame, width, height);
+            if (!_frameDispatchPending)
+            {
+                _frameDispatchPending = true;
+                runOnUiThread = Dispatcher.UIThread.CheckAccess();
+                postToUiThread = !runOnUiThread;
+            }
         }
 
-        Dispatcher.UIThread.Post(() => PresentCore(frame, width, height));
+        if (runOnUiThread)
+            DrainPendingFrame();
+        else if (postToUiThread)
+            Dispatcher.UIThread.Post(DrainPendingFrame);
     }
 
     /// <inheritdoc />
@@ -142,11 +157,28 @@ public sealed class MediaFrameSurface : Control, IMediaFrameSink
         InvalidateVisual();
     }
 
+    private void DrainPendingFrame()
+    {
+        PendingFrame? pending;
+        lock (_pendingFrameGate)
+        {
+            pending = _pendingFrame;
+            _pendingFrame = null;
+            _frameDispatchPending = false;
+        }
+        if (pending is { } frame)
+            PresentCore(frame.Pixels, frame.Width, frame.Height);
+    }
+
     private void ClearCore()
     {
+        lock (_pendingFrameGate)
+            _pendingFrame = null;
         FrameSize = default;
         InvalidateVisual();
     }
+
+    private readonly record struct PendingFrame(byte[] Pixels, int Width, int Height);
 
     private void EnsureBitmap(int width, int height)
     {

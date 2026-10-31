@@ -250,7 +250,7 @@
                 <StackPanel Spacing="8">
                   <TextBlock Classes="body" Text="视频默认不在应用内出画面" TextWrapping="Wrap" />
                   <TextBlock Classes="caption" TextWrapping="Wrap"
-                             Text="内嵌画面按帧抓取（约 12 fps）：可能花屏、音画不同步、CPU 偏高。要稳定播放请用系统播放器。" />
+                             Text="内嵌画面按帧抓取，解码或绘制负载高时可能不够流畅、音画不同步或占用较多 CPU。要稳定播放请用系统播放器。" />
                   <WrapPanel Orientation="Horizontal">
                     <md:MdButton Variant="Filled" Height="38" Margin="0,0,8,4" Command="{Binding OpenCommand}">
                       <StackPanel Orientation="Horizontal" Spacing="6">
@@ -337,6 +337,9 @@
           <TextBlock Classes="caption" Text="{Binding FailureText}" IsVisible="{Binding HasFailure}"
                      HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
         </Grid>
+
+        <TextBlock Classes="caption" Text="{Binding PreviewEncodingText}" IsVisible="{Binding HasPreviewEncoding}"
+                   Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}" />
 
         <WrapPanel Orientation="Horizontal" IsVisible="{Binding HasQuickFacts}">
           <Border Classes="fact-chip" Margin="0,0,6,6" IsVisible="{Binding HasImageDimensions}"

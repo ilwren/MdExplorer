@@ -19,7 +19,7 @@ namespace MdExplorer.Desktop;
 /// 为什么不把画面交给 <see cref="WinRtMediaPlayer"/>：它没有把视频画进外部 HWND/位图的 API，
 /// 帧服务模式（<c>IsVideoFrameServerEnabled</c>）只能拷贝到 D3D Surface，需要自带 D3D 互操作组件；
 /// 而 <c>IMFMediaEngine</c> 要手写 COM vtable。两者都要在真机上验证才知道对不对，
-/// 本版选择只用 WinRT 投影就能做到的取帧路线，代价是帧率低（约 12 fps，远低于原生播放）。
+/// 本版选择只用 WinRT 投影就能做到的取帧路线；循环最高约 24 fps 请求画面，实际帧率仍受解码速度限制。
 /// </para>
 /// </summary>
 internal sealed class WindowsMediaPlaybackService
@@ -29,11 +29,12 @@ internal sealed class WindowsMediaPlaybackService
     private const int FrameWidth = 480;
     private const int FrameHeight = 270;
 
-    /// <summary>取帧周期。取一帧要 20–60 ms，90 ms 的节奏既能动起来也不会把 CPU 占满。</summary>
-    private static readonly TimeSpan FramePeriod = TimeSpan.FromMilliseconds(90);
+    /// <summary>目标最高约 24 fps；实际节奏由 MediaComposition 解码耗时和 UI 绘制速度共同决定。</summary>
+    private static readonly TimeSpan FramePeriod = TimeSpan.FromMilliseconds(42);
 
     private readonly WinRtMediaPlayer? _player;
     private readonly object _gate = new();
+    private readonly object _framePumpGate = new();
     private readonly SemaphoreSlim _compositionGate = new(1, 1);
     private string? _path;
     private bool _ready;
@@ -97,7 +98,7 @@ internal sealed class WindowsMediaPlaybackService
 
     public MediaPlaybackCapabilities Capabilities => Unavailable is null
         ? new(true, true, "Windows Media Foundation",
-            "音频由系统 Media Foundation 解码；视频画面以约 12 fps 的缩略帧呈现（MediaComposition 取帧），" +
+            "音频由系统 Media Foundation 解码；视频画面由 MediaComposition 取帧，目标最高约 24 fps（实际帧率受解码速度影响），" +
             "完整播放请用系统应用打开。")
         : new(false, false, "none", $"Windows 媒体栈不可用：{Unavailable}");
 
@@ -250,87 +251,113 @@ internal sealed class WindowsMediaPlaybackService
 
     private void StartFramePump()
     {
-        if (_frameSink is not { } sink || _composition is null || _frameThread is not null || _disposed)
-            return;
-        _frameCts = new CancellationTokenSource();
-        var token = _frameCts.Token;
-        _frameThread = new Thread(() => PumpFrames(sink, token))
+        lock (_framePumpGate)
         {
-            IsBackground = true,
-            Name = "MdExplorer Windows frames",
-        };
-        _frameThread.Start();
+            if (_frameSink is not { } sink || _composition is null || _frameThread is not null || _disposed)
+                return;
+
+            var cts = new CancellationTokenSource();
+            var thread = new Thread(() => PumpFrames(sink, cts))
+            {
+                IsBackground = true,
+                Name = "MdExplorer Windows frames",
+            };
+            _frameCts = cts;
+            _frameThread = thread;
+            thread.Start();
+        }
     }
 
     private void StopFramePump()
     {
-        var cts = _frameCts;
-        var thread = _frameThread;
-        _frameCts = null;
-        _frameThread = null;
-        if (cts is null)
-            return;
-        try { cts.Cancel(); }
-        catch (ObjectDisposedException) { }
+        CancellationTokenSource? cts;
+        Thread? thread;
+        lock (_framePumpGate)
+        {
+            cts = _frameCts;
+            thread = _frameThread;
+            if (cts is null)
+                return;
+            try { cts.Cancel(); }
+            catch (ObjectDisposedException) { }
+        }
 
-        // 取帧线程可能正卡在一次 WinRT 解码调用里，Join 超时也不能丢下它去 Dispose CTS：
-        // 那样线程下一次碰 token.WaitHandle 就会抛 ObjectDisposedException 打死进程。
-        var joined = false;
-        try { joined = thread is null || thread.Join(500); }
-        catch (ThreadStateException) { joined = thread?.IsAlive != true; }
-        if (joined)
-            cts.Dispose();
+        // WinRT 解码调用可能暂时不响应取消。保留线程句柄直到 PumpFrames finally 收尾，
+        // 防止快速暂停/继续时启动第二个取帧线程并争抢 CPU / 乱序绘帧。
+        try { thread?.Join(500); }
+        catch (ThreadStateException) { }
     }
 
     /// <summary>
     /// 取帧循环：把播放器当前位置当作时间轴，向 <see cref="MediaComposition"/> 要一帧缩略图。
     /// 位置几乎没变就跳过，避免同一帧重复解码；任何平台异常都只让这一帧失败，不终止播放。
     /// </summary>
-    private void PumpFrames(IMediaFrameSink sink, CancellationToken token)
+    private void PumpFrames(IMediaFrameSink sink, CancellationTokenSource cts)
     {
-        var lastPosition = TimeSpan.MinValue;
-        while (!token.IsCancellationRequested)
+        var token = cts.Token;
+        try
         {
-            var started = Stopwatch.GetTimestamp();
-            try
+            var lastPosition = TimeSpan.MinValue;
+            while (!token.IsCancellationRequested)
             {
-                if (State is MediaPlaybackState.Playing or MediaPlaybackState.Paused or MediaPlaybackState.Opening)
+                var started = Stopwatch.GetTimestamp();
+                try
                 {
-                    var position = Player.PlaybackSession.Position;
-                    if (lastPosition == TimeSpan.MinValue ||
-                        Math.Abs((position - lastPosition).TotalMilliseconds) >= 40)
+                    if (State is MediaPlaybackState.Playing or MediaPlaybackState.Paused or MediaPlaybackState.Opening)
                     {
-                        var frame = GrabFrameAsync(position, token).GetAwaiter().GetResult();
-                        if (frame is { } raw)
+                        var position = Player.PlaybackSession.Position;
+                        if (lastPosition == TimeSpan.MinValue ||
+                            Math.Abs((position - lastPosition).TotalMilliseconds) >= 25)
                         {
-                            sink.PresentFrame(raw.Pixels, raw.Width, raw.Height, raw.Stride);
-                            lastPosition = position;
+                            var frame = GrabFrameAsync(position, token).GetAwaiter().GetResult();
+                            if (frame is { } raw && !token.IsCancellationRequested)
+                            {
+                                sink.PresentFrame(raw.Pixels, raw.Width, raw.Height, raw.Stride);
+                                lastPosition = position;
+                            }
                         }
                     }
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            catch (Exception ex) when (IsPlatformFailure(ex))
-            {
-                LastError = $"取帧失败：{ex.Message}";
-            }
-
-            var elapsed = Stopwatch.GetElapsedTime(started);
-            var wait = FramePeriod - elapsed;
-            if (wait <= TimeSpan.Zero)
-                continue;
-            try
-            {
-                if (token.WaitHandle.WaitOne(wait))
+                catch (OperationCanceledException)
+                {
                     return;
+                }
+                catch (Exception ex) when (IsPlatformFailure(ex))
+                {
+                    LastError = $"取帧失败：{ex.Message}";
+                }
+
+                var elapsed = Stopwatch.GetElapsedTime(started);
+                var wait = FramePeriod - elapsed;
+                if (wait <= TimeSpan.Zero)
+                    continue;
+                try
+                {
+                    if (token.WaitHandle.WaitOne(wait))
+                        return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
             }
-            catch (ObjectDisposedException)
+        }
+        finally
+        {
+            var restart = false;
+            lock (_framePumpGate)
             {
-                return;
+                if (ReferenceEquals(_frameCts, cts))
+                {
+                    restart = cts.IsCancellationRequested && State == MediaPlaybackState.Playing &&
+                              ReferenceEquals(_frameSink, sink) && !_disposed;
+                    _frameCts = null;
+                    _frameThread = null;
+                }
             }
+            cts.Dispose();
+            if (restart)
+                StartFramePump();
         }
     }
 
@@ -434,8 +461,8 @@ internal sealed class WindowsMediaPlaybackService
                 await EnsureCompositionAsync(path).ConfigureAwait(true);
                 return new MediaProbeResult(
                     true, true, true,
-                    $"视频 · 系统解码 · 缩略帧约 {1000 / (int)FramePeriod.TotalMilliseconds} fps",
-                    "画面由 MediaComposition 逐帧取出后交给 Avalonia 绘制，帧率低于原生播放；" +
+                    $"视频 · 系统解码 · 取帧目标最高约 {1000 / (int)FramePeriod.TotalMilliseconds} fps",
+                    "画面由 MediaComposition 逐帧取出后交给 Avalonia 绘制，实际帧率随解码与绘制负载变化；" +
                     "HEVC 需系统扩展、DTS/AC-3 默认缺失，完整播放请用系统应用打开。");
             }
             catch (Exception ex) when (IsPlatformFailure(ex))

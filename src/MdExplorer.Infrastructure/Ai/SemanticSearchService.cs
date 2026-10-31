@@ -142,18 +142,19 @@ public sealed class SemanticSearchService : ISemanticSearchService
         var queryVector = await Task.Run(
                 () => _embeddings.Embed(model.Id, query, isQuery: true, cancellationToken), cancellationToken)
             .ConfigureAwait(false);
-        if (queryVector.Length != model.Dimensions)
-            throw new InvalidDataException($"查询嵌入维数与模型 {model.Name} 不一致。");
+        ValidateEmbedding(queryVector, model.Dimensions, model.Name, "查询");
 
         var limit = Math.Clamp(maxResults, 1, 5000);
+        var modelIndex = snapshot.Models.FindIndex(candidate => candidate.Id == model.Id);
+        if (modelIndex < 0)
+            throw new InvalidDataException($"AI 索引中缺少模型 {model.Id} 的向量。");
         var best = new PriorityQueue<SemanticCandidate, float>();
         foreach (var entry in snapshot.Entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (kinds is { Count: > 0 } && !kinds.Contains(entry.Kind))
                 continue;
-            var modelIndex = snapshot.Models.FindIndex(candidate => candidate.Id == model.Id);
-            if (modelIndex < 0 || modelIndex >= entry.Vectors.Length)
+            if (modelIndex >= entry.Vectors.Length)
                 continue;
 
             var score = Cosine(queryVector, entry.Vectors[modelIndex]);
@@ -268,7 +269,9 @@ public sealed class SemanticSearchService : ISemanticSearchService
                 for (var modelIndex = 0; modelIndex < models.Count; modelIndex++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    vectors[modelIndex] = Quantize(_embeddings.Embed(models[modelIndex].Id, text, isQuery: false, cancellationToken));
+                    var embedding = _embeddings.Embed(models[modelIndex].Id, text, isQuery: false, cancellationToken);
+                    ValidateEmbedding(embedding, models[modelIndex].Dimensions, models[modelIndex].Name, "文件");
+                    vectors[modelIndex] = Quantize(embedding);
                     done++;
                 }
             }
@@ -620,6 +623,22 @@ public sealed class SemanticSearchService : ISemanticSearchService
         if (count < 0 || count > maximum)
             throw new InvalidDataException("AI 语义索引的条目数异常。");
         return count;
+    }
+
+    private static void ValidateEmbedding(float[] embedding, int expectedDimensions, string modelName, string inputName)
+    {
+        if (embedding.Length != expectedDimensions)
+            throw new InvalidDataException($"{inputName}嵌入维数与模型 {modelName} 不一致。");
+
+        var norm = 0d;
+        foreach (var value in embedding)
+        {
+            if (!float.IsFinite(value))
+                throw new InvalidDataException($"模型 {modelName} 为{inputName}生成了非有限值。");
+            norm += (double)value * value;
+        }
+        if (!double.IsFinite(norm) || norm <= 1e-20)
+            throw new InvalidDataException($"模型 {modelName} 为{inputName}生成了零向量或无效向量。");
     }
 
     private static byte[] Quantize(float[] embedding)

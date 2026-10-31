@@ -228,11 +228,15 @@ public sealed class OnnxTextEmbeddingService : ITextEmbeddingService, IDisposabl
                 embedding[i] /= tokenCount;
                 norm += embedding[i] * embedding[i];
             }
-            if (norm <= 1e-20)
-                throw new InvalidDataException("模型输出了零向量，无法执行语义搜索。");
+            if (!double.IsFinite(norm) || norm <= 1e-20 || norm > float.MaxValue)
+                throw new InvalidDataException("模型输出了零向量或超出数值范围的向量，无法执行语义搜索。");
             var scale = 1f / MathF.Sqrt((float)norm);
             for (var i = 0; i < embedding.Length; i++)
+            {
                 embedding[i] *= scale;
+                if (!float.IsFinite(embedding[i]))
+                    throw new InvalidDataException("模型输出了非有限向量，无法执行语义搜索。");
+            }
             return embedding;
         }
 
