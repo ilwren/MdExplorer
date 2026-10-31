@@ -1,11 +1,11 @@
   Determining projects to restore...
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.57 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 1.69 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/MdExplorer.Domain.csproj (in 1.35 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 1.35 sec).
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj : warning NU1510: PackageReference System.Text.Encoding.CodePages will not be pruned. This package is automatically available and does not need to be referenced explicitly. Remove the PackageReference item. [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/MdExplorer.Platform.Abstractions.csproj (in 21 ms).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 8.1 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 5.91 sec).
-  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 9.17 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Application/MdExplorer.Application.csproj (in 20 ms).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj (in 5.82 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj (in 4.7 sec).
+  Restored /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj (in 6.64 sec).
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj : warning NU1510: PackageReference System.Text.Encoding.CodePages will not be pruned. This package is automatically available and does not need to be referenced explicitly. Remove the PackageReference item.
   MdExplorer.Domain -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Domain/bin/Release/net10.0/MdExplorer.Domain.dll
   MdExplorer.Platform.Abstractions -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Platform.Abstractions/bin/Release/net10.0/MdExplorer.Platform.Abstractions.dll
@@ -13,8 +13,8 @@
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/TrashService.cs(23,34): warning CA1416: This call site is reachable on all platforms. 'WindowsTrash.MoveToTrash(string)' is only supported on: 'windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj]
   MdExplorer.Infrastructure -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/bin/Release/net10.0/MdExplorer.Infrastructure.dll
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(140,20): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
-/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(160,33): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(163,29): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageSizes(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
+/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(160,33): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(209,9): warning CA1416: This call site is reachable on all platforms. 'Conversion.SavePng(Stream, byte[], Index, string?, RenderOptions)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
   MdExplorer.UI -> /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/bin/Release/net10.0/MdExplorer.UI.dll
 /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(150,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
@@ -34,8 +34,8 @@ Build succeeded.
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj : warning NU1510: PackageReference System.Text.Encoding.CodePages will not be pruned. This package is automatically available and does not need to be referenced explicitly. Remove the PackageReference item.
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/TrashService.cs(23,34): warning CA1416: This call site is reachable on all platforms. 'WindowsTrash.MoveToTrash(string)' is only supported on: 'windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.Infrastructure/MdExplorer.Infrastructure.csproj]
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(140,20): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
-/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(160,33): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(163,29): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageSizes(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
+/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(160,33): warning CA1416: This call site is reachable on all platforms. 'Conversion.GetPageCount(byte[], string?)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
 /home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/Preview/PreviewProviders.cs(209,9): warning CA1416: This call site is reachable on all platforms. 'Conversion.SavePng(Stream, byte[], Index, string?, RenderOptions)' is only supported on: 'Android' 31.0 and later, 'iOS' 13.6 and later, 'Linux', 'maccatalyst' 13.5 and later, 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/runner/work/MdExplorer/MdExplorer/src/MdExplorer.UI/MdExplorer.UI.csproj]
 /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(150,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
 /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/ScreenshotTests.cs(667,13): warning CS0618: 'Bitmap.Save(string, int?)' is obsolete: 'Use the overload accepting BitmapEncoderOptions instead.' [/home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/MdExplorer.Screenshots.csproj]
@@ -49,29 +49,29 @@ Build succeeded.
     16 Warning(s)
     0 Error(s)
 
-Time Elapsed 00:00:38.95
+Time Elapsed 00:00:42.81
 Discovered 80 screenshot tests; running in 4 isolated processes.
 === Screenshot partition 1/4: 20 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3098).
+Blame: Attaching crash dump utility to process dotnet (3307).
 
-Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 28 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 33 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 2/4: 20 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3307).
+Blame: Attaching crash dump utility to process dotnet (3514).
 
-Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 24 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 27 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 3/4: 20 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3507).
+Blame: Attaching crash dump utility to process dotnet (3717).
 
-Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 27 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 30 s - MdExplorer.Screenshots.dll (net10.0)
 === Screenshot partition 4/4: 20 tests ===
 Test run for /home/runner/work/MdExplorer/MdExplorer/tests/MdExplorer.Screenshots/bin/Release/net10.0/MdExplorer.Screenshots.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
-Blame: Attaching crash dump utility to process dotnet (3708).
+Blame: Attaching crash dump utility to process dotnet (3917).
 
-Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 20 s - MdExplorer.Screenshots.dll (net10.0)
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 24 s - MdExplorer.Screenshots.dll (net10.0)
