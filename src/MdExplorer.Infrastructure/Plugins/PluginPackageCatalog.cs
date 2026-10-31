@@ -195,8 +195,13 @@ public sealed class PluginPackageCatalog(string dataDirectory)
 
     private static bool IsValidId(string? id) => id is not null && IdPattern.IsMatch(id);
 
-    private static bool HasLength(string? value, int minimum, int maximum) =>
-        !string.IsNullOrWhiteSpace(value) && value.Trim().Length is >= minimum and <= maximum;
+    private static bool HasLength(string? value, int minimum, int maximum)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+        var length = value.Trim().Length;
+        return length >= minimum && length <= maximum;
+    }
 }
 
 public sealed class PluginManifest
