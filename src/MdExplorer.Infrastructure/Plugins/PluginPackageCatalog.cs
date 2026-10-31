@@ -164,11 +164,42 @@ public sealed class PluginPackageCatalog(string dataDirectory)
             manifestBuffer.Write(block, 0, read);
         }
 
-        var json = StrictUtf8.GetString(manifestBuffer.GetBuffer(), 0, checked((int)manifestBuffer.Length));
+        var manifestBytes = manifestBuffer.GetBuffer().AsSpan(0, checked((int)manifestBuffer.Length));
+        EnsureNoDuplicateJsonProperties(manifestBytes);
+        var json = StrictUtf8.GetString(manifestBytes);
         var manifest = JsonSerializer.Deserialize(json, PluginManifestJsonContext.Default.PluginManifest)
                        ?? throw new InvalidDataException("插件 manifest 不能为 null。");
         ValidateManifest(manifest);
         return manifest;
+    }
+
+    private static void EnsureNoDuplicateJsonProperties(ReadOnlySpan<byte> utf8Json)
+    {
+        var reader = new Utf8JsonReader(utf8Json, new JsonReaderOptions { MaxDepth = 8 });
+        var containers = new Stack<HashSet<string>?>();
+        while (reader.Read())
+        {
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.StartObject:
+                    containers.Push(new HashSet<string>(StringComparer.Ordinal));
+                    break;
+                case JsonTokenType.StartArray:
+                    containers.Push(null);
+                    break;
+                case JsonTokenType.PropertyName:
+                    var propertyNames = containers.Count > 0 ? containers.Peek() : null;
+                    var propertyName = reader.GetString();
+                    if (propertyNames is null || propertyName is null || !propertyNames.Add(propertyName))
+                        throw new InvalidDataException("插件 manifest 含有重复或位置无效的 JSON 字段。");
+                    break;
+                case JsonTokenType.EndObject:
+                case JsonTokenType.EndArray:
+                    if (containers.Count > 0)
+                        containers.Pop();
+                    break;
+            }
+        }
     }
 
     private static void ValidateManifest(PluginManifest manifest)

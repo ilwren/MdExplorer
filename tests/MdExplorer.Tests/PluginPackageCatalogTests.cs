@@ -48,6 +48,16 @@ public sealed class PluginPackageCatalogTests : IDisposable
     }
 
     [Theory]
+    [InlineData("{\"manifestVersion\":1,\"id\":\"community.first\",\"id\":\"community.second\",\"name\":\"x\",\"version\":\"1.0.0\",\"publisher\":\"x\",\"capabilities\":[\"theme\"],\"theme\":{\"seedColor\":\"#112233\"}}")]
+    [InlineData("{\"manifestVersion\":1,\"id\":\"community.theme\",\"name\":\"x\",\"version\":\"1.0.0\",\"publisher\":\"x\",\"capabilities\":[\"theme\"],\"theme\":{\"seedColor\":\"#112233\",\"seedColor\":\"#445566\"}}")]
+    public async Task DuplicateJsonProperties_AreRejected(string manifest)
+    {
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            _catalog.InspectAsync(new MemoryStream(CreatePackage(manifest)), CancellationToken.None));
+        Assert.Contains("重复", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData("{\"manifestVersion\":1,\"id\":\"../escape\",\"name\":\"x\",\"version\":\"1.0.0\",\"publisher\":\"x\",\"capabilities\":[\"theme\"],\"theme\":{\"seedColor\":\"#112233\"}}")]
     [InlineData("{\"manifestVersion\":1,\"id\":\"community.external\",\"name\":\"x\",\"version\":\"1.0.0\",\"publisher\":\"x\",\"capabilities\":[\"process\"],\"theme\":{\"seedColor\":\"#112233\"}}")]
     [InlineData("{\"manifestVersion\":1,\"id\":\"community.unknown\",\"name\":\"x\",\"version\":\"1.0.0\",\"publisher\":\"x\",\"engine\":{\"kind\":\"lua\"},\"capabilities\":[\"theme\"],\"theme\":{\"seedColor\":\"#112233\"}}")]
