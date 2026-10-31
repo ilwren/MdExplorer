@@ -24,9 +24,10 @@ file_bytes = {
     for repo, paths in repo_to_files.items()
     for relative_path in paths
 }
+model_id_by_repo = {repo: model_id for model_id, (repo, _) in models.items()}
 revisions = {
-    (repo, relative_path): f"fixture-{index:04d}"
-    for index, (repo, relative_path) in enumerate(file_bytes, start=1)
+    (repo, relative_path): module.MODELSCOPE_REVISIONS[model_id_by_repo[repo]]
+    for repo, relative_path in file_bytes
 }
 
 
@@ -40,6 +41,11 @@ class FakeModelScopeHandler(BaseHTTPRequestHandler):
         suffix = parsed.path[len(prefix):]
         if suffix.endswith("/repo/files"):
             repo = suffix[: -len("/repo/files")].strip("/")
+            query = parse_qs(parsed.query)
+            expected_revision = module.MODELSCOPE_REVISIONS[model_id_by_repo[repo]]
+            if query.get("Revision", [""])[0] != expected_revision:
+                self.send_error(400, "unexpected model revision")
+                return
             entries = []
             for candidate_repo, path in file_bytes:
                 if candidate_repo != repo:

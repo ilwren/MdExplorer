@@ -22,6 +22,11 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "scripts" / "ai-models.manifest"
 MODEL_IDS = {"text-embed-zh", "text-embed-en"}
 DEFAULT_ENDPOINT = "https://modelscope.cn"
+# Immutable ModelScope revisions corresponding to the ONNX/Tokenizer snapshots validated in CI.
+MODELSCOPE_REVISIONS = {
+    "text-embed-zh": "08d7186b7de51be7c12444137221ad96825593d6",
+    "text-embed-en": "e374d41ef0f72744177114e9980ea32ccc4f5ae6",
+}
 CHUNK_BYTES = 1024 * 1024
 
 
@@ -92,8 +97,9 @@ def fetch_modelscope(destination: Path, endpoint: str) -> None:
     checksums: list[tuple[str, str]] = []
     models = read_manifest()
     for model_id, (repo, required_paths) in models.items():
-        list_url = f"{endpoint}/api/v1/models/{repo}/repo/files?Revision=master&Recursive=true"
-        print(f"== ModelScope: {repo} (revision inventory: master)", flush=True)
+        pinned_revision = MODELSCOPE_REVISIONS[model_id]
+        list_url = f"{endpoint}/api/v1/models/{repo}/repo/files?Revision={pinned_revision}&Recursive=true"
+        print(f"== ModelScope: {repo}@{pinned_revision}", flush=True)
         inventory = request_json(list_url)
         if inventory.get("Code") != 200:
             raise RuntimeError(f"ModelScope file-list API failed for {repo}: {inventory.get('Message', inventory)}")
@@ -111,8 +117,11 @@ def fetch_modelscope(destination: Path, endpoint: str) -> None:
             revision = entry.get("Revision")
             expected_size = int(entry.get("Size") or 0)
             expected_sha256 = str(entry.get("Sha256") or "")
-            if not revision:
-                raise ValueError(f"ModelScope did not report a file revision for {repo}/{relative_path}")
+            if revision != pinned_revision:
+                raise ValueError(
+                    f"ModelScope returned an unexpected revision for {repo}/{relative_path}: "
+                    f"expected {pinned_revision}, got {revision!r}"
+                )
 
             query = urlencode({"Revision": revision, "FilePath": relative_path})
             url = f"{endpoint}/api/v1/models/{repo}/repo?{query}"

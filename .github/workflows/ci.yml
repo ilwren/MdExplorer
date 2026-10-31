@@ -54,6 +54,36 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash .github/publish-artifacts.sh logs build-output.txt test-output.txt
 
+  real-model-embedding:
+    name: Real model AI search smoke test (cached)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MDEXPLORER_RUN_REAL_MODEL_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore cached BGE and MiniLM weights
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/mdexplorer-real-models
+          key: mdexplorer-real-models-linux-v1-${{ hashFiles('scripts/ai-models.manifest', 'scripts/fetch-ai-models-modelscope.py') }}
+      - name: Configure model directory
+        run: echo "MDEXPLORER_MODELS=$RUNNER_TEMP/mdexplorer-real-models" >> "$GITHUB_ENV"
+      - name: Verify cache or fetch from Hugging Face, hf-mirror, then ModelScope
+        run: |
+          if scripts/fetch-ai-models.sh --dir "$MDEXPLORER_MODELS" --verify; then
+            echo "Verified cached real model files."
+          else
+            rm -rf "$MDEXPLORER_MODELS"
+            scripts/fetch-real-models-with-fallback.sh --dir "$MDEXPLORER_MODELS"
+            scripts/fetch-ai-models.sh --dir "$MDEXPLORER_MODELS" --verify
+          fi
+      - name: Run real-weight AI embedding and semantic search tests
+        run: dotnet test tests/MdExplorer.Tests -c Release --filter FullyQualifiedName~RealModelEmbeddingTests
+
   ui-screenshots:
     name: UI screenshots (headless)
     runs-on: ubuntu-latest
