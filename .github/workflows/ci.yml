@@ -76,7 +76,9 @@ jobs:
         run: |
           if scripts/fetch-ai-models.sh --dir "$MDEXPLORER_MODELS" --verify; then
             echo "Verified cached real model files."
+            echo "::notice title=Model cache::Cache hit; model download skipped"
           else
+            echo "::notice title=Model cache::Cache miss or invalid; fetching models now"
             rm -rf "$MDEXPLORER_MODELS"
             scripts/fetch-real-models-with-fallback.sh --dir "$MDEXPLORER_MODELS"
             scripts/fetch-ai-models.sh --dir "$MDEXPLORER_MODELS" --verify
