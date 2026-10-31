@@ -32,7 +32,11 @@ trap 'rm -rf "$ATTEMPT_DIR"' EXIT
 
 report_success() {
   local provider="$1"
+  local hashes
+  hashes="$(awk '$2 ~ /\/onnx\/model_quantized\.onnx$/ { printf "%s=%s;", $2, $1 }' "$TARGET_DIR/checksums.txt")"
   echo "Selected provider: $provider"
+  echo "::notice title=Real model provider::Downloaded from $provider"
+  echo "::notice title=Real model ONNX SHA-256::$hashes"
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     {
       echo "### Real-model download"
