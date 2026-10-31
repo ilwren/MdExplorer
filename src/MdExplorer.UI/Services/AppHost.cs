@@ -2,6 +2,7 @@ using MdExplorer.Infrastructure;
 using MdExplorer.Platform.Abstractions;
 using MdExplorer.UI.ViewModels;
 using MdExplorer.Infrastructure.Ai;
+using MdExplorer.Infrastructure.Plugins;
 
 namespace MdExplorer.UI.Services;
 
@@ -32,7 +33,8 @@ public static class AppHost
         ITextFileService TextFiles,
         ISystemNotificationService SystemNotifications,
         IMediaPlaybackService MediaPlayback,
-        AiModelCatalog AiModels);
+        AiModelCatalog AiModels,
+        PluginPackageCatalog Plugins);
 
     /// <summary>
     /// 平台内嵌播放后端的注入点。Android 宿主在 Activity 创建时注册 MediaPlayer 实现；
@@ -113,7 +115,9 @@ public static class AppHost
             systemNotifications ?? new MdSystemNotificationServiceAdapter(),
             MediaPlaybackFactory?.Invoke() ?? new UnsupportedMediaPlaybackService(DefaultMediaDiagnostic),
             // 端侧 AI 的模型目录：只扫描文件；ONNX Session 在用户调用本地语义搜索时才延迟建立。
-            aiModels);
+            aiModels,
+            // 插件包只接受本机显式导入的 MEPX 声明式数据，不执行其中的任何代码。
+            new PluginPackageCatalog(dataDir));
     }
 
     public static ShellViewModel CreateShell(AppServices services) => new(services);

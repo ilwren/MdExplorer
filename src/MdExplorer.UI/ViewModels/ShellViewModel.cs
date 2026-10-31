@@ -14,7 +14,7 @@ using MdExplorer.UI.Preview;
 
 namespace MdExplorer.UI.ViewModels;
 
-public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter, StorageInsights, ArchiveWorkbench, DocumentWorkbench, Automation }
+public enum ShellPage { Home, Browser, Favorites, Trash, Settings, SearchCenter, StorageInsights, ArchiveWorkbench, DocumentWorkbench, Automation, ExtensionCenter }
 public enum SizeClass { Compact, Medium, Expanded, Large, ExtraLarge }
 internal enum DialogKind { None, Prompt, Confirm, Conflict, Message, Progress, BatchRename }
 
@@ -56,6 +56,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
 
     /// <summary>NodifyM 自动化工作流编辑器；图定义持久化在设置中，运行走本 Shell 的任务中心。</summary>
     public AutomationViewModel Automation { get; }
+    public ExtensionCenterViewModel ExtensionCenter { get; }
     public PlatformCapabilities Capabilities => _services.Capabilities;
     public ISettingsStore SettingsStore => _services.SettingsStore;
 
@@ -117,6 +118,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
             () => Browser.IsSearchMode ? null : Browser.CurrentPath,
             RefreshBrowsersAfterAutomationAsync,
             Notify);
+        ExtensionCenter = new ExtensionCenterViewModel(
+            services.Plugins,
+            this,
+            seed => SetSeedColorCommand.Execute(seed),
+            () => SeedColor);
         Preview.ArchiveWorkbenchRequested += async (_, path) => await OpenArchiveWorkbenchAsync(path).ConfigureAwait(true);
         Preview.DocumentWorkbenchRequested += async (_, item) => await OpenDocumentWorkbenchAsync(item).ConfigureAwait(true);
         FavoriteItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasFavorites));
@@ -506,6 +512,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         ShellPage.ArchiveWorkbench => string.IsNullOrWhiteSpace(ArchiveName) ? "压缩包" : ArchiveName,
         ShellPage.DocumentWorkbench => string.IsNullOrWhiteSpace(DocumentWorkbench.Title) ? "文档" : DocumentWorkbench.Title,
         ShellPage.Automation => "自动化",
+        ShellPage.ExtensionCenter => "扩展中心",
         _ => ActiveBrowser.IsSearchMode ? "搜索结果" : ActiveBrowser.CurrentFolderName,
     };
 
@@ -528,6 +535,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
     public bool IsArchiveWorkbenchPage => Page == ShellPage.ArchiveWorkbench;
     public bool IsDocumentWorkbenchPage => Page == ShellPage.DocumentWorkbench;
     public bool IsAutomationPage => Page == ShellPage.Automation;
+    public bool IsExtensionCenterPage => Page == ShellPage.ExtensionCenter;
 
     public bool IsCompact => SizeClass == SizeClass.Compact;
     public bool IsMedium => SizeClass == SizeClass.Medium;
@@ -567,6 +575,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         OnPropertyChanged(nameof(IsArchiveWorkbenchPage));
         OnPropertyChanged(nameof(IsDocumentWorkbenchPage));
         OnPropertyChanged(nameof(IsAutomationPage));
+        OnPropertyChanged(nameof(IsExtensionCenterPage));
         OnPropertyChanged(nameof(ShowPreviewPaneEffective));
         NotifyDualPaneState();
         ApplyActivePanePreviewSource();
@@ -910,6 +919,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDialogs
         IsDrawerOpen = false;
         IsPreviewPageOpen = false;
         Automation.RefreshRuntimeState();
+    }
+
+    [RelayCommand]
+    private void GoExtensionCenter()
+    {
+        Page = ShellPage.ExtensionCenter;
+        IsDrawerOpen = false;
+        IsPreviewPageOpen = false;
+        ExtensionCenter.Refresh();
     }
 
     private async Task RefreshBrowsersAfterAutomationAsync()

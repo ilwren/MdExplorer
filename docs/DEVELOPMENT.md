@@ -1097,7 +1097,7 @@ dotnet publish src/MdExplorer.Android -c Release -p:PublishTrimmed=true -p:RunAO
 
 ### 插件轨道（2026-10-26 立项，详见 `docs/PLUGIN-SYSTEM.md`）
 
-P0 内置提供者注册表（预览先行，**已随本纪要落地**）→ P1 声明式插件（主题包/外部命令动作/打开方式，`.mepx` 包 + 权限 + 哈希校验）→ P2 进程外工作者（JSON-RPC over stdio，承载 PDF 预览/重解码/AI 模型与桌面 Python）→ P3 脚本插件（Lua 优先：MoonSharp 纯托管先做 AOT/Android spike，NLua/KeraLua 为原生候选；Jint 仅备选）。红线：Native AOT 禁动态加载，程序集插件不进主线。决策见 D-07 与 `docs/PLUGIN-SYSTEM.md` §3–§5。
+P0 内置提供者注册表（**已落地**）→ P1 声明式插件（2026-10-31 首切落地：本地 `.mepx` Material 3 主题包；外部动作/打开方式仍待设计）→ P2 进程外工作者（JSON-RPC over stdio，承载重预览/索引与桌面 Python）→ P3 Lua 插件（先做 MoonSharp AOT/Android spike；其余引擎暂不引入）。红线：Native AOT 禁动态加载，程序集插件不进主线。详见 `docs/PLUGIN-SYSTEM.md`。
 
 ### 本地 AI 轨道（2026-10-26 立项，详见 `docs/LOCAL-AI.md`）
 
@@ -1130,7 +1130,7 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | D-04 | 详细信息视图实现 | DataGrid 若 Trim 零警告则用之省两周工，否则自实现虚拟化表——**以 S-01 实测裁决**，自实现的骨架在 S-01 里顺带搭出作保底 |
 | D-05 | Linux 首发包形态 | AppImage（单文件易发、桌面集成弱）vs tar.gz+`.desktop` 安装脚本——**推荐先 tar.gz**（AOT 已是单 exe，附加集成文件即可)，AppImage 待用户呼声 |
 | D-06 | 双窗格进 MVP 的程度 | ✅ **第一切片已落地（v0.18）**：双 `BrowserViewModel` 实例、活动窗格焦点/预览语义、跨窗格显式传输与拖放、XL 回落后保留 B 会话并收为后台标签；B 侧地址编辑、搜索、详细信息 parity 与跨启动历史/选集留在第二切片 |
-| D-07 | 插件机制形态 | **推荐采纳**`docs/PLUGIN-SYSTEM.md` 组合：声明式（先行）+ 进程外工作者（主力）+ 脚本（后置）；程序集插件与 AOT 冲突不进主线。待维护者确认 |
+| D-07 | 插件机制形态 | **已采纳并开始实施**`docs/PLUGIN-SYSTEM.md` 路线：P0 编译期提供者注册表 → P1 声明式 MEPX → P2 进程外工作者 → P3 Lua（先过 AOT/Android spike）；程序集插件与 AOT 冲突不进主线。2026-10-31 首个 P1 纵切仅安装/应用无代码主题包。 |
 | D-08 | 本地 AI 运行时与模型目录 | **推荐**运行时以 ONNX Runtime 为主线、sherpa-onnx 担语音、llama.cpp 备线；模型目录只收 Apache-2.0/MIT/BSD 权重（`docs/LOCAL-AI.md` §4），全部按需下载不打包。待维护者确认首发模型（建议 SigLIP 2 Base int8） |
 | D-09 | 向量检索存储实现 | **推荐**SQLite BLOB + 内存全扫起步（≤10 万张），ANN 引擎（sqlite-vec 等）待 D-08 首发模型维度锁定后 Spike 定 |
 
@@ -1228,3 +1228,4 @@ A1 文本朗读（OS 原生先行 → sherpa-onnx+Kokoro）→ A2 语义搜图�
 | 2026-10-29 | **v0.29 对照窗格搜索 + 四项可调设置**：B 新增标题行搜索岛与窗格内搜索面板（只覆盖文件区），`Ctrl+F/K` 作用于活动窗格，返回键先收 B 面板；设置页新增自动续页距离、下拉刷新手势开关、搜索结果上限，以及仅应用内回收站可见的配额与保留期（运行期可改）。 | push run `40891503960` 与 PR run `40891518679`（sha `c280d81`）六 Job 全绿：206 单元测试 Ubuntu/Windows 双跑、70 截图测试分四进程全过（新增 `61-xlarge-dual-pane-search` 并逐轮目检修掉工具栏折行与面板遮挡）、Windows/Linux 自包含、linux-x64 Native AOT 与 Android APK |
 | 2026-10-29 | **v0.28 对照窗格可编辑地址栏**：把 A 已有的地址编辑语义搬到 B（点空白进编辑、Enter 提交、Esc 取消、错误就地提示），`Ctrl+L` 作用于活动窗格；B 的编辑态只驱动自己的面包屑/输入框互换，A 保持原状；SAF 授权根仍拒绝手动输入。 | push run `40886835255` / PR run `40886843157` 六 Job 全绿，200 单元测试、68 截图测试、59→60 张正式 PNG |
 | 2026-10-29 | **v0.29 对照窗格搜索 + 四项可调设置**：B 的搜索岛进入标题行、面板只覆盖文件区，`Ctrl+F/K` 改为编辑活动窗格；设置页新增自动续页距离、下拉刷新总开关、搜索上限与应用内回收站配额/保留期（运行期生效）。 | push run `40891503960` / PR run `40891518679` 六 Job 全绿，206 单元测试、70 截图测试、60→61 张正式 PNG |
+| 2026-10-31 | **P1 声明式插件首切：本地 MEPX v1 主题包 + 扩展中心**：新增受限 ZIP 包解析/大小限额/严格 JSON 与未知字段拒绝，只允许一个 `manifest.json` 和 `theme` 能力；校验 ID、semver、发布信息与 `#RRGGBB`，扫描重复/坏包、原子安装/替换/移除。扩展中心支持本地文件选择、显示能力和 SHA-256、安装前确认、应用宿主 Material 3 种子色及卸载；包无签名且只把哈希作为标识，UI 明确提示来源风险。禁止包内 DLL、Lua、资源、XAML 或其他执行内容；不含市场/网络下载。新增包安全回归与扩展中心截图。外部命令/打开方式、P2 worker、Lua 执行仍未开放。 | 验证结果待 CI |

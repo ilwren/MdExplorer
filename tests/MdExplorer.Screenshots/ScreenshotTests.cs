@@ -319,6 +319,16 @@ public sealed class ScreenshotTests
     });
 
     [AvaloniaFact]
+    public async Task Large_ExtensionCenter() => await CaptureAsync(
+        "82-large-extension-center.png", 1440, 900, shell =>
+        {
+            shell.GoExtensionCenterCommand.Execute(null);
+            Assert.Equal(ShellPage.ExtensionCenter, shell.Page);
+            Assert.Equal("扩展中心", shell.PageTitle);
+            return Task.CompletedTask;
+        });
+
+    [AvaloniaFact]
     public async Task Large_SettingsPreferences() => await CaptureAsync(
         "58-large-settings.png", 1440, 900, shell =>
     {

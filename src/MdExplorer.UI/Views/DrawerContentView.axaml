@@ -74,6 +74,12 @@
             <TextBlock Text="自动化" FontSize="14.5" VerticalAlignment="Center" />
           </StackPanel>
         </md:MdButton>
+        <md:MdButton Classes="nav-entry" Classes.active="{Binding IsExtensionCenterPage}" Variant="Text" Command="{Binding GoExtensionCenterCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Extension}" Size="22" />
+            <TextBlock Text="扩展中心" FontSize="14.5" VerticalAlignment="Center" />
+          </StackPanel>
+        </md:MdButton>
 
         <Border Height="10" />
         <ItemsControl ItemsSource="{Binding Places}">
