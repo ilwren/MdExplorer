@@ -30,6 +30,20 @@ ATTEMPT_DIR="${TARGET_DIR}.provider-attempt"
 rm -rf "$ATTEMPT_DIR"
 trap 'rm -rf "$ATTEMPT_DIR"' EXIT
 
+report_success() {
+  local provider="$1"
+  echo "Selected provider: $provider"
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    {
+      echo "### Real-model download"
+      echo "- Provider: \`$provider\`"
+      echo "- Models: \`text-embed-zh\`, \`text-embed-en\`"
+      echo "- ONNX SHA-256:"
+      awk '$2 ~ /\/onnx\/model_quantized\.onnx$/ { printf "  - `%s`  `%s`\n", $2, $1 }' "$TARGET_DIR/checksums.txt"
+    } >> "$GITHUB_STEP_SUMMARY"
+  fi
+}
+
 try_huggingface() {
   local provider="$1"
   shift
@@ -38,7 +52,7 @@ try_huggingface() {
   if "$@" --dir "$ATTEMPT_DIR"; then
     if "$SCRIPT_DIR/fetch-ai-models.sh" --dir "$ATTEMPT_DIR" --verify; then
       mv "$ATTEMPT_DIR" "$TARGET_DIR"
-      echo "Selected provider: $provider"
+      report_success "$provider"
       return 0
     fi
   fi
@@ -59,7 +73,7 @@ rm -rf "$ATTEMPT_DIR"
 if python3 "$SCRIPT_DIR/fetch-ai-models-modelscope.py" --dir "$ATTEMPT_DIR" &&
    "$SCRIPT_DIR/fetch-ai-models.sh" --dir "$ATTEMPT_DIR" --verify; then
   mv "$ATTEMPT_DIR" "$TARGET_DIR"
-  echo "Selected provider: modelscope.cn"
+  report_success "modelscope.cn"
   exit 0
 fi
 
