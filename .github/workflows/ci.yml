@@ -26,6 +26,9 @@ jobs:
         run: |
           bash -n scripts/fetch-ai-models.sh
           bash -n scripts/test-fetch-ai-models.sh
+          bash -n scripts/fetch-real-models-with-fallback.sh
+          python3 -m py_compile scripts/fetch-ai-models-modelscope.py
+          python3 scripts/test-fetch-ai-models-modelscope.py
           scripts/test-fetch-ai-models.sh
           scripts/fetch-ai-models.sh --list
           scripts/fetch-ai-models.sh --dir "$RUNNER_TEMP/mdexplorer-ai-dry-run" --dry-run
