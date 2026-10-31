@@ -14,6 +14,7 @@ public sealed class SemanticSearchTests : IDisposable
     private readonly string _dataDir;
     private readonly SettingsStore _settings;
     private readonly FileNameIndexService _fileIndex;
+    private readonly FakeEmbeddings _embeddings;
     private readonly SemanticSearchService _semantic;
 
     public SemanticSearchTests()
@@ -27,7 +28,8 @@ public sealed class SemanticSearchTests : IDisposable
         _settings.Settings.EnableLocalAi = true;
         _settings.Settings.SearchIndexRootPaths = [_root];
         _fileIndex = new FileNameIndexService(_dataDir, _settings);
-        _semantic = new SemanticSearchService(_dataDir, _fileIndex, _settings, new FakeEmbeddings());
+        _embeddings = new FakeEmbeddings();
+        _semantic = new SemanticSearchService(_dataDir, _fileIndex, _settings, _embeddings);
     }
 
     public void Dispose()
@@ -72,6 +74,37 @@ public sealed class SemanticSearchTests : IDisposable
     }
 
     [Fact]
+    public async Task RebuildReusesUnchangedVectorsAndOnlyReembedsChangedFiles()
+    {
+        var changed = Path.Combine(_root, "changed.md");
+        var unchanged = Path.Combine(_root, "unchanged.txt");
+        await File.WriteAllTextAsync(changed, "feline companion notes");
+        await File.WriteAllTextAsync(unchanged, "quarterly interest rate summary");
+        await _fileIndex.RebuildAsync(null, TestContext.Current.CancellationToken);
+
+        await _semantic.RebuildAsync(null, TestContext.Current.CancellationToken);
+        Assert.Equal(2, _embeddings.EmbeddingCount);
+
+        // A manual update with no metadata changes should retain the vectors and avoid model calls.
+        await _semantic.RebuildAsync(null, TestContext.Current.CancellationToken);
+        Assert.Equal(2, _embeddings.EmbeddingCount);
+
+        await File.WriteAllTextAsync(changed, "bond market outlook with updated details");
+        File.SetLastWriteTimeUtc(changed, DateTime.UtcNow.AddSeconds(2));
+        await _fileIndex.RebuildAsync(null, TestContext.Current.CancellationToken);
+        await _semantic.RebuildAsync(null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, _embeddings.EmbeddingCount);
+        Assert.True((await _semantic.GetStatsAsync(TestContext.Current.CancellationToken)).IsCurrent);
+
+        // A model revision change invalidates every stored vector instead of reusing incompatible embeddings.
+        var revisedEmbeddings = new FakeEmbeddings("revision-b");
+        var revisedService = new SemanticSearchService(_dataDir, _fileIndex, _settings, revisedEmbeddings);
+        await revisedService.RebuildAsync(null, TestContext.Current.CancellationToken);
+        Assert.Equal(2, revisedEmbeddings.EmbeddingCount);
+    }
+
+    [Fact]
     public async Task SemanticIndexRequiresExplicitLocalAiEnablement()
     {
         _settings.Settings.EnableLocalAi = false;
@@ -83,12 +116,16 @@ public sealed class SemanticSearchTests : IDisposable
 
     private sealed class FakeEmbeddings(string revision = "revision-a") : ITextEmbeddingService
     {
+        private int _embeddingCount;
+        public int EmbeddingCount => Volatile.Read(ref _embeddingCount);
+
         public IReadOnlyList<TextEmbeddingModel> GetAvailableModels() =>
             [new TextEmbeddingModel("test-embed", "Test embedding", revision, 2)];
 
         public float[] Embed(string modelId, string text, bool isQuery, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Interlocked.Increment(ref _embeddingCount);
             return text.Contains("pet", StringComparison.OrdinalIgnoreCase) ||
                    text.Contains("feline", StringComparison.OrdinalIgnoreCase)
                 ? [1f, 0f]

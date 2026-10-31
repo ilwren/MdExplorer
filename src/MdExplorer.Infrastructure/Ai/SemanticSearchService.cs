@@ -68,6 +68,7 @@ public sealed class SemanticSearchService : ISemanticSearchService
             if (!_settingsStore.Settings.UseSearchIndex)
                 throw new InvalidOperationException("请先启用文件名索引。");
 
+            var previousSnapshot = LoadSnapshotUnderGate();
             var sourceStats = await _fileNameIndex.GetStatsAsync(cancellationToken).ConfigureAwait(false);
             if (!sourceStats.IsCurrent || sourceStats.UpdatedAt is null)
                 throw new InvalidOperationException("请先建立或重建文件名索引，再创建 AI 语义索引。");
@@ -98,8 +99,8 @@ public sealed class SemanticSearchService : ISemanticSearchService
                 items.RemoveRange(MaxDocuments, items.Count - MaxDocuments);
 
             var built = await Task.Run(
-                    () => BuildSnapshot(items, roots, models, sourceStats.UpdatedAt.Value, partial, progress,
-                        cancellationToken),
+                    () => BuildSnapshot(items, roots, models, sourceStats.UpdatedAt.Value, partial, previousSnapshot,
+                        progress, cancellationToken),
                     cancellationToken)
                 .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
@@ -224,31 +225,55 @@ public sealed class SemanticSearchService : ISemanticSearchService
         IReadOnlyList<TextEmbeddingModel> models,
         DateTimeOffset sourceIndexBuiltAt,
         bool partial,
+        SemanticSnapshot? previousSnapshot,
         IProgress<OperationProgress>? progress,
         CancellationToken cancellationToken)
     {
         var entries = new List<SemanticEntry>(items.Count);
         var total = Math.Max(1, items.Count * models.Count);
         var done = 0;
+        var pathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        var previousModelIndexes = MapReusableModels(previousSnapshot?.Models, models);
+        var previousEntries = new Dictionary<string, SemanticEntry>(pathComparer);
+        if (previousSnapshot is not null && previousModelIndexes is not null)
+        {
+            foreach (var previousEntry in previousSnapshot.Entries)
+            {
+                if (previousEntry.Vectors.Length == previousSnapshot.Models.Count)
+                    previousEntries.TryAdd(previousEntry.Path, previousEntry);
+            }
+        }
+
         foreach (var item in items)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var text = ComposeIndexText(item, cancellationToken);
-            var vectors = new byte[models.Count][];
-            for (var modelIndex = 0; modelIndex < models.Count; modelIndex++)
+            byte[][] vectors;
+            if (previousModelIndexes is not null && previousEntries.TryGetValue(item.FullPath, out var oldEntry) &&
+                MetadataMatches(oldEntry, item))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                vectors[modelIndex] = Quantize(_embeddings.Embed(models[modelIndex].Id, text, isQuery: false, cancellationToken));
-                done++;
-                if (done == total || done % 16 == 0)
-                    progress?.Report(new OperationProgress(
-                        (double)done / total,
-                        item.Name,
-                        done,
-                        total));
+                // Reuse persisted vectors for unchanged files. The index metadata is still refreshed and
+                // files are restatted below so a concurrent edit cannot be published as current.
+                vectors = new byte[models.Count][];
+                for (var modelIndex = 0; modelIndex < models.Count; modelIndex++)
+                    vectors[modelIndex] = oldEntry.Vectors[previousModelIndexes[modelIndex]];
+                done += models.Count;
+            }
+            else
+            {
+                var text = ComposeIndexText(item, cancellationToken);
+                vectors = new byte[models.Count][];
+                for (var modelIndex = 0; modelIndex < models.Count; modelIndex++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    vectors[modelIndex] = Quantize(_embeddings.Embed(models[modelIndex].Id, text, isQuery: false, cancellationToken));
+                    done++;
+                }
             }
 
-            // Ignore a file that changed while it was being embedded. A fresh rebuild will pick up its new content.
+            if (done == total || done % 16 == 0)
+                progress?.Report(new OperationProgress((double)done / total, item.Name, done, total));
+
+            // Ignore a file that changed while it was being embedded or reused. A fresh rebuild will pick up its new content.
             try
             {
                 var current = LocalFileSystemService.StatPath(item.FullPath);
@@ -278,6 +303,38 @@ public sealed class SemanticSearchService : ISemanticSearchService
 
         return new SemanticSnapshot(DateTimeOffset.UtcNow, sourceIndexBuiltAt, partial, roots, models.ToList(), entries);
     }
+
+    private static int[]? MapReusableModels(
+        IReadOnlyList<TextEmbeddingModel>? previousModels,
+        IReadOnlyList<TextEmbeddingModel> currentModels)
+    {
+        if (previousModels is null || previousModels.Count != currentModels.Count)
+            return null;
+
+        var oldIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < previousModels.Count; i++)
+        {
+            if (!oldIndexes.TryAdd(previousModels[i].Id, i))
+                return null;
+        }
+
+        var mapping = new int[currentModels.Count];
+        for (var i = 0; i < currentModels.Count; i++)
+        {
+            var current = currentModels[i];
+            if (!oldIndexes.TryGetValue(current.Id, out var oldIndex))
+                return null;
+            var previous = previousModels[oldIndex];
+            if (previous.Revision != current.Revision || previous.Dimensions != current.Dimensions)
+                return null;
+            mapping[i] = oldIndex;
+        }
+        return mapping;
+    }
+
+    private static bool MetadataMatches(SemanticEntry entry, FileItem item) =>
+        entry.Name == item.Name && entry.Kind == item.Kind && entry.IsFolder == item.IsFolder &&
+        entry.Length == (item.Length ?? 0) && entry.LastWriteUtcTicks == item.LastWriteTime.UtcDateTime.Ticks;
 
     private static string ComposeIndexText(FileItem item, CancellationToken cancellationToken)
     {
@@ -367,22 +424,30 @@ public sealed class SemanticSearchService : ISemanticSearchService
         {
             if (_loaded)
                 return _snapshot;
-            try
-            {
-                if (File.Exists(_indexPath))
-                    _snapshot = ReadSnapshot(_indexPath);
-            }
-            catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or DecoderFallbackException)
-            {
-                _snapshot = null;
-            }
-            _loaded = true;
-            return _snapshot;
+            return LoadSnapshotUnderGate();
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>Loads the previous index while the caller already owns <see cref="_gate"/>.</summary>
+    private SemanticSnapshot? LoadSnapshotUnderGate()
+    {
+        if (_loaded)
+            return _snapshot;
+        try
+        {
+            if (File.Exists(_indexPath))
+                _snapshot = ReadSnapshot(_indexPath);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or DecoderFallbackException)
+        {
+            _snapshot = null;
+        }
+        _loaded = true;
+        return _snapshot;
     }
 
     private async Task WriteSnapshotAsync(SemanticSnapshot snapshot, CancellationToken cancellationToken)

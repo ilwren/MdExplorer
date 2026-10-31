@@ -77,7 +77,7 @@ file|<id>|<仓库内路径>
 
 - `AiModelCatalog` 仍只做文件存在性/体积扫描；模型 Session 不在启动或设置页初始化。`OnnxTextEmbeddingService` 在用户显式建立 AI 索引/搜索时才按需加载 ONNX Session 与本地 `vocab.txt`。
 - **模型路由**：中文查询优先 BGE small zh v1.5（512 维）；无中文字符时优先 MiniLM L6 v2（384 维）；某模型没安装则回退已安装的另一个。BERT 使用 `[CLS]`/`[SEP]`，动态序列长度最长 128，masked mean pooling + L2 normalize；BGE 查询加检索指令前缀。
-- **搜索中心**新增「关键词 / AI 语义」模式和「建立 / 更新 AI 索引」。必须先配置并重建现有文件名索引、在设置中打开本地 AI、下载文本模型，再显式生成向量索引；索引文件变化、根集合变化或模型版本变化都会使 AI 索引过期并要求重建。
+- **搜索中心**新增「关键词 / AI 语义」模式和「建立 / 更新 AI 索引」。必须先配置并重建现有文件名索引、在设置中打开本地 AI、下载文本模型，再显式生成向量索引；索引文件变化、根集合变化或模型版本变化都会使 AI 索引过期并要求重建。更新时仍重新枚举当前文件，但对路径、名称、类型、大小、修改时间及模型 revision 均未变化的文件直接复用已有量化向量；只为新增或元数据发生变化的项目重新运行 ONNX embedding。
 - 语义索引只覆盖用户加入的本地根，最多 20,000 项；保存路径/文件类型/大小/时间和每个可用文本模型的 int8 量化向量，不保存原始正文。文件名与父目录始终参与；仅对受支持的纯文本扩展名、≤2 MiB 文件最多读取前 4,000 字符作为摘要；不读 PDF、Office、压缩包、图片或 SAF。命中前再次核验文件时间/大小，stale 项不会被返回。`清除本地搜索索引` 同时清除文件名与 AI 向量快照。
 - `AppSettings.EnableLocalAi` 默认关闭；关闭时保留本机 AI 向量文件但不运行推理/搜索。`MDEXPLORER_MODELS` 仍可覆盖模型目录。设置卡与搜索中心说明数据只在本机处理。
 - **Android 原生库解析修正**：Microsoft.ML.OnnxRuntime 的桌面 Linux RID 原生库可能通过共享 `net10.0` 资产图混入 Android APK，并与 Android AAR 内的 Bionic 库发生重名冲突。Android app head 的窄作用域 MSBuild target 只移除 `linux-*` 的 native copy/publish 项；Linux/Windows 依赖不受影响。CI 会解包 arm64 APK，拒绝 glibc/Linux 依赖，并验证 ONNX ELF 的每个 `LOAD` 段均按 16 KiB 对齐。
