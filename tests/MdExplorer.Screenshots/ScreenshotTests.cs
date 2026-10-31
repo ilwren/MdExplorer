@@ -328,6 +328,15 @@ public sealed class ScreenshotTests
         Assert.True(shell.IsDensityComfortable);
         Assert.True(shell.IsPullTrigger72);
         return Task.CompletedTask;
+    }, afterShow: window =>
+    {
+        var settings = window.GetVisualDescendants().OfType<SettingsView>().Single();
+        var columns = settings.FindControl<Grid>("SettingsColumns")!;
+        var secondary = settings.FindControl<StackPanel>("SettingsSecondaryColumn")!;
+        Assert.True(columns.Bounds.Width >= 860);
+        Assert.Equal(1, Grid.GetColumn(secondary));
+        Assert.Equal(0, Grid.GetRow(secondary));
+        return Task.CompletedTask;
     });
 
     /// <summary>
@@ -1163,6 +1172,24 @@ public sealed class ScreenshotTests
         shell.GoSettingsCommand.Execute(null);
         return Task.CompletedTask;
     });
+
+    [AvaloniaFact]
+    public async Task Compact_SettingsResponsive() => await CaptureAsync(
+        "81-compact-settings-responsive.png", 390, 844, shell =>
+        {
+            shell.GoSettingsCommand.Execute(null);
+            return Task.CompletedTask;
+        },
+        afterShow: window =>
+        {
+            var settings = window.GetVisualDescendants().OfType<SettingsView>().Single();
+            var columns = settings.FindControl<Grid>("SettingsColumns")!;
+            var secondary = settings.FindControl<StackPanel>("SettingsSecondaryColumn")!;
+            Assert.True(columns.Bounds.Width < 860);
+            Assert.Equal(0, Grid.GetColumn(secondary));
+            Assert.Equal(1, Grid.GetRow(secondary));
+            return Task.CompletedTask;
+        });
     /// <summary>弹出层验证：上下文菜单（依赖 ContextMenu/MenuItem 主题齐备）。</summary>
     [AvaloniaFact]
     public async Task Large_ContextMenu_Open()

@@ -146,10 +146,18 @@ public sealed class MediaFrameSurface : Control, IMediaFrameSink
         using (var buffer = _bitmap.Lock())
         {
             var rowBytes = width * 4;
-            for (var y = 0; y < height; y++)
+            if (buffer.RowBytes == rowBytes)
             {
-                var destination = IntPtr.Add(buffer.Address, y * buffer.RowBytes);
-                Marshal.Copy(frame, y * rowBytes, destination, rowBytes);
+                // 常见媒体尺寸行距已对齐：一次连续复制，避免每帧按行跨越数百次托管/原生边界。
+                Marshal.Copy(frame, 0, buffer.Address, frame.Length);
+            }
+            else
+            {
+                for (var y = 0; y < height; y++)
+                {
+                    var destination = IntPtr.Add(buffer.Address, y * buffer.RowBytes);
+                    Marshal.Copy(frame, y * rowBytes, destination, rowBytes);
+                }
             }
         }
 

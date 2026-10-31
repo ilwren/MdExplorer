@@ -9,6 +9,8 @@ namespace MdExplorer.UI.Views;
 
 public partial class SettingsView : UserControl
 {
+    private bool? _isWideLayout;
+
     public SettingsView()
     {
         InitializeComponent();
@@ -39,6 +41,23 @@ public partial class SettingsView : UserControl
             };
             SeedPanel.Children.Add(swatch);
         }
+    }
+
+    private void OnSettingsColumnsSizeChanged(object? sender, SizeChangedEventArgs e) =>
+        UpdateSettingsLayout(e.NewSize.Width);
+
+    private void UpdateSettingsLayout(double width)
+    {
+        if (width <= 0 || _isWideLayout == (width >= 860))
+            return;
+
+        var wide = width >= 860;
+        _isWideLayout = wide;
+        SettingsColumns.ColumnDefinitions[1].Width = wide
+            ? new GridLength(1, GridUnitType.Star)
+            : new GridLength(0);
+        Grid.SetColumn(SettingsSecondaryColumn, wide ? 1 : 0);
+        Grid.SetRow(SettingsSecondaryColumn, wide ? 0 : 1);
     }
 
     private async void OnAuthorizedRootClick(object? sender, RoutedEventArgs e)

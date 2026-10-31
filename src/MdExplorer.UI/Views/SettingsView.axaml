@@ -5,119 +5,37 @@
              x:Class="MdExplorer.UI.Views.SettingsView"
              x:DataType="vm:ShellViewModel">
   <md:MdScrollViewer HorizontalScrollBarVisibility="Disabled" AllowMouseDrag="True">
-    <StackPanel Margin="20,12,20,28" Spacing="24" MaxWidth="720" HorizontalAlignment="Stretch">
-      <TextBlock Classes="h1" Text="设置" />
-
-      <Border Classes="card" IsVisible="{Binding Capabilities.IsAndroid}">
-      <StackPanel Spacing="12">
-        <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Classes="h3" Text="已授权文件夹" />
-          <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AuthorizedRootsSummaryText}" VerticalAlignment="Center" />
-        </Grid>
-        <TextBlock Classes="caption" TextWrapping="Wrap"
-                   Text="系统选择器授予的读写范围仅限所选文件夹。移除只删除 Eidoria 中的入口，不删除文件；系统侧授权仍可在系统设置中撤销。" />
-
-        <ItemsControl ItemsSource="{Binding AuthorizedRoots}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:AuthorizedRootModel">
-              <Border CornerRadius="16" Padding="12" Margin="0,0,0,8"
-                      Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                  <Border Width="40" Height="40" CornerRadius="20" VerticalAlignment="Center"
-                          Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
-                    <md:MdIcon Glyph="{Binding StatusGlyph}" Size="21"
-                               Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-                  </Border>
-                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Classes="caption" Text="{Binding StateText}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Classes="caption" Text="{Binding LocationText}" TextTrimming="CharacterEllipsis"
-                               ToolTip.Tip="{Binding PathToolTip}" />
-                  </StackPanel>
-                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <md:MdButton Variant="Tonal" Content="打开" IsVisible="{Binding IsAvailable}"
-                                 Click="OnAuthorizedRootClick" />
-                    <md:MdButton Variant="Tonal" Content="重新授权" IsVisible="{Binding NeedsReauthorization}"
-                                 Click="OnReauthorizeRootClick" />
-                    <md:MdIconButton Icon="{x:Static md:MdSymbols.Close}" Click="OnRemoveAuthorizedRootClick"
-                                     ToolTip.Tip="移除授权入口（不删除文件）" />
-                  </StackPanel>
-                </Grid>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <TextBlock Classes="caption" Text="尚未授权文件夹；授权后才可浏览应用专属目录之外的文件。" IsVisible="{Binding !HasAuthorizedRoots}" />
-
-        <md:MdButton Variant="Filled" HorizontalAlignment="Left" Command="{Binding PickAuthorizedFolderCommand}">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <md:MdIcon Glyph="{x:Static md:MdSymbols.Add}" Size="19" />
-            <TextBlock Text="授权新文件夹" VerticalAlignment="Center" />
+    <StackPanel MaxWidth="1200" HorizontalAlignment="Center" Margin="24,18,24,32" Spacing="18">
+      <Border Classes="settings-hero" Padding="22" CornerRadius="28"
+              Background="{DynamicResource Md.Sys.Color.SurfaceContainerLow.Brush}"
+              BorderBrush="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" BorderThickness="1">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
+          <Border Width="56" Height="56" CornerRadius="20" VerticalAlignment="Center"
+                  Background="{DynamicResource Md.Sys.Color.PrimaryContainer.Brush}">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Settings}" Size="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Md.Sys.Color.OnPrimaryContainer.Brush}" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+            <TextBlock Classes="h1" Text="设置" />
+            <TextBlock Classes="body" Foreground="{DynamicResource Md.Sys.Color.OnSurfaceVariant.Brush}"
+                       Text="调整外观、文件浏览、媒体与本地 AI 偏好。更改会即时生效。" TextWrapping="Wrap" />
           </StackPanel>
-        </md:MdButton>
-
-        <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-          <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="24" VerticalAlignment="Center"
-                     Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
-          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-            <TextBlock Classes="body" Text="应用内回收站" />
-            <TextBlock Classes="caption" TextWrapping="Wrap">
-              <Run Text="{Binding TrashSummaryText}" /><Run Text=" · 上限 " /><Run Text="{Binding TrashQuotaText}" /><Run Text=" · " /><Run Text="{Binding TrashRetentionText}" />
-            </TextBlock>
-          </StackPanel>
-          <md:MdButton Grid.Column="2" Variant="Tonal" Content="查看" Command="{Binding GoTrashCommand}" VerticalAlignment="Center" />
         </Grid>
-        <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding TrashUsedPercent}" Height="6"
-                                      IsVisible="{Binding HasTrashQuota}" />
-        <TextBlock Classes="caption" TextWrapping="Wrap"
-                   Text="不是 Android 系统回收站；只保留经 Eidoria 删除的项目，超过上限时会保留原文件。" />
-
-        <!-- 配额与保留期只有应用内回收站在管；桌面用系统回收站，这一组不显示以免给出假选项。 -->
-        <StackPanel Spacing="2" IsVisible="{Binding UsesAppTrash}">
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Classes="body" Text="回收站配额上限" />
-            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AppTrashQuotaText}" VerticalAlignment="Center" />
-          </Grid>
-          <TextBlock Classes="caption" TextWrapping="Wrap"
-                     Text="超出上限时不再接收新的删除，原文件与既有副本都会保留" />
-          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
-            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashQuota500Mb}" Variant="Text"
-                         Content="500 MB" Margin="0,0,6,0"
-                         Command="{Binding SetAppTrashQuotaCommand}" CommandParameter="500" />
-            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashQuota1Gb}" Variant="Text"
-                         Content="1 GB" Margin="0,0,6,0"
-                         Command="{Binding SetAppTrashQuotaCommand}" CommandParameter="1000" />
-            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashQuota2Gb}" Variant="Text"
-                         Content="2 GB"
-                         Command="{Binding SetAppTrashQuotaCommand}" CommandParameter="2000" />
-          </WrapPanel>
-        </StackPanel>
-        <StackPanel Spacing="2" IsVisible="{Binding UsesAppTrash}">
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Classes="body" Text="回收站保留期" />
-            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AppTrashRetentionText}" VerticalAlignment="Center" />
-          </Grid>
-          <TextBlock Classes="caption" TextWrapping="Wrap"
-                     Text="超过保留期的条目会在下次打开回收站时自动清理；这是删除而不是还原" />
-          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
-            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashRetention7}" Variant="Text"
-                         Content="7 天" Margin="0,0,6,0"
-                         Command="{Binding SetAppTrashRetentionDaysCommand}" CommandParameter="7" />
-            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashRetention30}" Variant="Text"
-                         Content="30 天" Margin="0,0,6,0"
-                         Command="{Binding SetAppTrashRetentionDaysCommand}" CommandParameter="30" />
-            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashRetention90}" Variant="Text"
-                         Content="90 天"
-                         Command="{Binding SetAppTrashRetentionDaysCommand}" CommandParameter="90" />
-          </WrapPanel>
-        </StackPanel>
-      </StackPanel>
       </Border>
 
-      <Border Classes="card">
-      <StackPanel Spacing="10">
-        <TextBlock Classes="h3" Text="外观" />
+      <Grid x:Name="SettingsColumns" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto"
+            ColumnSpacing="18" RowSpacing="18" SizeChanged="OnSettingsColumnsSizeChanged">
+        <StackPanel x:Name="SettingsPrimaryColumn" Grid.Row="0" Grid.Column="0" Spacing="18">
+          <Border Classes="card settings-card">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                <Border Width="40" Height="40" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Tune}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+          <TextBlock Classes="h3" Text="外观" VerticalAlignment="Center" />
+        </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="8">
           <md:MdButton Variant="Tonal" Content="跟随系统" Command="{Binding SetThemeModeCommand}" CommandParameter="System" />
           <md:MdButton Variant="Tonal" Content="浅色" Command="{Binding SetThemeModeCommand}" CommandParameter="Light" />
@@ -153,9 +71,16 @@
       </StackPanel>
       </Border>
 
-      <Border Classes="card">
-      <StackPanel Spacing="14">
-        <TextBlock Classes="h3" Text="浏览" />
+          <Border Classes="card settings-card">
+            <StackPanel Spacing="14">
+              <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                <Border Width="40" Height="40" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+          <TextBlock Classes="h3" Text="浏览" VerticalAlignment="Center" />
+        </StackPanel>
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel>
             <TextBlock Classes="body" Text="显示隐藏文件" />
@@ -275,14 +200,193 @@
       </StackPanel>
       </Border>
 
-      <Border Classes="card">
-      <StackPanel Spacing="12">
-        <TextBlock Classes="h3" Text="媒体" />
+          <Border Classes="card settings-card">
+            <StackPanel Spacing="12">
+              <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                <Border Width="40" Height="40" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Settings}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+          <TextBlock Classes="h3" Text="启动与最近" VerticalAlignment="Center" />
+        </StackPanel>
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="body" Text="启动时恢复上次标签页" />
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="关闭后每次启动只打开起始文件夹，并覆盖上一次的标签会话记录" />
+          </StackPanel>
+          <md:MdSwitch Grid.Column="1" IsChecked="{Binding RestoreTabsOnLaunch}" VerticalAlignment="Center" />
+        </Grid>
+        <StackPanel Spacing="2">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="最近访问保留条数" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding RecentLimitText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap" Text="同时约束主页最近访问与浏览历史记录；调小后立即裁剪最旧条目" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsRecentLimit12}" Variant="Text"
+                         Content="12" Margin="0,0,6,0" Command="{Binding SetRecentItemLimitCommand}" CommandParameter="12" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsRecentLimit24}" Variant="Text"
+                         Content="24" Margin="0,0,6,0" Command="{Binding SetRecentItemLimitCommand}" CommandParameter="24" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsRecentLimit48}" Variant="Text"
+                         Content="48" Command="{Binding SetRecentItemLimitCommand}" CommandParameter="48" />
+          </WrapPanel>
+        </StackPanel>
+      </StackPanel>
+      </Border>
+
+          <Border Classes="card settings-card">
+            <StackPanel Spacing="8">
+              <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                <Border Width="40" Height="40" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Info}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+          <TextBlock Classes="h3" Text="关于" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBlock Classes="body">
+          <Run Text="Eidoria（万象屿） " /><Run Text="{Binding AppVersionText}" />
+        </TextBlock>
+        <TextBlock Classes="caption" Text="Avalonia 12 · .NET 10 · Material Design 3（Md3.Avalonia）" />
+        <TextBlock Classes="caption" TextWrapping="Wrap">
+          <Run Text="数据目录：" /><Run Text="{Binding DataDirectoryText}" />
+        </TextBlock>
+        <md:MdButton Variant="Outlined" Content="开源许可证" HorizontalAlignment="Left" Click="OnLicensesClick" />
+      </StackPanel>
+      </Border>
+        </StackPanel>
+        <StackPanel x:Name="SettingsSecondaryColumn" Grid.Row="0" Grid.Column="1" Spacing="18">
+          <Border Classes="card settings-card" IsVisible="{Binding Capabilities.IsAndroid}">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                <Border Width="40" Height="40" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.FolderOpen}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+          <TextBlock Classes="h3" Text="已授权文件夹" VerticalAlignment="Center" />
+        </StackPanel>
+          <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AuthorizedRootsSummaryText}" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Classes="caption" TextWrapping="Wrap"
+                   Text="系统选择器授予的读写范围仅限所选文件夹。移除只删除 Eidoria 中的入口，不删除文件；系统侧授权仍可在系统设置中撤销。" />
+
+        <ItemsControl ItemsSource="{Binding AuthorizedRoots}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthorizedRootModel">
+              <Border CornerRadius="16" Padding="12" Margin="0,0,0,8"
+                      Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                  <Border Width="40" Height="40" CornerRadius="20" VerticalAlignment="Center"
+                          Background="{DynamicResource Md.Sys.Color.SurfaceContainer.Brush}">
+                    <md:MdIcon Glyph="{Binding StatusGlyph}" Size="21"
+                               Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Classes="body" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="caption" Text="{Binding StateText}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="caption" Text="{Binding LocationText}" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding PathToolTip}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <md:MdButton Variant="Tonal" Content="打开" IsVisible="{Binding IsAvailable}"
+                                 Click="OnAuthorizedRootClick" />
+                    <md:MdButton Variant="Tonal" Content="重新授权" IsVisible="{Binding NeedsReauthorization}"
+                                 Click="OnReauthorizeRootClick" />
+                    <md:MdIconButton Icon="{x:Static md:MdSymbols.Close}" Click="OnRemoveAuthorizedRootClick"
+                                     ToolTip.Tip="移除授权入口（不删除文件）" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="caption" Text="尚未授权文件夹；授权后才可浏览应用专属目录之外的文件。" IsVisible="{Binding !HasAuthorizedRoots}" />
+
+        <md:MdButton Variant="Filled" HorizontalAlignment="Left" Command="{Binding PickAuthorizedFolderCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <md:MdIcon Glyph="{x:Static md:MdSymbols.Add}" Size="19" />
+            <TextBlock Text="授权新文件夹" VerticalAlignment="Center" />
+          </StackPanel>
+        </md:MdButton>
+
+        <Border Height="1" Background="{DynamicResource Md.Sys.Color.OutlineVariant.Brush}" />
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <md:MdIcon Glyph="{x:Static md:MdSymbols.Delete}" Size="24" VerticalAlignment="Center"
+                     Foreground="{DynamicResource Md.Sys.Color.Primary.Brush}" />
+          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+            <TextBlock Classes="body" Text="应用内回收站" />
+            <TextBlock Classes="caption" TextWrapping="Wrap">
+              <Run Text="{Binding TrashSummaryText}" /><Run Text=" · 上限 " /><Run Text="{Binding TrashQuotaText}" /><Run Text=" · " /><Run Text="{Binding TrashRetentionText}" />
+            </TextBlock>
+          </StackPanel>
+          <md:MdButton Grid.Column="2" Variant="Tonal" Content="查看" Command="{Binding GoTrashCommand}" VerticalAlignment="Center" />
+        </Grid>
+        <md:MdLinearProgressIndicator Minimum="0" Maximum="100" Value="{Binding TrashUsedPercent}" Height="6"
+                                      IsVisible="{Binding HasTrashQuota}" />
+        <TextBlock Classes="caption" TextWrapping="Wrap"
+                   Text="不是 Android 系统回收站；只保留经 Eidoria 删除的项目，超过上限时会保留原文件。" />
+
+        <!-- 配额与保留期只有应用内回收站在管；桌面用系统回收站，这一组不显示以免给出假选项。 -->
+        <StackPanel Spacing="2" IsVisible="{Binding UsesAppTrash}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="回收站配额上限" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AppTrashQuotaText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="超出上限时不再接收新的删除，原文件与既有副本都会保留" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashQuota500Mb}" Variant="Text"
+                         Content="500 MB" Margin="0,0,6,0"
+                         Command="{Binding SetAppTrashQuotaCommand}" CommandParameter="500" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashQuota1Gb}" Variant="Text"
+                         Content="1 GB" Margin="0,0,6,0"
+                         Command="{Binding SetAppTrashQuotaCommand}" CommandParameter="1000" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashQuota2Gb}" Variant="Text"
+                         Content="2 GB"
+                         Command="{Binding SetAppTrashQuotaCommand}" CommandParameter="2000" />
+          </WrapPanel>
+        </StackPanel>
+        <StackPanel Spacing="2" IsVisible="{Binding UsesAppTrash}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="body" Text="回收站保留期" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AppTrashRetentionText}" VerticalAlignment="Center" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="超过保留期的条目会在下次打开回收站时自动清理；这是删除而不是还原" />
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashRetention7}" Variant="Text"
+                         Content="7 天" Margin="0,0,6,0"
+                         Command="{Binding SetAppTrashRetentionDaysCommand}" CommandParameter="7" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashRetention30}" Variant="Text"
+                         Content="30 天" Margin="0,0,6,0"
+                         Command="{Binding SetAppTrashRetentionDaysCommand}" CommandParameter="30" />
+            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsAppTrashRetention90}" Variant="Text"
+                         Content="90 天"
+                         Command="{Binding SetAppTrashRetentionDaysCommand}" CommandParameter="90" />
+          </WrapPanel>
+        </StackPanel>
+      </StackPanel>
+      </Border>
+
+          <Border Classes="card settings-card">
+            <StackPanel Spacing="12">
+              <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                <Border Width="40" Height="40" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Movie}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+          <TextBlock Classes="h3" Text="媒体" VerticalAlignment="Center" />
+        </StackPanel>
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel>
             <TextBlock Classes="body" Text="视频默认在应用内嵌播放" />
             <TextBlock Classes="caption" TextWrapping="Wrap"
-                       Text="关掉时视频只给「用系统播放器打开 / 仍要内嵌观看」两个入口。内嵌画面是逐帧抓取（约 12 fps），可能出现花屏、音画不同步与较高 CPU；系统播放器始终最稳" />
+                       Text="关掉时视频只给「用系统播放器打开 / 仍要内嵌观看」两个入口。内嵌画面是逐帧抓取（目标最高 60 fps），可能出现花屏、音画不同步与较高 CPU；系统播放器始终最稳" />
           </StackPanel>
           <md:MdSwitch Grid.Column="1" IsChecked="{Binding PlayVideoInline}" VerticalAlignment="Center" />
         </Grid>
@@ -305,9 +409,16 @@
       </StackPanel>
       </Border>
 
-      <Border Classes="card">
-      <StackPanel Spacing="12">
-        <TextBlock Classes="h3" Text="本地 AI" />
+          <Border Classes="card settings-card">
+            <StackPanel Spacing="12">
+              <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                <Border Width="40" Height="40" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Search}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+          <TextBlock Classes="h3" Text="本地 AI" VerticalAlignment="Center" />
+        </StackPanel>
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel>
             <TextBlock Classes="body" Text="启用端侧 AI" />
@@ -368,38 +479,16 @@
       </StackPanel>
       </Border>
 
-      <Border Classes="card">
-      <StackPanel Spacing="12">
-        <TextBlock Classes="h3" Text="启动与最近" />
-        <Grid ColumnDefinitions="*,Auto">
-          <StackPanel>
-            <TextBlock Classes="body" Text="启动时恢复上次标签页" />
-            <TextBlock Classes="caption" TextWrapping="Wrap"
-                       Text="关闭后每次启动只打开起始文件夹，并覆盖上一次的标签会话记录" />
-          </StackPanel>
-          <md:MdSwitch Grid.Column="1" IsChecked="{Binding RestoreTabsOnLaunch}" VerticalAlignment="Center" />
-        </Grid>
-        <StackPanel Spacing="2">
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Classes="body" Text="最近访问保留条数" />
-            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding RecentLimitText}" VerticalAlignment="Center" />
-          </Grid>
-          <TextBlock Classes="caption" TextWrapping="Wrap" Text="同时约束主页最近访问与浏览历史记录；调小后立即裁剪最旧条目" />
-          <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
-            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsRecentLimit12}" Variant="Text"
-                         Content="12" Margin="0,0,6,0" Command="{Binding SetRecentItemLimitCommand}" CommandParameter="12" />
-            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsRecentLimit24}" Variant="Text"
-                         Content="24" Margin="0,0,6,0" Command="{Binding SetRecentItemLimitCommand}" CommandParameter="24" />
-            <md:MdButton Classes="segmented-choice" Classes.selected="{Binding IsRecentLimit48}" Variant="Text"
-                         Content="48" Command="{Binding SetRecentItemLimitCommand}" CommandParameter="48" />
-          </WrapPanel>
+          <Border Classes="card settings-card">
+            <StackPanel Spacing="12">
+              <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                <Border Width="40" Height="40" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.Search}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+          <TextBlock Classes="h3" Text="搜索" VerticalAlignment="Center" />
         </StackPanel>
-      </StackPanel>
-      </Border>
-
-      <Border Classes="card">
-      <StackPanel Spacing="12">
-        <TextBlock Classes="h3" Text="搜索" />
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel>
             <TextBlock Classes="body" Text="文件名索引" />
@@ -440,10 +529,17 @@
       </StackPanel>
       </Border>
 
-      <Border Classes="card">
-      <StackPanel Spacing="12">
-        <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Classes="h3" Text="系统通知" />
+          <Border Classes="card settings-card">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                <Border Width="40" Height="40" CornerRadius="20"
+                        Background="{DynamicResource Md.Sys.Color.SecondaryContainer.Brush}">
+                  <md:MdIcon Glyph="{x:Static md:MdSymbols.NotificationsActive}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource Md.Sys.Color.OnSecondaryContainer.Brush}" />
+              </Border>
+          <TextBlock Classes="h3" Text="系统通知" VerticalAlignment="Center" />
+        </StackPanel>
           <TextBlock Grid.Column="1" Classes="caption" Text="{Binding SystemNotificationPlatformText}" VerticalAlignment="Center" />
         </Grid>
         <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding SystemNotificationSupportText}" />
@@ -466,20 +562,8 @@
         </md:MdButton>
       </StackPanel>
       </Border>
-
-      <Border Classes="card">
-      <StackPanel Spacing="8">
-        <TextBlock Classes="h3" Text="关于" />
-        <TextBlock Classes="body">
-          <Run Text="Eidoria（万象屿） " /><Run Text="{Binding AppVersionText}" />
-        </TextBlock>
-        <TextBlock Classes="caption" Text="Avalonia 12 · .NET 10 · Material Design 3（Md3.Avalonia）" />
-        <TextBlock Classes="caption" TextWrapping="Wrap">
-          <Run Text="数据目录：" /><Run Text="{Binding DataDirectoryText}" />
-        </TextBlock>
-        <md:MdButton Variant="Outlined" Content="开源许可证" HorizontalAlignment="Left" Click="OnLicensesClick" />
-      </StackPanel>
-      </Border>
+        </StackPanel>
+      </Grid>
     </StackPanel>
   </md:MdScrollViewer>
 </UserControl>
